@@ -1,0 +1,7 @@
+{
+  "name": "dbase-dashboard",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}

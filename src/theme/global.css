@@ -1,0 +1,115 @@
+/* ✅ Default Theme (Fallback) */
+:root {
+  --ion-color-primary: #e2711d; /* Default Blue */
+  --ion-color-secondary: #ff9505;
+  --ion-color-tertiary: #ffb627;
+  --ion-text-color: #000000;
+  --theme-shadow: rgba(0, 119, 182, 0.3);
+}
+
+/* ✅ Theme: Blue */
+[data-theme="blue"] { 
+  --ion-color-primary: #0077b6;
+  --ion-color-secondary: #00b4d8;
+  --ion-color-tertiary: #90e0ef;
+  --ion-text-color: #03045e;
+  --theme-shadow: rgba(0, 119, 182, 0.3);
+}
+
+/* 🟠 Theme: Orange */
+[data-theme="orange"] {
+  --ion-color-primary: #e2711d;
+  --ion-color-secondary: #ff9505;
+  --ion-color-tertiary: #ffb627;
+  /* --ion-background-color: #FFC971; */
+  --ion-text-color: #cc5803;
+  /* --theme-shadow: rgba(255, 149, 5, 0.3); */
+}
+
+/* 🟢 Theme: Green */
+[data-theme="green"] {
+  --ion-color-primary: #588157;
+  --ion-color-secondary: #3a5a40;
+  --ion-color-tertiary: #344e41;
+  --ion-background-color: #a3b18a;
+  --ion-text-color: #dad7cd;
+  --theme-shadow: rgba(88, 129, 87, 0.3);
+}
+
+/* 🟣 Theme: Violet */
+[data-theme="violet"] {
+  --ion-color-primary: #957fef;
+  --ion-color-secondary: #b79ced;
+  --ion-color-tertiary: #dec0f1;
+  --ion-background-color: #efd9ce;
+  --ion-text-color: #7161ef;
+  --theme-shadow: rgba(149, 127, 239, 0.3);
+}
+
+/* 🔵 Theme: Teal */
+[data-theme="teal"] {
+  --ion-color-primary: #008080;
+  --ion-color-secondary: #20b2aa;
+  --ion-color-tertiary: #66cdaa;
+  --ion-background-color: #afeeee;
+  --ion-text-color: #004c4c;
+  --theme-shadow: rgba(0, 128, 128, 0.3);
+}
+
+/* 🔴 Theme: Magenta */
+[data-theme="magenta"] {
+  --ion-color-primary: #d72638;
+  --ion-color-secondary: #ff5376;
+  --ion-color-tertiary: #ff8ea3;
+  --ion-background-color: #ffd1dc;
+  --ion-text-color: #960018;
+  --theme-shadow: rgba(215, 38, 56, 0.3);
+}
+
+/* 💖 Theme: Pink */
+[data-theme="pink"] {
+  --ion-color-primary: #ff6ec7;
+  --ion-color-secondary: #ff92d0;
+  --ion-color-tertiary: #ffc1e3;
+  --ion-background-color: #ffd6e0;
+  --ion-text-color: #c71585;
+  --theme-shadow: rgba(255, 110, 199, 0.3);
+}
+
+/* 🍫 Theme: Chocolate */
+[data-theme="chocolate"] {
+  --ion-color-primary: #7b3f00;
+  --ion-color-secondary: #a0522d;
+  --ion-color-tertiary: #d2691e;
+  --ion-background-color: #8b4513;
+  --ion-text-color: #f5deb3;
+  --theme-shadow: rgba(123, 63, 0, 0.3);
+}
+
+/* 🟠 Theme: DBASE */
+[data-theme="dbase"] {
+  --ion-color-primary: #f15a24;
+  --ion-color-secondary: #f15a24;
+  --ion-color-tertiary: #f15a24;
+  --ion-background-color: #f15a24;
+  --ion-text-color: #f15a24;
+  --theme-shadow: rgba(241, 90, 36, 0.3);
+}
+
+body[data-theme="dbase"] {
+  /* background-color: var(--ion-background-color) !important; */
+  transition: all 0.3s ease;
+}
+
+/* ✅ Light Mode */
+.light {
+  --ion-background-color: #ffffff;
+  --ion-text-color: #000000;
+}
+
+/* ✅ Dark Mode */
+.dark {
+  --ion-background-color: #121212;
+  --ion-text-color: #ffffff;
+  --theme-shadow: rgba(255, 255, 255, 0.1);
+}

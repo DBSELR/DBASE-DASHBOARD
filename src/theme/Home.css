@@ -1,0 +1,293 @@
+/* Header Styles */
+.menu-toolbar {
+    background-color: var(--ion-background-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+  }
+  
+  .header-md,
+  .menu-toolbar {
+    border-radius: 0px !important;
+    border-bottom-right-radius: 80px !important;
+    border-bottom-left-radius: 80px !important;
+    box-shadow: 0px 4px 10px var(--theme-shadow, rgba(0, 0, 0, 0.1)); /* Dynamic Box Shadow */
+    transition: box-shadow 0.3s ease-in-out;
+  }
+  
+  ion-toolbar {
+    --background: none !important; /* Change to any color */
+    --color: white !important; /* Adjust text color */
+    border-bottom-right-radius: 80px !important;
+    border-bottom-left-radius: 80px !important;
+  }
+  
+  .menu-toolbar {
+    background-color: var(--ion-background-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+  }
+  
+  /* Logo Styles */
+  .menu-logo {
+    height: 40px;
+    width: auto;
+    /* max-width: 150px; */
+    object-fit: contain;
+    display: flex;
+    text-align: center;
+    margin: auto;
+  }
+  
+  /* Dark Mode Header */
+  .dark .menu-toolbar {
+    background-color: var(--ion-background-color);
+    box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Menu Button Alignment */
+  .ion-buttons {
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .menu-logo {
+      height: 35px;
+      max-width: 220px;
+    }
+  }
+  
+  /* Dashboard Page Styles */
+  .dashboard-page {
+    background-color: var(--ion-background-color);
+    color: var(--ion-text-color);
+  }
+  
+  /* Dashboard Header */
+  .dashboard-header {
+    background-color: var(--ion-color-primary);
+    color: #fff;
+    padding: 10px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 20px;
+    margin: 10px;
+    position: relative;
+  }
+  
+  .dashboard-header {
+    color: #fff;
+    /* font-size: 12px; */
+  }
+  
+  /* Grid Layout */
+  ion-grid {
+    padding: 2px;
+  }
+  
+  /* Dashboard Cards */
+  .dashboard-card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s ease-in-out;
+    background: var(--ion-item-background, var(--ion-background-color));
+    color: var(--ion-text-color);
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    /* height: 160px;  */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: color-mix(
+      in srgb,
+      var(--ion-color-primary) 20%,
+      white
+    ); /* Light Tint */
+    color: var(--ion-color-primary);
+  }
+  
+  .dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Dark Mode - Hover Effect */
+  .dark .dashboard-card:hover {
+    background-color: color-mix(
+      in srgb,
+      var(--ion-color-primary) 20%,
+      white
+    ); /* Light Tint */
+    color: var(--ion-color-primary);
+  }
+  
+  /* Card Content */
+  .dashboard-card-content {
+    /* display: flex; */
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: 16px;
+    text-align: center;
+  }
+  
+  /* Icons */
+  .dashboard-icon {
+    font-size: 32px;
+    color: var(--ion-color-primary);
+  }
+  
+  /* Card Text */
+  .dashboard-card-text {
+    flex-grow: 1;
+  }
+  
+  .dashboard-card-title {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+  
+  /* Dark Mode Support */
+  .dark .dashboard-page {
+    background-color: #121212;
+    color: #ffffff;
+  }
+  
+  .dark .dashboard-card {
+    background: #1e1e1e;
+    color: #ffffff;
+    box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .dashboard-header {
+    background-color: var(--ion-color-primary);
+    color: #ffffff; /* Ensuring visibility in dark mode */
+  }
+  
+  .dark .dashboard-card:hover {
+    box-shadow: 0px 6px 15px rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .dashboard-card-content {
+      flex-direction: column;
+      text-align: center;
+    }
+  
+    .dashboard-icon {
+      font-size: 22px;
+      color: var(--ion-color-primary);
+    }
+  
+    .dashboard-card-title {
+      font-size: 6.5px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+  
+    .card-content-md {
+      -webkit-padding-start: 5px !important;
+      padding-inline-start: 5px !important;
+      -webkit-padding-end: 5px !important;
+      padding-inline-end: 5px !important;
+      padding-top: 5px !important;
+      padding-bottom: 9px !important;
+      font-size: 0.875rem;
+      line-height: 0.8;
+    }
+  
+    .dashboard-header h2 {
+      color: #fff;
+      font-size: 12px;
+    }
+  }
+  
+  /* Notice Board Start */
+  
+  .notice-board {
+    width: 100%;
+    max-width: 400px; /* Set max width for desktop */
+    background-color: var(--ion-background-color); /* Dynamic background */
+    border-radius: 10px;
+    border: 1px solid var(--ion-color-primary); /* Only border in theme color */
+    padding: 5px;
+    overflow: hidden;
+    margin: auto;
+    box-shadow: 0px 4px 6px var(--theme-shadow); /* Soft theme-based shadow */
+  }
+  
+  /* Header with small icon */
+  .notice-header {
+    display: flex;
+    align-items: center;
+    padding-bottom: 5px;
+  }
+  
+  .notice-icon {
+    font-size: 20px;
+    margin-right: 8px;
+    color: var(--ion-color-primary); /* Theme color */
+  }
+  
+  .notice-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--ion-color-primary); /* Theme color */
+  }
+  
+  /* Notice Scrolling Section */
+  .notice-container {
+    height: 120px;
+    overflow: hidden;
+    position: relative;
+    background: var(--ion-background-color);
+    padding: 10px;
+    border-radius: 5px;
+  }
+  
+  /* Vertical Scrolling Effect */
+  .scrolling-text {
+    display: flex;
+    flex-direction: column;
+    animation: scrollText 10s linear infinite;
+    color: var(--ion-text-color); /* Dynamic text color */
+  }
+  
+  @keyframes scrollText {
+    0% { transform: translateY(100%); }
+    100% { transform: translateY(-100%); }
+  }
+  
+  /* Pause Scrolling */
+  .paused {
+    animation-play-state: paused;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .notice-board {
+        max-width: 100%;
+        height: 100px; /* Adjust for smaller screens */
+    }
+    .scrolling-text {
+        animation-duration: 8s; /* Faster scrolling for mobile */
+    }
+  
+    .notice-title {
+        font-size: 10px;
+    }
+  
+    .notice-header {
+        padding-bottom: 0px;
+    }
+  }
+  
+  /* Notice Board End */
+  

@@ -1,0 +1,3647 @@
+/* Global Font Variables */
+:root {
+  --heading-font: "Poppins", "Montserrat", -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  --body-font: "Inter", "Open Sans", "Roboto", -apple-system, BlinkMacSystemFont,
+    sans-serif;
+
+  --ion-font-family: var(--body-font);
+}
+
+/* Headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--heading-font);
+  font-weight: 600; /* Bold for better emphasis */
+  color: var(--ion-color-primary); /* Uses Ionic theme color */
+  margin-bottom: 0.5rem;
+}
+
+/* Body Text */
+body,
+p,
+span {
+  font-family: var(--body-font);
+  font-weight: 400;
+  color: #444; /* Slightly lighter than headings */
+  line-height: 1.5;
+}
+
+div,
+b,
+ion-card-content,
+ion-card-header + .card-content-md {
+  line-height: 1.5;
+}
+
+@media (max-width: 380px) {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .emp-name {
+    font-size: 16px;
+  }
+
+  p,
+  span,
+  IonLabel,
+  b,
+  div,
+  .select-text,
+  .emp-name {
+    font-size: 14px;
+  }
+
+  ion-label {
+    font-size: 14px;
+  }
+}
+
+/* Buttons */
+ion-button {
+  font-family: var(--heading-font);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* Input & Placeholder Styling */
+ion-input,
+ion-textarea {
+  font-family: var(--body-font);
+}
+
+ion-input::placeholder,
+ion-textarea::placeholder {
+  font-style: italic;
+  color: #777;
+  color: var(--ion-color-primary) !important;
+}
+
+body {
+  background: var(--ion-background-color); /* Controlled by your theme */
+  color: var(--ion-text-color); /* Controlled by your theme */
+  /* Prevent system dark/light mode interference */
+  color-scheme: none; /* Disables system color scheme influence */
+  -webkit-font-smoothing: antialiased; /* Optional: Consistent rendering */
+  -moz-osx-font-smoothing: grayscale; /* Optional: Consistent rendering */
+}
+
+/* Explicitly ignore system prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--ion-background-color); /* Enforce your theme */
+    color: var(--ion-text-color); /* Enforce your theme */
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    background: var(--ion-background-color); /* Enforce your theme */
+    color: var(--ion-text-color); /* Enforce your theme */
+  }
+}
+
+/* Ensure theme-specific overrides remain intact */
+body[data-theme="garden-bloom"],
+body[data-theme="forest-mist"],
+body[data-theme="sunset-glow"] {
+  background: var(--ion-background-color); /* Maintains theme consistency */
+}
+
+/* Optional: Extend to root element for broader control */
+:root {
+  color-scheme: none; /* Prevent system color scheme at root level */
+}
+
+ion-grid {
+  margin-bottom: 100px;
+}
+
+/* Side Menu start */
+
+.menu-background {
+  --ion-background-color: var(--ion-color-light);
+  --ion-text-color: var(--ion-color-dark);
+  background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+}
+
+/* Dark Mode Support */
+.dark .menu-background {
+  --ion-background-color: #1e1e1e; /* Darker background */
+  --ion-text-color: var(--ion-color-light);
+}
+
+/* User Details Header */
+.menu-header {
+  text-align: center;
+  background-color: var(--ion-color-primary);
+  color: white;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0 0 10px 10px;
+}
+
+.menu-header h2 {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.menu-header p {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Menu List Styling */
+.scrollable-list {
+  padding: 10px 0;
+}
+
+ion-content::part(scroll) {
+  overflow: scroll !important;
+  scrollbar-width: none !important;
+}
+
+/* Menu Items */
+ion-item {
+  --background: transparent;
+  --color: var(--ion-text-color);
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 20px;
+  margin: 4px 8px;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Hover Effect - Lighter Tint of Selected Theme Color */
+ion-item:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--ion-color-primary) 20%,
+    white
+  ); /* Light Tint */
+  color: var(--ion-color-primary);
+  transform: scale(1.05);
+}
+
+/* Dark Mode - Hover Effect */
+.dark ion-item:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--ion-color-primary) 30%,
+    black
+  ); /* Translucent Tint */
+  color: white;
+}
+
+/* Icons */
+.menu-icons {
+  font-size: 22px;
+  color: var(--ion-color-primary);
+  margin-right: 8px;
+}
+
+/* Logout Button Styling */
+ion-item:last-child {
+  color: var(--ion-color-danger);
+}
+
+/* Logout Button Hover */
+ion-item:last-child:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--ion-color-danger) 20%,
+    white
+  ); /* Light Red */
+  color: white;
+}
+
+/* Scrollable List */
+.scrollable-list {
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  padding: 10px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ion-color-primary) transparent;
+  transition: all 0.3s ease-in-out;
+  margin-bottom: 100px;
+}
+
+/* Custom Scrollbar for Webkit Browsers */
+.scrollable-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-list::-webkit-scrollbar-thumb {
+  background: var(--ion-color-primary);
+  border-radius: 10px;
+}
+
+.scrollable-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Animated Entry Effect */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+ion-item {
+  animation: fadeInUp 0.5s ease-in-out;
+  animation-fill-mode: both;
+}
+
+/* Add delay to each menu item for a staggered effect */
+ion-item:nth-child(1) {
+  animation-delay: 0.1s;
+}
+ion-item:nth-child(2) {
+  animation-delay: 0.2s;
+}
+ion-item:nth-child(3) {
+  animation-delay: 0.3s;
+}
+ion-item:nth-child(4) {
+  animation-delay: 0.4s;
+}
+ion-item:nth-child(5) {
+  animation-delay: 0.5s;
+}
+ion-item:nth-child(6) {
+  animation-delay: 0.6s;
+}
+ion-item:nth-child(7) {
+  animation-delay: 0.7s;
+}
+ion-item:nth-child(8) {
+  animation-delay: 0.8s;
+}
+ion-item:nth-child(9) {
+  animation-delay: 0.9s;
+}
+ion-item:nth-child(10) {
+  animation-delay: 0.1s;
+}
+ion-item:nth-child(11) {
+  animation-delay: 0.11s;
+}
+ion-item:nth-child(12) {
+  animation-delay: 0.12s;
+}
+ion-item:nth-child(13) {
+  animation-delay: 0.13s;
+}
+ion-item:nth-child(14) {
+  animation-delay: 0.14s;
+}
+ion-item:nth-child(15) {
+  animation-delay: 0.15s;
+}
+ion-item:nth-child(16) {
+  animation-delay: 0.16s;
+}
+ion-item:nth-child(17) {
+  animation-delay: 0.17s;
+}
+ion-item:nth-child(18) {
+  animation-delay: 0.18s;
+}
+ion-item:nth-child(19) {
+  animation-delay: 0.19s;
+}
+
+/* Side Menu end */
+
+/* ========== FLOATING TAB BAR start ========== */
+.floating-tab-bar {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(
+    --ion-color-primary,
+    var(--theme-color, #0077b6)
+  ); /* Dynamic Theme Color */
+  border-radius: 50px;
+  box-shadow: 0 4px 10px var(--theme-shadow);
+  padding: 10px 15px;
+  display: none;
+  z-index: 1000;
+  width: 90%;
+}
+
+/* Tab Bar Container */
+.tab-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 350px;
+  margin: auto;
+}
+
+/* Tab Item */
+.tab-item {
+  background: transparent;
+  border: none;
+  color: var(--ion-color-light, #ffffff);
+  font-size: 14px;
+  text-align: center;
+  flex: 1;
+  cursor: pointer;
+  padding: 5px;
+  transition: color 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tab-item ion-icon {
+  font-size: 22px;
+  margin-bottom: 3px;
+  transition: transform 0.3s ease-in-out, color 0.3s ease-in-out;
+  color: var(--ion-color-light, #ffffff);
+}
+
+/* Active & Hover Effect - Uses Selected Theme Color */
+.tab-item.active,
+.tab-item:hover {
+  color: var(--theme-accent, var(--theme-color, #f4a261)) !important;
+}
+
+/* Active & Hover Effect - Icon */
+.tab-item.active ion-icon,
+.tab-item:hover ion-icon {
+  transform: scale(1.1);
+  color: var(--theme-accent, var(--theme-color, #f15a24)) !important;
+}
+
+.tab-item.active ion-icon,
+.tab-item:hover ion-icon {
+  transform: scale(1.1);
+  color: var(--ion-color-secondary, var(--theme-accent, #f15a24));
+}
+
+/* Logout Button */
+.tab-item.logout {
+  color: var(--ion-color-danger, #ff3b30);
+}
+
+/* Show Floating Tab Bar Only on Small Screens */
+@media (max-width: 768px) {
+  .floating-tab-bar {
+    display: flex;
+  }
+}
+
+/* Dark Mode Support */
+body.dark .floating-tab-bar {
+  background: var(--ion-color-primary);
+  box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 10px var(--theme-shadow);
+}
+
+body.dark .tab-item {
+  color: #bbbbbb;
+}
+
+body.dark .tab-item ion-icon {
+  color: #bbbbbb;
+}
+
+/* Active & Hover Effect - Dark Mode */
+/* Dark Mode */
+body.dark .tab-item.active,
+body.dark .tab-item:hover {
+  color: var(--theme-accent, var(--theme-color, #ffcc00)) !important;
+}
+
+body.dark .tab-item.active ion-icon,
+body.dark .tab-item:hover ion-icon {
+  color: var(--theme-accent, var(--theme-color, #ffcc00)) !important;
+}
+
+/* ========== FLOATING TAB BAR end ========== */
+
+/* login start  */
+
+.ion-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Splash Screen */
+.splash-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #0057ff;
+  background: hsla(0, 0%, 100%, 0.614) !important;
+  background: linear-gradient(
+    93deg,
+    hsla(0, 0%, 100%, 0.596) 12%,
+    hsla(216, 2%, 44%, 0.481) 76%
+  ) !important;
+  animation: fadeOut 3s forwards;
+}
+
+.splash-logo {
+  width: 120px;
+  height: auto;
+  animation: zoomIn 1.5s ease-in-out;
+}
+
+/* Get Started Screen */
+.get-started-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #0057ff;
+  background: hsla(0, 0%, 100%, 0.614) !important;
+  background: linear-gradient(
+    93deg,
+    hsla(0, 0%, 100%, 0.596) 12%,
+    hsla(216, 2%, 44%, 0.481) 76%
+  ) !important;
+  color: #f15a24;
+  text-align: center;
+  gap: 20px;
+}
+
+.get-started-button {
+  background-color: white;
+  color: #0057ff;
+  font-size: 18px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.get-started-button:hover {
+  background-color: #f0f0f0;
+}
+
+/* Login Screen */
+.login-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 20px;
+}
+
+.login-logo {
+  width: 100px;
+  margin-bottom: 20px;
+}
+
+.login-box {
+  /* From https://css.glass */
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 25px;
+  margin-top: 50px;
+}
+
+.input-group {
+  width: 100%;
+  max-width: 300px;
+  margin-bottom: 15px;
+  color: #000;
+}
+
+.login-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.login-button {
+  width: 100%;
+  max-width: 300px;
+  background-color: #0057ff;
+  color: white;
+  padding: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.login-button:hover {
+  background-color: #0040cc;
+}
+
+/* Dark Mode */
+.dark {
+  background-color: #121212;
+  color: white;
+}
+
+.dark .login-input {
+  background-color: #333;
+  color: white;
+}
+
+.dark .login-button {
+  background-color: #0084ff;
+}
+
+/* Animations */
+@keyframes zoomIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .login-content {
+    padding: 10px;
+  }
+  .login-logo {
+    width: 80px;
+  }
+  .login-button {
+    font-size: 16px;
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-content {
+    padding: 5px;
+  }
+  .login-logo {
+    width: 70px;
+  }
+  .login-button {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100%;
+  background-color: #f4f4f4;
+}
+
+.login-screen h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 24px;
+  margin-top: 0px;
+}
+
+.input-group {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.input-group ion-label {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.input-group ion-input {
+  /* border: 1px solid #ccc;
+  border-radius: 20px;
+  padding: 10px;
+  background: white; */
+  --border-radius: 24px;
+  --highlight-color-focused: transparent; /* Hide default orange underline */
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --background: white;
+  border-radius: 24px;
+  border: 1px solid #ccc;
+  transition: box-shadow 0.3s ease;
+}
+
+.input-group ion-input:focus-within {
+  box-shadow: 0 0 0 2px #f57c00;
+  border-radius: 24px;
+}
+
+ion-button {
+  max-width: 300px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Media Queries for responsiveness */
+@media (max-width: 768px) {
+  .login-screen {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-screen h2 {
+    font-size: 20px;
+  }
+
+  .input-group {
+    max-width: 250px;
+  }
+
+  ion-button {
+    max-width: 250px;
+  }
+}
+
+.native-wrapper.sc-ion-input-md {
+  padding-left: 10px;
+}
+
+.login-btn {
+  background-color: var(--ion-color-primary, #f57c00);
+  color: var(--ion-color-primary-contrast);
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  border-radius: 20px;
+  width: 90%;
+  margin: auto;
+  align-items: center;
+}
+
+.login-btn2 {
+  background-color: var(--ion-color-primary, #f57c00);
+  color: var(--ion-color-primary-contrast);
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  border-radius: 20px;
+  width: 90%;
+  /* margin: auto; */
+  align-items: center;
+}
+
+.button-native {
+  border-radius: 20px !important;
+}
+
+@media (max-width: 380px) {
+  .login-btn {
+    font-size: 12px;
+    border-radius: 15px;
+  }
+
+  .login-btn2 {
+    font-size: 12px;
+    border-radius: 15px;
+  }
+}
+
+/* login end */
+
+/* speeddail start */
+
+/* Style for the theme color selection popover */
+.theme-color-container {
+  padding: 15px;
+  text-align: center;
+  background: var(--ion-background-color); /* Dynamic background from theme */
+  border-radius: 10px;
+  box-shadow: 0 4px 10px var(--theme-shadow); /* Dynamic shadow from theme */
+}
+
+/* Styling for the theme selection buttons */
+.theme-button {
+  width: 80px;
+  height: 40px;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: capitalize;
+  margin: 5px;
+  border-radius: 8px;
+  transition: transform 0.2s ease-in-out;
+
+  background-color: var(
+    --ion-color-primary
+  ) !important; /* Dynamic primary color */
+}
+
+.theme-button:hover {
+  transform: scale(1.1);
+}
+
+/* SpeedDial (Floating Action Button) styling */
+.custom-speed-dial {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+}
+
+/* SpeedDial icon styling (the "+" button) */
+.custom-speed-dial .MuiFab-primary {
+  background-color: var(
+    --ion-color-primary
+  ) !important; /* Dynamic primary color */
+  color: var(--ion-text-color) !important; /* Dynamic text color */
+}
+
+.custom-speed-dial .MuiFab-primary:hover {
+  background-color: var(
+    --ion-color-primary-shade
+  ) !important; /* Dynamic shade */
+}
+
+/* HIDE SPEEDDIAL ON SMALL SCREENS */
+@media (max-width: 768px) {
+  .custom-speed-dial {
+    display: none !important;
+  }
+}
+
+/* HIDE SPEEDDIAL ON SMALL SCREENS */
+@media (max-width: 320px) {
+  .custom-speed-dial {
+    display: none !important;
+  }
+}
+
+/* speeddail end */
+
+/* LeaveAndPermission start */
+
+ion-content {
+  --background: var(--ion-background-color, #f9f9f9);
+  padding: 16px;
+  font-family: "Arial", sans-serif;
+}
+
+/* Header Toolbar */
+.menu-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  background-color: var(--ion-color-primary, #f57c00);
+}
+
+.menu-logo {
+  height: 40px;
+  width: auto;
+}
+
+/* Page Title */
+h2 {
+  text-align: center;
+  color: var(--ion-color-primary, #f57c00);
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+p {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.menu-header h2,
+.profile-header h2 {
+  text-align: center;
+  /* color: var(--ion-background-color, #f57c00); */
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.menu-header p,
+.profile-header p {
+  text-align: center;
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+/* Form Styling */
+ion-item {
+  --border-radius: 20px;
+  --border-color: transparent;
+  --inner-padding: 10px;
+  margin-bottom: 12px;
+  --border-style: none;
+  border-bottom: 1px solid var(--ion-color-primary);
+}
+
+/* Select Inputs */
+ion-select {
+  font-size: 16px;
+  font-weight: 500;
+  padding-left: 5px;
+}
+
+/* Date Pickers */
+ion-modal.date-modal {
+  --background: white;
+  --border-radius: 15px;
+}
+
+.modal-content {
+  padding: 20px;
+  text-align: center;
+}
+
+.modal-content ion-button {
+  margin-top: 10px;
+  width: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  h2 {
+    font-size: 20px;
+  }
+
+  p {
+    font-size: 13px;
+  }
+
+  ion-content {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  h2 {
+    font-size: 18px;
+  }
+
+  p {
+    font-size: 12px;
+  }
+
+  ion-item {
+    --inner-padding: 8px;
+  }
+
+  .submit-btn {
+    font-size: 14px;
+    padding: 2px;
+  }
+}
+
+.date-modal {
+  --width: auto;
+  --max-width: 400px;
+  --height: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  width: 100%;
+  text-align: center;
+}
+
+/* Ensure date picker visibility */
+ion-datetime {
+  --background: var(--ion-background-color, #fff); /* Light mode default */
+  --color: var(--ion-text-color, #000); /* Text remains readable */
+}
+
+/* Dark Mode Fix */
+.dark ion-datetime {
+  --background: var(--ion-color-dark, #222); /* Dark mode background */
+  --color: var(--ion-color-light, #fff); /* Light text for visibility */
+}
+
+/* Date Picker Modal Fix */
+ion-modal.date-modal {
+  --background: var(--ion-background-color, #fff);
+  --border-radius: 15px;
+}
+
+.dark ion-modal.date-modal {
+  --background: var(--ion-color-dark, #222);
+}
+
+/* Ensuring modal text is visible in dark mode */
+.dark .modal-content {
+  color: var(--ion-color-light, #fff);
+}
+
+/* Date Picker Buttons */
+.modal-content ion-button {
+  --background: var(--ion-color-primary, #0077b6);
+  --color: white;
+}
+
+/* Dark Mode Button Fix */
+.dark .modal-content ion-button {
+  --background: var(--ion-color-primary, #957fef);
+  --color: white;
+}
+
+/* Improve contrast for better visibility */
+ion-item {
+  --border-radius: 15px;
+  --border-color: var(--ion-color-primary, #f57c00);
+  --inner-padding: 10px;
+  margin-bottom: 12px;
+}
+
+/* Dark Mode - ion-item adjustments */
+.dark ion-item {
+  --background: var(--ion-color-dark, #333);
+  --color: var(--ion-color-light, #fff);
+}
+
+.accept-card {
+  margin-bottom: 16px;
+  border-left: 6px solid #ccc; /* default fallback */
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.accept-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Status Color Classes */
+.accept-card.green {
+  border-left-color: #28a745; /* Green for Accepted */
+  background-color: #28a7461e;
+}
+
+.accept-card.orange {
+  border-left-color: #fd7e14; /* Orange for Pending */
+  background-color: #fd7d1420;
+}
+
+.accept-card.red {
+  border-left-color: #dc3545; /* Red for Rejected */
+  background-color: #fc15051c;
+}
+
+/* Text Content Styling */
+.card-content-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.card-content-left {
+  flex: 1;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.card-content-status {
+  color: #28a745;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 10px;
+}
+
+.pre-icons {
+  font-size: 34px;
+  color: var(--ion-color-primary, #f57c00);
+  margin-right: 10px;
+  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.4));
+}
+
+.pre-icons:hover {
+  font-size: 38px;
+  color: var(--ion-color-primary, #f57c00);
+  margin-right: 10px;
+  filter: drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.4));
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .card-content-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card-content-status {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  .card-content-left {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-content-left {
+    font-size: 0.9rem;
+  }
+
+  .accept-card {
+    padding: 10px;
+  }
+}
+
+/* LeaveAndPermission end  */
+
+/* ========== EmpProfile start ========== */
+.profile-header {
+  background: var(--ion-color-primary, #f57c00);
+  color: white;
+  text-align: center;
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 20px;
+}
+
+/* Profile Avatar */
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 10px;
+}
+
+/* Profile Header Text */
+.profile-header h2 {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.profile-header p {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+/* Profile Actions */
+.profile-actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Dashboard Stats */
+.stat-card {
+  text-align: center;
+  padding: 15px;
+  border-radius: 10px;
+  background-color: var(--ion-card-background, #ffffff);
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease-in-out;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Stat Card Heading */
+.stat-card h3 {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.stat-card p {
+  font-size: 14px;
+  color: #555;
+}
+
+/* Stat Icon */
+.stat-icon {
+  font-size: 32px;
+  color: var(--ion-color-primary, #f57c00);
+}
+
+/* Theme Color Popover */
+.theme-color-container {
+  text-align: center;
+  padding: 15px;
+}
+
+/* Theme Button */
+.theme-button {
+  margin: 5px;
+  width: 100px;
+  height: 40px;
+  font-weight: bold;
+  text-transform: capitalize;
+  border-radius: 8px;
+}
+
+/* Responsive Styles */
+@media (max-width: 767px) {
+  .profile-header h2 {
+    font-size: 18px;
+  }
+  .profile-details {
+    padding: 10px;
+  }
+}
+
+/* Dark Mode Support */
+body.dark {
+  --ion-background-color: #121212;
+  --ion-text-color: #ffffff;
+  --ion-card-background: #1e1e1e;
+  --ion-item-background: #1e1e1e;
+}
+
+body.dark .profile-header {
+  background-color: #1e1e1e;
+  color: white;
+}
+
+body.dark .stat-card {
+  background-color: #2a2a2a;
+  color: white;
+}
+
+body.dark .theme-button {
+  border: 1px solid white;
+}
+
+.info-box {
+  padding: 16px;
+  border-left: 5px solid var(--ion-color-primary);
+  border-radius: 12px;
+  background: #fff;
+  background-color: var(--ion-background-color, #fff);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  color: var(--ion-text-color-secondary);
+}
+
+.info-heading {
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ion-color-primary);
+}
+
+.info-heading span {
+  font: bold;
+  color: var(--ion-color-primary);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  font-size: 0.95rem;
+  color: var(--ion-text-color-secondary);
+}
+
+.info-grid div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========== EmpProfile end ========== */
+
+/* Submit Work Report start */
+
+.ion-item ion-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ion-text-color, #333); /* Adapts to theme */
+  padding-left: 5px;
+}
+
+/* Floating Label */
+.ion-item ion-label[position="floating"] {
+  font-size: 12px;
+  color: var(--ion-text-color-secondary, #666); /* Adapts to theme */
+  transition: 0.3s ease-in-out;
+}
+
+/* When Input is Focused */
+.ion-item ion-input:focus + ion-label,
+.ion-item ion-select:focus + ion-label {
+  color: var(--ion-color-primary); /* Uses theme's primary color */
+  font-weight: bold;
+}
+
+/* Adjusting Select Dropdown */
+.ion-item ion-select {
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 14px;
+  background-color: var(--ion-background-color, #fff); /* Adapts to theme */
+  color: var(--ion-text-color, #000);
+}
+
+/* Optional: Improve Item Spacing */
+.ion-item {
+  margin-bottom: 10px;
+}
+
+/* Textarea Styling */
+.text-editor {
+  width: 100%;
+  min-height: 150px;
+  padding: 10px;
+  border: 1px solid var(--ion-border-color, #ccc);
+  background-color: var(--ion-background-color, #fff);
+  color: var(--ion-text-color, #000);
+  border-radius: 5px;
+  transition: 0.3s ease-in-out;
+}
+
+/* Buttons */
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  margin-bottom: 100px;
+}
+
+#margin-b {
+  margin-bottom: 100px;
+}
+
+.clear-btn {
+  width: 48%;
+  background-color: var(--ion-color-medium);
+  color: var(--ion-color-medium-contrast);
+  border-radius: 5px;
+}
+
+/* Segment Buttons */
+ion-segment-button {
+  color: var(--ion-text-color);
+  background-color: var(--ion-background-color);
+}
+
+/* Report Display */
+.reports-display {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: var(--ion-item-background, #f4f4f4);
+  color: var(--ion-text-color);
+  border-radius: 5px;
+}
+
+/* Global fix for text color inside alerts */
+.alert-radio-label.sc-ion-alert-md {
+  color: var(--ion-text-color, #000); /* Default (Light Mode) */
+}
+
+/* Force white text in dark mode */
+body.dark .alert-radio-label.sc-ion-alert-md {
+  color: #fff !important; /* Ensures white text in Dark Mode */
+}
+
+.reports-display {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  margin-bottom: 100px;
+}
+
+.report-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.2); /* glass-like */
+  backdrop-filter: blur(8px);
+  border-left: 6px solid var(--ion-color-primary);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  color: var(--ion-text-color);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.report-date {
+  background-color: #555;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.report-badge {
+  background-color: var(--ion-color-primary);
+  color: #fff;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+.card-content .report-title {
+  color: green;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.card-content .report-text {
+  font-size: 24px;
+  font-weight: 700;
+  margin-top: 6px;
+  color: var(--ion-text-color);
+}
+
+.card-content .report-subtext {
+  font-size: 16px;
+  color: var(--ion-text-color-secondary);
+  margin-top: 4px;
+}
+
+/* Optional: status-based class colors */
+.pending-card {
+  border-left-color: var(--ion-color-warning);
+}
+.completed-card {
+  border-left-color: var(--ion-color-success);
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+  .report-card {
+    padding: 12px;
+  }
+
+  .report-title {
+    font-size: 15px;
+  }
+
+  .report-text {
+    font-size: 18px;
+  }
+}
+
+/* .pending-card {
+  border-left-color: var(--ion-color-warning);
+}
+
+.approved-card {
+  border-left-color: var(--ion-color-success);
+}
+
+.reject-card {
+  border-left-color: var(--ion-color-danger);
+} */
+
+/* Submit Work Report end */
+
+.popover-side-bottom {
+  --width: 300px;
+  --max-height: 50% !important;
+}
+
+@media (min-width: 600px) and (max-width: 1024px) {
+  .popover-side-bottom {
+    --width: 250px !important;
+    --max-height: 50% !important;
+  }
+}
+
+/* Camera Page Start */
+
+.camera-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.captured-photo {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 10px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.barcode-data {
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.button-group ion-button {
+  flex: 1;
+  text-align: center;
+}
+/* Camera Page End  */
+
+/*Transactions Start */
+/* Page shell */
+.od-toolbar {
+  --background: #ffffff;
+  --color: #1b1b1b;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+
+
+/* Top chips (match your screenshots) */
+.balance-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 980px;
+  margin: 16px auto 8px;
+  padding: 0 12px;
+}
+.chip {
+  border-radius: 14px;
+  padding: 10px 16px;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  height: 48px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.chip--hand {
+  background: var(--ion-color-primary);
+}
+.chip--advance {
+  background: var(--ion-color-primary);
+}
+.chip-title {
+  font-size: 13px;
+  line-height: 14px;
+}
+.chip-amt {
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+/* Segment underline bar (thin red line under tabs) */
+.seg-wrap {
+  max-width: 1180px;
+  margin: 6px auto 0;
+  padding: 0 12px;
+}
+.seg-underline {
+  height: 5px;
+  background: #e33b2f;
+  width: 100%;
+  margin-top: 4px;
+  border-radius: 2px;
+}
+
+/* Common paddings */
+.tab-pad {
+  padding: 8px 8px 24px;
+}
+.form-grid {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* Mini link style on the right side labels */
+.mini-button {
+  font-size: 11px;
+  color: #1e5eea;
+  cursor: pointer;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+/* Form card with centered title */
+.center-wrap {
+  max-width: 1180px;
+  margin: 8px auto;
+  padding: 0 8px;
+}
+.form-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 12px;
+}
+.form-header {
+  width: 100%;
+  color: #1c2d5a;
+  text-align: center;
+  border-bottom: 1px solid #d7d7d7;
+  border-radius: 12px 12px 0 0;
+  padding: 8px 0 10px;
+  font-weight: 700;
+}
+
+/* Transactions / Vouchers list cards */
+.list-scroll {
+  max-height: 425px;
+  overflow-y: auto;
+  padding: 8px 2px 4px;
+}
+.txn-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #eadccf;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.txn-left {
+  display: grid;
+  gap: 4px;
+}
+.txn-date {
+  color: #e48a1f;
+  font-weight: 700;
+  font-size: 14px;
+}
+.txn-desc {
+  color: #2b2b2b;
+  font-size: 14px;
+  line-height: 1.25rem;
+}
+.txn-right {
+  color: #b71919;
+  font-weight: 800;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+/* Verified pill like in screenshot */
+.emp-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0c5e20;
+  background: #e6f6ea;
+  width: fit-content;
+}
+.emp-pill.upd {
+  color: #7a5500;
+  background: #fff7db;
+}
+.emp-pill.new {
+  color: #6d0b0b;
+  background: #ffe9e9;
+}
+
+/* Buttons column alignment */
+.actions-col {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+}
+
+/* Center action buttons / thumbs */
+.center-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.thumb {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #d8d8d8;
+}
+
+/* Voucher preview images */
+.preview-img {
+  width: 100%;
+  height: 300px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+}
+
+/* Advances table */
+.table-grid {
+  max-width: 1180px;
+  margin: 8px auto;
+  background: #fff;
+  border-radius: 12px;
+}
+.table-header {
+  background: #f7f7f7;
+  font-weight: 700;
+  border-bottom: 1px solid #e7e7e7;
+}
+.table-row {
+  border-bottom: 1px solid #f1f1f1;
+}
+.nowrap {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.center-title {
+  text-align: center;
+  margin: 8px 0;
+}
+
+/* Picker modal minor padding */
+.picker {
+  padding: 12px;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .balance-wrap {
+    grid-template-columns: 1fr;
+  }
+  .txn-card {
+    grid-template-columns: 1fr;
+  }
+  .txn-right {
+    justify-self: start;
+  }
+}
+
+/* Transactions End */
+
+/* Admin Request Start */
+
+.admin-request-content {
+  background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+}
+
+.dropdown-row {
+  display: grid;
+  margin: auto;
+  text-align: center;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  color: var(--ion-text-color);
+}
+
+.dropdown-row ion-label {
+  font-weight: 500;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 80px;
+}
+
+.report-card {
+  background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px var(--theme-shadow);
+}
+
+.report-card.approved {
+  border-left: 4px solid green;
+  background: rgba(4, 239, 4, 0.135);
+}
+
+.report-card.rejected {
+  border-left: 4px solid red;
+  background: rgba(255, 0, 0, 0.135);
+}
+
+.report-card.pending {
+  border-left: 4px solid orange;
+}
+
+.emp-task {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  gap: 1rem;
+}
+
+.status-icons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.status-icon {
+  font-size: 24px;
+}
+
+.status-icon.check {
+  color: var(--ion-color-success, green);
+}
+
+.status-icon.cross {
+  color: var(--ion-color-danger, red);
+}
+
+/* Responsive Design */
+@media (min-width: 600px) {
+  .card-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .card-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+/* Admin Request End */
+
+/* timings start */
+
+/* ------------------------------------------
+   Timings.css  — mobile-first (≥320px)
+   Works with your existing Timings.tsx markup
+-------------------------------------------*/
+
+/* Theme hooks (uses your Ionic vars if present) */
+:root {
+  --page-gap: 12px;
+  --card-radius: 16px;
+  --chip-radius: 12px;
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
+  --muted: rgba(0, 0, 0, 0.58);
+  --kpi-bg: rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --border: rgba(255, 255, 255, 0.12);
+    --shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+    --muted: rgba(255, 255, 255, 0.72);
+    --kpi-bg: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Header / Toolbar */
+ion-toolbar {
+  --background: var(--ion-color-primary);
+  --color: #fff;
+  --border-color: transparent;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* Page padding rhythm */
+ion-content.ion-padding {
+  --padding-top: 16px;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  --padding-bottom: 24px;
+}
+
+/* Section title (you already use this class) */
+.div-header-new {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    var(--ion-color-primary) 0%,
+    color-mix(in oklab, var(--ion-color-primary) 85%, #000 15%) 100%
+  );
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+}
+
+/* Scroll container for permissions
+   (works for .permission-list or your current "div after .div-header-new") */
+.permission-list,
+.div-header-new + div {
+  max-height: 450px; /* you set inline; this will act as default */
+  overflow: auto;
+  padding-right: 4px;
+  scroll-behavior: smooth;
+}
+
+/* Pretty, thin scrollbars */
+.permission-list::-webkit-scrollbar,
+.div-header-new + div::-webkit-scrollbar {
+  width: 8px;
+}
+.permission-list::-webkit-scrollbar-thumb,
+.div-header-new + div::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--ion-color-primary) 20%, #000 80%);
+  border-radius: 10px;
+}
+.permission-list::-webkit-scrollbar-track,
+.div-header-new + div::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Permission card (you already render .card-style) */
+.card-style {
+  background: var(--ion-background-color, #fff);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+.card-style + .card-style {
+  margin-top: 10px;
+}
+.card-style:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(
+    in oklab,
+    var(--ion-color-primary) 30%,
+    var(--border) 70%
+  );
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.12);
+}
+
+/* Top row in permission card (date + duration) */
+.card-style > div:first-child {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-style > div:first-child::before {
+  content: ""; /* clock glyph (Font fallback) */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  opacity: 0.7;
+}
+
+/* Name button inside each permission card */
+.card-style ion-button {
+  --border-radius: 999px;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --background: color-mix(in oklab, var(--ion-color-primary) 10%, #fff 90%);
+  --color: var(--ion-color-primary);
+  --box-shadow: none;
+  font-weight: 600;
+}
+
+/* Time inputs row (the last div in your card) */
+.card-style > div:last-child {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  row-gap: 8px;
+  align-items: center;
+}
+
+/* Labels (“From:”, “To:”) */
+.card-style > div:last-child > label {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Native time inputs */
+.card-style input[type="time"] {
+  appearance: none;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--ion-background-color, #fff);
+  color: var(--ion-text-color, #111);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+.card-style input[type="time"]:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--ion-color-primary) 50%, #000 50%);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklab, var(--ion-color-primary) 20%, transparent 80%);
+}
+.card-style input[type="time"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Ion cards (summary + charts) */
+ion-card {
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+ion-card-header {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--ion-text-color);
+}
+
+/* KPI rows in “Check-In Summary” */
+ion-card p {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--chip-radius);
+  background: var(--kpi-bg);
+  font-weight: 600;
+}
+ion-card p::after {
+  /* subtle chevron indicator */
+  content: "›";
+  opacity: 0.35;
+  font-weight: 900;
+}
+
+/* Chart canvas container look */
+ion-card canvas {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+}
+
+/* Soft panel behind your bar chart (you already wrap it with a div) */
+ion-card .chart-wrapper,
+ion-card div[style*="background: #eaf3fb"] {
+  border: 1px dashed color-mix(in oklab, var(--ion-color-primary) 30%, #000 70%);
+  border-radius: 12px;
+}
+
+/* Loading (center overlay message a bit nicer) */
+ion-loading::part(message) {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* Toast spacing */
+ion-toast {
+  --border-radius: 10px;
+  --box-shadow: var(--shadow);
+}
+
+/* ---------- Breakpoints ---------- */
+
+/* ≥ 360–400: nudge font sizes a touch */
+@media (min-width: 360px) {
+  .div-header-new {
+    padding: 12px 14px;
+  }
+  .card-style {
+    padding: 14px;
+  }
+}
+
+/* ≥ 480px: put From/To on one line (2 cols per pair) */
+@media (min-width: 480px) {
+  .card-style > div:last-child {
+    grid-template-columns: auto 1fr auto 1fr;
+  }
+}
+
+/* ≥ 576px: slightly larger KPIs */
+@media (min-width: 576px) {
+  ion-card p {
+    padding: 12px 14px;
+  }
+}
+
+/* ≥ 640px: increase page rhythm */
+@media (min-width: 640px) {
+  :root {
+    --page-gap: 16px;
+  }
+  .card-style {
+    gap: 12px;
+  }
+}
+
+/* ≥ 768px (tablets): make permission list breathe */
+@media (min-width: 768px) {
+  .permission-list,
+  .div-header-new + div {
+    max-height: 520px;
+  }
+  .card-style input[type="time"] {
+    height: 42px;
+  }
+}
+
+/* ≥ 992px (lg): tighter grid and larger cards */
+@media (min-width: 992px) {
+  .card-style {
+    padding: 16px;
+  }
+  ion-card {
+    border-radius: 18px;
+  }
+}
+
+/* ≥ 1200px: crisp typography */
+@media (min-width: 1200px) {
+  ion-card-header {
+    font-size: 1.05rem;
+  }
+  .div-header-new {
+    font-size: 0.95rem;
+  }
+}
+
+/* ≥ 1440px: roomier UI for desktops */
+@media (min-width: 1440px) {
+  .permission-list,
+  .div-header-new + div {
+    max-height: 600px;
+  }
+  .card-style input[type="time"] {
+    height: 44px;
+    font-size: 15px;
+  }
+}
+
+/* ------------ Extras (optional) ------------- */
+
+/* A compact card style you mentioned */
+.card-style01 {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  background: var(--ion-background-color, #fff);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow);
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+/* Subtle “tap” feedback on mobile */
+@media (hover: none) {
+  .card-style:active {
+    transform: scale(0.997);
+  }
+}
+
+/* High-contrast focus outline for accessibility */
+.card-style :where(input, ion-button):focus-visible {
+  outline: 3px solid
+    color-mix(in oklab, var(--ion-color-primary) 45%, transparent 55%);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* timings end */
+
+/* AdminWorkReport start */
+
+/* ---------- AdminWorkReport page ---------- */
+.form-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+.form-header { font-weight: 700; font-size: 18px; }
+.form-header hr { border: none; border-top: 1px solid rgba(0,0,0,.08); margin: 8px 0 0; }
+
+.field { --min-height: 56px; margin-bottom: 10px; }
+
+.reports { margin-top: 12px; }
+.card-date {
+  font-weight: 700;
+  font-size: 13px;
+  color: #555;
+  margin: 12px 2px 8px;
+}
+
+.wr-card {
+  position: relative;
+  border-radius: 10px;
+  padding: 12px 12px 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.badge {
+  display: inline-block;
+  background: #eef2ff;
+  color: #1f3a8a;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.wr-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+}
+
+.wr-title { font-weight: 600; margin: 2px 0 4px; }
+.wr-desc { color: #333; line-height: 1.35; }
+
+.empty { color: #777; margin: 8px 0 14px; }
+
+/* toolbar logo */
+.menu-toolbar { --background: #fff; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.menu-logo { height: 32px; margin: 8px 12px; }
+
+/* popover list tweak */
+.IonListStyles { --width: 320px; }
+
+/* mobile */
+@media (max-width: 480px) {
+  .form-header { font-size: 16px; }
+  .badge { font-size: 11px; }
+}
+
+/* AdminWorkReport end */
+
+/* Invoices start */
+
+.invoices-page {
+  padding: 1rem;
+  background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+}
+
+.filters-grid {
+  margin-bottom: 1rem;
+  width: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .filters-grid ion-col {
+    margin-bottom: 1rem;
+  }
+}
+
+.menu-toolbar {
+  display: flex;
+  justify-content: center;
+  background-color: var(--ion-color-primary);
+}
+
+/* Invoices end */
+
+/* OnDuties Start */
+/* Mobile-first: start at 320px */
+
+/* Header */
+.toolbar-clean {
+  --background: var(--ion-color-light);
+  --border-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+}
+.menu-logo {
+  height: 34px;
+  margin: 6px 8px;
+}
+.user-chip {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--ion-color-primary-tint);
+  color: var(--ion-color-primary-contrast);
+  max-width: 55%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Segment */
+.custom-segment {
+  margin: 6px 0 12px 0;
+}
+
+/* Cards / Inputs */
+.form-grid ion-item {
+  --background: var(--ion-color-step-50, #f6f7f9);
+  --min-height: 44px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  padding-inline: 6px;
+}
+
+/* Primary actions */
+.primary-btn {
+  --border-radius: 12px;
+  --box-shadow: none;
+}
+
+/* Tables */
+.table-container {
+  background: var(--ion-background-color, #fff);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  overflow-x: auto;           /* small screens: horizontal scroll */
+}
+.table-header {
+  font-weight: 600;
+  background: var(--ion-color-light);
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.table-row {
+  border-bottom: 1px dashed rgba(0,0,0,.06);
+}
+.table-row:hover {
+  background: var(--ion-color-light-tint);
+}
+
+/* Modal */
+.employee-modal {
+  max-height: 80vh;
+  overflow: auto;
+}
+.modal-title {
+  margin: 4px 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Small phones ≥320px */
+@media (min-width: 320px) {
+  .form-grid ion-col {
+    padding-bottom: 6px;
+  }
+  .table-container .ion-col {
+    font-size: 12px;
+  }
+  .primary-btn {
+    --padding-start: 10px;
+    --padding-end: 10px;
+  }
+}
+
+/* Large phones ≥480px */
+@media (min-width: 480px) {
+  .table-container .ion-col {
+    font-size: 13px;
+  }
+}
+
+/* Tablets ≥768px */
+@media (min-width: 768px) {
+  .menu-logo { height: 38px; }
+  .table-container .ion-col {
+    font-size: 14px;
+  }
+  .form-grid ion-item {
+    margin-bottom: 10px;
+  }
+}
+
+/* Desktops ≥1024px */
+@media (min-width: 1024px) {
+  .table-container {
+    box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  }
+  .table-row:hover {
+    transform: translateY(-1px);
+    transition: transform .15s ease;
+  }
+}
+.table-container {
+  overflow: auto;
+  position: relative;
+}
+.table-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+
+/* OnDuties End */
+
+/* Tickets start */
+
+.ticket-content {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  background: var(--ion-background-color);
+  color: var(--ion-text-color);
+}
+
+.ticket-header {
+  font-weight: bold;
+  padding: 1rem 0;
+  font-size: 1.5rem;
+  color: var(--ion-text-color);
+  display: flex;
+  justify-content: space-around;
+  border-bottom: 1px solid var(--ion-color-primary);
+}
+
+.ticket-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  margin: auto;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.Select-Client {
+  display: flex;
+  justify-content: space-around;
+  margin: auto;
+  align-items: center;
+}
+
+.date-section {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-group {
+  display: flex;
+  gap: 0.8rem;
+  /* flex-wrap: wrap; */
+}
+
+.btn-group ion-button {
+  --border-radius: 6px;
+  --background: var(--ion-color-primary);
+  --color: #fff;
+  font-weight: 500;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  justify-content: center;
+}
+
+.status-box {
+  padding: 10px 18px;
+  border-radius: 20px;
+  background: var(--ion-color-primary, var(--theme-color, #0077b6));
+  color: var(--ion-text-color);
+  font-weight: bold;
+  text-align: center;
+}
+
+.task-section {
+  margin-bottom: 1rem;
+  background: var(--ion-background-color);
+  box-shadow: 0px 4px 6px var(--theme-shadow);
+  margin-bottom: 80px;
+}
+
+.task-section h3 {
+  margin: 0;
+  color: var(--ion-text-color);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .ticket-filter-row {
+    /* flex-direction: column; */
+    gap: 1rem;
+  }
+
+  .date-section {
+    /* flex-direction: column; */
+    width: 100%;
+  }
+
+  .ticket-header {
+    display: grid;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 0.8rem;
+    /* flex-wrap: wrap; */
+  }
+
+  .btn-group ion-button {
+    --border-radius: 6px;
+    --background: var(--ion-color-primary);
+    --color: #fff;
+    font-weight: 200 !important;
+    padding: 4px 8px !important;
+    font-size: 0.6rem !important;
+  }
+  .status-row {
+    justify-content: flex-start;
+  }
+}
+
+.menu-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  padding-left: 1rem;
+  background: var(--ion-background-color);
+  box-shadow: 0px 4px 6px var(--theme-shadow);
+}
+
+.menu-logo {
+  width: 120px;
+  height: auto;
+}
+
+@media screen and (max-width: 480px) {
+  .btn-group ion-button {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+}
+
+/* Tickets end */
+
+/* Tasks start */
+
+.assign-task-form {
+  padding: 16px;
+  --background: var(--ion-background-color, #fff);
+  margin-bottom: 0px;
+}
+
+.assign-task-form ion-item {
+  --border-radius: 8px;
+  --box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+}
+
+.tasks-page {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  background: var(--ion-background-color);
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.assign-title,
+.view-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--ion-color-primary);
+}
+
+.popover-side-bottom {
+  border-radius: 20px;
+}
+
+.task-filters {
+  margin-bottom: 15px;
+}
+
+.task-table {
+  border: 1px solid var(--ion-color-medium);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: 80px 200px 1fr 150px 150px 60px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid var(--ion-color-light);
+}
+
+.task-row.header {
+  background-color: var(--ion-color-tertiary);
+  font-weight: bold;
+  color: white;
+}
+
+.task-row .badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.badge.high {
+  background-color: red;
+}
+
+.badge.medium {
+  background-color: orange;
+}
+
+.badge.low {
+  background-color: green;
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+  .task-form-row {
+    flex-direction: column;
+  }
+
+  .task-row {
+    grid-template-columns: 60px 150px 1fr 100px 100px 50px;
+    font-size: 12px;
+  }
+
+  .assign-title,
+  .view-title {
+    font-size: 16px;
+  }
+}
+
+/* Tasks end */
+
+/* salary start */
+.tab-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+
+.employee-item,
+.holiday-item {
+  margin-bottom: 10px;
+}
+
+.reset-adjustments {
+  /* display: grid; */
+  margin: auto;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.update-btn,
+.generate-btn {
+  --box-shadow: none;
+  /* background-color: #f57c00; */
+}
+
+.table-header {
+  font-weight: bold;
+  background-color: #f0f0f0;
+}
+
+.table-row {
+  background-color: #fff;
+}
+
+.md .ion-item {
+  font-size: 0.9rem;
+}
+
+.date-picker {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .ion-col {
+    padding-left: 0px !important;
+    padding-right: 0px !important;
+  }
+
+  .md .ion-col {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .update-btn,
+  .generate-btn {
+    margin-top: 15px;
+  }
+
+  .table-header {
+    font-size: 0.9rem;
+  }
+
+  .table-row ion-col {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .ion-text-center {
+    font-size: 0.85rem;
+  }
+
+  .section-title {
+    font-size: 1rem;
+  }
+
+  .update-btn,
+  .generate-btn {
+    font-size: 0.85rem;
+    padding: 10px;
+  }
+}
+
+/* salary end */
+
+/* Table start */
+.table-header,
+.table-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ion-text-color);
+  transition: background-color 0.3s ease;
+}
+
+/* Header Background */
+.table-header {
+  background-color: var(--ion-color-primary);
+  color: #fff;
+  border-bottom: 2px solid var(--ion-color-primary);
+  border-radius: 20px;
+}
+
+/* Alternating Row Colors Using Theme Colors */
+.table-row:nth-child(odd) {
+  /* background-color: color-mix(in srgb, var(--ion-color-tertiary) 15%, white); */
+  border-radius: 20px;
+}
+
+.table-row:nth-child(even) {
+  background-color: color-mix(in srgb, var(--ion-color-primary) 20%, white);
+  border-radius: 20px;
+}
+
+.sc-ion-input-md-h {
+  color: var(--ion-color-primary) !important;
+}
+
+/* Hover Effect for Rows */
+.table-row:hover {
+  /* background-color: color-mix(
+    in srgb,
+    var(--ion-color-secondary) 20%,
+    white
+  ); */
+
+  box-shadow: 0 4px 10px var(--theme-shadow);
+}
+
+/* Input Styling */
+.table-row ion-input {
+  width: 100%;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --background: transparent;
+  --color: var(--ion-text-color);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Responsive Styles */
+/* New: Responsive Table for Small Screens */
+@media (max-width: 768px) {
+  .table-header {
+    display: none; /* hide header on small screens */
+  }
+
+  .table-row {
+    display: block;
+    background-color: var(--ion-background-color);
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid var(--ion-color-step-150);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px var(--theme-shadow);
+  }
+
+  .table-row ion-col {
+    display: flex;
+    width: 100%;
+    padding: 6px 0;
+    font-size: 14px;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px dashed var(--ion-color-step-200);
+  }
+
+  .table-row ion-col:last-child {
+    border-bottom: none;
+  }
+
+  .table-row ion-col::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--ion-color-primary);
+    flex: 1;
+  }
+
+  .table-row ion-col ion-input {
+    flex: 2;
+    text-align: right;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-header,
+  .table-row {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .table-header {
+    font-size: 14px;
+  }
+
+  .table-row ion-input {
+    font-size: 14px;
+  }
+}
+
+.select-text {
+  color: var(--ion-color-primary) !important;
+}
+
+/* Table end */
+
+/* ClientDetails start */
+
+.card-box-main {
+  margin: auto;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+  border-radius: 20px;
+  box-shadow: 0px 4px 6px var(--theme-shadow);
+  margin-top: 10px;
+}
+
+/* ClientDetails end */
+
+.main-box-center {
+  display: flex;
+  margin: auto;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+
+
+/*Sources start*/
+
+/* src/pages/Sources.css */
+
+/* ---------- Toolbar ---------- */
+.menu-toolbar {
+  --background: #121827;
+  --color: #fff;
+}
+.toolbar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.menu-logo {
+  height: 28px;
+}
+.toolbar-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ---------- Accordions ---------- */
+.src-accordions {
+  display: block;
+  gap: 14px;
+}
+.acc-header {
+  --background: #f6f7fb;
+  --color: #111827;
+  font-weight: 600;
+}
+.acc-content {
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #eef0f5;
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+}
+
+/* ---------- Layout grids ---------- */
+.grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.src-field {
+  --padding-start: 0;
+}
+
+/* Buttons row */
+.btn-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.btn-row.align-end {
+  justify-content: flex-end;
+}
+
+/* ---------- Table-like list ---------- */
+.table {
+  width: 100%;
+  border: 1px solid #eef0f5;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.table.sticky {
+  max-height: 380px;
+  overflow: auto;
+}
+.row {
+  display: grid;
+  grid-template-columns: 60px 1fr 110px;
+  border-top: 1px solid #eef0f5;
+  align-items: center;
+  min-height: 42px;
+  padding: 4px 10px;
+}
+.row.head {
+  background: #f9fafc;
+  font-weight: 600;
+}
+.col {
+  padding: 2px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.col.sm { width: 120px; }
+.col.xs { width: 70px; }
+.col.link {
+  color: #3b82f6;
+  cursor: pointer;
+}
+.empty {
+  padding: 14px;
+  color: #6b7280;
+}
+
+/* ---------- Holidays list ---------- */
+.list-scroll {
+  height: 300px;
+  overflow: auto;
+  border: 1px solid #eef0f5;
+  border-radius: 12px;
+  padding: 8px;
+}
+.card.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid #eef0f5;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.badge {
+  font-weight: 600;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+.flex {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- Modal ---------- */
+.modal {
+  padding: 14px;
+  background: #fff;
+}
+.modal h4 {
+  margin: 8px 0 12px;
+}
+
+/* ---------- Employee list popover ---------- */
+.emp-list {
+  max-height: 360px;
+  overflow: auto;
+}
+
+/* ---------- Responsive ---------- */
+
+/* tablets */
+@media (max-width: 1024px) {
+  .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row { grid-template-columns: 50px 1fr 90px; }
+  .col.sm { width: 100px; }
+  .col.xs { width: 60px; }
+}
+
+/* phones */
+@media (max-width: 640px) {
+  .grid.two,
+  .grid.three,
+  .grid.four { grid-template-columns: 1fr; }
+  .row { grid-template-columns: 1fr 1fr; }
+  .row.head { display: none; }
+  .table { border-radius: 10px; }
+  .menu-logo { height: 24px; }
+  .list-scroll { height: 240px; }
+}
+
+
+/*Sources end*/
+
+/*Tickets Dashboard start*/
+
+/* Borrowing tone from your SCSS, adapted to web/mobile */
+
+.menu-toolbar {
+  --background: var(--ion-color-light);
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+}
+.menu-logo {
+  height: 36px;
+}
+
+.tdb-panel {
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(16, 24, 40, 0.08);
+  background: #fff;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.tdb-panel__head {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 10px 12px;
+   background-color: var(--ion-background-color);
+  color: #f3f7f7;
+  user-select: none;
+}
+.tdb-panel__title {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+  font-family: "Times New Roman", Times, serif;
+}
+.tdb-panel__chev {
+  margin-left: auto;
+  font-size: 22px;
+}
+
+.tdb-card {
+  padding: 10px;
+}
+
+.tdb-tableWrap {
+  max-height: 450px;
+  overflow: auto;
+  border: 1px solid #ccc;
+  border-top: 0;
+}
+
+.tdb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tdb-table th {
+  position: sticky;
+  top: 0;
+   background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+  /* text-shadow: 0 1px 0 #000; */
+  font-size: 16px;
+  z-index: 1;
+}
+.tdb-table th,
+.tdb-table td {
+  border: 1px solid grey;
+  padding: 8px 10px;
+}
+.tdb-table tr:nth-child(odd) td {
+  background: #f2f2f2;
+}
+.center {
+  text-align: center;
+}
+.muted {
+  color: #8a8a8a;
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.empLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #0066da;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.empLink:hover {
+  opacity: 0.8;
+}
+
+.countBtn {
+  background: none;
+  border: 1px solid #999;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-width: 36px;
+}
+.countBtn:hover {
+  background: #f6f6f6;
+}
+
+/* Detail slide-up area */
+.tdb-ticketWrap {
+  transform: translateY(16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 220ms ease;
+}
+.tdb-ticketWrap.show {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+.tdb-ticketCard {
+  padding: 10px;
+}
+.tdb-ticketGrid {
+  display: grid;
+  gap: 10px;
+}
+
+/* Each ticket row (mirrors your .row-class / .col-class feel) */
+.row-class {
+  margin-bottom: 10px;
+  border-radius: 5px;
+  padding-top: 1px;
+  position: relative;
+  border: 1px solid #bf4e4e;
+  background: #fff;
+}
+
+.col-class {
+  border: #bf4e4e solid 1px;
+}
+
+/* Content blocks */
+.tdb-box {
+  padding: 8px 10px;
+}
+.tdb-box--left,
+.tdb-box--mid {
+  display: inline-block;
+  width: 100%;
+}
+.tdb-box--remarks {
+  width: 100%;
+}
+.tdb-box--footer {
+  width: 100%;
+  padding: 8px 10px 10px 10px;
+}
+
+/* Lines */
+.tdb-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 4px 0;
+  line-height: 1.35;
+}
+.tdb-line .lbl {
+  font-weight: 700;
+  color: #000;
+}
+.tdb-line .val {
+  word-break: break-word;
+}
+.tdb-line .end {
+  margin-left: 16px;
+}
+
+/* Actions */
+.tdb-ticketActions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+/* Empty state */
+.tdb-empty {
+  text-align: center;
+  padding: 16px;
+  color: #8a8a8a;
+}
+
+/* ---------- Responsive ---------- */
+@media (min-width: 480px) {
+  .tdb-ticketGrid .row-class {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .tdb-box--remarks {
+    grid-column: 1 / -1;
+  }
+  .tdb-box--footer {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 768px) {
+  .tdb-ticketGrid .row-class {
+    grid-template-columns: 1.2fr 1.2fr 1.6fr;
+  }
+  .tdb-box--remarks {
+    grid-column: auto;
+  }
+
+}
+/*Tickets Dashboard end*/
+
+
+
+
+/* Tickets start  */
+
+.appsub-container { padding: 8px; }
+.heading-shadow {
+  color: rebeccapurple; font-weight: bold;
+  text-shadow: rgba(0,0,0,.37) 2px 2px 3px;
+}
+.panel-heading {
+  font-size: 20px; font-weight: 600; color: rgb(183,175,129);
+  font-family: "Times New Roman", Times, serif;
+}
+.example-container { height: 300px; overflow: auto; }
+.table { display: grid; row-gap: 2px; }
+.thead, .trow {
+  display: grid; grid-template-columns: 60px 120px 160px 160px 120px 1fr 140px 120px 200px;
+}
+.thead > div {
+  background: linear-gradient(#777,#bf4e4e); color:#f3f7f7; font-size:14px;
+  border: 1px ridge grey; padding: 4px 6px; position: sticky; top:0; z-index: 1;
+}
+.trow > div {
+  border: 1px solid grey; font-size:12px; padding: 4px 6px; background: #fff;
+}
+.trow:nth-child(even) > div { background: #f2f2f2; }
+.tsl-header { align-items: end; }
+
+
+/* Tickets end */
+
+/* DashboardButtons start */
+
+.chip-list { display: flex; gap: 8px; flex-wrap: wrap; margin-left: 10px; }
+.dash-heading {
+  text-align: center; font-size: 20px; font-weight: bold; color: cadetblue;
+  font-family: "Times New Roman", Times, serif;
+}
+.example-container { height: 250px; overflow: auto; }
+.table.nine .thead, .table.nine .trow {
+  display: grid; grid-template-columns: 60px 120px 160px 160px 140px 120px 160px 160px 1fr;
+}
+.thead > div {
+  background: linear-gradient(#777,#bf4e4e); color:#f3f7f7; font-size:16px;
+  border: 1px ridge grey; padding: 4px 6px; position: sticky; top:0; z-index: 1;
+}
+.trow > div { border: 1px solid grey; font-size:12px; padding: 4px 6px; background: #fff; }
+.trow:nth-child(even) > div { background: #f2f2f2; }
+
+
+/* DashboardButtons end */
+
+/* AssignedTickets start */
+
+.example-container { height: 300px; overflow: auto; }
+.row-class { margin-bottom: 10px; border-radius: 5px; position: relative; }
+.col-class { border: 1px solid #bf4e4e; padding: 8px; }
+.col-class.sub { padding: 4px 8px; }
+.linklike { background: none; border: 0; cursor: pointer; font: inherit; padding: 0; }
+.control-row .send-col { display: flex; align-items: flex-end; }
+
+
+
+/* AssignedTickets  end */
+
+
+/* SupportTickets start */
+
+.example-container { height: 300px; overflow: auto; }
+.row-class { margin-bottom: 10px; border-radius: 5px; position: relative; }
+.col-class { border: 1px solid #bf4e4e; padding: 10px; }
+.badge1 {
+  position: absolute; top: -6px; left: 10px; border-radius: 2px; color: #fff;
+  background: #00489b; box-shadow: 1px 1px 9px 2px #a3a2a2; padding: .35em .65em; font-size: .75em;
+}
+.hl { color: rgba(245, 7, 7, .87); }
+.link-btn { background: none; border: 0; color: brown; cursor: pointer; margin-left: 8px; }
+
+
+
+/* SupportTickets end */
+
+/* ProjectWiseTickets start */
+.appsub-container { padding: 8px; }
+.title {
+  margin-top: 6px; color: rebeccapurple; font-weight: bold;
+  text-shadow: rgba(0,0,0,.37) 2px 2px 3px;
+}
+.example-container { height: 450px; overflow: auto; }
+.table.nine .thead, .table.nine .trow {
+  display: grid; grid-template-columns: 60px 120px 160px 160px 120px 1fr 120px 160px 160px;
+}
+.thead > div {
+  background: linear-gradient(#777,#bf4e4e); color:#f3f7f7; font-size:16px;
+  border: 1px ridge grey; padding: 4px 6px; position: sticky; top:0; z-index: 1;
+}
+.trow > div { border: 1px solid grey; font-size:12px; padding: 4px 6px; background: #fff; }
+.trow:nth-child(even) > div { background: #f2f2f2; }
+
+
+/* ProjectWiseTickets end */
+
+
+/* RaiseTicket start */
+
+.rt-title {
+  text-align: center; color: rgb(171,133,120); margin-top: -30px;
+  text-shadow: rgba(0,0,0,.37) 2px 2px 3px; font-weight: bold; font-family: "Times New Roman", Times, serif;
+}
+.issue-text {
+  border-radius: 5px; background: rgb(251,249,248); color: #000; width: 100%; height: 35px;
+}
+.file-note { font-size: 12px; margin-top: 4px; }
+.example-table-container { height: 250px; overflow: auto; background: #fff; margin: 0 10px; }
+.table.six .thead, .table.six .trow {
+  display: grid; grid-template-columns: 60px 120px 160px 160px 1fr 120px;
+}
+.thead > div {
+  background: linear-gradient(#777,#bf4e4e); color:#f3f7f7; font-size:16px;
+  border: 1px ridge grey; padding: 4px 6px; position: sticky; top:0; z-index: 1;
+}
+.trow > div { border: 1px solid grey; font-size:12px; padding: 4px 6px; background: #fff; }
+.trow:nth-child(even) > div { background: #f2f2f2; }
+
+
+
+/* RaiseTicket end */
+
+
+/* Equipment start */
+
+/* ---------- Theme primitives ---------- */
+:root {
+  --equip-accent: #bf4e4e;
+  --equip-accent-dark: #7d2c2c;
+  --equip-bg: #ffffff;
+  --equip-card-shadow: 0 2px 12px rgba(16, 24, 40, 0.08);
+}
+
+/* ---------- Header ---------- */
+.menu-toolbar {
+  --background: var(--ion-color-light, #f7f7f7);
+  padding: 4px 12px;
+  box-shadow: var(--equip-card-shadow);
+}
+.menu-logo {
+  height: 36px;
+}
+
+/* ---------- Page ---------- */
+.equip-content {
+  background: var(--equip-bg);
+}
+
+/* ---------- Title ---------- */
+.equip-title {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* ---------- Form area ---------- */
+.equip-form {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--equip-card-shadow);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.equip-item {
+  --highlight-color-focused: var(--equip-accent);
+  --border-color: #e5e7eb;
+  margin-bottom: 8px;
+}
+.equip-saveBtn {
+  --background: var(--equip-accent);
+  --background-hover: var(--equip-accent-dark);
+}
+
+/* Ion inputs tweaks */
+.equip-item .label-text {
+  font-weight: 600;
+}
+.equip-item ion-label {
+  font-weight: 600;
+}
+.equip-item ion-select,
+.equip-item ion-input {
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+/* ---------- Table ---------- */
+.equip-tableWrap {
+  border-radius: 12px;
+  box-shadow: var(--equip-card-shadow);
+  overflow: hidden;
+  background: #fff;
+  overflow-x: auto;
+}
+.equip-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px; /* keep columns readable on tiny screens; allow horizontal scroll */
+}
+.equip-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--ion-color-primary);
+  color: #f3f7f7;
+  text-shadow: 0 1px 0 #000;
+  font-size: 15px;
+  font-weight: 600;
+}
+.equip-table th,
+.equip-table td {
+  border: 1px solid #d1d5db;
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+.equip-table tbody tr:nth-child(odd) td {
+  background: #fafafa;
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.center {
+  text-align: center;
+}
+.muted {
+  color: #8a8a8a;
+}
+
+/* ---------- Status pill ---------- */
+.status-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+.status-success {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+.status-warn {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+.status-danger {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+.status-neutral {
+  color: #1f2937;
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+/* ---------- Hover & focus ---------- */
+.equip-table tbody tr:hover td {
+  background: #f3f4f6;
+}
+.equip-saveBtn:hover {
+  filter: brightness(0.98);
+}
+
+/* ---------- Media Queries ---------- */
+/* Base: 320px+ (phones) */
+@media (max-width: 479px) {
+  .equip-title {
+    font-size: 18px;
+  }
+  .equip-form {
+    padding: 10px;
+  }
+  .equip-table th,
+  .equip-table td {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .status-pill {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+}
+
+/* 480px+ (large phones / small tablets) */
+@media (min-width: 480px) and (max-width: 767px) {
+  .equip-form {
+    padding: 12px;
+  }
+  .equip-table th,
+  .equip-table td {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+}
+
+/* 768px+ (tablets) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .equip-content {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .equip-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+  }
+  .equip-item {
+    margin-bottom: 0;
+  }
+  .equip-saveBtn {
+    --padding-start: 12px;
+    --padding-end: 12px;
+  }
+}
+
+/* 1024px+ (desktops) */
+@media (min-width: 1024px) {
+  .equip-content {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+  .equip-title {
+    font-size: 22px;
+  }
+  .equip-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 16px;
+  }
+  .equip-table {
+    min-width: 860px;
+  }
+}
+
+
+
+/* Equipment end */
