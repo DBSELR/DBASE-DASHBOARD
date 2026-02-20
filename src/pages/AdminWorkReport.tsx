@@ -135,6 +135,8 @@ const AdminWorkReport: React.FC = () => {
     await loadWorkReport(); // initial list for "All Employees" + currentMY
   };
 
+  
+
   const loadEmployeesActive = async () => {
     try {
       const url = `${API_BASE}/Employee/Load_Employees?SearchEmp=Active`;
