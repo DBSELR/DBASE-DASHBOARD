@@ -36,7 +36,7 @@ type EquipmentRequest = {
   Reject_Remarks?: string | null;
 };
 
-const API_BASE = "https://api.dbasesolutions.in/api/";
+const API_BASE = "http://localhost:25918/api/";
 
 const Equipment: React.FC = () => {
   const [stockType, setStockType] = useState<string>("");

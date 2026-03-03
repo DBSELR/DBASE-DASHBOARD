@@ -63,7 +63,7 @@ const Menu: React.FC = () => {
         return;
       }
 
-      const API_URL = `https://api.dbasesolutions.in/api/Login/Load_Menu?Empcode=${empCode}`;
+      const API_URL = `http://localhost:25918/api/Login/Load_Menu?Empcode=${empCode}`;
       // console.log("Fetching menu from:", API_URL);
 
       const response = await fetch(API_URL, {

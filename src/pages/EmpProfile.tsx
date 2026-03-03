@@ -100,7 +100,7 @@ const EmpProfile: React.FC = () => {
   const fetchUserProfile = async (empCode: string) => {
     try {
       const response = await fetch(
-        `https://api.dbasesolutions.in/api/Profile/UserProfile?employeeCode=${empCode}`,
+        `http://localhost:25918/api/Profile/UserProfile?employeeCode=${empCode}`,
         {
           method: "GET",
           headers: getAuthHeaders(),

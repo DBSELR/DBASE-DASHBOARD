@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://api.dbasesolutions.in",
+        target: "http://localhost:25918",
         changeOrigin: true,
         secure: false,
         // ✅ Keeps the /api prefix in request path
@@ -21,3 +21,5 @@ export default defineConfig({
     },
   },
 });
+
+

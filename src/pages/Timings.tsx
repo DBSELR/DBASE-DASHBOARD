@@ -64,7 +64,7 @@ const Timings: React.FC = () => {
   const lineChartInstanceRef = useRef<Chart | null>(null);
   const doubleBarChartInstanceRef = useRef<Chart | null>(null);
 
-  // If you don't proxy /api -> https://api.dbasesolutions.in/API, change this to the full origin.
+  // If you don't proxy /api -> http://localhost:25918/API, change this to the full origin.
   const baseUrl = "/api";
 
   const getAuthHeaders = () => {

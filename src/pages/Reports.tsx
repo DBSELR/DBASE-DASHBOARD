@@ -64,12 +64,18 @@ const Reports: React.FC = () => {
     LOG("showPdf changed:", showPdf);
   }, [showPdf]);
 
+  useEffect(() => {
+  return () => {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+  };
+}, [pdfUrl]);
+
   const getApiUrl = () => {
     const empCode = userData?.empCode || "";
     const userDesig = userData?.designation; // ✅ use 'designation' (matches your other pages)
     const formattedFrom = moment(fromDate).format("MM-DD-YYYY");
     const formattedTo = moment(toDate).format("MM-DD-YYYY");
-    const monthYearSend = moment(monthYear).format("MM-YYYY");
+   const monthYearSend = moment(monthYear).format("MMM-YYYY");
     const Empcode = userDesig === "Director" || userDesig === "In-Charge F&A" ? "" : empCode;
 
     GROUP("build api url");
@@ -83,25 +89,25 @@ const Reports: React.FC = () => {
     let url = "";
     switch (reportType) {
       case "employee-list":
-        url = `/api/Reports/Load_EmployeeList?EMPCODE=${empCode}`;
+        url = `/api/ProxyReports/Load_EmployeeList?EMPCODE=${empCode}`;
         break;
       case "work-report":
-        url = `/api/Reports/Load_WorkReport?EMPCODE=${empCode}&FDate=${formattedFrom}&TDate=${formattedTo}`;
+        url = `/api/ProxyReports/Load_WorkReport?EMPCODE=${empCode}&FDate=${formattedFrom}&TDate=${formattedTo}`;
         break;
       case "Salary Statement":
-        url = `/api/Reports/Load_SalaryStatement?EMPCODE=${Empcode}&MY=${monthYearSend}`;
+        url = `/api/ProxyReports/Load_SalaryStatement?EMPCODE=${Empcode}&MY=${monthYearSend}`;
         break;
       case "Salary Generation Details":
-        url = `/api/Reports/Load_SalaryGenerationDetails?EMPCODE=${Empcode}&MY=${monthYearSend}`;
+        url = `/api/ProxyReports/Load_SalaryGenerationDetails?EMPCODE=${Empcode}&MY=${monthYearSend}`;
         break;
       case "Salary Generation Abstract":
-        url = `/api/Reports/Load_SalaryGenerationAbstract?EMPCODE=${Empcode}&MY=${monthYearSend}`;
+        url = `/api/ProxyReports/Load_SalaryGenerationAbstract?EMPCODE=${Empcode}&MY=${monthYearSend}`;
         break;
       case "stock":
-        url = `/api/Reports/Load_Stock?EMPCODE=${empCode}`;
+        url = `/api/ProxyReports/Load_Stock?EMPCODE=${empCode}`;
         break;
       case "Timings & Leaves":
-        url = `/api/Reports/Load_TimingsandLeaves?EMPCODE=${empCode}&FDate=${formattedFrom}&TDate=${formattedTo}`;
+        url = `/api/ProxyReports/Load_TimingsandLeaves?EMPCODE=${empCode}&FDate=${formattedFrom}&TDate=${formattedTo}`;
         break;
       default:
         url = "";
@@ -113,55 +119,93 @@ const Reports: React.FC = () => {
   };
 
   const handlePrint = async () => {
-    GROUP("print");
-    if (!reportType) {
-      console.warn("[Reports] No report type selected");
-      alert("No Report Option Is Selected...!");
-      GROUP_END();
-      return;
+  if (!reportType) {
+    alert("No Report Option Is Selected...!");
+    return;
+  }
+
+  const path = getApiUrl();
+  const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+
+  try {
+    const res = await fetch(path, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/pdf"
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || "Report failed.");
     }
 
-    const path = getApiUrl();
-    LOG("Constructed API Path:", path);
+    const blob = await res.blob();
 
-    if (!path) {
-      alert("This report type is not yet supported.");
-      GROUP_END();
-      return;
+    if (blob.size === 0) {
+      throw new Error("Empty PDF received.");
     }
 
-    const token = (localStorage.getItem("token") || "").replace(/"/g, "");
-    LOG("Fetch GET with bearer token present:", Boolean(token));
+    const pdfUrl = URL.createObjectURL(blob);
+    setPdfUrl(pdfUrl);
+    setShowPdf(true);
 
-    try {
-      const res = await fetch(path, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+  } catch (error: any) {
+    alert("Error loading report: " + error.message);
+  }
+};
 
-      LOG("Response status:", res.status, res.statusText);
-      LOG("Response headers Content-Type:", res.headers.get("content-type"));
+  // const handlePrint = async () => {
+  //   GROUP("print");
+  //   if (!reportType) {
+  //     console.warn("[Reports] No report type selected");
+  //     alert("No Report Option Is Selected...!");
+  //     GROUP_END();
+  //     return;
+  //   }
 
-      if (!res.ok) throw new Error("No records found or unauthorized access.");
+  //   const path = getApiUrl();
+  //   LOG("Constructed API Path:", path);
 
-      const blob = await res.blob();
-      LOG("Blob size (bytes):", blob.size);
+  //   if (!path) {
+  //     alert("This report type is not yet supported.");
+  //     GROUP_END();
+  //     return;
+  //   }
 
-      const pdfBlob = new Blob([blob], { type: "application/pdf" });
-      const url = URL.createObjectURL(pdfBlob);
-      LOG("Blob URL:", url);
+  //   const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+  //   LOG("Fetch GET with bearer token present:", Boolean(token));
 
-      setPdfUrl(url);
-      setShowPdf(true);
-    } catch (error: any) {
-      console.error("[Reports] API Error:", error);
-      alert("Error loading report: " + error.message);
-    } finally {
-      GROUP_END();
-    }
-  };
+  //   try {
+  //     const res = await fetch(path, {
+  //       method: "GET",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //     });
+
+  //     LOG("Response status:", res.status, res.statusText);
+  //     LOG("Response headers Content-Type:", res.headers.get("content-type"));
+
+  //     if (!res.ok) throw new Error("No records found or unauthorized access.");
+
+  //     const blob = await res.blob();
+  //     LOG("Blob size (bytes):", blob.size);
+
+  //     const pdfBlob = new Blob([blob], { type: "application/pdf" });
+  //     const url = URL.createObjectURL(pdfBlob);
+  //     LOG("Blob URL:", url);
+
+  //     setPdfUrl(url);
+  //     setShowPdf(true);
+  //   } catch (error: any) {
+  //     console.error("[Reports] API Error:", error);
+  //     alert("Error loading report: " + error.message);
+  //   } finally {
+  //     GROUP_END();
+  //   }
+  // };
 
   const handleClear = () => {
     GROUP("clear");
@@ -317,7 +361,13 @@ const Reports: React.FC = () => {
                 Click here to open PDF
               </a>
             </p>
-            <embed src={pdfUrl} type="application/pdf" width="100%" height="600px" />
+            <iframe
+  src={pdfUrl}
+  width="100%"
+  height="600px"
+  style={{ border: "none" }}
+/>
+            {/* <embed src={pdfUrl} type="application/pdf" width="100%" height="600px" /> */}
           </div>
         )}
 

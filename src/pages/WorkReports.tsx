@@ -41,7 +41,7 @@ const WorkReports: React.FC = () => {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false); // ✅ NEW
 
-  const baseUrl = "https://api.dbasesolutions.in";
+  const baseUrl = "http://localhost:25918";
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token")?.replace(/"/g, "");

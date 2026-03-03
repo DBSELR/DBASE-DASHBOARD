@@ -38,7 +38,7 @@ const Login: React.FC = () => {
 
     try {
       const response = await fetch(
-        `https://api.dbasesolutions.in/api/Login/UserLogin?Username=${uname}&Password=${pwd}`,
+        `http://localhost:25918/api/Login/UserLogin?Username=${uname}&Password=${pwd}`,
         {
           method: "GET",
         }

@@ -48,7 +48,7 @@ const groupLog = (title: string, obj: any) => {
 // =====================================================================================
 const API_BASE =
   (import.meta as any)?.env?.VITE_API_BASE?.replace(/\/+$/g, "") ||
-  "https://api.dbasesolutions.in/api";
+  "http://localhost:25918/api";
 
 const authHeaders = () => {
   const raw =

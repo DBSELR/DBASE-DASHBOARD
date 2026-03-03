@@ -30,7 +30,7 @@ import axios from "axios";
 
 const ENABLE_SMS = false;
 // ====== API base ======
-const API_BASE = "https://api.dbasesolutions.in/api/";
+const API_BASE = "http://localhost:25918/api/";
 
 // ====== Types ======
 type ClientItem = { Client_ID: string; Client_Name: string };

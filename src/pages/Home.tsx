@@ -148,11 +148,11 @@ const Home: React.FC = () => {
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}>
               <div className={`scrolling-text ${isPaused ? "paused" : ""}`}>
-                <IonLabel>🔔 Salary will be credited on 5th of every month.</IonLabel>
-                <IonLabel>🚀 Team meeting at 4 PM today.</IonLabel>
+                <IonLabel>🔔 Welcome to D Base Solutions Pvt.Ltd.</IonLabel>
+                {/* <IonLabel>🚀 Team meeting at 4 PM today.</IonLabel>
                 <IonLabel>🎉 Office party on Friday!</IonLabel>
                 <IonLabel>📢 Submit your reports by the 10th.</IonLabel>
-                <IonLabel>⚠️ Office closed on Monday for maintenance.</IonLabel>
+                <IonLabel>⚠️ Office closed on Monday for maintenance.</IonLabel> */}
               </div>
             </div>
           </IonCardContent>
