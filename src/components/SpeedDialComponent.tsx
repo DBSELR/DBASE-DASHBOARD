@@ -6,20 +6,30 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import PaletteIcon from "@mui/icons-material/Palette";
 import { useHistory } from "react-router-dom";
-import { IonPopover, IonButton } from "@ionic/react";
 import "../theme/Common.css"; // Import the CSS file
+import { LogOut, X, CheckCircle2 } from "lucide-react";
 
-// Updated theme colors with Violet instead of Red
+// Updated theme colors with modern Pastel and Premium options
+// Updated theme colors with IDs matching global.css definitions
 const themeColors = [
-  { name: "Blue", value: "#0077b6" },    // Deep Blue
-  { name: "Orange", value: "#ff9505" },  // Warm Orange
-  { name: "Green", value: "#588157" },   // Earthy Green
-  { name: "Violet", value: "#957fef" },  // Soft Violet
-  { name: "Teal", value: "#008080" },    // Modern Teal
-  { name: "Magenta", value: "#d72638" }, // Vibrant Magenta
-  { name: "Pink", value: "#FF6EC7" },    // Rich pink 
-  { name: "Chocolate ", value: "#7B3F00" } ,    // chocolate 
-  { name: "DBASE", value: "#F15A24" }     // DBASE Black
+  { name: "Blue", value: "#0077b6", id: "blue" },
+  { name: "Orange", value: "#ff9505", id: "orange" },
+  { name: "Green", value: "#588157", id: "green" },
+  { name: "Violet", value: "#957fef", id: "violet" },
+  { name: "Teal", value: "#008080", id: "teal" },
+  { name: "Pink", value: "#FF6EC7", id: "pink" },
+  { name: "Chocolate", value: "#7B3F00", id: "chocolate" },
+  { name: "DBASE", value: "#F15A24", id: "dbase" },
+
+  // Premium & Designer Series
+  { name: "Midnight", value: "#1D3557", id: "midnight" },
+  { name: "Lavender", value: "#a29bfe", id: "lavender" },
+  { name: "Crimson", value: "#dc143c", id: "crimson" },
+  { name: "Amber", value: "#ffbf00", id: "amber" },
+  { name: "Forest", value: "#1b4332", id: "forest" },
+  { name: "Plum", value: "#4a0e4e", id: "plum" },
+  { name: "Burgundy", value: "#641220", id: "burgundy" },
+  { name: "Coal", value: "#2f3640", id: "coal" }
 ];
 
 
@@ -28,10 +38,10 @@ const SpeedDialComponent: React.FC = () => {
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("themeMode") === "dark"
   );
-  const [themeColor, setThemeColor] = useState<string>(
-    localStorage.getItem("themeColor") || "#ff9505" // Default to Orange
+  const [themeId, setThemeId] = useState<string>(
+    localStorage.getItem("themeColor") || "blue"
   );
-  const [showPopover, setShowPopover] = useState(false);
+  const [showColorModal, setShowColorModal] = useState(false);
 
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
@@ -39,14 +49,20 @@ const SpeedDialComponent: React.FC = () => {
   }, [darkMode]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--ion-color-primary", themeColor);
-    document.documentElement.style.setProperty("--ion-color-primary-shade", themeColor);
-    localStorage.setItem("themeColor", themeColor);
-  }, [themeColor]);
+    // Apply the theme ID to the data-theme attribute
+    document.documentElement.setAttribute("data-theme", themeId);
+    
+    // Also set primary color as fallback for vintage components
+    const selectedColor = themeColors.find(t => t.id === themeId)?.value || "#0077b6";
+    document.documentElement.style.setProperty("--ion-color-primary", selectedColor);
+    document.documentElement.style.setProperty("--ion-color-primary-shade", selectedColor);
+    
+    localStorage.setItem("themeColor", themeId);
+  }, [themeId]);
 
-  const handleThemeChange = (color: string) => {
-    setThemeColor(color);
-    setShowPopover(false);
+  const handleThemeChange = (id: string) => {
+    setThemeId(id);
+    setShowColorModal(false);
   };
 
   return (
@@ -70,31 +86,48 @@ const SpeedDialComponent: React.FC = () => {
         <SpeedDialAction
           icon={<PaletteIcon />}
           tooltipTitle="Change Theme Color"
-          onClick={() => setShowPopover(true)}
+          onClick={() => setShowColorModal(true)}
+        />
+        <SpeedDialAction
+          icon={<LogOut />}
+          tooltipTitle="Logout"
+          onClick={() => {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "/";
+          }}
         />
       </SpeedDial>
 
-      {/* Theme Color Selection Popover */}
-      <IonPopover isOpen={showPopover} onDidDismiss={() => setShowPopover(false)}>
-        <div className="theme-color-container">
-          <h3>Select Theme Color</h3>
-          {themeColors.map(({ name, value }) => (
-            <IonButton
-              key={value}
-              className="theme-button"
-              onClick={() => handleThemeChange(value)}
-              style={{
-                "--background": value,
-                "--background-activated": value,
-                "--background-hover": value,
-                "--color": "white",
-              } as React.CSSProperties}
-            >
-              {name}
-            </IonButton>
-          ))}
+      {/* Theme Color Selection Bottom Sheet */}
+      {showColorModal && (
+        <div className="ep-overlay" onClick={() => setShowColorModal(false)}>
+          <div className="ep-modal" onClick={e => e.stopPropagation()}>
+            <div className="ep-modal-handle"></div>
+            <div className="ep-modal-header">
+              <h3>Accent Color</h3>
+              <button className="ep-close-btn" onClick={() => setShowColorModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="ep-color-grid">
+              {themeColors.map(({ name, value, id }) => (
+                <div key={id} className="ep-color-item">
+                  <button
+                    className={`ep-color-btn ${themeId === id ? 'active' : ''}`}
+                    style={{ backgroundColor: value }}
+                    onClick={() => handleThemeChange(id)}
+                  >
+                    {themeId === id && <CheckCircle2 size={24} />}
+                  </button>
+                  <span className="ep-color-name">{name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </IonPopover>
+      )}
     </>
   );
 };

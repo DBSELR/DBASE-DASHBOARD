@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Path to store images in the app's external storage directory -->
-    <external-files-path name="camera_photos" path="Pictures/" />
-
-    <!-- Path to store images in the cache -->
-    <cache-path name="camera_cache" path="." />
+    <external-path name="my_images" path="." />
+    <cache-path name="my_cache_images" path="." />
 </paths>

@@ -4,26 +4,29 @@ import {
   IonButton,
   IonContent,
   IonDatetime,
-  IonHeader,
   IonInput,
-  IonItem,
-  IonLabel,
   IonModal,
   IonPage,
-  IonRow,
   IonSelect,
   IonSelectOption,
   IonToast,
-  IonToolbar,
+  IonIcon,
 } from "@ionic/react";
 import axios from "axios";
+import {
+  calendarOutline,
+  chatbubbleEllipsesOutline,
+  closeCircle,
+  timeOutline,
+  documentTextOutline,
+  optionsOutline,
+  chevronForwardOutline,
+} from "ionicons/icons";
 import moment from "moment";
+import "./LeaveRequest.css";
 
 /* ---------------- mini helpers (no new files) ---------------- */
-const API_BASE =
-  (window as any).__API_BASE__ ||
-  import.meta.env.VITE_API_BASE ||
-  "/api"; // works with Vite dev proxy or your IIS rewrite
+import { API_BASE } from "../config";
 
 const getUser = () => {
   try {
@@ -41,6 +44,35 @@ const getAuthHeaders = () => {
 const fmtDMY = (iso: string | null) => (iso ? moment(iso).format("DD-MM-YYYY") : "");
 const fmtYMD = (iso: string | null) => (iso ? moment(iso).format("YYYY-MM-DD") : "");
 
+const safeStr = (v: any) => {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object") return "";
+  return String(v);
+};
+
+const generateMonthList = () => {
+  const months: string[] = [];
+  const startYear = 2014;
+  const current = moment().add(1, 'month');
+  const currentYear = current.year();
+
+  for (let y = currentYear; y >= startYear; y--) {
+    const endMonth = y === currentYear ? current.month() : 11;
+    for (let m = endMonth; m >= 0; m--) {
+      months.push(moment().year(y).month(m).format("MMM-YYYY"));
+    }
+  }
+  return months;
+};
+
+const LEAVE_MEMES = [
+  { img: "/images/leave_success.png", msg: "Apply chesav… kani neku leave avasaram aa nijanga? 😏" },
+  { img: "/images/manager_smirk.png", msg: "Baane apply chesav… kani work evaru chestharu chuddam le 😏" },
+  { img: "/images/work_pile.png", msg: "Perfect ga apply chesav… kani work matram alage undi 😅" },
+  { img: "/images/vacation_plan.png", msg: "Baane plan chesav… kani work ki plan enti cheppu 😂" },
+  { img: "/images/handover.png", msg: "Apply chesav… kani work ni handover chesava leda adhi twist 😏" },
+];
+
 /* ---------------- component ---------------- */
 const LeaveRequest: React.FC = () => {
   // form
@@ -50,7 +82,7 @@ const LeaveRequest: React.FC = () => {
   const [remarks, setRemarks] = useState<string>("");
   const [permTime, setPermTime] = useState<string>("");
 
-  const [singleDateMode, setSingleDateMode] = useState<boolean>(false); // Permission/FN/AN
+  const [singleDateMode, setSingleDateMode] = useState<boolean>(false);
   const [permBalMin, setPermBalMin] = useState<number | null>(null);
   const [displayMin, setDisplayMin] = useState<string | null>(null);
 
@@ -59,21 +91,29 @@ const LeaveRequest: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [rows, setRows] = useState<any[]>([]);
 
-  // ui
+  // ui states
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState<"success" | "danger">("success");
-  const [startOpen, setStartOpen] = useState(false);
-  const [endOpen, setEndOpen] = useState(false);
+  const [startModalOpen, setStartModalOpen] = useState(false);
+  const [endModalOpen, setEndModalOpen] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
+  const [currentMeme, setCurrentMeme] = useState(LEAVE_MEMES[0]);
 
   const currentMY = useMemo(() => moment().format("MMM-YYYY"), []);
 
   useEffect(() => {
-    console.log("[leave][init] stored user:", getUser());
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Randomize meme whenever modal is opened
+  useEffect(() => {
+    if (successOpen) {
+      const randomIdx = Math.floor(Math.random() * LEAVE_MEMES.length);
+      setCurrentMeme(LEAVE_MEMES[randomIdx]);
+    }
+  }, [successOpen]);
 
   const init = async () => {
     const user = getUser();
@@ -81,35 +121,26 @@ const LeaveRequest: React.FC = () => {
     if (!empCode) return showToast("User not found in storage. Please login.", "danger");
 
     try {
-      // Months
-      console.log("[leave][months] GET", `${API_BASE}/Leave/Load_Leave_MY?Empcode=${empCode}`);
-      const r1 = await axios.get(`${API_BASE}/Leave/Load_Leave_MY?Empcode=${empCode}`, {
-        headers: getAuthHeaders(),
-      });
-      const list: string[] = (r1.data || []).map((x: any) =>
-        typeof x === "object" && x?.MY ? x.MY : x?.[0]
-      );
+      const list = generateMonthList();
       const defMY = list.includes(currentMY) ? currentMY : (list[0] || currentMY);
       setMonths(list);
       setSelectedMonth(defMY);
-
       await loadCards(empCode, defMY);
     } catch (e) {
-      console.error(e);
+      console.error("[API][GET] init failed", e);
       showToast("Failed to load initial data.", "danger");
     }
   };
 
   const loadCards = async (empCode: string, month: string) => {
     try {
-      const url = `${API_BASE}/Leave/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${encodeURIComponent(
-        month
-      )}&LType=A`;
-      console.log("[leave][cards] GET", url);
+      const lType = "A";
+      const url = `${API_BASE}Leave/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${month}&LType=${lType}`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
-      setRows(Array.isArray(r.data) ? r.data : []);
+      console.log(`[API][GET] Leave History loaded for ${month}: ${r.data?.length || 0} items`, r.data);
+      setRows(r.data || []);
     } catch (e) {
-      console.error(e);
+      console.error("[API][GET] loadCards failed", e);
       setRows([]);
       showToast("Failed to load leave data.", "danger");
     }
@@ -121,123 +152,93 @@ const LeaveRequest: React.FC = () => {
     setToastOpen(true);
   };
 
-  const normalizeLeaveEntry = (entry: any) => {
-    const obj = Array.isArray(entry)
-      ? {
-          lfrom: entry[2] ?? entry[0] ?? "",
-          lto: entry[3] ?? entry[1] ?? "",
-          ltype: entry[5] ?? entry[4] ?? "",
-          L_status: (entry[6] ?? entry[7] ?? "").toString().trim(),
-          Remarks: entry[10] ?? entry[8] ?? entry[9] ?? "",
-          Ptime: entry[11] ?? entry[12] ?? "",
-        }
-      : {
-          lfrom: entry.lfrom ?? "",
-          lto: entry.lto ?? "",
-          ltype: entry.ltype ?? "",
-          L_status: (entry.L_status ?? "").toString().trim(),
-          Remarks: entry.Remarks ?? "",
-          Ptime: entry.Ptime ?? "",
-        };
+  const normalizeLeaveEntry = (x: any) => {
+    if (!x) return null;
+    const from = safeStr(x.lfrom || (Array.isArray(x) ? x[2] : ""));
+    const to = safeStr(x.lto || (Array.isArray(x) ? x[3] : ""));
+    const typeDisp = x.ltype || (Array.isArray(x) ? x[9] : "");
+    const status = safeStr(x.L_status || (Array.isArray(x) ? x[6] : ""));
+    const ptime = safeStr(x.Ptime || (Array.isArray(x) ? x[11] : ""));
+    const remarks = safeStr(x.Remarks || (Array.isArray(x) ? (x[10] || x[5]) : ""));
 
-    const status = (obj.L_status || "").toLowerCase();
+    const isSameDay = !to || from === to;
+
     const colors =
-      status === "accepted"
-        ? { stripe: "#28a745", bg: "rgba(155, 238, 155, 0.06)" }
-        : status === "rejected"
-        ? { stripe: "#dc3545", bg: "rgba(244, 146, 146, 0.07)" }
-        : { stripe: "#ffc107", bg: "#FFFACD" };
+      status.toLowerCase() === "accepted"
+        ? { dot: "#28a745", bg: "#eef9f1", text: "#1e7e34" }
+        : status.toLowerCase() === "rejected"
+          ? { dot: "#dc3545", bg: "#fef1f2", text: "#bd2130" }
+          : { dot: "#ffc107", bg: "#fff9eb", text: "#856404" };
 
-    return { ...obj, __colors: colors };
+    return {
+      id: x.lid || (Array.isArray(x) ? x[0] : ""),
+      from,
+      to,
+      isSameDay,
+      typeDisp,
+      status,
+      ptime,
+      remarks,
+      __colors: colors,
+    };
   };
 
   const onChangeLeaveType = (val: string) => {
-    console.log("[leave][type]", val);
     setReason(val);
     setStartDate(null);
     setEndDate(null);
     setPermTime("");
     setPermBalMin(null);
     setDisplayMin(null);
-
     const single = val === "Permission" || val === "Forenoon Leave" || val === "Afternoon Leave";
     setSingleDateMode(single);
+    if (val === "Permission" && startDate) fetchPermissionBalance(startDate);
   };
 
-  const fetchPermissionBalance = async (pickedISO: string | null) => {
+  const fetchPermissionBalance = async (pickedISO: string | null, retryFormat?: string) => {
     if (reason !== "Permission" || !pickedISO) return;
-    const user = getUser();
-    const empCode = user?.empCode;
+    const empCode = getUser()?.empCode;
     if (!empCode) return;
 
-    const ymd = fmtYMD(pickedISO);
+    const dateStr = retryFormat === "YMD" ? fmtYMD(pickedISO) : fmtDMY(pickedISO);
     try {
-      const url = `${API_BASE}/Leave/Load_Perm_BalMin?Empcode=${empCode}&Pdate=${ymd}`;
-      console.log("[leave][perm-bal] GET", url);
+      const url = `${API_BASE}Leave/Load_Perm_BalMin?Empcode=${empCode}&Pdate=${dateStr}`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
-      const value = r.data?.[0]?.BalMin ?? null;
+      const raw = r.data;
+      // Correct extraction for [[value]] structure
+      const value = (Array.isArray(raw) && Array.isArray(raw[0])) ? raw[0][0] : null;
+      console.log(`[API][GET] Permission Balance (${dateStr}): ${value} minutes`, raw);
       setPermBalMin(value);
       setDisplayMin("Min");
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      const errMsg = e.response?.data || e.message;
+      console.error(`[API][GET] fetchPermissionBalance failed for ${dateStr}`, errMsg);
+
+      // Fallback: If DD-MM-YYYY (default) fails with 500, try YYYY-MM-DD
+      if (!retryFormat && e.response?.status === 500) {
+        console.warn("[API][GET] Retrying Permission Balance with YYYY-MM-DD format...");
+        return fetchPermissionBalance(pickedISO, "YMD");
+      }
+
       setPermBalMin(null);
       setDisplayMin(null);
     }
   };
 
-const checkPendingPermission = async (pickedISO: string | null) => {
-  if (!pickedISO) return [];
-  const empCode = getUser()?.empCode;
-  if (!empCode) return [];
-
-  // Use YYYY-MM-DD (same as Load_Perm_BalMin)
-  const ymd = fmtYMD(pickedISO);
-
-  try {
-    const url = `${API_BASE}/Leave/Load_Pending_Permission?Empcode=${empCode}&PDate=${ymd}`;
-    console.log("[leave][pending] GET", url);
-    const r = await axios.get(url, { headers: getAuthHeaders() });
-    return Array.isArray(r.data) ? r.data : [];
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
-};
-
-
-  const sendSMS = async (pickedStartISO: string, pickedEndISO: string | null) => {
-    const user = getUser();
-    const empCode = user?.empCode;
-    const empName = user?.empName || "Employee";
-    if (!empCode) return;
-
-    let message = "";
-    if (reason === "Permission" || reason === "Forenoon Leave" || reason === "Afternoon Leave") {
-      message = `${reason} Request // Employee Name : ${empName} // Leave Description : ${remarks} // Date : ${fmtDMY(
-        pickedStartISO
-      )} // ${reason}`;
-    } else {
-      const days = moment(pickedEndISO).diff(moment(pickedStartISO), "days") + 1;
-      message = `Leave Request // Employee Name : ${empName} // Leave Description : ${remarks} // From Date : ${fmtDMY(
-        pickedStartISO
-      )} // To Date : ${fmtDMY(pickedEndISO!)} // Days : ${days} days`;
-    }
-
+  const checkPendingPermission = async (pickedISO: string | null) => {
+    if (!pickedISO) return [];
+    const empCode = getUser()?.empCode;
+    if (!empCode) return [];
+    const dmy = fmtDMY(pickedISO);
     try {
-      const mobileRes = await axios.get(
-        `${API_BASE}/Leave/get_mobileno?Empcode=${empCode}`,
-        { headers: getAuthHeaders() }
-      );
-      const mobile = mobileRes.data?.[0]?.Mobile;
-      if (mobile) {
-        const url = `${API_BASE}/Sources/sendMessage?phoneNo=${encodeURIComponent(
-          mobile
-        )}&&message=${encodeURIComponent(message)}`;
-        console.log("[leave][sms] GET", url);
-        await axios.get(url, { headers: getAuthHeaders() });
-      }
-    } catch (e) {
-      console.warn("SMS sending failed", e);
+      const url = `${API_BASE}Leave/Load_Pending_Permission?Empcode=${empCode}&PDate=${dmy}`;
+      const r = await axios.get(url, { headers: getAuthHeaders() });
+      console.log("[API][GET] Pending Permission Check:", r.data);
+      return Array.isArray(r.data) ? r.data : [];
+    } catch (e: any) {
+      const errMsg = e.response?.data || e.message;
+      console.error("[API][GET] checkPendingPermission failed", errMsg);
+      return [];
     }
   };
 
@@ -254,264 +255,327 @@ const checkPendingPermission = async (pickedISO: string | null) => {
   const onSubmit = async () => {
     const user = getUser();
     const empCode = user?.empCode;
-    if (!empCode) return showToast("User not found in storage. Please login.", "danger");
+    if (!empCode) return showToast("User not found.", "danger");
 
-    if (reason === "Select") return showToast("Please select Leave Type.", "danger");
-    if (!startDate) return showToast("Please choose a Start Date.", "danger");
-    if (!remarks?.trim()) return showToast("Please enter Remarks.", "danger");
+    if (reason === "Select") return showToast("Choose Leave Type.", "danger");
+    if (!startDate) return showToast("Choose a date.", "danger");
+    if (!remarks?.trim()) return showToast("Enter Remarks.", "danger");
 
     if (reason === "Permission") {
       const pending = await checkPendingPermission(startDate);
-      if (pending.length > 0) return showToast("Permission Request already pending.", "danger");
-
+      if (pending.length > 0) return showToast("Request already pending.", "danger");
       const mins = Number(permTime);
-      if (!mins || mins < 5 || mins > 90) {
-        return showToast("Invalid Minutes. Should be between 5 and 90.", "danger");
-      }
-      if (permBalMin !== null && mins > permBalMin) {
-        return showToast("Minutes exceed available balance.", "danger");
-      }
+      if (!mins || mins < 5 || mins > 90) return showToast("Mins must be 5-90.", "danger");
+      if (permBalMin !== null && mins > permBalMin) return showToast("Exceeds balance.", "danger");
     } else if (!singleDateMode) {
-      if (!endDate) return showToast("Please choose an End Date.", "danger");
-      if (moment(startDate).isAfter(moment(endDate))) {
-        return showToast("From Date cannot be after To Date.", "danger");
-      }
+      if (!endDate) return showToast("Choose an end date.", "danger");
+      if (moment(startDate).isAfter(moment(endDate))) return showToast("End date invalid.", "danger");
     }
 
-    const _from = fmtDMY(startDate);
-    const _to =
-      reason === "Permission" || reason === "Forenoon Leave" || reason === "Afternoon Leave"
-        ? fmtDMY(startDate)
-        : fmtDMY(endDate);
-
     const payload = {
-      _fromdate: _from,
-      _todate: _to,
+      _fromdate: fmtDMY(startDate),
+      _todate: singleDateMode ? fmtDMY(startDate) : fmtDMY(endDate),
       _remarks: remarks,
       _PermTime: reason === "Permission" ? permTime : "",
       _requesttype: reason,
-      _empcode: empCode, // keep lower 'c' to match Angular
+      _empcode: empCode,
     };
 
-    console.log("[leave][submit] payload:", payload);
-
     try {
-      await axios.post(`${API_BASE}/Leave/saveleaverequest`, payload, {
+      console.log("[API][POST] Submitting Leave Request Payload:", payload);
+      const res = await axios.post(`${API_BASE}Leave/saveleaverequest`, payload, {
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
-
-      await sendSMS(startDate, singleDateMode ? startDate : endDate);
-      showToast("Request submitted successfully.", "success");
+      console.log("[API][POST] saveleaverequest Response:", res.data);
+      showToast("Submitted successfully.", "success");
       setSuccessOpen(true);
       clearForm();
       await loadCards(empCode, selectedMonth || currentMY);
     } catch (e) {
-      console.error(e);
-      showToast("Failed to submit request.", "danger");
+      console.error("[API][POST] saveleaverequest failed", e);
+      showToast("Submission failed.", "danger");
     }
   };
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar className="menu-toolbar">
-          <img src="./images/dbase.png" alt="DBase" className="menu-logo" />
-        </IonToolbar>
-      </IonHeader>
+      <IonContent className="lr-page-container">
+        {/* Trendy Minimalist Header */}
+        <header className="lr-trendy-header premium-trendy-bg">
+          <h1 className="lr-main-title">New Request</h1>
+          <p className="lr-main-subtitle">Apply for leave or permissions quickly.</p>
+        </header>
 
-      <IonContent className="ion-padding">
-        <h2 className="pg-title">Apply Leave / Permissions</h2>
-        <p className="pg-sub">Select type, duration and add remarks.</p>
+        {/* Bento Grid Form */}
+        <div className="lr-bento-grid">
+          {/* Leave Type */}
+          <div className="lr-field-box">
+            <label className="lr-field-label">Leave Type</label>
+            <div className="lr-field-content">
+              <IonIcon icon={optionsOutline} className="lr-field-icon" />
+              <IonSelect
+                value={reason}
+                onIonChange={(e) => onChangeLeaveType(e.detail.value)}
+                interface="popover"
+                className="lr-popover-select"
+                color="dark"
 
-        {/* Leave Type */}
-        <IonItem className="field">
-          <IonLabel>Leave Type</IonLabel>
-          <IonSelect
-            value={reason}
-            onIonChange={(e) => onChangeLeaveType(e.detail.value)}
-            interface="popover"
-            placeholder="Select"
-          >
-            <IonSelectOption value="Leave">Leave</IonSelectOption>
-            <IonSelectOption value="Permission">Permission</IonSelectOption>
-            <IonSelectOption value="Forenoon Leave">Forenoon Leave</IonSelectOption>
-            <IonSelectOption value="Afternoon Leave">Afternoon Leave</IonSelectOption>
-          </IonSelect>
-        </IonItem>
+                placeholder="Select"
+              >
+                <IonSelectOption value="Leave">Leave</IonSelectOption>
+                <IonSelectOption value="Permission">Permission</IonSelectOption>
+                <IonSelectOption value="Forenoon Leave">Forenoon Leave</IonSelectOption>
+                <IonSelectOption value="Afternoon Leave">Afternoon Leave</IonSelectOption>
+              </IonSelect>
+            </div>
+          </div>
 
-        {/* Start Date */}
-        <IonItem button className="field" onClick={() => setStartOpen(true)}>
-          <IonLabel position="stacked">Date {singleDateMode ? "" : "(From)"}</IonLabel>
-          <IonInput
-            readonly
-            value={startDate ? fmtDMY(startDate) : "Select Date"}
-            className="readonly-input"
-          />
-        </IonItem>
+          {/* Start Date */}
+          <div className="lr-field-box" onClick={() => setStartModalOpen(true)}>
+            <label className="lr-field-label">{singleDateMode ? "Select Date" : "Start Date"}</label>
+            <div className="lr-field-content">
+              <IonIcon icon={calendarOutline} className="lr-field-icon" />
+              <div className="lr-clean-input" style={{ color: startDate ? '#1d1d1f' : '#c1c1c6' }}>
+                {startDate ? fmtDMY(startDate) : "Pick Date"}
+              </div>
+            </div>
+          </div>
 
-        {/* End Date (only for full Leave) */}
-        {!singleDateMode && (
-          <IonItem button className="field" onClick={() => setEndOpen(true)}>
-            <IonLabel position="stacked">To</IonLabel>
-            <IonInput
-              readonly
-              value={endDate ? fmtDMY(endDate) : "Select End Date"}
-              className="readonly-input"
-            />
-          </IonItem>
-        )}
-
-        {/* Remarks */}
-        <IonItem className="field">
-          <IonLabel position="stacked">Remarks*</IonLabel>
-          <IonInput
-            value={remarks}
-            onIonChange={(e) => setRemarks(e.detail.value || "")}
-            placeholder="Enter your remarks"
-          />
-        </IonItem>
-
-        {/* Permission Minutes */}
-        {reason === "Permission" && (
-          <IonItem className="field">
-            <IonLabel position="stacked">Minutes* (max 90)</IonLabel>
-            <IonInput
-              type="number"
-              min="5"
-              max="90"
-              inputMode="numeric"
-              value={permTime}
-              onIonChange={(e) => setPermTime(e.detail.value || "")}
-              placeholder="Enter minutes"
-            />
-            {permBalMin !== null && (
-              <span className="perm-hint">
-                {permBalMin} - {displayMin}
-              </span>
-            )}
-          </IonItem>
-        )}
-
-        <IonRow className="button-row">
-          <IonButton expand="block" color="primary" onClick={onSubmit}>
-            Submit Request
-          </IonButton>
-        </IonRow>
-
-        <hr className="divider" />
-
-        {/* Month Filter */}
-        <h2 className="pg-title">Leave / Permissions</h2>
-        <IonItem className="field">
-          <IonLabel>Month</IonLabel>
-          <IonSelect
-            interface="popover"
-            value={selectedMonth}
-            onIonChange={async (e) => {
-              const month = e.detail.value as string;
-              setSelectedMonth(month);
-              const empCode = getUser()?.empCode;
-              if (empCode) await loadCards(empCode, month);
-            }}
-          >
-            {months.map((m, i) => (
-              <IonSelectOption key={i} value={m}>
-                {m}
-              </IonSelectOption>
-            ))}
-          </IonSelect>
-        </IonItem>
-
-        {/* Cards */}
-        <div className="reports">
-          {rows.length ? (
-            rows.map((r, i) => {
-              const x = normalizeLeaveEntry(r);
-              return (
-                <div
-                  key={i}
-                  className="report-card"
-                  style={{
-                    borderLeft: `6px solid ${x.__colors.stripe}`,
-                    backgroundColor: x.__colors.bg,
-                  }}
-                >
-                  <div className="card-header">
-                    <span className="date-span">
-                      {x.lfrom || "-"}{x.lto ? `  -  ${x.lto}` : ""}
-                    </span>
-                    <span className={`status-badge ${(x.L_status || "").toLowerCase()}`}>
-                      {x.L_status || "—"}
-                    </span>
-                  </div>
-
-                  <div className="card-content">
-                    <strong className="title">{x.ltype || "—"}</strong>
-                    <p className="desc">{x.Remarks || "No Description"}</p>
-                    {x.Ptime ? <p className="muted">Minutes: {x.Ptime}</p> : null}
-                  </div>
+          {/* End Date */}
+          {!singleDateMode && (
+            <div className="lr-field-box" onClick={() => setEndModalOpen(true)}>
+              <label className="lr-field-label">End Date</label>
+              <div className="lr-field-content">
+                <IonIcon icon={calendarOutline} className="lr-field-icon" />
+                <div className="lr-clean-input" style={{ color: endDate ? '#1d1d1f' : '#c1c1c6' }}>
+                  {endDate ? fmtDMY(endDate) : "Pick Date"}
                 </div>
-              );
-            })
-          ) : (
-            <p className="empty">No data found.</p>
+              </div>
+            </div>
           )}
+
+          {/* Perm Minutes */}
+          {reason === "Permission" && (
+            <div className="lr-field-box">
+              <label className="lr-field-label">Minutes</label>
+              <div className="lr-field-content">
+                <IonIcon icon={timeOutline} className="lr-field-icon" />
+                <IonInput
+                  type="number"
+                  value={permTime}
+                  onIonChange={(e) => setPermTime(e.detail.value || "")}
+                  placeholder="5-90"
+                  className="lr-clean-input"
+                />
+                {permBalMin !== null && (
+                  <span style={{ fontSize: '10px', color: '#f15a24', fontWeight: 800 }}>
+                    {permBalMin} {displayMin}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Remarks */}
+          <div className="lr-field-box">
+            <label className="lr-field-label">Remarks</label>
+            <div className="lr-field-content" style={{ alignItems: 'flex-start' }}>
+              <IonIcon icon={documentTextOutline} className="lr-field-icon" style={{ marginTop: '2px' }} />
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Tell us why..."
+                className="lr-clean-input"
+                rows={2}
+                style={{ resize: 'none' }}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Toast */}
+        <button className="lr-gradient-btn premium-trendy-bg" onClick={onSubmit}>Submit Request</button>
+
+        {/* History Section */}
+        <div className="lr-history-section">
+          <div className="lr-section-header">
+            <h2 className="lr-section-title">History</h2>
+            <div className="lr-month-pill">
+              <IonSelect
+                interface="popover"
+                value={selectedMonth}
+
+                onIonChange={async (e) => {
+                  const m = e.detail.value;
+                  setSelectedMonth(m);
+                  const empCode = getUser()?.empCode;
+                  if (empCode) await loadCards(empCode, m);
+                }}
+                className="lr-popover-select"
+
+                style={{ fontSize: '12px', color: '#000' }}
+              >
+                {months.map((m, i) => <IonSelectOption color="#000" key={i} value={m}>{m}</IonSelectOption>)}
+              </IonSelect>
+            </div>
+          </div>
+
+          <div className="lr-list">
+            {rows.length ? (
+              rows.map((r, i) => {
+                const x = normalizeLeaveEntry(r);
+                if (!x) return null;
+                return (
+                  <div key={i} className="lr-history-card themed-bg">
+                    <div className="lr-card-main">
+                      <span className="lr-card-date-txt">{x.isSameDay ? x.from : `${x.from} - ${x.to}`}</span>
+                      <span className="lr-card-type-txt">{x.typeDisp} {x.ptime ? `${x.ptime}` : ""}</span>
+                    </div>
+                    <div className="lr-status-indicator" style={{ backgroundColor: x.__colors.bg, color: x.__colors.text }}>
+                      {x.status}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <IonIcon icon={closeCircle} style={{ fontSize: '32px', color: '#eee' }} />
+                <p style={{ fontSize: '13px', color: '#aaa' }}>No history found.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Date Modals (User requested centered pattern) */}
+        <IonModal isOpen={startModalOpen} onDidDismiss={() => setStartModalOpen(false)} className="pwt-date-modal">
+          <div className="pwt-modal-content">
+            <h3 className="pwt-modal-title">Select Date</h3>
+            <IonDatetime
+              presentation="date"
+              onIonChange={(e) => {
+                const v = e.detail.value;
+                if (typeof v === "string") {
+                  const cleanV = v.split('T')[0];
+                  setStartDate(cleanV);
+                  fetchPermissionBalance(cleanV);
+                  if (singleDateMode) setEndDate(cleanV);
+                }
+                setStartModalOpen(false);
+              }}
+            />
+            <IonButton expand="block" mode="ios" onClick={() => setStartModalOpen(false)}>Close</IonButton>
+          </div>
+        </IonModal>
+
+        <IonModal isOpen={endModalOpen} onDidDismiss={() => setEndModalOpen(false)} className="pwt-date-modal">
+          <div className="pwt-modal-content">
+            <h3 className="pwt-modal-title">Select End Date</h3>
+            <IonDatetime
+              presentation="date"
+              onIonChange={(e) => {
+                const v = e.detail.value;
+                if (typeof v === "string") setEndDate(v.split('T')[0]);
+                setEndModalOpen(false);
+              }}
+            />
+            <IonButton expand="block" mode="ios" onClick={() => setEndModalOpen(false)}>Close</IonButton>
+          </div>
+        </IonModal>
+
+        {/* Success Modal - Redesigned for "Crazy Creative" Meme Vibe */}
+        <IonModal
+          isOpen={successOpen}
+          onDidDismiss={() => setSuccessOpen(false)}
+          className="lr-success-modal"
+          style={{ '--height': 'auto', '--width': '90%', '--max-width': '400px', '--border-radius': '24px' }}
+        >
+          <div className="lr-success-modal-content" style={{
+            padding: '30px 20px',
+            textAlign: 'center',
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '24px',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ position: 'relative', marginBottom: '20px' }}>
+              <img
+                key={currentMeme.img}
+                src={currentMeme.img}
+                alt="Success"
+                style={{
+                  width: '100%',
+                  maxWidth: '220px',
+                  borderRadius: '20px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  transform: 'rotate(-2deg)'
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                top: '-10px',
+                right: '10px',
+                background: '#f15a24',
+                color: 'white',
+                padding: '5px 12px',
+                borderRadius: '50px',
+                fontSize: '12px',
+                fontWeight: '900',
+                transform: 'rotate(10deg)',
+                boxShadow: '0 5px 10px rgba(241, 90, 36, 0.4)'
+              }}>
+                APPROVED? 🤞
+              </div>
+            </div>
+
+            <h2 style={{
+              margin: '0 0 10px 0',
+              fontSize: '28px',
+              fontWeight: '900',
+              color: '#1d1d1f',
+              letterSpacing: '-1px',
+              textTransform: 'uppercase'
+            }}>
+              FREEDOM!
+            </h2>
+
+            <p style={{
+              margin: '0 0 25px 0',
+              fontSize: '15px',
+              lineHeight: '1.5',
+              color: '#424245',
+              fontWeight: '500'
+            }}>
+              {currentMeme.msg}
+            </p>
+
+            <button
+              onClick={() => setSuccessOpen(false)}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: 'linear-gradient(135deg, #f15a24 0%, #ff8a00 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '16px',
+                fontSize: '16px',
+                fontWeight: '800',
+                boxShadow: '0 10px 20px rgba(241, 90, 36, 0.3)',
+                transition: 'transform 0.2s active'
+              }}
+            >
+              YAY! TAKE ME BACK
+            </button>
+          </div>
+        </IonModal>
+
         <IonToast
           isOpen={toastOpen}
           onDidDismiss={() => setToastOpen(false)}
           message={toastMsg}
-          duration={2200}
+          duration={2000}
           color={toastColor}
+          position="top"
         />
-
-        {/* Date Modals */}
-        <IonModal isOpen={startOpen} onDidDismiss={() => setStartOpen(false)} className="date-modal">
-          <div className="modal-content">
-            <IonDatetime
-              presentation="date"
-              onIonChange={(e) => {
-                const v = e.detail.value as string | null;
-                if (typeof v === "string") {
-                  setStartDate(v);
-                  // auto fetch balance for permission day
-                  fetchPermissionBalance(v);
-                  if (singleDateMode) setEndDate(v);
-                }
-                setStartOpen(false);
-              }}
-            />
-            <IonButton expand="full" onClick={() => setStartOpen(false)}>Close</IonButton>
-          </div>
-        </IonModal>
-
-        <IonModal isOpen={endOpen} onDidDismiss={() => setEndOpen(false)} className="date-modal">
-          <div className="modal-content">
-            <IonDatetime
-              presentation="date"
-              onIonChange={(e) => {
-                const v = e.detail.value as string | null;
-                if (typeof v === "string") setEndDate(v);
-                setEndOpen(false);
-              }}
-            />
-            <IonButton expand="full" onClick={() => setEndOpen(false)}>Close</IonButton>
-          </div>
-        </IonModal>
-
-        {/* Success Modal */}
-        <IonModal
-          isOpen={successOpen}
-          onDidDismiss={() => setSuccessOpen(false)}
-          className="success-tick-modal"
-        >
-          <div className="success-wrap">
-            <img src="./images/check.gif" alt="Success" className="success-gif" />
-            <p className="success-text">Request Submitted Successfully!</p>
-          </div>
-        </IonModal>
       </IonContent>
     </IonPage>
   );

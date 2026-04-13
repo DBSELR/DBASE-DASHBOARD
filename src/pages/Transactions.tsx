@@ -23,13 +23,18 @@ import {
   IonTitle,
   IonToast,
   IonToolbar,
+  IonButtons,
+  IonBackButton,
+  IonMenuButton,
   IonCheckbox,
 } from "@ionic/react";
-import { arrowForward, close } from "ionicons/icons";
+import { arrowForward, close, calendar, person, documentText, eyeOutline, checkmarkCircle } from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import type { RefresherEventDetail } from "@ionic/core";
+import { API_BASE } from "../config";
+import "./Transactions.css";
 
 /* ---------- types (normalized) ---------- */
 type Employee = {
@@ -41,6 +46,16 @@ type Employee = {
 type TransactionType = { TID: string; TTYPE: string };
 type Year = { FYear: string };
 type Month = { FMonth: string };
+type UserProfile = {
+  EmpID: string;
+  EmpName: string;
+  Designation: string;
+  JoiningDate: string;
+  ContactNumber: string;
+  Email: string;
+  Department: string;
+  ProfileImage: string;
+};
 type Transaction = {
   Date: string;
   SALorAdv: string;
@@ -70,7 +85,7 @@ type AdvancePending = {
 };
 
 /* ---------- config ---------- */
-const baseUrl = "/api"; // dev proxy; set to full origin in production
+const baseUrl = API_BASE.replace(/\/$/, "");
 
 const getAuthHeaders = () => {
   const token = (localStorage.getItem("token") || "").replace(/"/g, "");
@@ -96,9 +111,9 @@ const normalizeEmployees = (rows: any[]): Employee[] => {
     }
     const o = r as any;
     return {
-      EmpCode: str(o.EmpCode),
-      EmpName: str(o.EmpName),
-      Designation: str(o.Designation),
+      EmpCode: str(o.EmpCode || o[0]),
+      EmpName: str(o.EmpName || o[1]),
+      Designation: str(o.Designation || o[2]),
     };
   });
   console.log("[normalize] employees active:", out);
@@ -123,7 +138,7 @@ const normalizeTxnTypes = (rows: any[]): TransactionType[] => {
 
 const normalizeYears = (rows: any[]): Year[] => {
   const out = rows.map((r) => ({
-    FYear: Array.isArray(r) ? str(r[1]) : str((r as any).FYear),
+    FYear: Array.isArray(r) ? str(r[1]) : str((r as any).FYear || (r as any)[1]),
   }));
   console.log("[normalize] years:", out);
   return out;
@@ -131,20 +146,36 @@ const normalizeYears = (rows: any[]): Year[] => {
 
 const normalizeMonths = (rows: any[]): Month[] => {
   const out = rows.map((r) => ({
-    FMonth: Array.isArray(r) ? str(r[1]) : str((r as any).FMonth),
+    FMonth: Array.isArray(r) ? str(r[1]) : str((r as any).FMonth || (r as any)[1]),
   }));
   console.log("[normalize] months:", out);
   return out;
 };
 
-const normalizeCurrentCash = (rows: any[]) => {
-  // Example: [[30000.0,0.0]] -> { hand: "30000", adv: "0" }
-  const a = Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : [];
-  const hand = a[0] != null ? String(a[0]) : "0";
-  const adv = a[1] != null ? String(a[1]) : "0";
+const normalizeCurrentCash = (data: any) => {
+  // Example: [[0.0, 304.0]] -> { hand: "304", adv: "0" }
+  const rows = Array.isArray(data) ? data : [];
+  const a = Array.isArray(rows[0]) ? rows[0] : [];
+  const adv = a[0] != null ? String(a[0]) : "0";
+  const hand = a[1] != null ? String(a[1]) : "0";
   const out = { hand, adv };
   console.log("[normalize] current cash:", out);
   return out;
+};
+
+const normalizeUserProfile = (data: any): UserProfile | null => {
+  if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+  const r = data[0];
+  return {
+    EmpID: str(r[1]),
+    EmpName: str(r[2]),
+    Designation: str(r[3]),
+    JoiningDate: str(r[4]),
+    ContactNumber: str(r[6]),
+    Email: str(r[8]),
+    Department: str(r[29]),
+    ProfileImage: str(r[42]),
+  };
 };
 
 const looksLikeYyyyMmDdHHmmss = (s: string) => /^\d{14}/.test(s || "");
@@ -166,26 +197,21 @@ const normalizeTransactions = (rows: any[]): Transaction[] => {
         bclass: o.bclass ? String(o.bclass) : undefined,
       };
     }
-    const raw = r as any[];
-    let date = "";
-    if (typeof raw[0] === "string" && raw[0].includes("-")) {
-      date = str(raw[0]);
-    } else if (looksLikeYyyyMmDdHHmmss(String(raw[1] || ""))) {
-      date = fmtFromYYYYMMDD(String(raw[1]).slice(0, 8));
-    } else {
-      date = str(raw[0]);
+    // Expected: [ID, Ref, From, To, Amount, Date, Status, Remarks, PaymentMode, Category]
+    const a = r as any[];
+    let date = str(a[5]);
+    if (date.includes("T")) {
+      date = moment(date).format("DD-MM-YYYY");
+    } else if (looksLikeYyyyMmDdHHmmss(str(a[1]))) {
+      date = fmtFromYYYYMMDD(str(a[1]).slice(0, 8));
     }
-    const amount = Number(raw[3] ?? raw[2] ?? 0);
-    const desc = str(raw[2] ?? raw[1] ?? "");
-    const salOrAdv = str(raw[4] ?? raw[1] ?? "");
-    const bclass = raw[5] != null ? String(raw[5]) : undefined;
 
     return {
       Date: date,
-      SALorAdv: salOrAdv,
-      CDescription: desc,
-      Amount: amount,
-      bclass,
+      SALorAdv: str(a[9] || a[8] || ""),
+      CDescription: str(a[7]),
+      Amount: Number(a[4] || 0),
+      bclass: a[6] ? String(a[6]) : undefined,
     };
   });
   console.log("[normalize] transactions:", out);
@@ -237,13 +263,13 @@ const normalizeAdvancePending = (rows: any[]): AdvancePending[] => {
     const a = r as any[];
     return {
       EmpName: str(a[0]),
-      CashInHand: Number(a[1] ?? 0),
-      Advance_Bal: Number(a[2] ?? 0),
-      Advance: Number(a[3] ?? 0),
-      Advance_Repaid: Number(a[4] ?? 0),
-      Credits: Number(a[5] ?? 0),
-      Debits: Number(a[6] ?? 0),
-      Vouchers: Number(a[7] ?? 0),
+      CashInHand: Number(a[7] ?? 0),
+      Advance_Bal: Number(a[3] ?? 0),
+      Advance: Number(a[1] ?? 0),
+      Advance_Repaid: Number(a[2] ?? 0),
+      Credits: Number(a[4] ?? 0),
+      Debits: Number(a[5] ?? 0),
+      Vouchers: Number(a[6] ?? 0),
     };
   });
   console.log("[normalize] advance pending:", out);
@@ -265,10 +291,13 @@ const Transactions: React.FC = () => {
     ? `${EmpCode}-${EmpName}`
     : `${EmpCode}-${EmpName}`;
 
-  const imgBase = useMemo(
-    () => baseUrl.replace(/\/api$/, "") + "/imgpath/",
-    []
-  );
+  const imgBase = useMemo(() => {
+    // If the filename from API already contains "img/", we might not need "imgpath/"
+    // Trying root base first, as filenames seem to have 'img/Voucher/...'
+    const base = baseUrl.replace(/\/api$/, "") + "/";
+    console.log("[Transactions] Calculated imgBase:", base, "from baseUrl:", baseUrl);
+    return base;
+  }, [baseUrl]);
 
   /* -------- UI state -------- */
   const [activeTab, setActiveTab] = useState<
@@ -282,6 +311,7 @@ const Transactions: React.FC = () => {
 
   const [handCash, setHandCash] = useState("0");
   const [advanceCash, setAdvanceCash] = useState("0");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeesTemp, setEmployeesTemp] = useState<Employee[] | null>(null);
@@ -310,7 +340,7 @@ const Transactions: React.FC = () => {
 
   // voucher form
   const [invoiceHeads, setInvoiceHeads] = useState<string>("");
-  const [invoiceDate, setInvoiceDate] = useState<string | undefined>();
+  const [invoiceDate, setInvoiceDate] = useState<string | undefined>(moment().toISOString());
   const [voucherAmount, setVoucherAmount] = useState<string>("");
   const [voucherDesc, setVoucherDesc] = useState<string>("");
   const [selectEmpHint, setSelectEmpHint] = useState<string>("");
@@ -321,7 +351,7 @@ const Transactions: React.FC = () => {
   const [voucherEmpView, setVoucherEmpView] = useState<string | null>(
     `${EmpCode}-${EmpName}`
   );
-  const [searchDate, setSearchDate] = useState<string | undefined>();
+  const [searchDate, setSearchDate] = useState<string | undefined>(moment().toISOString());
   const [isDateDisabled, setIsDateDisabled] = useState<boolean>(false);
   const [disableRequist, setDisableRequist] = useState<boolean>(false);
 
@@ -367,8 +397,9 @@ const Transactions: React.FC = () => {
         fetchVouchers(EmpCode),
         fetchTxnTypes(),
         fetchYears(),
-        fetchMonths("All"),
+        fetchMonths(moment().format("YYYY")),
         fetchTransactions(EmpCode),
+        fetchUserProfile(EmpCode),
       ]);
     } catch (e) {
       console.error("Error during init:", e);
@@ -379,118 +410,112 @@ const Transactions: React.FC = () => {
   };
 
   /* -------- API calls -------- */
+  const fetchUserProfile = async (code: string) => {
+    const url = `${baseUrl}/Profile/UserProfile?employeeCode=${code}`;
+    console.log(`[Transactions] fetchUserProfile: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchUserProfile response:", res.data);
+    const profile = normalizeUserProfile(res.data);
+    console.log("[Transactions] normalized profile:", profile);
+    setUserProfile(profile);
+  };
+
+
   const fetchEmployeesActive = async () => {
-    console.log(
-      "[employeesActive] GET /api/Employee/Load_Employees?SearchEmp=Active"
-    );
-    const res = await axios.get(
-      `${baseUrl}/Employee/Load_Employees?SearchEmp=Active`,
-      { headers: getAuthHeaders() }
-    );
+    const url = `${baseUrl}/Employee/Load_Employees?SearchEmp=Active`;
+    console.log(`[Transactions] fetchEmployeesActive: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchEmployeesActive response:", res.data);
     const list = normalizeEmployees(res.data || []);
     setEmployees(list);
-    setEmployeesTemp(list.filter((e) => e.EmpCode !== EmpCode));
+    const filtered = list.filter((e) => e.EmpCode !== EmpCode);
+    console.log("[Transactions] employees list filtered (excluding self):", filtered);
+    setEmployeesTemp(filtered);
   };
+
 
   const fetchEmployeesVoucher = async () => {
-    console.log(
-      "[employeesVoucher] GET /api/Employee/load_employees_voucher?SearchEmp=Active"
-    );
-    const res = await axios.get(
-      `${baseUrl}/Employee/load_employees_voucher?SearchEmp=Active`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
-    setEmployeesVoucher(normalizeEmployeesVoucher(res.data || []));
+    const url = `${baseUrl}/Employee/load_employees_voucher?SearchEmp=Active`;
+    console.log(`[Transactions] fetchEmployeesVoucher: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchEmployeesVoucher response:", res.data);
+    const normalized = normalizeEmployeesVoucher(res.data || []);
+    setEmployeesVoucher(normalized);
   };
 
+
   const fetchTxnTypes = async () => {
-    console.log("[txnType] GET /api/Transactions/Load_TransactionType");
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_TransactionType`,
-      { headers: getAuthHeaders() }
-    );
+    const url = `${baseUrl}/Transactions/Load_TransactionType`;
+    console.log(`[Transactions] fetchTxnTypes: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchTxnTypes response:", res.data);
     setTxnTypes(normalizeTxnTypes(res.data || []));
   };
 
+
   const fetchYears = async () => {
-    console.log(`[year] GET /api/Transactions/Load_Year?EmpCode=${EmpCode}`);
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_Year?EmpCode=${EmpCode}`,
-      { headers: getAuthHeaders() }
-    );
+    const url = `${baseUrl}/Transactions/Load_Year?EmpCode=${EmpCode}`;
+    console.log(`[Transactions] fetchYears: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchYears response:", res.data);
     setYears(normalizeYears(res.data || []));
   };
 
+
   const fetchMonths = async (fYear: string) => {
-    console.log(
-      `[month] GET /api/Transactions/Load_Month?EmpCode=${EmpCode}&FYear=${fYear}`
-    );
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_Month?EmpCode=${EmpCode}&FYear=${fYear}`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
+    const url = `${baseUrl}/Transactions/Load_Month?EmpCode=${EmpCode}&FYear=${fYear}`;
+    console.log(`[Transactions] fetchMonths: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchMonths response:", res.data);
     setMonths(normalizeMonths(res.data || []));
   };
 
+
   const fetchCurrentCash = async () => {
-    console.log(
-      `[currentCash] GET /api/Transactions/Load_Current_Cash?EmpCode=${EmpCode}`
-    );
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_Current_Cash?EmpCode=${EmpCode}`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
+    const url = `${baseUrl}/Transactions/Load_Current_Cash?EmpCode=${EmpCode}`;
+    console.log(`[Transactions] fetchCurrentCash: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchCurrentCash response:", res.data);
     const cash = normalizeCurrentCash(res.data || []);
     setHandCash(cash.hand);
     setAdvanceCash(cash.adv);
   };
 
+
   const fetchTransactions = async (emp: string) => {
-    const start = startDate ? moment(startDate).format("DD-MM-YYYY") : "All";
-    const end = endDate ? moment(endDate).format("DD-MM-YYYY") : "All";
-    console.log(
-      `[transactions] GET /api/Transactions/Load_Transactions?EmpCode=${emp}&TransCredDebt=${transCredDebt}&TransactionType=${selectedTxnType}&TStartDt=${start}&TEndDt=${end}`
-    );
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_Transactions?EmpCode=${emp}&TransCredDebt=${transCredDebt}&TransactionType=${selectedTxnType}&TStartDt=${start}&TEndDt=${end}`,
-      { headers: getAuthHeaders() }
-    );
-    setTransactions(normalizeTransactions(res.data || []));
+    const start = startDate ? moment(startDate).format("YYYY-MM-DD") : "All";
+    const end = endDate ? moment(endDate).format("YYYY-MM-DD") : "All";
+    const url = `${baseUrl}/Transactions/Load_Transactions?EmpCode=${emp}&TransCredDebt=${transCredDebt}&TransactionType=${selectedTxnType}&TStartDt=${start}&TEndDt=${end}`;
+    console.log(`[Transactions] fetchTransactions: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchTransactions raw response:", res.data);
+    const list = normalizeTransactions(res.data || []);
+    setTransactions(list);
   };
 
+
   const fetchVouchers = async (emp: string | "ALL") => {
-    const date = searchDate ? moment(searchDate).format("YYYY-MM-DD") : "All";
-    console.log(
-      `[vouchers] GET /api/Transactions/Load_Vouchers?EmpCode=${emp}&Date=${date}`
-    );
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_Vouchers?EmpCode=${emp}&Date=${date}`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
+    const date = searchDate ? moment(searchDate).format("DD-MM-YYYY") : "All";
+    const url = `${baseUrl}/Transactions/Load_Vouchers?EmpCode=${emp}&Date=${date}`;
+    console.log(`[Transactions] fetchVouchers: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchVouchers raw response:", res.data);
     setVouchers(normalizeVouchers(res.data || []));
   };
 
+
   const fetchAdvancePending = async () => {
-    console.log(
-      "[advancePending] GET /api/Transactions/Load_Advance_PendingAmt"
-    );
-    const res = await axios.get(
-      `${baseUrl}/Transactions/Load_Advance_PendingAmt`,
-      { headers: getAuthHeaders() }
-    );
+    const url = `${baseUrl}/Transactions/Load_Advance_PendingAmt`;
+    console.log(`[Transactions] fetchAdvancePending: GET ${url}`);
+    const res = await axios.get(url, { headers: getAuthHeaders() });
+    console.log("[Transactions] fetchAdvancePending response:", res.data);
     setAdvanceRows(normalizeAdvancePending(res.data || []));
   };
 
+
   /* -------- Pull to refresh -------- */
   const onRefresh = async (e: CustomEvent<RefresherEventDetail>) => {
+    console.log("[Transactions] user triggered pull-to-refresh");
     try {
       await loadAll();
     } finally {
@@ -498,8 +523,10 @@ const Transactions: React.FC = () => {
     }
   };
 
+
   /* -------- Transfer logic -------- */
   const onPaymentTypeChange = (val: string) => {
+    console.log("[Transactions] onPaymentTypeChange:", val);
     setPaymentType(val);
     setTransferTo("");
     setAdvRepayFrom("");
@@ -512,6 +539,7 @@ const Transactions: React.FC = () => {
         (emp) =>
           emp.Designation === "Director" || emp.Designation === "In-Charge F&A"
       );
+      console.log("[Transactions] filtered employees for Advance Repayment:", filtered);
       setEmployeesTemp(filtered);
     } else if (
       val === "Advance Repayment" &&
@@ -523,17 +551,22 @@ const Transactions: React.FC = () => {
       const filtered = employees.filter(
         (emp) => emp.Designation !== "Director" && emp.EmpCode !== EmpCode
       );
+      console.log("[Transactions] filtered employees for Advance:", filtered);
       setEmployeesTemp(filtered);
     } else {
       const filtered = employees.filter((emp) => emp.EmpCode !== EmpCode);
+      console.log("[Transactions] filtered employees for General Transfer:", filtered);
       setEmployeesTemp(filtered);
     }
   };
 
+
   const checkAmount = (val: string) => {
+    console.log("[Transactions] checkAmount validation:", val, { handCash, advanceCash, UserDesig, paymentType });
     if (!(UserDesig === "Director" || UserDesig === "In-Charge F&A")) {
       if (paymentType === "Advance Repayment" || paymentType === "Advance") {
         if (Number(advanceCash) < Number(val)) {
+          console.warn("[Transactions] validation failed: amount > advanceCash");
           presentToast(
             `Maximum Advance Transfer/Repayment amount is ${advanceCash}/-`,
             false
@@ -543,6 +576,7 @@ const Transactions: React.FC = () => {
         }
       } else {
         if (Number(handCash) < Number(val)) {
+          console.warn("[Transactions] validation failed: amount > handCash");
           presentToast(`Maximum transfer amount is ${handCash}/-`, false);
           setAmount("");
           return;
@@ -550,6 +584,7 @@ const Transactions: React.FC = () => {
       }
     }
   };
+
 
   const sendSMSTransfer = async (
     fromCode: string,
@@ -611,11 +646,13 @@ const Transactions: React.FC = () => {
           paymentType === "--" || paymentType === "" ? "Credit" : paymentType,
       };
 
-      console.log("[transfer] payload:", payload);
+      console.log("[Transactions] saveTransfer payload:", payload);
 
-      await axios.post(`${baseUrl}/Transactions/Save_moneytransfer`, payload, {
+      const res = await axios.post(`${baseUrl}/Transactions/Save_moneytransfer`, payload, {
         headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
       });
+      console.log("[Transactions] saveTransfer response:", res.data);
+
 
       presentToast("Money Transfer successful...");
       await Promise.all([
@@ -731,33 +768,37 @@ const Transactions: React.FC = () => {
 
     setLoading(true);
     try {
-      const fd = new FormData();
-
-      // attach images if available
       let imgType = "";
+      let base64Voucher = "";
+      let base64Bill = "";
+
       if (photoVoucher) {
-        const blob = await (await fetch(photoVoucher)).blob();
-        fd.append("Voucherimg", blob, `${EmpCode}.jpg`);
-        imgType += (imgType ? "&&" : "") + "Voucherimg";
+        base64Voucher = photoVoucher.split(",")[1] || "";
+        imgType += "Voucherimg";
       }
       if (photoBill) {
-        const blob = await (await fetch(photoBill)).blob();
-        fd.append("Billimg", blob, `${EmpCode}.jpg`);
+        base64Bill = photoBill.split(",")[1] || "";
         imgType += (imgType ? "&&" : "") + "Billimg";
       }
 
-      fd.append("_Img", imgType.includes("Voucherimg") ? "Voucherimg" : "");
-      fd.append("_Img2", imgType.includes("Billimg") ? "Billimg" : "");
-      fd.append("_Img_Type", imgType || "");
-      fd.append("_VoucherAmount", voucherAmount);
-      fd.append("_EmpCode", EmpCode);
-      fd.append("_VoucherDesc", voucherDesc || "");
-      fd.append("_Invoice_Date", moment(invoiceDate).format("YYYY-MM-DD"));
-      fd.append("_Invoice_Heads", invoiceHeads);
+      const payload = {
+        _EmpCode: EmpCode,
+        _VoucherAmount: voucherAmount,
+        _VoucherDesc: voucherDesc || "",
+        _Invoice_Date: moment(invoiceDate).format("DD-MM-YYYY"),
+        _Invoice_Heads: invoiceHeads,
+        _Img_Type: imgType || "",
+        _Img: base64Voucher,
+        _Img2: base64Bill,
+      };
 
-      await axios.post(`${baseUrl}/Transactions/Save_Voucher`, fd, {
-        headers: getAuthHeaders(),
+      console.log("[Transactions] saveVoucher payload:", payload);
+
+      const res = await axios.post(`${baseUrl}/Transactions/Save_Voucher`, payload, {
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
       });
+      console.log("[Transactions] saveVoucher response:", res.data);
+
 
       presentToast("Voucher submitted successfully...");
       voucherClear();
@@ -779,9 +820,13 @@ const Transactions: React.FC = () => {
     try {
       const status = Number(newAmt) !== Number(originalAmt) ? "U" : "Y";
       const payload = { _Amt: newAmt, _vid: vid, _status: status };
-      await axios.post(`${baseUrl}/Transactions/Verify_Voucher`, payload, {
+      console.log("[Transactions] verifyVoucher payload:", payload);
+      const res = await axios.post(`${baseUrl}/Transactions/Verify_Voucher`, payload, {
         headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
       });
+      console.log("[Transactions] verifyVoucher response:", res.data);
+
+
       presentToast("Voucher verified successfully...");
       const vEmpCode = voucherEmpView ? voucherEmpView.split("-")[0] : "ALL";
       await fetchVouchers(vEmpCode as any);
@@ -795,19 +840,9 @@ const Transactions: React.FC = () => {
   /* -------- UI -------- */
   return (
     <IonPage>
-      <IonHeader>
-              <IonToolbar>
-                <IonToolbar className="menu-toolbar">
-                  <img
-                    src="./images/dbase.png"
-                    alt="DBase Logo"
-                    className="menu-logo"
-                  />
-                </IonToolbar>
-              </IonToolbar>
-            </IonHeader>
 
-      <IonContent className="od-content">
+
+      <IonContent className="transactions-container">
         <IonRefresher slot="fixed" onIonRefresh={onRefresh}>
           <IonRefresherContent />
         </IonRefresher>
@@ -822,274 +857,280 @@ const Transactions: React.FC = () => {
           color={toastColor}
         />
 
-        {/* Top balance chips */}
-        <div className="balance-wrap">
-          <div className="chip chip--hand">
-            <div className="chip-title">in Hand Amt</div>
-            <div className="chip-amt">₹ {handCash}/-</div>
-          </div>
-          <div className="chip chip--advance">
-            <div className="chip-title">Advance Amt</div>
-            <div className="chip-amt">₹ {advanceCash}/-</div>
+        {/* --- Header / User Info --- */}
+        <div className="page-header-wrap">
+          <div className="header-top">
+            <IonButtons slot="start">
+              <IonBackButton defaultHref="/home" className="custom-back-btn" />
+            </IonButtons>
+            <div className="header-text">
+              <div className="dept-label">
+                {userProfile?.Department || "Account Overview"}
+              </div>
+              <div className="page-title">Transactions</div>
+            </div>
           </div>
         </div>
 
-        {/* Segment tabs */}
-        <div className="seg-wrap">
-          <IonSegment
-            value={activeTab}
-            onIonChange={(e) => setActiveTab(e.detail.value as any)}
-            color="primary"
+        {/* --- Premium Balance Cards --- */}
+        <div className="balance-grid">
+          <div className="premium-card card--hand">
+            <div className="card-label">
+              <IonIcon icon={arrowForward} style={{ transform: 'rotate(90deg)', fontSize: '14px' }} />
+              In Hand
+            </div>
+            <div className="card-value">₹ {handCash}/-</div>
+          </div>
+
+          <div className="premium-card card--advance">
+            <div className="card-label">
+              <IonIcon icon={arrowForward} style={{ fontSize: '14px' }} />
+              Advance
+            </div>
+            <div className="card-value">₹ {advanceCash}/-</div>
+          </div>
+        </div>
+
+        {/* --- Custom Native-Like Tabs --- */}
+        <div className="custom-tabs">
+          <div
+            className={`tab-item ${activeTab === "transfer" ? "active" : ""}`}
+            onClick={() => setActiveTab("transfer")}
           >
-            <IonSegmentButton value="transfer">
-              <IonLabel>Transfer</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="voucher">
-              <IonLabel>Voucher</IonLabel>
-            </IonSegmentButton>
-            {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-              <IonSegmentButton value="advances">
-                <IonLabel>Advances</IonLabel>
-              </IonSegmentButton>
-            )}
-          </IonSegment>
-          {/* <div className="seg-underline" /> */}
+            Transfer
+          </div>
+
+          <div
+            className={`tab-item ${activeTab === "voucher" ? "active" : ""}`}
+            onClick={() => setActiveTab("voucher")}
+          >
+            Voucher
+          </div>
+
+          {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+            <div
+              className={`tab-item ${activeTab === "advances" ? "active" : ""}`}
+              onClick={() => setActiveTab("advances")}
+            >
+              Advances
+            </div>
+          )}
         </div>
 
         {/* Transfer tab */}
         {activeTab === "transfer" && (
           <div className="tab-pad">
-            <IonGrid className="form-grid">
-              <IonRow>
-                <IonCol size="12" sizeMd="2">
-                  <IonItem>
-                    <IonSelect
-                      interface="popover"
-                      placeholder="Payment Type*"
-                      value={paymentType}
-                      onIonChange={(e) => onPaymentTypeChange(e.detail.value)}
-                    >
-                      <IonSelectOption value="Office Expenses">
-                        Office Expenses
-                      </IonSelectOption>
-                      {(UserDesig === "Director" ||
-                        UserDesig === "In-Charge F&A") && (
-                        <IonSelectOption value="Advance">
-                          Advance
-                        </IonSelectOption>
-                      )}
-                      <IonSelectOption value="Advance Repayment">
-                        Advance Repayment
-                      </IonSelectOption>
-                      {(UserDesig === "Director" ||
-                        UserDesig === "In-Charge F&A") && (
-                        <IonSelectOption value="Salary">Salary</IonSelectOption>
-                      )}
-                    </IonSelect>
-                    {!!advRepayFrom && (
-                      <IonLabel
-                        slot="end"
-                        className="mini-button"
-                        onClick={() => setOpenVoucherEmpModal(true)}
-                      >
-                        {advRepayFrom}
-                      </IonLabel>
+            <div className="section-card">
+              <div className="section-title">
+                <IonIcon icon={arrowForward} /> New Transfer
+              </div>
+              <div className="form-grid">
+                <div className="input-group">
+                  <div className="input-label">Payment Type</div>
+                  <IonSelect
+                    interface="popover"
+                    className="modern-select"
+                    placeholder="Select Type"
+                    value={paymentType}
+                    onIonChange={(e) => onPaymentTypeChange(e.detail.value)}
+                  >
+                    <IonSelectOption value="Office Expenses">Office Expenses</IonSelectOption>
+                    {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+                      <IonSelectOption value="Advance">Advance</IonSelectOption>
                     )}
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="2">
-                  <IonItem>
-                    <IonSelect
-                      interface="popover"
-                      placeholder="Tranfer To*"
-                      value={transferTo}
-                      onIonChange={(e) => setTransferTo(e.detail.value)}
+                    <IonSelectOption value="Advance Repayment">Advance Repayment</IonSelectOption>
+                    {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+                      <IonSelectOption value="Salary">Salary</IonSelectOption>
+                    )}
+                  </IonSelect>
+                  {!!advRepayFrom && (
+                    <div
+                      className="mini-button"
+                      style={{ marginTop: '4px', fontSize: '12px', color: 'var(--ion-color-primary)', fontWeight: 600, cursor: 'pointer' }}
+                      onClick={() => setOpenVoucherEmpModal(true)}
                     >
-                      {(employeesTemp || employees).map((emp) => (
-                        <IonSelectOption
-                          key={emp.EmpCode}
-                          value={`${emp.EmpCode}-${emp.EmpName}`}
-                        >
-                          {emp.EmpName}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Amount*"
-                      type="number"
-                      value={amount}
-                      disabled={!transferTo}
-                      onIonChange={(e) => {
-                        const v = e.detail.value || "";
-                        setAmount(v);
-                        if (v) checkAmount(v);
-                      }}
-                    />
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonSelect
-                      interface="popover"
-                      placeholder="Trans. Mode*"
-                      value={transferMode}
-                      onIonChange={(e) => setTransferMode(e.detail.value)}
-                    >
-                      <IonSelectOption value="By Cash">By Cash</IonSelectOption>
-                      <IonSelectOption value="Credit Card">
-                        Credit Card
-                      </IonSelectOption>
-                      <IonSelectOption value="PhonePay">
-                        PhonePay
-                      </IonSelectOption>
-                      <IonSelectOption value="Google Pay">
-                        Google Pay
-                      </IonSelectOption>
-                      <IonSelectOption value="Paytm">Paytm</IonSelectOption>
-                      <IonSelectOption value="Bank Transfer">
-                        Bank Transfer
-                      </IonSelectOption>
-                    </IonSelect>
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="2" className="actions-col">
-                  <IonButton onClick={saveTransfer}>
-                    <IonIcon icon={arrowForward} slot="start" />
-                    Transfer
-                  </IonButton>
-                </IonCol>
-                <IonCol size="12" sizeMd="2" className="actions-col">
-                  <IonButton fill="outline" onClick={clearTransfer}>
-                    <IonIcon icon={close} slot="start" />
-                    Cancel
-                  </IonButton>
-                </IonCol>
-              </IonRow>
-            </IonGrid>
-
-            {/* Filters + list */}
-            {/* Filters + list */}
-            <div className="center-wrap">
-              <div className="form-card">
-                <div className="form-header">{EmpCodeName}</div>
-
-                <IonGrid style={{ marginBottom: 0 }}>
-                  <IonRow>
-                    {/* left spacer to center the 4 x md=2 columns */}
-                    <IonCol size="12" sizeMd="2" />
-
-                    {/* 1) Transaction Type */}
-                    <IonCol size="12" sizeMd="2">
-                      <IonItem>
-                        <IonSelect
-                          interface="popover"
-                          placeholder="Transaction Type"
-                          value={transCredDebt}
-                          onIonChange={async (e) => {
-                            setTransCredDebt(e.detail.value);
-                            await fetchTransactions(EmpCode);
-                          }}
-                        >
-                          <IonSelectOption value="All">All</IonSelectOption>
-                          <IonSelectOption value="Credit">
-                            Credit
-                          </IonSelectOption>
-                          <IonSelectOption value="Debit">Debit</IonSelectOption>
-                        </IonSelect>
-                      </IonItem>
-                    </IonCol>
-
-                    {/* 2) Transaction Head */}
-                    <IonCol size="12" sizeMd="2">
-                      <IonItem>
-                        <IonSelect
-                          interface="popover"
-                          placeholder="Transaction Head"
-                          value={selectedTxnType}
-                          onIonChange={async (e) => {
-                            setSelectedTxnType(e.detail.value);
-                            await fetchTransactions(EmpCode);
-                          }}
-                        >
-                          <IonSelectOption value="All">All</IonSelectOption>
-                          <IonSelectOption value="Office Expenses">
-                            Office Expenses
-                          </IonSelectOption>
-                          <IonSelectOption value="Advance">
-                            Advance
-                          </IonSelectOption>
-                          <IonSelectOption value="Salary">
-                            Salary
-                          </IonSelectOption>
-                        </IonSelect>
-                      </IonItem>
-                    </IonCol>
-
-                    {/* 3) From date */}
-                    <IonCol size="12" sizeMd="2">
-                      <IonItem button onClick={() => setOpenStartModal(true)}>
-                        <IonInput
-                          readonly
-                          value={
-                            startDate
-                              ? moment(startDate).format("DD-MM-YYYY")
-                              : "From"
-                          }
-                        />
-                      </IonItem>
-                    </IonCol>
-
-                    {/* 4) To date (with clear) */}
-                    <IonCol size="12" sizeMd="2">
-                      <IonItem>
-                        <IonInput
-                          readonly
-                          value={
-                            endDate
-                              ? moment(endDate).format("DD-MM-YYYY")
-                              : "To"
-                          }
-                          onClick={() => setOpenEndModal(true)}
-                        />
-                        <IonIcon
-                          icon={close}
-                          slot="end"
-                          onClick={async () => {
-                            setStartDate(undefined);
-                            setEndDate(undefined);
-                            await fetchTransactions(EmpCode);
-                          }}
-                        />
-                      </IonItem>
-                    </IonCol>
-
-                    {/* right spacer */}
-                    <IonCol size="12" sizeMd="2" />
-                  </IonRow>
-                </IonGrid>
-
-                <div className="list-scroll">
-                  {transactions.map((t, idx) => (
-                    <div key={idx} className="txn-card">
-                      <div className="txn-left">
-                        <div className="txn-date">
-                          {t.Date}
-                          {t.SALorAdv ? ` // ${t.SALorAdv}` : ""}
-                        </div>
-                        <div className="txn-desc">{t.CDescription}</div>
-                      </div>
-                      <div className="txn-right">₹ {t.Amount}/-</div>
+                      From: {advRepayFrom}
                     </div>
-                  ))}
+                  )}
                 </div>
+
+                <div className="input-group">
+                  <div className="input-label">Transfer To</div>
+                  <IonSelect
+                    interface="popover"
+                    className="modern-select"
+                    placeholder="Select Recipient"
+                    value={transferTo}
+                    onIonChange={(e) => setTransferTo(e.detail.value)}
+                  >
+                    {(employeesTemp || employees).map((emp) => (
+                      <IonSelectOption key={emp.EmpCode} value={`${emp.EmpCode}-${emp.EmpName}`}>
+                        {emp.EmpName}
+                      </IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">Amount (₹)</div>
+                  <IonInput
+                    className="modern-input"
+                    placeholder="0.00"
+                    type="number"
+                    value={amount}
+                    disabled={!transferTo}
+                    onIonChange={(e) => {
+                      const v = e.detail.value || "";
+                      setAmount(v);
+                      if (v) checkAmount(v);
+                    }}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">Transfer Mode</div>
+                  <IonSelect
+                    interface="popover"
+                    className="modern-select"
+                    placeholder="Select Mode"
+                    value={transferMode}
+                    onIonChange={(e) => setTransferMode(e.detail.value)}
+                  >
+                    <IonSelectOption value="By Cash">By Cash</IonSelectOption>
+                    <IonSelectOption value="Credit Card">Credit Card</IonSelectOption>
+                    <IonSelectOption value="PhonePay">PhonePay</IonSelectOption>
+                    <IonSelectOption value="Google Pay">Google Pay</IonSelectOption>
+                    <IonSelectOption value="Paytm">Paytm</IonSelectOption>
+                    <IonSelectOption value="Bank Transfer">Bank Transfer</IonSelectOption>
+                  </IonSelect>
+                </div>
+              </div>
+
+              <div className="button-row">
+                <IonButton className="btn-primary" expand="block" onClick={saveTransfer}>
+                  <IonIcon icon={arrowForward} slot="start" />
+                  Transfer
+                </IonButton>
+                <IonButton className="btn-outline" fill="outline" expand="block" onClick={clearTransfer}>
+                  <IonIcon icon={close} slot="start" />
+                  Cancel
+                </IonButton>
+              </div>
+            </div>
+
+            {/* Filters + list */}
+            <div className="section-card">
+              <div className="section-title">
+                {userProfile ? `${userProfile.EmpID} - ${userProfile.EmpName}` : EmpCodeName}
+              </div>
+
+              <div className="form-grid" style={{ marginBottom: '24px' }}>
+                <div className="input-group">
+                  <div className="input-label">Type</div>
+                  <IonSelect
+                    interface="popover"
+                    className="modern-select"
+                    value={transCredDebt}
+                    onIonChange={async (e) => {
+                      setTransCredDebt(e.detail.value);
+                      await fetchTransactions(EmpCode);
+                    }}
+                  >
+                    <IonSelectOption value="All">All Transactions</IonSelectOption>
+                    <IonSelectOption value="Credit">Credits Only</IonSelectOption>
+                    <IonSelectOption value="Debit">Debits Only</IonSelectOption>
+                    <IonSelectOption value="Transfer">Transfers Only</IonSelectOption>
+                  </IonSelect>
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">Head</div>
+                  <IonSelect
+                    interface="popover"
+                    className="modern-select"
+                    value={selectedTxnType}
+                    onIonChange={async (e) => {
+                      setSelectedTxnType(e.detail.value);
+                      await fetchTransactions(EmpCode);
+                    }}
+                  >
+                    {txnTypes.map((t) => (
+                      <IonSelectOption key={t.TID} value={t.TTYPE}>
+                        {t.TTYPE}
+                      </IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label" >From Date</div>
+                  <div
+                    className="modern-input"
+                    style={{ display: 'flex', alignItems: 'center', height: '44px', cursor: 'pointer', paddingLeft: '10px' }}
+                    onClick={() => setOpenStartModal(true)}
+                  >
+                    {startDate ? moment(startDate).format("DD-MM-YYYY") : "Select Start"}
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">To Date</div>
+                  <div
+                    className="modern-input"
+                    style={{ display: 'flex', alignItems: 'center', height: '44px', cursor: 'pointer', justifyContent: 'space-between', paddingLeft: '10px' }}
+                    onClick={() => setOpenEndModal(true)}
+                  >
+                    <span>{endDate ? moment(endDate).format("DD-MM-YYYY") : "Select End"}</span>
+                    {endDate && (
+                      <IonIcon
+                        icon={close}
+                        style={{ fontSize: '20px', color: '#94a3b8' }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setStartDate(undefined);
+                          setEndDate(undefined);
+                          await fetchTransactions(EmpCode);
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="list-container">
+                {transactions.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                    No transactions found for the selected period.
+                  </div>
+                ) : (
+                  transactions.map((t, idx) => {
+                    const isCredit = t.bclass === "Credit";
+                    return (
+                      <div key={idx} className="txn-card">
+                        <div className={`txn-icon ${isCredit ? 'icon--credit' : 'icon--debit'}`}>
+                          <IonIcon icon={arrowForward} style={{ transform: isCredit ? 'rotate(45deg)' : 'rotate(225deg)' }} />
+                        </div>
+                        <div className="txn-info">
+                          <div className="txn-header">
+                            <div className="txn-title">{t.CDescription}</div>
+                            <div className="txn-amount">
+                              <div className="amt-value" style={{ color: isCredit ? '#10b981' : '#ef4444' }}>
+                                {isCredit ? '+' : '-'} ₹{t.Amount}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="txn-footer">
+                            <div className="txn-meta">
+                              <span>{t.Date}</span>
+                              {t.SALorAdv && <span>• {t.SALorAdv}</span>}
+                            </div>
+                            <div className="amt-status">{isCredit ? 'Received' : 'Paid'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -1098,219 +1139,198 @@ const Transactions: React.FC = () => {
         {/* Voucher tab */}
         {activeTab === "voucher" && (
           <div className="tab-pad">
-            <IonGrid className="form-grid">
-              <IonRow>
-                <IonCol size="12" sizeMd="3">
-                  <IonItem>
+            <div className="section-card">
+              <div className="section-title">
+                <IonIcon icon={arrowForward} /> New Voucher Request
+              </div>
+              <div className="form-grid">
+                <div className="input-group">
+                  <div className="input-label">Voucher Head</div>
+                  <IonSelect
+                    interface="popover"
+                    className="modern-select"
+                    placeholder="Select Head"
+                    value={invoiceHeads}
+                    onIonChange={(e) => handleVoucherHeadsChange(e.detail.value)}
+                  >
+                    <IonSelectOption value="0">--Select--</IonSelectOption>
+                    <IonSelectOption value="OfficeExpenses">Office Expenses</IonSelectOption>
+                    <IonSelectOption value="Toll">Toll</IonSelectOption>
+                    <IonSelectOption value="Fuel">Fuel</IonSelectOption>
+                    <IonSelectOption value="TA">TA</IonSelectOption>
+                    <IonSelectOption value="DA">DA</IonSelectOption>
+                  </IonSelect>
+                  {!!selectEmpHint && (
+                    <div
+                      className="mini-button"
+                      style={{ marginTop: '4px', fontSize: '12px', color: 'var(--ion-color-primary)', fontWeight: 600, cursor: 'pointer' }}
+                      onClick={() => setOpenDA_TA_Modal(true)}
+                    >
+                      {selectEmpHint}
+                    </div>
+                  )}
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">Voucher Date</div>
+                  <div
+                    className="modern-input"
+                    style={{ display: 'flex', alignItems: 'center', height: '44px', cursor: 'pointer', opacity: isDateDisabled ? 0.6 : 1, paddingLeft: '10px' }}
+                    onClick={() => !isDateDisabled && setOpenInvoiceDateModal(true)}
+                  >
+                    {invoiceDate ? moment(invoiceDate).format("DD-MM-YYYY") : "Select Date"}
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">Amount (₹)</div>
+                  <IonInput
+                    className="modern-input"
+                    placeholder="0.00"
+                    type="number"
+                    value={voucherAmount}
+                    onIonChange={(e) => setVoucherAmount(e.detail.value!)}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <div className="input-label">Description</div>
+                  <IonInput
+                    className="modern-input"
+                    placeholder="Brief description..."
+                    value={voucherDesc}
+                    onIonChange={(e) => setVoucherDesc(e.detail.value!)}
+                  />
+                </div>
+              </div>
+
+              <div className="image-pickers" style={{ marginTop: '20px' }}>
+                <div className="picker-card" onClick={() => takePhoto("voucher")}>
+                  {photoVoucher ? (
+                    <img src={photoVoucher} alt="Voucher" className="picker-preview" />
+                  ) : (
+                    <div className="picker-placeholder">
+                      <IonIcon icon={arrowForward} style={{ transform: 'rotate(-90deg)' }} />
+                      <div className="picker-text">Voucher Photo</div>
+                    </div>
+                  )}
+                  <input
+                    ref={voucherFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleVoucherFilePick(e, "voucher")}
+                  />
+                </div>
+
+                <div className="picker-card" onClick={() => takePhoto("bill")}>
+                  {photoBill ? (
+                    <img src={photoBill} alt="Bill" className="picker-preview" />
+                  ) : (
+                    <div className="picker-placeholder">
+                      <IonIcon icon={arrowForward} style={{ transform: 'rotate(-90deg)' }} />
+                      <div className="picker-text">Bill Photo</div>
+                    </div>
+                  )}
+                  <input
+                    ref={billFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleVoucherFilePick(e, "bill")}
+                  />
+                </div>
+              </div>
+
+              <div className="button-row">
+                <IonButton className="btn-primary" expand="block" onClick={saveVoucher}>
+                  <IonIcon icon={arrowForward} slot="start" />
+                  Submit
+                </IonButton>
+                <IonButton className="btn-outline" fill="outline" expand="block" onClick={voucherClear}>
+                  <IonIcon icon={close} slot="start" />
+                  Cancel
+                </IonButton>
+              </div>
+            </div>
+
+            {/* Voucher filter (Admin only) */}
+            {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+              <div className="section-card" style={{ padding: '12px 20px' }}>
+                <div className="input-group">
+                  <div className="input-label">Filter by Employee</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <IonSelect
                       interface="popover"
-                      placeholder="Voucher Heads*"
-                      value={invoiceHeads}
-                      onIonChange={(e) =>
-                        handleVoucherHeadsChange(e.detail.value)
-                      }
+                      className="modern-select"
+                      style={{ flex: 1 }}
+                      placeholder="Show All"
+                      value={voucherEmpView}
+                      onIonChange={async (e) => {
+                        const val = e.detail.value as string;
+                        setVoucherEmpView(val);
+                        const code = val ? val.split("-")[0] : "ALL";
+                        await fetchVouchers(code as any);
+                      }}
                     >
-                      <IonSelectOption value="0">--Select--</IonSelectOption>
-                      <IonSelectOption value="OfficeExpenses">
-                        Office Expenses
-                      </IonSelectOption>
-                      <IonSelectOption value="Toll">Toll</IonSelectOption>
-                      <IonSelectOption value="Fuel">Fuel</IonSelectOption>
-                      <IonSelectOption value="TA">TA</IonSelectOption>
-                      <IonSelectOption value="DA">DA</IonSelectOption>
+                      {employees.map((emp) => (
+                        <IonSelectOption key={emp.EmpCode} value={`${emp.EmpCode}-${emp.EmpName}`}>
+                          {emp.EmpName}
+                        </IonSelectOption>
+                      ))}
                     </IonSelect>
-                    {!!selectEmpHint && (
-                      <IonLabel
-                        slot="end"
-                        className="mini-button"
-                        onClick={() => setOpenDA_TA_Modal(true)}
-                      >
-                        {selectEmpHint}
-                      </IonLabel>
-                    )}
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="3">
-                  <IonItem
-                    button
-                    onClick={() =>
-                      !isDateDisabled && setOpenInvoiceDateModal(true)
-                    }
-                  >
-                    <IonInput
-                      value={
-                        invoiceDate
-                          ? moment(invoiceDate).format("DD-MM-YYYY")
-                          : "Voucher Date*"
-                      }
-                      readonly
-                      disabled={isDateDisabled}
-                    />
-                    {!!invoiceDate && (
+                    {voucherEmpView && (
                       <IonIcon
                         icon={close}
-                        slot="end"
-                        onClick={() => setInvoiceDate(undefined)}
-                      />
-                    )}
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Amount*"
-                      type="number"
-                      value={voucherAmount}
-                      onIonChange={(e) => setVoucherAmount(e.detail.value!)}
-                    />
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="4">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Description*"
-                      value={voucherDesc}
-                      onIonChange={(e) => setVoucherDesc(e.detail.value!)}
-                    />
-                  </IonItem>
-                </IonCol>
-              </IonRow>
-
-              <IonRow className="g-2">
-                <IonCol size="12" sizeMd="7" className="center-actions">
-                  {photoVoucher && (
-                    <img src={photoVoucher} alt="Voucher" className="thumb" />
-                  )}
-                  {(invoiceHeads === "OfficeExpenses" ||
-                    invoiceHeads === "Toll" ||
-                    invoiceHeads === "Fuel" ||
-                    invoiceHeads === "TA" ||
-                    invoiceHeads === "DA") && (
-                    <>
-                      <IonButton onClick={() => takePhoto("voucher")}>
-                        Upload Voucher
-                      </IonButton>
-                      <input
-                        ref={voucherFileInputRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={(e) => handleVoucherFilePick(e, "voucher")}
-                      />
-                    </>
-                  )}
-
-                  {photoBill && (
-                    <img src={photoBill} alt="Bill" className="thumb" />
-                  )}
-                  {(invoiceHeads === "OfficeExpenses" ||
-                    invoiceHeads === "Toll" ||
-                    invoiceHeads === "Fuel" ||
-                    invoiceHeads === "TA" ||
-                    invoiceHeads === "DA") && (
-                    <>
-                      <IonButton onClick={() => takePhoto("bill")}>
-                        Upload Bill
-                      </IonButton>
-                      <input
-                        ref={billFileInputRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={(e) => handleVoucherFilePick(e, "bill")}
-                      />
-                    </>
-                  )}
-                </IonCol>
-
-                <IonCol size="12" sizeMd="5" className="center-actions">
-                  <IonButton onClick={saveVoucher}>
-                    <IonIcon icon={arrowForward} slot="start" />
-                    Submit
-                  </IonButton>
-                  <IonButton fill="outline" onClick={voucherClear}>
-                    <IonIcon icon={close} slot="start" />
-                    Cancel
-                  </IonButton>
-                </IonCol>
-              </IonRow>
-
-              {/* Admin/FA voucher filter + list */}
-              {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-                <IonRow>
-                  <IonCol size="12" sizeMd="12">
-                    <IonItem>
-                      <IonSelect
-                        interface="popover"
-                        placeholder="Filter Vouchers"
-                        value={voucherEmpView}
-                        onIonChange={async (e) => {
-                          const val = e.detail.value as string;
-                          setVoucherEmpView(val);
-                          const code = val ? val.split("-")[0] : "ALL";
-                          await fetchVouchers(code as any);
-                        }}
-                      >
-                        {employees.map((emp) => (
-                          <IonSelectOption
-                            key={emp.EmpCode}
-                            value={`${emp.EmpCode}-${emp.EmpName}`}
-                          >
-                            {emp.EmpName}
-                          </IonSelectOption>
-                        ))}
-                      </IonSelect>
-                      <IonIcon
-                        icon={close}
-                        slot="end"
+                        style={{ fontSize: '24px', color: '#94a3b8' }}
                         onClick={async () => {
                           setVoucherEmpView(null);
                           await fetchVouchers("ALL");
                         }}
                       />
-                    </IonItem>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    <div className="list-scroll">
-                      {vouchers.map((v) => (
-                        <div key={v.VID} className="txn-card">
-                          <div className="txn-left">
-                            <div className="txn-date">{v.Date}</div>
-                            <div
-                              className={`emp-pill ${
-                                v.isVerified === "Y"
-                                  ? "ok"
-                                  : v.isVerified === "U"
-                                  ? "upd"
-                                  : "new"
-                              }`}
-                            >
-                              {v.EmpID}
-                            </div>
-                            <div className="txn-desc">{v.VDescription}</div>
-                          </div>
-                          <div className="txn-right">₹ {v.amount}/-</div>
-                          <div className="card-actions">
-                            <IonButton
-                              size="small"
-                              onClick={() => {
-                                setCurrentVoucher(v);
-                                setVerifyAmount(String(v.amount));
-                                setOpenVoucherModal(true);
-                              }}
-                            >
-                              View
-                            </IonButton>
-                          </div>
-                        </div>
-                      ))}
+            <div className="list-container">
+              {vouchers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                  No vouchers found.
+                </div>
+              ) : (
+                vouchers.map((v) => (
+                  <div key={v.VID} className="txn-card" onClick={() => {
+                    console.log("[Transactions] Selected voucher for preview:", v);
+                    setCurrentVoucher(v);
+                    setVerifyAmount(String(v.amount));
+                    setOpenVoucherModal(true);
+                  }}>
+                    <div className="txn-icon" style={{ background: '#f1f5f9', color: 'var(--ion-color-primary)' }}>
+                      <IonIcon icon={arrowForward} style={{ transform: 'rotate(-45deg)' }} />
                     </div>
-                  </IonCol>
-                </IonRow>
+                    <div className="txn-info">
+                      <div className="txn-header">
+                        <div className="txn-title" style={{ color: 'red' }}>{v.EmpID}</div>
+                        <div className="txn-amount">
+                          <div className="amt-value" style={{ color: 'red' }}>₹{v.amount}</div>
+                        </div>
+                      </div>
+                      <div className="txn-footer">
+                        <div className="txn-meta">
+                          <span>{v.Date}</span>
+                          <span>• {v.VDescription || "No Description"}</span>
+                        </div>
+                        <div className={`amt-status status--${v.isVerified}`}>
+                          {v.isVerified === "Y" ? 'Verified' : v.isVerified === "U" ? 'Updated' : 'Pending'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
-            </IonGrid>
+            </div>
           </div>
         )}
 
@@ -1318,31 +1338,41 @@ const Transactions: React.FC = () => {
         {activeTab === "advances" &&
           (UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
             <div className="tab-pad">
-              <h6 className="center-title">Advances & Cash in Hands</h6>
-              <IonGrid className="table-grid">
-                <IonRow className="table-header">
-                  <IonCol>EmpName</IonCol>
-                  <IonCol>CashInHand</IonCol>
-                  <IonCol>Advance_Bal</IonCol>
-                  <IonCol>Advance_Total</IonCol>
-                  <IonCol>Advance_Repaid</IonCol>
-                  <IonCol>Credits</IonCol>
-                  <IonCol>Debits</IonCol>
-                  <IonCol>Vouchers</IonCol>
-                </IonRow>
-                {advanceRows.map((r, idx) => (
-                  <IonRow key={idx} className="table-row">
-                    <IonCol className="nowrap">{r.EmpName}</IonCol>
-                    <IonCol>{r.CashInHand}</IonCol>
-                    <IonCol>{r.Advance_Bal}</IonCol>
-                    <IonCol>{r.Advance}</IonCol>
-                    <IonCol>{r.Advance_Repaid}</IonCol>
-                    <IonCol>{r.Credits}</IonCol>
-                    <IonCol>{r.Debits}</IonCol>
-                    <IonCol>{r.Vouchers}</IonCol>
-                  </IonRow>
-                ))}
-              </IonGrid>
+              <div className="section-card">
+                <div className="section-title">
+                  <IonIcon icon={arrowForward} /> Advances & Cash in Hands
+                </div>
+                <div className="advances-table-wrapper">
+                  <table className="advances-table">
+                    <thead>
+                      <tr>
+                        <th><div className="th-resizer">Employee</div></th>
+                        <th><div className="th-resizer">In Hand</div></th>
+                        <th><div className="th-resizer">Balance</div></th>
+                        <th><div className="th-resizer">Total Adv</div></th>
+                        <th><div className="th-resizer">Repaid</div></th>
+                        <th><div className="th-resizer">Credits</div></th>
+                        <th><div className="th-resizer">Debits</div></th>
+                        <th><div className="th-resizer">Vouchers</div></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {advanceRows.map((r, idx) => (
+                        <tr key={idx}>
+                          <td className="emp-col">{r.EmpName}</td>
+                          <td className="amt-cell">₹{r.CashInHand}</td>
+                          <td className="amt-cell">₹{r.Advance_Bal}</td>
+                          <td className="amt-cell">₹{r.Advance}</td>
+                          <td className="amt-cell">₹{r.Advance_Repaid}</td>
+                          <td className="amt-cell">₹{r.Credits}</td>
+                          <td className="amt-cell">₹{r.Debits}</td>
+                          <td className="amt-cell">₹{r.Vouchers}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1350,8 +1380,10 @@ const Transactions: React.FC = () => {
         <IonModal
           isOpen={openStartModal}
           onDidDismiss={() => setOpenStartModal(false)}
+          className="pwt-date-modal"
         >
-          <IonContent className="picker">
+          <div className="pwt-modal-content">
+            <h3 className="pwt-modal-title">Select Start Date</h3>
             <IonDatetime
               presentation="date"
               onIonChange={async (e) => {
@@ -1362,17 +1394,19 @@ const Transactions: React.FC = () => {
                 setOpenStartModal(false);
               }}
             />
-            <IonButton expand="full" onClick={() => setOpenStartModal(false)}>
+            <IonButton expand="block" mode="ios" onClick={() => setOpenStartModal(false)}>
               Close
             </IonButton>
-          </IonContent>
+          </div>
         </IonModal>
 
         <IonModal
           isOpen={openEndModal}
           onDidDismiss={() => setOpenEndModal(false)}
+          className="pwt-date-modal"
         >
-          <IonContent className="picker">
+          <div className="pwt-modal-content">
+            <h3 className="pwt-modal-title">Select End Date</h3>
             <IonDatetime
               presentation="date"
               onIonChange={async (e) => {
@@ -1383,17 +1417,19 @@ const Transactions: React.FC = () => {
                 setOpenEndModal(false);
               }}
             />
-            <IonButton expand="full" onClick={() => setOpenEndModal(false)}>
+            <IonButton className="btn-primary" expand="block" onClick={() => setOpenEndModal(false)}>
               Close
             </IonButton>
-          </IonContent>
+          </div>
         </IonModal>
 
         <IonModal
           isOpen={openInvoiceDateModal}
           onDidDismiss={() => setOpenInvoiceDateModal(false)}
+          className="pwt-date-modal"
         >
-          <IonContent className="picker">
+          <div className="pwt-modal-content">
+            <h3 className="pwt-modal-title">Select Voucher Date</h3>
             <IonDatetime
               presentation="date"
               onIonChange={(e) => {
@@ -1403,146 +1439,215 @@ const Transactions: React.FC = () => {
               }}
             />
             <IonButton
-              expand="full"
+              className="btn-primary"
+              expand="block"
               onClick={() => setOpenInvoiceDateModal(false)}
             >
               Close
             </IonButton>
-          </IonContent>
+          </div>
         </IonModal>
 
         {/* Select payee for Advance Repayment (Directors only) */}
         <IonModal
           isOpen={openVoucherEmpModal}
           onDidDismiss={() => setOpenVoucherEmpModal(false)}
+          className="pwt-date-modal"
         >
-          <IonContent>
-            {((employeesTemp || employees) as Employee[]).map((emp) => (
-              <IonItem
-                key={emp.EmpCode}
-                button
-                onClick={() => {
-                  setAdvRepayFrom(`${emp.EmpCode}-${emp.EmpName}`);
-                  setOpenVoucherEmpModal(false);
-                }}
-              >
-                <IonLabel>{emp.EmpName}</IonLabel>
-                <IonCheckbox
-                  slot="start"
-                  checked={advRepayFrom === `${emp.EmpCode}-${emp.EmpName}`}
-                  onIonChange={() => {
+          <div className="pwt-modal-content" style={{ padding: '16px' }}>
+            <h3 className="pwt-modal-title">Select Payee</h3>
+            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px' }}>
+              {((employeesTemp || employees) as Employee[]).map((emp) => (
+                <IonItem
+                  key={emp.EmpCode}
+                  button
+                  lines="none"
+                  style={{ '--padding-start': '0' }}
+                  onClick={() => {
                     setAdvRepayFrom(`${emp.EmpCode}-${emp.EmpName}`);
                     setOpenVoucherEmpModal(false);
                   }}
-                />
-              </IonItem>
-            ))}
+                >
+                  <IonCheckbox
+                    slot="start"
+                    checked={advRepayFrom === `${emp.EmpCode}-${emp.EmpName}`}
+                    onIonChange={() => {
+                      setAdvRepayFrom(`${emp.EmpCode}-${emp.EmpName}`);
+                      setOpenVoucherEmpModal(false);
+                    }}
+                  />
+                  <IonLabel>{emp.EmpName}</IonLabel>
+                </IonItem>
+              ))}
+            </div>
             <IonButton
-              expand="full"
+              className="btn-primary"
+              expand="block"
               onClick={() => setOpenVoucherEmpModal(false)}
             >
               Close
             </IonButton>
-          </IonContent>
+          </div>
         </IonModal>
 
         {/* DA/TA employee selection */}
         <IonModal
           isOpen={openDA_TA_Modal}
           onDidDismiss={() => setOpenDA_TA_Modal(false)}
+          className="pwt-date-modal"
         >
-          <IonContent>
-            {employeesVoucher.map((emp) => (
-              <IonItem key={emp.EmpCode}>
-                <IonLabel>{emp.EmpName}</IonLabel>
-                <IonCheckbox
-                  slot="start"
-                  checked={!!emp.Ischeck}
-                  onIonChange={(e) =>
-                    onToggleEmpForVoucher(emp.EmpCode, e.detail.checked)
-                  }
-                />
-              </IonItem>
-            ))}
-            <IonButton expand="full" onClick={() => setOpenDA_TA_Modal(false)}>
+          <div className="pwt-modal-content" style={{ padding: '16px' }}>
+            <h3 className="pwt-modal-title">Select Employees</h3>
+            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px' }}>
+              {employeesVoucher.map((emp) => (
+                <IonItem key={emp.EmpCode} lines="none" style={{ '--padding-start': '0' }}>
+                  <IonCheckbox
+                    slot="start"
+                    checked={!!emp.Ischeck}
+                    onIonChange={(e) =>
+                      onToggleEmpForVoucher(emp.EmpCode, e.detail.checked)
+                    }
+                  />
+                  <IonLabel>{emp.EmpName}</IonLabel>
+                </IonItem>
+              ))}
+            </div>
+            <IonButton className="btn-primary" expand="block" onClick={() => setOpenDA_TA_Modal(false)}>
               Done
             </IonButton>
-          </IonContent>
+          </div>
         </IonModal>
 
         {/* Voucher preview / verify */}
         <IonModal
           isOpen={openVoucherModal}
           onDidDismiss={() => setOpenVoucherModal(false)}
+          className="standard-modal"
         >
-          <IonContent>
-            {currentVoucher && (
-              <>
-                <IonGrid>
-                  <IonRow>
-                    <IonCol size="12" sizeMd="6">
-                      {currentVoucher.fname ? (
-                        <img
-                          src={`${imgBase}${currentVoucher.fname}`}
-                          alt="Voucher"
-                          className="preview-img"
-                        />
-                      ) : (
-                        <div style={{ height: 300 }} />
-                      )}
-                    </IonCol>
-                    <IonCol size="12" sizeMd="6">
-                      {currentVoucher.fpath ? (
-                        <img
-                          src={`${imgBase}${currentVoucher.fpath}`}
-                          alt="Bill"
-                          className="preview-img"
-                        />
-                      ) : (
-                        <div style={{ height: 300 }} />
-                      )}
-                    </IonCol>
-                  </IonRow>
-                  <IonRow className="g-2">
-                    <IonCol size="12" sizeMd="8">
-                      <IonItem>
-                        <IonInput
-                          type="number"
-                          value={verifyAmount}
-                          onIonChange={(e) =>
-                            setVerifyAmount(e.detail.value || "")
-                          }
-                        />
-                      </IonItem>
-                    </IonCol>
-                    <IonCol size="12" sizeMd="4">
-                      {(UserDesig === "Director" ||
-                        UserDesig === "In-Charge F&A") && (
-                        <IonButton
-                          expand="block"
-                          onClick={() =>
-                            verifyVoucher(
-                              currentVoucher.VID,
-                              verifyAmount,
-                              currentVoucher.amount
-                            )
-                          }
-                        >
-                          Verify
-                        </IonButton>
-                      )}
-                    </IonCol>
-                  </IonRow>
-                </IonGrid>
-                <IonButton
-                  expand="full"
-                  fill="outline"
-                  onClick={() => setOpenVoucherModal(false)}
-                >
-                  Close
+          <IonContent className="ion-padding" scrollY={true}>
+            <div className="voucher-preview-container">
+              {/* Header Section */}
+              <div className="preview-header">
+                <div className="preview-title-wrap">
+                  <span className={`preview-status-pill status-badge--${currentVoucher?.isVerified}`}>
+                    {currentVoucher?.isVerified === "Y" ? 'Verified' : currentVoucher?.isVerified === "U" ? 'Updated' : 'Pending'}
+                  </span>
+                  <h2 className="preview-main-desc">
+                    {currentVoucher?.VDescription || "Standard Voucher Request"}
+                  </h2>
+                </div>
+                <IonButton fill="clear" onClick={() => setOpenVoucherModal(false)} color="dark">
+                  <IonIcon icon={close} />
                 </IonButton>
-              </>
-            )}
+              </div>
+
+              {currentVoucher && (
+                <>
+                  {/* Insight Cards */}
+                  <div className="preview-insight-grid">
+                    <div className="insight-card">
+                      <div className="insight-icon">₹</div>
+                      <div className="insight-data">
+                        <span className="insight-label">Requested Amt</span>
+                        <span className="insight-value amount">₹{currentVoucher.amount}</span>
+                      </div>
+                    </div>
+                    <div className="insight-card">
+                      <div className="insight-icon"><IonIcon icon={calendar} /></div>
+                      <div className="insight-data">
+                        <span className="insight-label">Voucher Date</span>
+                        <span className="insight-value">{currentVoucher.Date}</span>
+                      </div>
+                    </div>
+                    <div className="insight-card" style={{ gridColumn: 'span 2' }}>
+                      <div className="insight-icon"><IonIcon icon={person} /></div>
+                      <div className="insight-data">
+                        <span className="insight-label">Requested By</span>
+                        <span className="insight-value" style={{ color: 'red' }}>{currentVoucher.EmpID}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Image Gallery */}
+                  <div className="preview-gallery">
+                    <div className="gallery-item">
+                      <span className="gallery-label">Voucher Photo</span>
+                      <div className="image-frame" onClick={() => currentVoucher.fname && window.open(`${imgBase}${currentVoucher.fname}`, '_blank')}>
+                        {currentVoucher.fname ? (
+                          <img
+                            src={`${imgBase}${currentVoucher.fname}`}
+                            alt="Voucher"
+                            className="preview-image"
+                            onError={(e) => (e.currentTarget.src = "/assets/icon/favicon.png")}
+                          />
+                        ) : (
+                          <div className="empty-preview">
+                            <IonIcon icon={documentText} style={{ fontSize: '32px' }} />
+                            <span>No Image Found</span>
+                          </div>
+                        )}
+                        {currentVoucher.fname && <div className="image-action-overlay"><IonIcon icon={eyeOutline} /></div>}
+                      </div>
+                    </div>
+
+                    <div className="gallery-item">
+                      <span className="gallery-label">Bill / Invoice</span>
+                      <div className="image-frame" onClick={() => currentVoucher.fpath && window.open(`${imgBase}${currentVoucher.fpath}`, '_blank')}>
+                        {currentVoucher.fpath ? (
+                          <img
+                            src={`${imgBase}${currentVoucher.fpath}`}
+                            alt="Bill"
+                            className="preview-image"
+                            onError={(e) => (e.currentTarget.src = "/assets/icon/favicon.png")}
+                          />
+                        ) : (
+                          <div className="empty-preview">
+                            <IonIcon icon={documentText} style={{ fontSize: '32px' }} />
+                            <span>No Image Found</span>
+                          </div>
+                        )}
+                        {currentVoucher.fpath && <div className="image-action-overlay"><IonIcon icon={eyeOutline} /></div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Verification Panel (Admin Only) */}
+                  {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+                    <div className="verification-panel">
+                      <div className="verify-input-wrap">
+                        <div className="verify-label">Amount to Verify (₹)</div>
+                        <IonInput
+                          className="modern-input verify-input-modern"
+                          type="number"
+                          placeholder="190.00"
+                          value={verifyAmount}
+                          onIonChange={(e) => setVerifyAmount(e.detail.value || "")}
+                        />
+                      </div>
+                      <IonButton
+                        className="btn-primary verification-btn"
+                        onClick={() => verifyVoucher(currentVoucher.VID, verifyAmount, currentVoucher.amount)}
+                        style={{ height: '50px', margin: '0' }}
+                      >
+                        <IonIcon icon={checkmarkCircle} slot="start" />
+                        Verify Voucher
+                      </IonButton>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '24px' }}>
+                    <IonButton
+                      fill="clear"
+                      expand="block"
+                      onClick={() => setOpenVoucherModal(false)}
+                      style={{ '--color': '#64748b', fontWeight: 600 }}
+                    >
+                      Dismiss Preview
+                    </IonButton>
+                  </div>
+                </>
+              )}
+            </div>
           </IonContent>
         </IonModal>
       </IonContent>

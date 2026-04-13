@@ -1,293 +1,538 @@
-/* Header Styles */
-.menu-toolbar {
-    background-color: var(--ion-background-color);
-    display: flex;
-    align-items: center;
+/* Home Page - Premium Native Feel UI */
+
+.home-container {
+  min-height: 100vh;
+  height: 100vh;
+  background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+  font-family: 'Outfit', sans-serif;
+  padding-bottom: 30px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+}
+
+.home-container::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
+/* --- Header Section --- */
+.home-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.dark .home-header {
+  background: rgba(18, 18, 18, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.home-logo {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* --- Status Card (Check-in & Location) --- */
+.home-status-card {
+  margin: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  border-radius: 24px;
+  color: #ffffff;
+  box-shadow: 0 10px 20px var(--theme-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-status-card::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.home-status-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-status-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.9;
+}
+
+.home-status-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.home-status-location {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+/* --- Notice Ticker --- */
+.home-notice-wrapper {
+  margin: 0 20px 20px;
+  background: rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.05);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-notice-icon-box {
+  background: var(--ion-color-primary);
+  color: white;
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-notice-content {
+  flex: 1;
+  height: 24px;
+  overflow: hidden;
+  position: relative;
+}
+
+.home-notice-ticker {
+  display: flex;
+  flex-direction: column;
+  animation: notice-scroll 8s linear infinite;
+}
+
+.home-notice-ticker:hover {
+  animation-play-state: paused;
+}
+
+.home-notice-item {
+  height: 24px;
+  line-height: 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ion-color-primary);
+  white-space: nowrap;
+}
+
+@keyframes notice-scroll {
+  0% {
+    transform: translateY(100%);
+  }
+
+  10% {
+    transform: translateY(0);
+  }
+
+  90% {
+    transform: translateY(0);
+  }
+
+  100% {
+    transform: translateY(-100%);
+  }
+}
+
+/* --- Action Grid --- */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  padding: 0 20px;
+  margin-bottom: 60px;
+}
+
+.home-card {
+  background: var(--ion-background-color);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
+  border-radius: 20px;
+  padding: 20px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.dark .home-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.home-card:active {
+  transform: scale(0.95);
+  background: rgba(var(--ion-color-primary-rgb), 0.05);
+}
+
+.home-card-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.home-card:hover .home-card-icon-wrapper {
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+}
+
+.home-card-lordicon {
+  width: 42px;
+  height: 42px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+.home-card-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ion-text-color);
+  text-align: center;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.home-card:hover .home-card-label {
+  opacity: 1;
+}
+
+/* Specific Card Colors */
+.home-card-tasks .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+}
+
+.home-card-tickets .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  color: #fff;
+}
+
+.home-card-productivity .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #fff;
+}
+
+.home-card-performance .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #f472b6, #ec4899);
+  color: #fff;
+}
+
+.home-card-punctuality .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  color: #fff;
+}
+
+.home-card-requests .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  color: #fff;
+}
+
+.home-card-transactions .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
+  color: #fff;
+}
+
+.home-card-stock .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  color: #fff;
+}
+
+.home-card-invoice .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #2dd4bf, #14b8a6);
+  color: #fff;
+}
+
+.home-card-maintenance .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #fb923c, #d97706);
+  color: #fff;
+}
+
+.home-card-scanner .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  color: #fff;
+}
+
+/* Responsive Adjustments */
+@media (min-width: 480px) {
+  .home-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .home-card-label {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .home-container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: transparent;
+  }
+
+  .home-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+  }
+
+  .home-card-icon-wrapper {
+    width: 56px;
+    height: 56px;
+  }
+
+  .home-card-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .home-card-label {
+    font-size: 0.8rem;
+  }
+
+  .home-status-card {
+    flex-direction: row;
     justify-content: space-between;
-    padding: 10px 16px;
-  }
-  
-  .header-md,
-  .menu-toolbar {
-    border-radius: 0px !important;
-    border-bottom-right-radius: 80px !important;
-    border-bottom-left-radius: 80px !important;
-    box-shadow: 0px 4px 10px var(--theme-shadow, rgba(0, 0, 0, 0.1)); /* Dynamic Box Shadow */
-    transition: box-shadow 0.3s ease-in-out;
-  }
-  
-  ion-toolbar {
-    --background: none !important; /* Change to any color */
-    --color: white !important; /* Adjust text color */
-    border-bottom-right-radius: 80px !important;
-    border-bottom-left-radius: 80px !important;
-  }
-  
-  .menu-toolbar {
-    background-color: var(--ion-background-color);
-    display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
+    padding: 24px 30px;
   }
-  
-  /* Logo Styles */
-  .menu-logo {
+
+  .home-status-item {
+    flex: 1;
+  }
+}
+
+@media (max-width: 360px) {
+  .home-grid {
+    gap: 10px;
+    padding: 0 15px;
+    margin-bottom: 100px;
+  }
+
+  .home-card {
+    padding: 15px 5px;
+  }
+
+  .home-card-icon-wrapper {
+    width: 40px;
     height: 40px;
-    width: auto;
-    /* max-width: 150px; */
-    object-fit: contain;
-    display: flex;
-    text-align: center;
-    margin: auto;
   }
-  
-  /* Dark Mode Header */
-  .dark .menu-toolbar {
-    background-color: var(--ion-background-color);
-    box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
+
+  .home-card-icon {
+    width: 22px;
+    height: 22px;
   }
-  
-  /* Menu Button Alignment */
-  .ion-buttons {
-    display: flex;
+}
+
+/* --- Notification Overlay (Native Feel) --- */
+.home-notif-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  /* Bottom sheet feel on mobile */
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.home-notif-modal {
+  width: 85%;
+  max-width: 500px;
+  background: #fff;
+  border-radius: 30px;
+  padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  transform: translateY(0);
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: auto;
+}
+
+.home-notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+.home-notif-header-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ion-text-color);
+}
+
+.home-notif-close {
+  background: #000;
+  border: none;
+  color: var(--ion-text-color);
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.home-notif-close:hover {
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.home-notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.home-notif-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.03);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.05);
+  border-radius: 18px;
+  transition: transform 0.2s;
+}
+
+.home-notif-item:active {
+  transform: scale(0.98);
+}
+
+.home-notif-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.home-notif-icon-circle.welcome {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.home-notif-icon-circle.update {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.home-notif-icon-circle.info {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.home-notif-icon-circle.warning {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.home-notif-info {
+  flex: 1;
+}
+
+.home-notif-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ion-text-color);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.home-notif-time {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Desktop Adjustments for Modal */
+@media (min-width: 768px) {
+  .home-notif-overlay {
     align-items: center;
   }
-  
-  /* Responsive Design */
-  @media (max-width: 768px) {
-    .menu-logo {
-      height: 35px;
-      max-width: 220px;
-    }
+
+  .home-notif-modal {
+    border-radius: 24px;
+    max-height: 60vh;
+    width: 85%;
+
   }
-  
-  /* Dashboard Page Styles */
-  .dashboard-page {
-    background-color: var(--ion-background-color);
-    color: var(--ion-text-color);
+
+
+}
+
+@media (max-width: 360px) {
+  .home-notif-text {
+    font-size: 0.75rem;
   }
-  
-  /* Dashboard Header */
-  .dashboard-header {
-    background-color: var(--ion-color-primary);
-    color: #fff;
-    padding: 10px;
-    text-align: center;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 20px;
-    margin: 10px;
-    position: relative;
-  }
-  
-  .dashboard-header {
-    color: #fff;
-    /* font-size: 12px; */
-  }
-  
-  /* Grid Layout */
-  ion-grid {
-    padding: 2px;
-  }
-  
-  /* Dashboard Cards */
-  .dashboard-card {
-    border-radius: 8px;
-    overflow: hidden;
-    transition: transform 0.2s ease-in-out;
-    background: var(--ion-item-background, var(--ion-background-color));
-    color: var(--ion-text-color);
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-    /* height: 160px;  */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    background-color: color-mix(
-      in srgb,
-      var(--ion-color-primary) 20%,
-      white
-    ); /* Light Tint */
-    color: var(--ion-color-primary);
-  }
-  
-  .dashboard-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
-  }
-  
-  /* Dark Mode - Hover Effect */
-  .dark .dashboard-card:hover {
-    background-color: color-mix(
-      in srgb,
-      var(--ion-color-primary) 20%,
-      white
-    ); /* Light Tint */
-    color: var(--ion-color-primary);
-  }
-  
-  /* Card Content */
-  .dashboard-card-content {
-    /* display: flex; */
-    align-items: center;
-    justify-content: flex-start;
-    gap: 16px;
-    padding: 16px;
-    text-align: center;
-  }
-  
-  /* Icons */
-  .dashboard-icon {
-    font-size: 32px;
-    color: var(--ion-color-primary);
-  }
-  
-  /* Card Text */
-  .dashboard-card-text {
-    flex-grow: 1;
-  }
-  
-  .dashboard-card-title {
-    font-size: 12px;
-    font-weight: bold;
-    margin-bottom: 8px;
-  }
-  
-  /* Dark Mode Support */
-  .dark .dashboard-page {
-    background-color: #121212;
-    color: #ffffff;
-  }
-  
-  .dark .dashboard-card {
-    background: #1e1e1e;
-    color: #ffffff;
-    box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
-  }
-  
-  .dark .dashboard-header {
-    background-color: var(--ion-color-primary);
-    color: #ffffff; /* Ensuring visibility in dark mode */
-  }
-  
-  .dark .dashboard-card:hover {
-    box-shadow: 0px 6px 15px rgba(255, 255, 255, 0.2);
-  }
-  
-  /* Responsive Design */
-  @media (max-width: 768px) {
-    .dashboard-card-content {
-      flex-direction: column;
-      text-align: center;
-    }
-  
-    .dashboard-icon {
-      font-size: 22px;
-      color: var(--ion-color-primary);
-    }
-  
-    .dashboard-card-title {
-      font-size: 6.5px;
-      font-weight: bold;
-      margin-bottom: 8px;
-    }
-  
-    .card-content-md {
-      -webkit-padding-start: 5px !important;
-      padding-inline-start: 5px !important;
-      -webkit-padding-end: 5px !important;
-      padding-inline-end: 5px !important;
-      padding-top: 5px !important;
-      padding-bottom: 9px !important;
-      font-size: 0.875rem;
-      line-height: 0.8;
-    }
-  
-    .dashboard-header h2 {
-      color: #fff;
-      font-size: 12px;
-    }
-  }
-  
-  /* Notice Board Start */
-  
-  .notice-board {
-    width: 100%;
-    max-width: 400px; /* Set max width for desktop */
-    background-color: var(--ion-background-color); /* Dynamic background */
-    border-radius: 10px;
-    border: 1px solid var(--ion-color-primary); /* Only border in theme color */
-    padding: 5px;
-    overflow: hidden;
-    margin: auto;
-    box-shadow: 0px 4px 6px var(--theme-shadow); /* Soft theme-based shadow */
-  }
-  
-  /* Header with small icon */
-  .notice-header {
-    display: flex;
-    align-items: center;
-    padding-bottom: 5px;
-  }
-  
-  .notice-icon {
-    font-size: 20px;
-    margin-right: 8px;
-    color: var(--ion-color-primary); /* Theme color */
-  }
-  
-  .notice-title {
-    font-size: 16px;
-    font-weight: bold;
-    color: var(--ion-color-primary); /* Theme color */
-  }
-  
-  /* Notice Scrolling Section */
-  .notice-container {
-    height: 120px;
-    overflow: hidden;
-    position: relative;
-    background: var(--ion-background-color);
-    padding: 10px;
-    border-radius: 5px;
-  }
-  
-  /* Vertical Scrolling Effect */
-  .scrolling-text {
-    display: flex;
-    flex-direction: column;
-    animation: scrollText 10s linear infinite;
-    color: var(--ion-text-color); /* Dynamic text color */
-  }
-  
-  @keyframes scrollText {
-    0% { transform: translateY(100%); }
-    100% { transform: translateY(-100%); }
-  }
-  
-  /* Pause Scrolling */
-  .paused {
-    animation-play-state: paused;
-  }
-  
-  /* Responsive Design */
-  @media (max-width: 768px) {
-    .notice-board {
-        max-width: 100%;
-        height: 100px; /* Adjust for smaller screens */
-    }
-    .scrolling-text {
-        animation-duration: 8s; /* Faster scrolling for mobile */
-    }
-  
-    .notice-title {
-        font-size: 10px;
-    }
-  
-    .notice-header {
-        padding-bottom: 0px;
-    }
-  }
-  
-  /* Notice Board End */
-  
+}

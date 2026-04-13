@@ -6,8 +6,6 @@ import {
   IonToolbar,
   IonContent,
   IonLabel,
-  IonSegment,
-  IonSegmentButton,
   IonGrid,
   IonRow,
   IonCol,
@@ -24,13 +22,31 @@ import {
   IonNote,
   IonDatetimeButton,
   IonToast,
+  IonSearchbar,
 } from "@ionic/react";
-import { arrowForwardOutline, calendarOutline, peopleOutline } from "ionicons/icons";
+import {
+  arrowForwardOutline,
+  calendarOutline,
+  peopleOutline,
+  businessOutline,
+  createOutline,
+  carOutline,
+  timeOutline,
+  checkmarkCircleOutline,
+  closeCircleOutline,
+  pencilOutline,
+  chevronForwardOutline,
+  personCircleOutline,
+  locationOutline,
+  speedometerOutline,
+  documentTextOutline,
+  flashOutline
+} from "ionicons/icons";
 import axios from "axios";
+import "./OnDuties.css";
 
-const ENABLE_SMS = false;
-// ====== API base ======
-const API_BASE = "http://localhost:25918/api/";
+const ENABLE_SMS = true;
+import { API_BASE } from "../config";
 
 // ====== Types ======
 type ClientItem = { Client_ID: string; Client_Name: string };
@@ -38,6 +54,8 @@ type EmployeeItem = {
   EmpCode: string;
   EmpName?: string;
   Mobile?: string;
+  Role?: string;
+  Designation?: string;
   Ischeck?: string | boolean;
 };
 
@@ -69,10 +87,7 @@ type OTrow = {
   MinDiff?: string | number | null;
   FinMinDiff?: string | number | null;
   PendingAt?: string | null;
-  Status?: "S" | "P" | "V" | "A" | string | null;
-  TL_Verified?: string | null;
-  Accnt_Verified?: string | null;
-  Director_Verified?: string | null;
+  Status?: string | null;
 };
 
 // ====== Helpers ======
@@ -84,124 +99,79 @@ const isoToYmd = (val?: string) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+    return `${y}-${m}-${day}`; // Reverted to dashes based on successful Swagger log
   } catch {
     return val;
   }
 };
 const ymdToDdMmYy = (ymd: string) => {
   if (!ymd) return "";
-  const [y, m, d] = ymd.split("-");
+  // Handles both separators
+  const parts = ymd.includes("-") ? ymd.split("-") : ymd.split("/");
+  const [y, m, d] = parts;
   if (!y || !m || !d) return ymd;
   return `${d}-${m}-${y}`;
 };
 const isSaveOk = (data: any) => {
   if (data == null) return false;
-  if (typeof data === "number") return data > 0;
   const s = String(data).toLowerCase();
-  if (s.includes("success")) return true;
-  const n = parseInt(s, 10);
-  return !Number.isNaN(n) && n > 0;
+  return s.includes("success") || s.includes("successfully") || parseInt(s, 10) > 0;
 };
 const minutesBetween = (fromHHmm: string, toHHmm: string) => {
   if (!fromHHmm || !toHHmm) return 0;
   const start = new Date(`2000-01-01T${fromHHmm}:00`);
   const end = new Date(`2000-01-01T${toHHmm}:00`);
   let diff = (end.getTime() - start.getTime()) / 60000;
-  if (diff < 0) diff = 0;
-  return Math.floor(diff);
+  return diff < 0 ? 0 : Math.floor(diff);
 };
 const asBool = (v: any) => (typeof v === "string" ? v.toLowerCase() === "true" : !!v);
 
-// ====== Page ======
 const OnDuties: React.FC = () => {
-  // ----- user context (from storage) -----
   const [empCode, setEmpCode] = useState<string>("");
   const [empName, setEmpName] = useState<string>("");
   const [userDesig, setUserDesig] = useState<string>("");
   const [userLoaded, setUserLoaded] = useState<boolean>(false);
-  
-const didInitRef = useRef(false);
-
-
-  // ----- tab -----
+  const didInitRef = useRef(false);
+  const contentRef = useRef<HTMLIonContentElement>(null);
   const [activeTab, setActiveTab] = useState<"onduty" | "overtime">("onduty");
 
-  // ----- common axios with logs -----
   const api = useMemo(() => {
     const instance = axios.create({ baseURL: API_BASE, timeout: 30000 });
+    return instance;
+  }, []);
 
-  instance.interceptors.request.use((config: any) => {
-    if (!config.headers?.["x-quiet"]) {
-      console.log(
-        "[duties][request]",
-        (config.method || "GET").toUpperCase(),
-        (config.baseURL || "") + (config.url || ""),
-        { params: config.params, data: config.data, headers: config.headers }
-      );
-    }
-    return config;
-  });
+  const isAccountant = empCode === "1541";
+  const isDirector = empCode === "1501";
+  const canEdit = isAccountant || isDirector;
+  const canApprove = isAccountant || userDesig.includes("Team Leader") || userDesig.includes("Manager");
 
-  instance.interceptors.response.use(
-    (res) => {
-      if (!res.config?.headers?.["x-quiet"]) {
-        console.log("[duties][response]", res.status, res.config.url, res.data);
+  const postWithFallback = async (endpoint: string, data: any, contentType: string = "application/json"): Promise<any> => {
+    try {
+      console.log(`[POST][${contentType}] Attempting ${endpoint}`, data);
+      let payload = data;
+      if (contentType === "application/x-www-form-urlencoded" || contentType === "multipart/form-data") {
+        const fd = contentType === "multipart/form-data" ? new FormData() : new URLSearchParams();
+        Object.entries(data).forEach(([k, v]) => fd.append(k, String(v ?? "")));
+        payload = fd;
       }
-      return res;
-    },
-    (error) => {
-      if (!error?.config?.headers?.["x-quiet"]) {
-        console.error(
-          "[duties][error]",
-          error?.response?.status,
-          error?.config?.url,
-          error?.response?.data || error.message
-        );
+      return await api.post(endpoint, payload, { headers: { "Content-Type": contentType } });
+    } catch (e: any) {
+      const errMsg = e.response?.data || e.message;
+      if (e.response?.status === 400 || e.response?.status === 415) {
+        if (contentType === "application/json") {
+          console.warn(`[POST][JSON] Failed for ${endpoint} with status ${e.response?.status}:`, errMsg);
+          return await postWithFallback(endpoint, data, "application/x-www-form-urlencoded");
+        }
+        if (contentType === "application/x-www-form-urlencoded") {
+          console.warn(`[POST][Form] Failed for ${endpoint}, trying multipart/form-data...`);
+          return await postWithFallback(endpoint, data, "multipart/form-data");
+        }
       }
-      return Promise.reject(error);
+      throw e;
     }
-  );
-  return instance;
-}, []);
+  };
 
-// after: const api = useMemo(() => { ... }, []);
-
-
-// ✅ place right below: const api = useMemo(() => { ... }, []);
-const postWithFallback = async (url: string, payload: Record<string, any>) => {
-  // 1) JSON
-  try {
-    return await api.post(url, payload, { headers: { "Content-Type": "application/json" } });
-  } catch (e: any) {
-    const s = e?.response?.status;
-    if (s !== 415 && s !== 400) throw e; // only fall back on media/validation issues
-  }
-
-  // 2) x-www-form-urlencoded
-  try {
-    const form = new URLSearchParams();
-    Object.entries(payload).forEach(([k, v]) => form.append(k, v == null ? "" : String(v)));
-    return await api.post(url, form, { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
-  } catch (e: any) {
-    const s = e?.response?.status;
-    if (s !== 415 && s !== 400) throw e;
-  }
-
-  // 3) multipart/form-data
-  const fd = new FormData();
-  Object.entries(payload).forEach(([k, v]) => fd.append(k, v == null ? "" : String(v)));
-  return api.post(url, fd); // let browser set boundary
-};
-
-
-
-
-
-  // ====== On-Duty state ======
-  const [showEmpModal, setShowEmpModal] = useState(false);
-
-  const [dutiesDate, setDutiesDate] = useState<string>("");
+  const [dutiesDate, setDutiesDate] = useState<string>(isoToYmd(new Date().toISOString()));
   const [institution, setInstitution] = useState<string>("");
   const [dutiesDesc, setDutiesDesc] = useState<string>("");
   const [transportMode, setTransportMode] = useState<string>("");
@@ -211,26 +181,13 @@ const postWithFallback = async (url: string, payload: Record<string, any>) => {
   const [eReading, setEReading] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
-
-  // Controls
-  const [disableVehicle, setDisableVehicle] = useState<boolean>(false);
-  const [disableKms, setDisableKms] = useState<boolean>(true);
-  const [transportMsg, setTransportMsg] = useState<string>("");
-
-  // Employees
-  const [allEmployees, setAllEmployees] = useState<EmployeeItem[]>([]);
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
-  const selectedCodesStr = selectedCodes.length ? selectedCodes.join(",") : "Select Employees";
-
-  // Clients (for both Institution and OT client dropdowns)
+  const [allEmployees, setAllEmployees] = useState<EmployeeItem[]>([]);
   const [clients, setClients] = useState<ClientItem[]>([]);
-
-  // Grid + editing
   const [dutiesList, setDutiesList] = useState<DutyRow[]>([]);
   const [editingId, setEditingId] = useState<string>("");
 
-  // ====== Over-Time state ======
-  const [otDate, setOTDate] = useState<string>("");
+  const [otDate, setOTDate] = useState<string>(isoToYmd(new Date().toISOString()));
   const [otClient, setOTClient] = useState<string>("");
   const [otFrom, setOTFrom] = useState<string>("");
   const [otTo, setOTTo] = useState<string>("");
@@ -239,183 +196,66 @@ const postWithFallback = async (url: string, payload: Record<string, any>) => {
   const [otDesc, setOTDesc] = useState<string>("");
   const [otList, setOTList] = useState<OTrow[]>([]);
   const [otEditingId, setOTEditingId] = useState<string>("");
+  const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
+  const notify = (msg: string, color: string = "primary") => setToast({ msg, color });
 
-  // state + helper
-const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
-const notify = (msg: string, color: string = "primary") => setToast({ msg, color });
-
-
-  // Approvals toggles
-  const canApproveDuties = userDesig === "Director" || userDesig === "In-Charge F&A";
-
-
-useEffect(() => {
-  if (didInitRef.current) return;          
-  didInitRef.current = true;
-
-  try {
-    const stored =
-      localStorage.getItem("storedUser") ||
-      localStorage.getItem("user") ||
-      localStorage.getItem("userData");
-    if (stored) {
-      const s = JSON.parse(stored);
-      setEmpCode(String(s.empCode || s.username || ""));
-      setEmpName(String(s.empName || ""));
-      setUserDesig(String(s.designation || s.userType || ""));
-      console.log("[duties][init] stored user:", s);
-    } else {
-      console.log("[duties][init] no stored user");
-    }
-  } catch (e) {
-    console.warn("[duties][init] failed to parse stored user", e);
-  } finally {
-    setUserLoaded(true);
-  }
-}, []);
-
-
-  // Default today’s date for convenience
   useEffect(() => {
-    const today = isoToYmd(new Date().toISOString());
-    setDutiesDate((d) => d || today);
-    setOTDate((d) => d || today);
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    try {
+      const stored = localStorage.getItem("storedUser") || localStorage.getItem("user") || localStorage.getItem("userData");
+      if (stored) {
+        const s = JSON.parse(stored);
+        setEmpCode(String(s.empCode || s.username || ""));
+        setEmpName(String(s.empName || ""));
+        setUserDesig(String(s.designation || s.userType || ""));
+      }
+    } catch (e) {
+      console.warn("User parse error", e);
+    } finally {
+      setUserLoaded(true);
+    }
   }, []);
 
-  // ====== LOADERS ======
-  const normalizeClients = (raw: any): ClientItem[] => {
-    if (!Array.isArray(raw)) return [];
-    return raw
-      .map((x: any) => ({
-        Client_ID: String(x?.Client_ID ?? x?.[0] ?? ""),
-        Client_Name: String(x?.Client_Name ?? x?.[1] ?? ""),
-      }))
-      .filter((c) => c.Client_ID && c.Client_Name && c.Client_Name !== "null" && c.Client_Name.trim() !== "");
-  };
-
-  const normalizeEmployees = (raw: any): EmployeeItem[] => {
-    if (!Array.isArray(raw)) return [];
-    return raw.map((x: any) => ({
-      EmpCode: String(x?.EmpCode ?? x?.[0] ?? ""),
-      EmpName: x?.EmpName ?? x?.[1],
-      Mobile: x?.Mobile ?? x?.[5] ?? x?.[2],
-      Ischeck: asBool(x?.Ischeck ?? x?.[4] ?? false),
-    }));
-  };
-
-  const normalizeDuties = (raw: any): DutyRow[] => {
-    if (!Array.isArray(raw)) return [];
-    return raw.map((r: any) => {
-      if (Array.isArray(r)) {
-        return {
-          id: String(r[0] ?? ""),
-          Date: r[12] || r[10] || r[1],
-          College: r[2] || r[5] || "",
-          Description: r[3] || r[6] || "",
-          Mode_of_Trans: r[4] || "",
-          Start_Time: r[5] || r[8] || "",
-          End_Time: r[6] || r[9] || "",
-          Vehicle_No: r[7] || "",
-          Start_Reading: r[8] || "",
-          End_Reading: r[9] || "",
-          Kms: r[10] || "",
-          Status: r[11] || "",
-          EmpCodes: r[12] || "",
-        } as DutyRow;
-      }
-      return {
-        id: String(r?.id ?? r?.RID ?? ""),
-        Date: r?.Date,
-        College: r?.College,
-        Description: r?.Description,
-        Mode_of_Trans: r?.Mode_of_Trans,
-        Start_Time: r?.Start_Time,
-        End_Time: r?.End_Time,
-        Vehicle_No: r?.Vehicle_No,
-        Start_Reading: r?.Start_Reading,
-        End_Reading: r?.End_Reading,
-        Kms: r?.Kms,
-        Status: r?.Status,
-        EmpCodes: r?.EmpCodes,
-      } as DutyRow;
-    });
-  };
-
-  const normalizeOT = (raw: any): OTrow[] => {
-    if (!Array.isArray(raw)) return [];
-    return raw.map((r: any) => {
-      if (Array.isArray(r)) {
-        const empCode = String(r[1] ?? "");
-        const empName = String(r[12] ?? "");
-        const empCodeName = (r[15] as string) || (empCode && empName ? `${empCode}-${empName}` : empCode);
-        const pendingAt = (r[14] && String(r[14])) || (r[10] && String(r[10])) || null;
-        return {
-          id: String(r[0] ?? ""),
-          EmpCode: empCode,
-          EmpCodeName: empCodeName,
-          Date: String(r[2] ?? ""),
-          College: String(r[3] ?? ""),
-          Fromtime: String(r[4] ?? ""),
-          Totime: String(r[5] ?? ""),
-          Description: String(r[6] ?? ""),
-          TL_Verified: r[7] ?? null,
-          Accnt_Verified: r[8] ?? null,
-          Director_Verified: r[9] ?? null,
-          MinDiff: r[11] ?? null,
-          Status: r[13] ?? null,
-          PendingAt: pendingAt,
-        } as OTrow;
-      }
-      return {
-        id: String(r?.id ?? ""),
-        EmpCodeName: r?.EmpCodeName ?? r?.EmpCode,
-        EmpCode: r?.EmpCode,
-        Date: r?.Date,
-        College: r?.College,
-        Description: r?.Description,
-        Fromtime: r?.Fromtime,
-        Totime: r?.Totime,
-        MinDiff: r?.MinDiff ?? null,
-        FinMinDiff: r?.FinMinDiff ?? null,
-        PendingAt: r?.PendingAt ?? null,
-        Status: r?.Status ?? null,
-        TL_Verified: r?.TL_Verified ?? r?.TL_Ver ?? null,
-        Accnt_Verified: r?.Accnt_Verified ?? r?.Accnt_Ver ?? null,
-        Director_Verified: r?.Director_Verified ?? r?.dir_Ver ?? null,
-      } as OTrow;
-    });
-  };
-
-  const loadClients = async () => {
+  const loadEmployees = async () => {
     try {
-      const res = await api.get("Workreport/Load_Clients", { params: { College: "" } });
-      setClients(normalizeClients(res.data));
-    } catch {
-      setClients([]);
+      const res = await api.get("Employee/load_employees_duties", { params: { id: "0" } });
+      const raw = Array.isArray(res.data) ? res.data : [];
+      console.log(`[API][GET] Employees loaded: ${raw.length} items`, raw);
+      setAllEmployees(raw.map((x: any) => ({
+        EmpCode: x[0], EmpName: x[1], Role: x[2], Designation: x[3], Ischeck: asBool(x[4]), Mobile: x[5]
+      })));
+    } catch (e) {
+      console.error("[API][GET] Failed to load employees", e);
+      notify("Failed to load employees", "danger");
     }
   };
 
-  const loadEmployees = async (id: string) => {
+  const loadClients = async (search: string = "") => {
     try {
-      const _id = id && id !== "" ? id : "0";
-      const res = await api.get("Employee/load_employees_duties", {
-        params: { SearchEmp: "Active", id: _id },
-      });
-      const list = normalizeEmployees(res.data);
-      setAllEmployees(list);
-      const preselected = list.filter((x) => asBool(x.Ischeck)).map((x) => x.EmpCode);
-      if (preselected.length) setSelectedCodes(preselected);
-    } catch {
-      setAllEmployees([]);
-      setSelectedCodes([]);
+      const res = await api.get("Workreport/Load_Clients", { params: { College: search } });
+      const raw = Array.isArray(res.data) ? res.data : [];
+      console.log(`[API][GET] Clients loaded: ${raw.length} items`, raw);
+      setClients(raw.map((x: any) => ({ Client_ID: String(x[0]), Client_Name: x[1] })));
+    } catch (e) {
+      console.error("[API][GET] Load_Clients failed", e);
+      setClients([]);
     }
   };
 
   const loadDuties = async () => {
     try {
       const res = await api.get("Workreport/load_duties", { params: { EmpCode: empCode } });
-      setDutiesList(normalizeDuties(res.data));
-    } catch {
+      const raw = Array.isArray(res.data) ? res.data : [];
+      console.log(`[API][GET] On-Duty Logs loaded: ${raw.length} items`, raw);
+      setDutiesList(raw.map((r: any) => ({
+        id: String(r[0]), EmpCodes: String(r[1]), Date: String(r[2]), Description: String(r[3]), College: String(r[4]),
+        Mode_of_Trans: String(r[5]), Kms: String(r[6]), Start_Time: String(r[7]), End_Time: String(r[8]),
+        Vehicle_No: String(r[9]), Start_Reading: String(r[10]), End_Reading: String(r[11]),
+        Status: r[12] === "Y" ? "Approved" : r[12] === "REJECTED" ? "Rejected" : "Pending"
+      })));
+    } catch (e) {
+      console.error("[API][GET] load_duties failed", e);
       setDutiesList([]);
     }
   };
@@ -423,811 +263,463 @@ useEffect(() => {
   const loadOT = async () => {
     try {
       const res = await api.get("Workreport/load_overtime_duties", { params: { EmpCode: empCode } });
-      setOTList(normalizeOT(res.data));
-    } catch {
+      const raw = Array.isArray(res.data) ? res.data : [];
+      console.log(`[API][GET] OT Logs loaded: ${raw.length} items`, raw);
+      setOTList(raw.map((r: any) => ({
+        id: String(r[0]), EmpCode: String(r[1]), Date: String(r[2]), College: String(r[3]), Fromtime: String(r[4]),
+        Totime: String(r[5]), Description: String(r[6]), MinDiff: String(r[11] || "0"), Status: r[14] || "Pending",
+        EmpCodeName: String(r[15] || "")
+      })));
+    } catch (e) {
+      console.error("[API][GET] load_overtime_duties failed", e);
       setOTList([]);
     }
   };
 
-  // Initial load
   useEffect(() => {
-    if (!userLoaded || !empCode) return;
-    loadClients();
-    loadEmployees("");
-    loadDuties();
-    loadOT();
-  }, [userLoaded, empCode]); // eslint-disable-line
-
-  // ====== Handlers ======
-  const onTransportChange = (val: string) => {
-    setTransportMode(val);
-    setDisableVehicle(val !== "OfficeVehicle");
-    setDisableKms(!(val === "PublicTransport" || val === "Twowheeler"));
-    if (val === "OnSite") setTransportMsg("Only DA will be calculated");
-    else if (val === "PublicTransport") setTransportMsg("DA and TA will be calculated");
-    else if (val === "Twowheeler") setTransportMsg("DA and TA will be calculated");
-    else if (val === "OfficeVehicle") setTransportMsg("Only DA will be calculated");
-    else setTransportMsg("");
-  };
+    if (userLoaded && empCode) {
+      loadEmployees(); loadClients(); loadDuties(); loadOT();
+    }
+  }, [userLoaded, empCode]);
 
   const onEndReadingChange = (val: string) => {
     setEReading(val);
     const s = parseFloat(sReading || "0");
     const e = parseFloat(val || "0");
-    if (val && !Number.isNaN(s) && !Number.isNaN(e)) {
-      if (e < s) {
-        alert("End-Reading must be greater than Start-Reading");
-        setEReading("");
-        setKms("");
-      } else {
-        const diff = e - s;
-        setKms(`${diff}Kms`);
-      }
+    if (val && !isNaN(s) && !isNaN(e)) {
+      if (e < s) { notify("End reading must be more than start", "warning"); setKms(""); }
+      else { setKms(`${e - s}Kms`); }
     }
-  };
-
-  const toggleEmp = (code: string, checked: boolean) => {
-    setSelectedCodes((prev) => {
-      const set = new Set(prev);
-      if (checked) set.add(code);
-      else set.delete(code);
-      return Array.from(set);
-    });
-  };
-
-  // ====== Save / Approve / Reject (On-Duty) ======
-const sendSMS_OnDutySubmitted = async (codesCsv: string, dateYmd: string, clientName: string) => {
-  if (!ENABLE_SMS) return; // 🚫 dev off
-  try {
-    const acct = allEmployees.find((x) => x.EmpCode === "1541");
-    const mobile = acct?.Mobile;
-    if (!mobile) return;
-    const raised = ymdToDdMmYy(dateYmd);
-    const msg = `On-Duty Request Submitted For Approval // Employee Codes : ${codesCsv} // Date : ${raised} // Client : ${clientName}`;
-    await api.get("Sources/sendMessage", {
-      params: { phoneNo: mobile, message: msg },
-      headers: { "x-quiet": "1" }, // 🤫 no console error even if 404
-    });
-  } catch { /* ignore */ }
-};
-
-
-  const sendSMS_OnDutyApproved = async (dateYmd: string) => {
-    try {
-      const raised = ymdToDdMmYy(dateYmd);
-      console.log("[duties][sms][approved] prepared:", `Your On-Duty Request Has Been Approved // Raised Date : ${raised}`);
-    } catch {}
   };
 
   const saveOnDuty = async () => {
-    const dateYmd = dutiesDate || isoToYmd(new Date().toISOString());
-    const codesCsv = selectedCodes.join(",");
-    const payload = {
-      _id: editingId || "",
-      _empcode: codesCsv,
-      _date: dateYmd,
-      _Client: institution,
-      _Description: dutiesDesc,
-      _TransportMode: transportMode,
-      _Starttime: startTime,
-      _Endtime: endTime,
-      _VehicleNo: vehicleNo,
-      _StartReading: sReading,
-      _EndReading: eReading,
-      _KMS: kms,
-    };
-    console.log("[duties][save OnDuty] payload:", payload);
+    if (!institution || !dutiesDesc || !transportMode) { notify("Please fill all required fields", "warning"); return; }
+    const currentEmpCode = selectedCodes.join(",") || empCode;
+    if (!currentEmpCode) { notify("No employee selected or logged in", "danger"); return; }
 
-    if (!dateYmd || !institution || !dutiesDesc || !transportMode) {
-      alert("All required fields must be filled (date, institution, description, transport mode).");
-      return;
-    }
+    const payload = {
+      _id: editingId || "0", _empcode: currentEmpCode, _date: dutiesDate, _Client: institution,
+      _Description: dutiesDesc, _TransportMode: transportMode, _Starttime: startTime, _Endtime: endTime,
+      _VehicleNo: vehicleNo, _StartReading: sReading, _EndReading: eReading, _KMS: kms.replace("Kms", "")
+    };
     try {
-      const res = await api.post("Workreport/saveduties", payload, {
-        headers: { "Content-Type": "application/json" },
-      });
-      if (isSaveOk(res.data)) {
-        notify("✅ Saved Successfully!");
-        try {
-          await sendSMS_OnDutySubmitted(codesCsv, dateYmd, institution);
-        } catch {}
-        await loadDuties();
-        clearOnDutyForm(false);
-        return;
-      }
-      alert(`❌ Save Error. Server said: ${String(res.data)}`);
-    } catch (e: any) {
-      // Fallback to form-urlencoded
-      const form = new URLSearchParams();
-      Object.entries(payload).forEach(([k, v]) => form.append(k, String(v ?? "")));
-      try {
-        const res2 = await api.post("Workreport/saveduties", form, {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        });
-        if (isSaveOk(res2.data)) {
-          alert("✅ Saved Successfully!");
-          try {
-            await sendSMS_OnDutySubmitted(codesCsv, dateYmd, institution);
-          } catch {}
-          await loadDuties();
-          clearOnDutyForm(false);
-          return;
-        }
-        alert(`❌ Save Error. Server said: ${String(res2.data)}`);
-      } catch (e2) {
-        console.error("[duties][save OnDuty][form] failed", e2);
-        alert("❌ API Error");
-      }
+      const res = await postWithFallback("Workreport/saveduties", payload);
+      console.log("[API][POST] saveOnDuty Response:", res.data);
+      if (isSaveOk(res.data)) { notify("On-Duty request submitted successfully", "success"); clearOnDutyForm(); loadDuties(); }
+    } catch (e) {
+      console.error("[API][POST] saveOnDuty failed", e);
+      notify("Submission failed", "danger");
     }
+  };
+
+  const editOnDuty = async (id: string) => {
+    if (!canEdit) { notify("Permission Denied", "danger"); return; }
+    try {
+      const res = await api.get("Workreport/edit_onduties", { params: { EmpCode: empCode, id } });
+      const row = Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
+      if (row) {
+        setEditingId(String(row[0])); setSelectedCodes(String(row[1]).split(",").filter(Boolean));
+        setDutiesDate(isoToYmd(row[2])); setInstitution(row[3]); setDutiesDesc(row[4]); setTransportMode(row[5]);
+        setKms(row[6]); setStartTime(row[7]); setEndTime(row[8]); setVehicleNo(row[9]); setSReading(row[10]); setEReading(row[11]);
+        contentRef.current?.scrollToTop(500);
+        notify("Record loaded for editing");
+      }
+    } catch (e) { notify("Failed to load record", "danger"); }
   };
 
   const approveOnDuty = async () => {
-    const dateYmd = dutiesDate || isoToYmd(new Date().toISOString());
-    const codesCsv = selectedCodes.join(",");
+    if (!editingId) return;
     const payload = {
-      _id: editingId || "",
-      _empcode: codesCsv,
-      _date: dateYmd,
-      _Client: institution,
-      _Description: dutiesDesc,
-      _TransportMode: transportMode,
-      _Starttime: startTime,
-      _Endtime: endTime,
-      _VehicleNo: vehicleNo,
-      _StartReading: sReading,
-      _EndReading: eReading,
-      _KMS: kms,
+      _id: editingId, _empcode: empCode, _date: dutiesDate, _Client: institution, _Description: dutiesDesc,
+      _TransportMode: transportMode, _Starttime: startTime, _Endtime: endTime, _VehicleNo: vehicleNo,
+      _StartReading: sReading, _EndReading: eReading, _KMS: kms.replace("Kms", "")
     };
-    if (!editingId) {
-      alert("Open a record (Edit) before approving.");
-      return;
-    }
     try {
-      const res = await api.post("Workreport/saveduties_approve", payload, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      if (isSaveOk(res.data)) {
-        notify("✅ Approved!");
-        try {
-          await sendSMS_OnDutyApproved(dateYmd);
-        } catch {}
-        await loadDuties();
-        clearOnDutyForm(true);
-      } else {
-        alert("❌ Approve Error.");
-      }
-    } catch {
-      alert("❌ API Error");
-    }
+      const res = await postWithFallback("Workreport/SaveDuties_Approve", payload);
+      if (isSaveOk(res.data)) { notify("Approved successfully", "success"); clearOnDutyForm(); loadDuties(); }
+    } catch (e) { notify("Approval failed", "danger"); }
   };
 
   const rejectOnDuty = async () => {
-    if (!editingId) {
-      alert("Open a record (Edit) before rejecting.");
-      return;
-    }
+    if (!editingId) return;
     try {
-      const form = new URLSearchParams();
-      form.append("_id", editingId);
-      const res = await api.post("Workreport/onduty_rejected", form, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      if (isSaveOk(res.data)) {
-        notify("✅ On-Duty Request Rejected!");
-        await loadDuties();
-        clearOnDutyForm(true);
-      } else {
-        alert("❌ Reject Error.");
-      }
-    } catch {
-      alert("❌ API Error");
-    }
-  };
-
-  // ====== Edit (On-Duty) ======
-  const editOnDuty = async (id: string) => {
-    try {
-      const res = await api.get("Workreport/edit_onduties", {
-        params: { EmpCode: empCode, id },
-      });
-      const row = Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
-      if (!row) return;
-
-      setEditingId(String(row["id"] ?? id));
-      setDutiesDate(isoToYmd(String(row["Date"])));
-      setInstitution(String(row["College"] ?? ""));
-      setDutiesDesc(String(row["Description"] ?? ""));
-      const _mode = String(row["Mode_of_Trans"] ?? "");
-      setTransportMode(_mode);
-      onTransportChange(_mode);
-
-      setStartTime(String(row["Start_Time"] ?? ""));
-      setEndTime(String(row["End_Time"] ?? ""));
-      setVehicleNo(String(row["Vehicle_No"] ?? ""));
-      setSReading(String(row["Start_Reading"] ?? ""));
-      setEReading(String(row["End_Reading"] ?? ""));
-      setKms(String(row["Kms"] ?? ""));
-      const codesStr = String(row["EmpCodes"] ?? "");
-      const codesArr = codesStr ? codesStr.split(",").filter(Boolean) : [];
-      setSelectedCodes(codesArr);
-
-      await loadEmployees(String(row["id"] ?? id));
-
-      const status = String(row["Status"] ?? "");
-      if (status === "Y") {
-        alert("Already Approved.");
-      }
+      const res = await postWithFallback("Workreport/onduty_rejected", { _id: editingId });
+      console.log("[API][POST] rejectOnDuty Response:", res.data);
+      if (isSaveOk(res.data)) { notify("Request rejected", "warning"); clearOnDutyForm(); loadDuties(); }
     } catch (e) {
-      console.error("[duties][edit OnDuty] failed", e);
+      console.error("[API][POST] rejectOnDuty failed", e);
+      notify("Rejection failed", "danger");
     }
   };
 
-  const clearOnDutyForm = (clearEditing: boolean) => {
-    if (clearEditing) setEditingId("");
-    setInstitution("");
-    setDutiesDesc("");
-    setTransportMode("");
-    setTransportMsg("");
-    setStartTime("");
-    setEndTime("");
-    setVehicleNo("");
-    setSReading("");
-    setEReading("");
-    setKms("");
-    setSelectedCodes([]);
+  const clearOnDutyForm = () => {
+    setEditingId(""); setInstitution(""); setDutiesDesc(""); setTransportMode(""); setKms(""); setVehicleNo("");
+    setSReading(""); setEReading(""); setStartTime(""); setEndTime(""); setSelectedCodes([]);
   };
 
-  // ====== Over-Time actions ======
   useEffect(() => {
-    const mins = minutesBetween(otFrom, otTo);
-    setOTActualMin(mins);
-    setOTFinalMin(mins);
+    const mins = minutesBetween(otFrom, otTo); setOTActualMin(mins); setOTFinalMin(mins);
   }, [otFrom, otTo]);
 
-const saveOvertime = async () => {
-  const dateYmd = otDate || isoToYmd(new Date().toISOString());
+  const saveOT = async () => {
+    if (!otClient || !otDesc || !otFrom || !otTo) { notify("Please fill all OT details", "warning"); return; }
+    if (!empCode) { notify("Employee session missing", "danger"); return; }
 
-  const payload = {
-    _empcode: String(empCode),
-    _date: String(dateYmd),
-    _Client: String(otClient),
-    _Description: String(otDesc),
-    _Fromtime: String(otFrom).trim(),
-    _Totime:   String(otTo).trim(),
-    _minDiff:  String(otActualMin),    // stringify to satisfy model binders
-    _FinMinDiff: String(otFinalMin),
-    _id: String(otEditingId || ""),    // ✅ include _id
-    _Otid: String(otEditingId || ""),  // keep this too (harmless if unused)
-  };
-
-  if (!dateYmd || !otClient || !otDesc || !otFrom || !otTo || !otActualMin) {
-    notify("Fields should not be blank.", "danger");
-    return;
-  }
-
-  try {
-    const res = await postWithFallback("Workreport/save_overtime_duties", payload);
-    if (isSaveOk(res.data)) {
-      notify("OverTime reported!", "success");
-      await loadOT();
-      clearOTForm();
-    } else {
-      notify("Save error.", "danger");
-    }
-  } catch (e: any) {
-    const lines = extractValidation(e);
-    if (lines) notify(lines.join(" | "), "danger");
-    else notify("API error while saving OT.", "danger");
-  }
-};
-
-
-
-
-  // put near the top of the file
-const toForm = (obj: Record<string, any>) => {
-  const form = new URLSearchParams();
-  Object.entries(obj).forEach(([k, v]) => form.append(k, v == null ? "" : String(v)));
-  return form;
-};
-
-
-  const editOvertime = async (id: string) => {
+    const payload = {
+      _empcode: String(empCode), _date: String(otDate), _Client: String(otClient), _Fromtime: String(otFrom), _Totime: String(otTo),
+      _Description: String(otDesc), _minDiff: String(otActualMin), _FinMinDiff: String(otFinalMin), _Otid: String(otEditingId || "")
+    };
     try {
-      const res = await api.get("Workreport/edit_OverTime", { params: { id, Empcode: empCode } });
-      const r = Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
-      if (!r) return;
-
-      setOTEditingId(String(r["id"] ?? id));
-      setOTDate(isoToYmd(String(r["Date"])));
-      setOTClient(String(r["College"] ?? ""));
-      setOTDesc(String(r["Description"] ?? ""));
-      setOTFrom(String(r["Fromtime"] ?? ""));
-      setOTTo(String(r["Totime"] ?? ""));
-      setOTActualMin(Number(r["MinDiff"] ?? 0));
-      setOTFinalMin(Number(r["FinMinDiff"] ?? 0));
+      const res = await postWithFallback("Workreport/save_overtime_duties", payload);
+      console.log("[API][POST] saveOT Response:", res.data);
+      if (isSaveOk(res.data)) { notify("Overtime saved successfully", "success"); clearOTForm(); loadOT(); }
     } catch (e) {
-      console.error("[duties][edit OT] failed", e);
+      console.error("[API][POST] saveOT failed", e);
+      notify("OT Save failed", "danger");
     }
   };
 
-const approveOvertime = async () => {
-  if (!otEditingId) { notify("Open an OT record before approving.", "warning"); return; }
-  if (otFinalMin > otActualMin) { notify("Approved minutes cannot exceed actual.", "warning"); return; }
-
-  const payload = {
-    _id: otEditingId,
-    _desig: userDesig,
-    _Fromtime: otFrom,
-    _Totime: otTo,
-    _minDiff: otActualMin,
-    _FinMinDiff: otFinalMin,
+  const editOT = async (id: string) => {
+    try {
+      const res = await api.get("Workreport/edit_OverTime", { params: { id, EmpCode: empCode } });
+      const r = Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
+      if (r) {
+        setOTEditingId(String(r[0])); setOTDate(isoToYmd(r[2])); setOTClient(r[3]); setOTFrom(r[4]); setOTTo(r[5]); setOTDesc(r[6]);
+        contentRef.current?.scrollToTop(500);
+        notify("OT record loaded");
+      }
+    } catch (e) { notify("Edit failed", "danger"); }
   };
 
-  try {
-    const res = await postWithFallback("Workreport/approve_overtime", payload);
-    if (isSaveOk(res.data)) {
-      notify("OverTime approved!", "success");
-      await loadOT();
-      clearOTForm();
-    } else {
-      notify("Approve error.", "danger");
+  const approveOT = async () => {
+    if (!otEditingId) return;
+    const payload = {
+      _id: String(otEditingId), _desig: String(userDesig), _Fromtime: String(otFrom), _Totime: String(otTo),
+      _minDiff: String(otActualMin), _FinMinDiff: String(otFinalMin)
+    };
+    try {
+      const res = await postWithFallback("Workreport/approve_overtime", payload);
+      console.log("[API][POST] approveOT Response:", res.data);
+      if (isSaveOk(res.data)) { notify("Overtime Approved", "success"); clearOTForm(); loadOT(); }
+    } catch (e) {
+      console.error("[API][POST] approveOT failed", e);
+      notify("OT Approve failed", "danger");
     }
-  } catch {
-    notify("API error while approving OT.", "danger");
-  }
-};
-
-
+  };
 
   const clearOTForm = () => {
-    setOTEditingId("");
-    setOTClient("");
-    setOTDesc("");
-    setOTFrom("");
-    setOTTo("");
-    setOTActualMin(0);
-    setOTFinalMin(0);
+    setOTEditingId(""); setOTClient(""); setOTDesc(""); setOTFrom(""); setOTTo(""); setOTActualMin(0); setOTFinalMin(0);
   };
 
 
-  
-
-  // ====== UI ======
   return (
-    <IonPage>
+    <IonPage className="onduties-page">
+      <IonContent className="onduties-content" ref={contentRef} scrollEvents={true}>
+        {/* Animated Background Elements */}
+        <div className="bg-shape bg-shape-1"></div>
+        <div className="bg-shape bg-shape-2"></div>
 
-      <IonToast
-  isOpen={!!toast}
-  message={toast?.msg}
-  color={toast?.color as any}
-  duration={2200}
-  onDidDismiss={() => setToast(null)}
-/>
+        {/* Hero Section */}
+        <div className="header-container">
+          <div className="page-title">Duty Manager</div>
+          <div className="custom-tabs">
+            <div className={`tab-btn ${activeTab === "onduty" ? "active" : ""}`} onClick={() => setActiveTab("onduty")}>
+              On-Duty
+            </div>
+            <div className={`tab-btn ${activeTab === "overtime" ? "active" : ""}`} onClick={() => setActiveTab("overtime")}>
+              Over-Time
+            </div>
+          </div>
+        </div>
 
-      <IonHeader>
-              <IonToolbar>
-                <IonToolbar className="menu-toolbar">
-                  <img
-                    src="./images/dbase.png"
-                    alt="DBase Logo"
-                    className="menu-logo"
-                  />
-                </IonToolbar>
-              </IonToolbar>
-            </IonHeader>
+        <div className="ion-padding-horizontal">
+          {activeTab === "onduty" ? (
+            <>
+              {/* ON-DUTY FORM */}
+              <div className="form-container">
+                <div className="form-title">
+                  <IonIcon icon={flashOutline} style={{ color: "#6366f1" }} />
+                  {editingId ? "Modify Duty Request" : "Register On-Duty"}
+                </div>
 
-      <IonContent className="ion-padding">
-        <IonSegment
-          value={activeTab}
-          onIonChange={(e) => setActiveTab(e.detail.value as any)}
-          className="custom-segment"
-        >
-          <IonSegmentButton value="onduty">
-            <IonLabel>On-Duty</IonLabel>
-          </IonSegmentButton>
-          <IonSegmentButton value="overtime">
-            <IonLabel>Over-Time</IonLabel>
-          </IonSegmentButton>
-        </IonSegment>
-
-        {activeTab === "onduty" && (
-          <>
-            <IonGrid className="form-grid">
-              <IonRow>
-                {/* Employees multi-select (modal) */}
-                <IonCol size="12" sizeMd="2">
-                  <IonItem button onClick={() => setShowEmpModal(true)}>
-                    <IonIcon icon={peopleOutline} slot="start" />
-                    <IonInput value={selectedCodesStr} readonly />
-                  </IonItem>
-                </IonCol>
-
-                {/* Date */}
-                <IonCol size="12" sizeMd="2">
-                  <IonItem lines="none">
-                    <IonIcon icon={calendarOutline} slot="start" />
-                    <IonInput readonly value={dutiesDate ? ymdToDdMmYy(dutiesDate) : "Date*"} />
-                    <IonDatetimeButton datetime="od-date" slot="end" />
-                  </IonItem>
-                  <IonModal keepContentsMounted={true}>
-                    <IonDatetime
-                      id="od-date"
-                      presentation="date"
-                      onIonChange={(e) => {
-                        const val = typeof e.detail.value === "string" ? e.detail.value : undefined;
-                        if (!val) return;
-                        setDutiesDate(isoToYmd(val));
-                      }}
-                    />
-                  </IonModal>
-                </IonCol>
-
-                {/* Institution DROPDOWN */}
-                <IonCol size="12" sizeMd="3">
-                  <IonItem>
-                    <IonSelect
-                      interface="alert"
-                      interfaceOptions={{ header: "Select Institution" }}
-                      placeholder="Select Institution"
-                      value={institution || undefined}           
-                      onIonFocus={() => !clients.length && loadClients()}
-                      onIonChange={(e) => setInstitution(e.detail.value)}
-                    >
-                      {clients.map((c) => (
-                        <IonSelectOption key={c.Client_ID} value={c.Client_Name}>
-                          {c.Client_Name}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </IonItem>
-                  <IonNote color="medium">{!clients.length ? "Loading institutions..." : ""}</IonNote>
-                </IonCol>
-
-                {/* Description */}
-                <IonCol size="12" sizeMd="3">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Description*"
-                      value={dutiesDesc}
-                      onIonInput={(e) => setDutiesDesc(e.detail.value || "")}
-                    />
-                  </IonItem>
-                </IonCol>
-
-                {/* Transport mode */}
-                <IonCol size="12" sizeMd="2">
-                  <IonItem>
-                    <IonSelect
-                      key={`mode-${activeTab}-${editingId}`}
-                      interface="alert"
-                      interfaceOptions={{ header: "Mode of Transport" }}
-                      placeholder="Mode of Transport"
-                      value={transportMode || undefined}
-                      onIonChange={(e) => onTransportChange(e.detail.value)}
-                    >
-                      <IonSelectOption value="OnSite">On-Site</IonSelectOption>
-                      <IonSelectOption value="PublicTransport">Public Transport</IonSelectOption>
-                      <IonSelectOption value="Twowheeler">Two wheeler</IonSelectOption>
-                      <IonSelectOption value="OfficeVehicle">Office Vehicle</IonSelectOption>
-                    </IonSelect>
-                  </IonItem>
-                  {!!transportMsg && <IonNote color="medium">{transportMsg}</IonNote>}
-                </IonCol>
-              </IonRow>
-
-              <IonRow>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Kms"
-                      value={kms}
-                      onIonInput={(e) => setKms(e.detail.value || "")}
-                      readonly={disableKms}
-                    />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Vehicle No"
-                      value={vehicleNo}
-                      onIonInput={(e) => setVehicleNo(e.detail.value || "")}
-                      // readonly={disableVehicle}
-                    />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="S-Reading"
-                      value={sReading}
-                      onIonInput={(e) => setSReading(e.detail.value || "")}
-                      // readonly={disableVehicle}
-                    />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="E-Reading"
-                      value={eReading}
-                      onIonInput={(e) => onEndReadingChange(e.detail.value || "")}
-                      // readonly={disableVehicle}
-                    />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Start"
-                      type="time"
-                      value={startTime}
-                      onIonInput={(e) => setStartTime(e.detail.value || "")}
-                    />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput
-                      placeholder="End"
-                      type="time"
-                      value={endTime}
-                      onIonInput={(e) => setEndTime(e.detail.value || "")}
-                    />
-                  </IonItem>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="2" className="ion-text-end">
-                  <IonButton expand="block" className="primary-btn" onClick={saveOnDuty}>
-                    <IonIcon icon={arrowForwardOutline} slot="start" /> Submit
-                  </IonButton>
-                </IonCol>
-                {canApproveDuties && (
-                  <>
-                    <IonCol size="6" sizeMd="2" className="ion-text-end">
-                      <IonButton expand="block" color="success" onClick={approveOnDuty}>
-                        Approve
-                      </IonButton>
+                <IonGrid className="ion-no-padding">
+                  <IonRow>
+                    {/* Native side-by-side on Web, stack on Mobile via sizeMd="6" */}
+                    <IonCol size="12" sizeMd="6" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Team Members</label>
+                        <IonSelect
+                          multiple={true}
+                          interface="popover"
+                          className="lr-popover-select"
+                          value={selectedCodes}
+                          onIonChange={e => setSelectedCodes(e.detail.value)}
+                          placeholder="Select Team"
+                        >
+                          {allEmployees.map((emp, idx) => (
+                            <IonSelectOption key={`${emp.EmpCode}-${idx}`} value={emp.EmpCode}>
+                              {emp.EmpName}
+                            </IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </div>
                     </IonCol>
-                    <IonCol size="6" sizeMd="2" className="ion-text-end">
-                      <IonButton expand="block" color="danger" onClick={rejectOnDuty}>
-                        Reject
-                      </IonButton>
-                    </IonCol>
-                  </>
-                )}
-              </IonRow>
-            </IonGrid>
 
-            {/* Duties table */}
-            <IonGrid className="table-container" style={{ marginTop: 16 }}>
-              <IonRow className="table-header">
-                <IonCol size="2">Date</IonCol>
-                <IonCol size="2">College</IonCol>
-                <IonCol size="2">Description</IonCol>
-                <IonCol size="2">Mode</IonCol>
-                <IonCol size="1">S_Time</IonCol>
-                <IonCol size="1">E_Time</IonCol>
-                <IonCol size="1">KMS</IonCol>
-                <IonCol size="1">Status</IonCol>
-                <IonCol size="0.5">Edit</IonCol>
-              </IonRow>
-              {dutiesList.map((x) => (
-                <IonRow key={x.id} className="table-row">
-                  <IonCol size="2">{ymdToDdMmYy(isoToYmd(String(x.Date)))}</IonCol>
-                  <IonCol size="2">{x.College}</IonCol>
-                  <IonCol size="2">{x.Description}</IonCol>
-                  <IonCol size="2">{x.Mode_of_Trans}</IonCol>
-                  <IonCol size="1">{x.Start_Time}</IonCol>
-                  <IonCol size="1">{x.End_Time}</IonCol>
-                  <IonCol size="1">{x.Kms}</IonCol>
-                  <IonCol size="1" style={{ color: x.Status === "REJECTED" ? "var(--ion-color-danger)" as any : undefined }}>
-                    {x.Status}
-                  </IonCol>
-                  <IonCol size="0.5">
-                    {x.Status !== "REJECTED" && (
-                      <IonButton size="small" onClick={() => editOnDuty(x.id)}>
-                        Edit
+                    <IonCol size="12" sizeMd="6" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Duty Date</label>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: 700 }}>{ymdToDdMmYy(dutiesDate)}</span>
+                          <IonDatetimeButton datetime="od-date" />
+                        </div>
+                        <IonModal keepContentsMounted={true} className="native-modal">
+                          <IonDatetime id="od-date" presentation="date" value={dutiesDate} onIonChange={e => setDutiesDate(isoToYmd(e.detail.value as string))} />
+                        </IonModal>
+                      </div>
+                    </IonCol>
+                  </IonRow>
+
+                  <IonRow>
+                    <IonCol size="12" sizeMd="6" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Client / Institution</label>
+                        <IonSelect interface="popover" toggleIcon={businessOutline} className="lr-popover-select" placeholder="Search College" value={institution} onIonChange={e => setInstitution(e.detail.value)}>
+                          {clients.map((c, idx) => <IonSelectOption key={`${c.Client_ID}-${idx}`} value={c.Client_Name}>{c.Client_Name}</IonSelectOption>)}
+                        </IonSelect>
+                      </div>
+                    </IonCol>
+                    <IonCol size="12" sizeMd="6" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Work Description</label>
+                        <IonInput className="glass-input-field" placeholder="Ex: System installation..." value={dutiesDesc} onIonInput={e => setDutiesDesc(e.detail.value || "")} />
+                      </div>
+                    </IonCol>
+                  </IonRow>
+
+                  <IonRow>
+                    <IonCol size="12" sizeMd="4" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Transport</label>
+                        <IonSelect interface="popover" className="lr-popover-select" value={transportMode} onIonChange={e => setTransportMode(e.detail.value)}>
+                          <IonSelectOption value="OnSite">On-Site Work</IonSelectOption>
+                          <IonSelectOption value="PublicTransport">Public Transport</IonSelectOption>
+                          <IonSelectOption value="Twowheeler">Two Wheeler</IonSelectOption>
+                          <IonSelectOption value="OfficeVehicle">Office Vehicle</IonSelectOption>
+                        </IonSelect>
+                      </div>
+                    </IonCol>
+                    <IonCol size="6" sizeMd="4" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Times (S / E)</label>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <IonInput type="time" className="glass-input-field" value={startTime} onIonInput={e => setStartTime(e.detail.value || "")} />
+                          <IonInput type="time" className="glass-input-field" value={endTime} onIonInput={e => setEndTime(e.detail.value || "")} />
+                        </div>
+                      </div>
+                    </IonCol>
+                    <IonCol size="6" sizeMd="4" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Vehicle No</label>
+                        <IonInput className="glass-input-field" placeholder="AP16..." value={vehicleNo} onIonInput={e => setVehicleNo(e.detail.value || "")} />
+                      </div>
+                    </IonCol>
+                  </IonRow>
+
+                  <IonRow>
+                    <IonCol size="12" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Log Readings (Start • End • Total KMS)</label>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                          <IonInput className="glass-input-field" placeholder="Start" value={sReading} onIonInput={e => setSReading(e.detail.value || "")} />
+                          <div style={{ color: "#cbd5e1" }}>•</div>
+                          <IonInput className="glass-input-field" placeholder="End" value={eReading} onIonInput={e => onEndReadingChange(e.detail.value || "")} />
+                          <div className="badge-pill pill-approved" style={{ marginLeft: "auto" }}>
+                            <IonIcon icon={speedometerOutline} /> {kms || "0 KMS"}
+                          </div>
+                        </div>
+                      </div>
+                    </IonCol>
+                  </IonRow>
+
+                  <div className="action-buttons" style={{ marginTop: "20px" }}>
+                    <IonButton className="premium-action-btn" expand="block" onClick={saveOnDuty}>
+                      Submit Report
+                    </IonButton>
+
+                    {isAccountant && editingId && (
+                      <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
+                        <IonButton color="success" style={{ flex: 1, borderRadius: "16px" }} onClick={approveOnDuty}>
+                          Approve
+                        </IonButton>
+                        <IonButton color="danger" style={{ flex: 1, borderRadius: "16px" }} onClick={rejectOnDuty}>
+                          Reject
+                        </IonButton>
+                      </div>
+                    )}
+                  </div>
+                </IonGrid>
+              </div>
+
+              {/* ON-DUTY HISTORY */}
+              <div className="history-section-title">Verified Duty Logs</div>
+              {dutiesList.map((row, idx) => (
+                <div key={`${row.id}-${idx}`} className="premium-card">
+                  <div className="card-accent"></div>
+                  <div className="card-header">
+                    <div style={{ flex: 1 }}>
+                      <div className="college-name">{row.College}</div>
+                      <div className="entry-date">{ymdToDdMmYy(row.Date)}</div>
+                    </div>
+                    <div className={`badge-pill pill-${row.Status?.toLowerCase()}`}>
+                      {row.Status}
+                    </div>
+                  </div>
+                  <div className="desc-box">{row.Description}</div>
+                  <div className="card-footer-grid">
+                    <div className="footer-item">
+                      <span className="item-label">Transport</span>
+                      <span className="item-value">{row.Mode_of_Trans}</span>
+                    </div>
+                    <div className="footer-item">
+                      <span className="item-label">Timeline</span>
+                      <span className="item-value">{row.Start_Time} - {row.End_Time}</span>
+                    </div>
+                    <div className="footer-item">
+                      <span className="item-label">Distance</span>
+                      <span className="item-value">{row.Kms}</span>
+                    </div>
+                    {canEdit && (
+                      <IonButton fill="clear" color="primary" className="ion-no-margin" onClick={() => editOnDuty(row.id)}>
+                        <IonIcon icon={pencilOutline} />
                       </IonButton>
                     )}
-                  </IonCol>
-                </IonRow>
+                  </div>
+                </div>
               ))}
-              {!dutiesList.length && (
-                <IonRow>
-                  <IonCol className="ion-text-center" style={{ opacity: 0.6 }}>
-                    No On-Duty rows
-                  </IonCol>
-                </IonRow>
-              )}
-            </IonGrid>
-          </>
-        )}
+            </>
+          ) : (
+            <>
+              {/* OVER-TIME FORM */}
+              <div className="form-container">
+                <div className="form-title">
+                  <IonIcon icon={timeOutline} style={{ color: "#6366f1" }} />
+                  {otEditingId ? "Edit OT Records" : "Record Over-Time"}
+                </div>
 
-        {activeTab === "overtime" && (
-          <>
-            <IonGrid className="form-grid">
-              <IonRow>
-                {/* Date */}
-                <IonCol size="12" sizeMd="2">
-                  <IonItem lines="none">
-                    <IonIcon icon={calendarOutline} slot="start" />
-                    <IonInput readonly value={otDate ? ymdToDdMmYy(otDate) : "Date*"} />
-                    <IonDatetimeButton datetime="ot-date" slot="end" />
-                  </IonItem>
-                  <IonModal keepContentsMounted={true}>
-                    <IonDatetime
-                      id="ot-date"
-                      presentation="date"
-                      onIonChange={(e) => {
-                        const val = typeof e.detail.value === "string" ? e.detail.value : undefined;
-                        if (!val) return;
-                        setOTDate(isoToYmd(val));
-                      }}
-                    />
-                  </IonModal>
-                </IonCol>
+                <IonGrid className="ion-no-padding">
+                  <IonRow>
+                    <IonCol size="12" sizeMd="6" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">OT Date</label>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: 700 }}>{ymdToDdMmYy(otDate)}</span>
+                          <IonDatetimeButton datetime="ot-date" />
+                        </div>
+                        <IonModal keepContentsMounted={true} className="native-modal">
+                          <IonDatetime id="ot-date" presentation="date" value={otDate} onIonChange={e => setOTDate(isoToYmd(e.detail.value as string))} />
+                        </IonModal>
+                      </div>
+                    </IonCol>
+                    <IonCol size="12" sizeMd="6" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Client / College</label>
+                        <IonSelect interface="popover" className="glass-input-field" value={otClient} onIonChange={e => setOTClient(e.detail.value)}>
+                          {clients.map((c, idx) => <IonSelectOption key={`${c.Client_ID}-${idx}`} value={c.Client_Name}>{c.Client_Name}</IonSelectOption>)}
+                        </IonSelect>
+                      </div>
+                    </IonCol>
+                  </IonRow>
 
-                {/* Client DROPDOWN */}
-                <IonCol size="12" sizeMd="3">
-                  <IonItem>
-                    <IonSelect
-                      interface="alert"
-                      interfaceOptions={{ header: "Select Client" }}
-                      placeholder="Select Client"
-                      value={otClient || undefined}
-                      onIonFocus={() => !clients.length && loadClients()}
-                      onIonChange={(e) => setOTClient(e.detail.value)}
-                    >
-                      {clients.map((c) => (
-                        <IonSelectOption key={c.Client_ID} value={c.Client_Name}>
-                          {c.Client_Name}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </IonItem>
-                  <IonNote color="medium">{!clients.length ? "Loading clients..." : ""}</IonNote>
-                </IonCol>
+                  <IonRow>
+                    <IonCol size="12" sizeMd="4" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Duration (From - To)</label>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                          <IonInput type="time" className="glass-input-field" value={otFrom} onIonInput={e => setOTFrom(String(e.detail.value || ""))} />
+                          <div style={{ color: "#cbd5e1" }}>•</div>
+                          <IonInput type="time" className="glass-input-field" value={otTo} onIonInput={e => setOTTo(String(e.detail.value || ""))} />
+                        </div>
+                      </div>
+                    </IonCol>
+                    <IonCol size="6" sizeMd="4" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Actual Minutes</label>
+                        <IonInput className="glass-input-field" value={otActualMin} readonly />
+                      </div>
+                    </IonCol>
+                    <IonCol size="6" sizeMd="4" className="ion-padding-vertical ion-padding-start-md">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Approved Min.</label>
+                        <IonInput className="glass-input-field" placeholder="Final min..." value={otFinalMin} onIonInput={e => setOTFinalMin(Number(e.detail.value || 0))} />
+                      </div>
+                    </IonCol>
+                  </IonRow>
 
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput placeholder="From" type="time" value={otFrom} onIonInput={(e) => setOTFrom(e.detail.value || "")} />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="2">
-                  <IonItem>
-                    <IonInput placeholder="To" type="time" value={otTo} onIonInput={(e) => setOTTo(e.detail.value || "")} />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="1.5">
-                  <IonItem>
-                    <IonInput placeholder="Actual Min." value={String(otActualMin || "")} readonly />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="6" sizeMd="1.5">
-                  <IonItem>
-                    <IonInput
-                      placeholder="Final Min."
-                      value={String(otFinalMin || "")}
-                      onIonInput={(e) => setOTFinalMin(Number(e.detail.value || 0))}
-                    />
-                  </IonItem>
-                </IonCol>
-              </IonRow>
-              <IonRow>
-                <IonCol size="12" sizeMd="10">
-                  <IonItem>
-                    <IonInput placeholder="Description*" value={otDesc} onIonInput={(e) => setOTDesc(e.detail.value || "")} />
-                  </IonItem>
-                </IonCol>
-                <IonCol size="12" sizeMd="2" className="ion-text-end">
-                  <IonButton
-                    expand="block"
-                    className="primary-btn"
-                    onClick={saveOvertime}
-                  >
-                    <IonIcon icon={arrowForwardOutline} slot="start" /> Submit
-                  </IonButton>
-                </IonCol>
-              </IonRow>
-            </IonGrid>
+                  <IonRow>
+                    <IonCol size="12" className="ion-padding-vertical">
+                      <div className="input-wrapper">
+                        <label className="wrapper-label">Work Summary</label>
+                        <IonInput className="glass-input-field" placeholder="What was achieved during OT?" value={otDesc} onIonInput={e => setOTDesc(e.detail.value || "")} />
+                      </div>
+                    </IonCol>
+                  </IonRow>
 
-            {/* OT table */}
-            <IonGrid className="table-container" style={{ marginTop: 16 }}>
-              <IonRow className="table-header">
-                <IonCol size="2">Emp</IonCol>
-                <IonCol size="1.5">Date</IonCol>
-                <IonCol size="2">College</IonCol>
-                <IonCol size="1">From</IonCol>
-                <IonCol size="1">To</IonCol>
-                <IonCol size="3">Description</IonCol>
-                <IonCol size="0.8">Edit</IonCol>
-                <IonCol size="1.2">PendingAt</IonCol>
-              </IonRow>
-              {otList.map((x) => (
-                <IonRow key={x.id} className="table-row">
-                  <IonCol size="2">{x.EmpCodeName || x.EmpCode}</IonCol>
-                  <IonCol size="1.5">{ymdToDdMmYy(isoToYmd(String(x.Date)))}</IonCol>
-                  <IonCol size="2">{x.College}</IonCol>
-                  <IonCol size="1">{x.Fromtime}</IonCol>
-                  <IonCol size="1">{x.Totime}</IonCol>
-                  <IonCol size="3">{x.Description}</IonCol>
-                  <IonCol size="0.8">
-                    <IonButton size="small" onClick={() => editOvertime(x.id)}>
-                      Edit
+                  <div className="action-buttons" style={{ marginTop: "20px" }}>
+                    <IonButton className="premium-action-btn" expand="block" onClick={saveOT}>
+                      Submit OT Record
                     </IonButton>
-                  </IonCol>
-                  <IonCol size="1.2" style={{ color: x.PendingAt === "Approved" ? "var(--ion-color-success)" as any : undefined }}>
-                    {x.PendingAt}
-                  </IonCol>
-                </IonRow>
+                    {canApprove && otEditingId && (
+                      <IonButton color="success" style={{ marginTop: "15px", borderRadius: "16px" }} expand="block" onClick={approveOT}>
+                        Approve Minutes
+                      </IonButton>
+                    )}
+                  </div>
+                </IonGrid>
+              </div>
+
+              {/* OT HISTORY */}
+              <div className="history-section-title">Over-Time Logs</div>
+              {otList.map((row, idx) => (
+                <div key={`${row.id}-${idx}`} className="premium-card">
+                  <div className="card-header">
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px", fontSize: "0.85rem", color: "#000", fontWeight: 600 }}>
+                        <IonIcon icon={personCircleOutline} style={{ fontSize: "1.1rem", color: "#6366f1" }} />
+                        <span>{row.EmpCodeName}</span>
+                      </div>
+                      <div className="college-name">{row.College}</div>
+                      <div className="entry-date">{ymdToDdMmYy(row.Date)}</div>
+                    </div>
+                    <div className={`badge-pill pill-${String(row.Status).toLowerCase().includes("pending") ? "pending" : String(row.Status).toLowerCase().includes("rejected") ? "rejected" : "approved"}`}>
+                      {row.Status}
+                    </div>
+                  </div>
+                  <div className="desc-box">{row.Description}</div>
+                  <div className="card-footer-grid">
+                    <div className="footer-item">
+                      <span className="item-label">Timeline</span>
+                      <span className="item-value">{row.Fromtime} - {row.Totime}</span>
+                    </div>
+                    <div className="footer-item">
+                      <span className="item-label">Total Minutes</span>
+                      <span className="item-value">{row.MinDiff || "0"} Mins</span>
+                    </div>
+                    <IonButton fill="clear" color="primary" onClick={() => editOT(row.id)}>
+                      <IonIcon icon={pencilOutline} />
+                    </IonButton>
+                  </div>
+                </div>
               ))}
-              {!otList.length && (
-                <IonRow>
-                  <IonCol className="ion-text-center" style={{ opacity: 0.6 }}>
-                    No OT rows
-                  </IonCol>
-                </IonRow>
-              )}
-            </IonGrid>
+            </>
+          )}
+        </div>
 
-            {/* Simple approve button (visible when editing an OT row) */}
-            <IonRow className="ion-justify-content-end ion-padding">
-              <IonCol size="12" sizeMd="3">
-                <IonButton expand="block" color="success" disabled={!otEditingId} onClick={approveOvertime}>
-                  Approve Selected OT
-                </IonButton>
-              </IonCol>
-            </IonRow>
-          </>
-        )}
 
-        {/* Employees Modal (multi-select) */}
-        <IonModal isOpen={showEmpModal} onDidDismiss={() => setShowEmpModal(false)} keepContentsMounted={true}>
-          <div className="ion-padding employee-modal">
-            <h2 className="modal-title">Select Employees</h2>
-            <IonList>
-              {allEmployees.map((emp) => {
-                const checked = selectedCodes.includes(emp.EmpCode);
-                return (
-                  <IonItem key={emp.EmpCode}>
-                    <IonCheckbox slot="start" checked={checked} onIonChange={(e) => toggleEmp(emp.EmpCode, e.detail.checked)} />
-                    <IonLabel>{emp.EmpName || emp.EmpCode}</IonLabel>
-                  </IonItem>
-                );
-              })}
-            </IonList>
-            <IonButton expand="block" className="primary-btn" onClick={() => setShowEmpModal(false)}>
-              Done
-            </IonButton>
-          </div>
-        </IonModal>
+
+        <IonToast isOpen={!!toast} message={toast?.msg} color={toast?.color as any} duration={2500} onDidDismiss={() => setToast(null)} position="top" />
       </IonContent>
     </IonPage>
   );
 };
 
 export default OnDuties;
-function extractValidation(e: any): string[] | null {
-  if (!e) return null;
-  // Axios error with response data
-  if (e.response && e.response.data) {
-    const data = e.response.data;
-    if (typeof data === "string") {
-      // Try to split by line or sentence
-      return data.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
-    }
-    if (Array.isArray(data)) {
-      return data.map((x) => String(x)).filter(Boolean);
-    }
-    if (typeof data === "object") {
-      // Collect all string values
-      return Object.values(data).map((v) => String(v)).filter(Boolean);
-    }
-  }
-  // Fallback: error message
-  if (e.message) return [String(e.message)];
-  return null;
-}
-

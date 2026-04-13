@@ -10,6 +10,7 @@
 
 # production
 /dist
+/.gradle-user-home
 
 # misc
 .DS_Store

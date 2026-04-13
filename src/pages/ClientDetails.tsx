@@ -175,29 +175,29 @@ const ClientDetails: React.FC = () => {
             </IonCardHeader>
             <IonCardContent>
               <IonGrid>
-              <IonRow>
-                <IonCol size="6" className="main-box-center">
-                  <IonButton
-                    expand="block"
-                    className="login-btn2"
-                    style={{ "--box-shadow": "none" }}
-                    color={"#f57c00"}
-                  >
-                    Save
-                  </IonButton>
-                </IonCol>
-                <IonCol size="6" className="main-box-center">
-                  <IonButton
-                    expand="block"
-                    className="login-btn2"
-                    style={{ "--box-shadow": "none" }}
-                    color={"#f57c00"}
-                  >
-                    Clear
-                  </IonButton>
-                </IonCol>
-              </IonRow>
-              
+                <IonRow>
+                  <IonCol size="6" className="main-box-center">
+                    <IonButton
+                      expand="block"
+                      className="login-btn2"
+                      style={{ "--box-shadow": "none" }}
+                      color={"#f57c00"}
+                    >
+                      Save
+                    </IonButton>
+                  </IonCol>
+                  <IonCol size="6" className="main-box-center">
+                    <IonButton
+                      expand="block"
+                      className="login-btn2"
+                      style={{ "--box-shadow": "none" }}
+                      color={"#f57c00"}
+                    >
+                      Clear
+                    </IonButton>
+                  </IonCol>
+                </IonRow>
+
                 <IonRow>
                   {/* Clients List */}
                   <IonCol size="12" size-md="6">

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
-import { 
-  IonApp, IonRouterOutlet, IonSplitPane, IonHeader, IonToolbar, IonButtons, 
-  IonMenuButton, IonTitle, IonButton, IonToggle, setupIonicReact 
+import {
+  IonApp, IonRouterOutlet, IonSplitPane, IonHeader, IonToolbar, IonButtons,
+  IonMenuButton, IonTitle, IonButton, IonToggle, setupIonicReact
 } from "@ionic/react";
 import { IonReactRouter } from "@ionic/react-router";
 import { loadThemeSettings, changeThemeColor, toggleDarkMode } from "./utils/themeManager";
@@ -132,16 +132,18 @@ const App: React.FC = () => {
                   <Route exact path="/tasks" component={Tasks} />
                   <Route exact path="/clientdetails" component={ClientDetails} />
                   <Route exact path="/camera" component={CameraPage} />
-                   <Route exact path="/dashboard" component={TicketsDashboard} />
+                  <Route exact path="/dashboard" component={TicketsDashboard} />
 
-<Route path="/tickets" exact component={Tickets} />
-<Route path="/tickets/raisedticket" exact component={RaiseTicket} />
-<Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />
+                  <Route path="/tickets" exact component={Tickets} />
+                  <Route path="/tickets/raisedticket" exact component={RaiseTicket} />
+                  <Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />
 
-<Route path="/tickets/ticketdata" exact component={TicketData} />
+                  <Route path="/tickets/ticketdata" exact component={TicketData} />
+
+
                   {/* chat  */}
 
-                  
+
 
 
                   <Redirect from="*" to="/home" />

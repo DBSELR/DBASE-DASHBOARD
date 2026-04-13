@@ -1,129 +1,240 @@
 import React, { useEffect, useState } from "react";
-import { IonPage, IonContent, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonItem, IonLabel, IonSelect, IonSelectOption, IonInput, IonButton } from "@ionic/react";
+import {
+  IonButton, IonIcon, IonLoading, IonToast, IonSelect, IonSelectOption, IonModal, IonDatetime, IonPage, IonContent
+} from "@ionic/react";
 import { useHistory } from "react-router";
+import { arrowBackOutline, calendarOutline, timeOutline, businessOutline, listOutline } from "ionicons/icons";
 import moment from "moment";
+import "./ProjectWiseTickets.css";
 
+import { API_BASE } from "../../config";
 
-const API_BASE =
-  import.meta.env.DEV
-    ? '/api/'                                  // <-- goes through vite proxy locally
-    : (import.meta.env.VITE_API_BASE ?? 'https://dbsapi.dbasesolutions.in/');
-
-type Project = { P_ID: string; project: string };
+const STATUS_MAP: Record<string, string> = {
+  "ALL": "All Status",
+  "P": "Pending",
+  "A": "Assigned",
+  "O": "Open",
+  "C": "Closed",
+  "H": "Hold",
+  "R": "Re-Opened",
+  "CH": "Change Request",
+  "D": "Duplicate",
+  "I": "Irrelevant",
+  "U": "Unidentified"
+};
 
 export default function ProjectWiseTickets() {
-  const [pdate, setPdate] = useState(moment());
-  const [projectId, setProjectId] = useState("ALL");
-  const [status, setStatus] = useState("ALL");
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [rows, setRows] = useState<any[]>([]);
-  const [display, setDisplay] = useState(false);
-  const [count, setCount] = useState(0);
   const history = useHistory();
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ open: false, msg: "", color: "success" });
 
-  useEffect(() => { void loadProjects(); }, [pdate]);
-  useEffect(() => { void loadData(); }, [pdate, projectId, status]);
+  const [date, setDate] = useState(moment().format("YYYY-MM-DD"));
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedPid, setSelectedPid] = useState("0");
+  const [status, setStatus] = useState("ALL");
+  const [tickets, setTickets] = useState<any[]>([]);
+
+  /* Date Modal State */
+  const [dateOpen, setDateOpen] = useState(false);
+
+  const getHeaders = (isGet = false) => {
+    const token = localStorage.getItem("token")?.replace(/"/g, "");
+    const headers: any = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    if (!isGet) headers["Content-Type"] = "application/json";
+    return headers;
+  };
+
+  useEffect(() => {
+    void loadProjects();
+  }, [date]);
+
+  useEffect(() => {
+    void loadTickets();
+  }, [date, selectedPid, status]);
 
   async function loadProjects() {
-    const today = pdate.format("YYYY-MM-DD");
-    // TODO: real endpoint
-    const res = await fetch(`${API_BASE}Tickets/LoadDaywiseProjectList?Date=${today}`);
-    setProjects(await res.json());
+    try {
+      const d = moment(date).format("YYYY-MM-DD");
+      const res = await fetch(`${API_BASE}Tickets/LoadDaywiseProjectList?Date=${d}`, { headers: getHeaders(true) });
+      const data = await res.json();
+      setProjects((data || []).map((p: any) => ({ P_ID: String(p[0]), project: p[1] })));
+    } catch { setProjects([]); }
   }
 
-  async function loadData() {
-    const today = pdate.format("YYYY-MM-DD");
-    const pid = projectId === "ALL" ? "0" : projectId;
-    const q = new URLSearchParams({ Date: today, status, ProjectID: pid });
-    const res = await fetch(`${API_BASE}Tickets/Load_ProjectWiseTicketsData?${q.toString()}`);
-    const data = await res.json();
-    setRows(data ?? []);
-    setCount((data ?? []).length);
-    setDisplay((data ?? []).length > 0);
+  async function loadTickets() {
+    setLoading(true);
+    try {
+      const d = moment(date).format("YYYY-MM-DD");
+      const pid = selectedPid === "ALL" ? "0" : selectedPid;
+      const q = new URLSearchParams({ Date: d, status, ProjectID: pid });
+      const res = await fetch(`${API_BASE}Tickets/Load_ProjectWiseTicketsData?${q.toString()}`, { headers: getHeaders(true) });
+      const data = await res.json();
+      console.log("[ProjectWiseTickets] loadData RAW count:", data?.length);
+      if (data && data.length > 0) console.log("[ProjectWiseTickets] Raw Data Sample:", data[0]);
+
+      const mapped = (data || []).map((r: any) => ({
+        TicketID: String(r[1] || r[0]),
+        Client: r[2],
+        Project: r[3],
+        TDate: r[4],
+        Remarks: r[5],
+        STATUS: r[7],
+        STATUS_CODE: r[6],
+        AssignedTo: [r[11], r[12]].filter(Boolean).join(", ")
+      }));
+      setTickets(mapped);
+    } catch (err) {
+      console.error("[ProjectWiseTickets] loadData ERROR:", err);
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <IonPage>
-      <IonContent>
-        <div className="appsub-container">
-          <IonCard className="mat-elevation-z8" style={{ background: "rgb(243,247,247)" }}>
-            <IonCardContent>
-              <IonGrid>
-                <IonRow style={{ marginTop: -15, alignItems: "center" }}>
-                  <IonCol size="2">
-                    <IonButton fill="clear" onClick={() => history.goBack()}>
-                      <img src="/assets/icon/goback.png" height="30" width="30" />
-                    </IonButton>
-                  </IonCol>
-                  <IonCol size="10">
-                    <h2 className="title">PROJECT WISE TICKETS DATA</h2>
-                  </IonCol>
-                </IonRow>
+    <IonPage className="pwt-page">
+      <IonContent className="pwt-content-scroller">
+        <div className="pwt-root">
+          <IonLoading isOpen={loading} message="Loading tickets..." />
 
-                <IonRow style={{ marginTop: -15 }}>
-                  <IonCol size="12" sizeMd="4">
-                    <IonItem>
-                      <IonLabel position="stacked">Select Project</IonLabel>
-                      <IonSelect value={projectId} onIonChange={(e)=>{ setProjectId(e.detail.value); setStatus("ALL"); }}>
-                        <IonSelectOption value="ALL">All</IonSelectOption>
-                        {projects.map(p => <IonSelectOption key={p.P_ID} value={p.P_ID}>{p.project}</IonSelectOption>)}
-                      </IonSelect>
-                    </IonItem>
-                  </IonCol>
+          <div className="pwt-header">
+            <button className="pwt-back-btn" onClick={() => history.goBack()}>
+              <IonIcon icon={arrowBackOutline} />
+            </button>
+            <h1 className="pwt-title">Project Wise Tickets</h1>
+          </div>
 
-                  <IonCol size="12" sizeMd="4">
-                    <IonItem>
-                      <IonLabel position="stacked">Date</IonLabel>
-                      <IonInput type="date" value={pdate.format("YYYY-MM-DD")}
-                        onIonChange={(e)=> e.detail.value && setPdate(moment(e.detail.value))} />
-                    </IonItem>
-                  </IonCol>
+          <div className="pwt-filter-card pwt-fade-in">
+            <div className="pwt-filter-grid">
+              <div className="pwt-form-group">
+                <label className="pwt-label">Select Date</label>
+                <div className="pwt-input-box" onClick={() => setDateOpen(true)}>
+                  <span>{moment(date).format("DD MMM YYYY")}</span>
+                  <IonIcon icon={calendarOutline} color="primary" />
+                </div>
+              </div>
 
-                  <IonCol size="12" sizeMd="4">
-                    <IonItem>
-                      <IonLabel position="stacked">Select Ticket</IonLabel>
-                      <IonSelect value={status} onIonChange={(e)=> setStatus(e.detail.value)}>
-                        {["ALL","P","A","O","C","H","R","CH","D","I","U"].map(s => (
-                          <IonSelectOption key={s} value={s}>{s}</IonSelectOption>
-                        ))}
-                      </IonSelect>
-                    </IonItem>
-                  </IonCol>
-                </IonRow>
-              </IonGrid>
+              <div className="pwt-form-group">
+                <label className="pwt-label">Project</label>
+                <div className="pwt-input-box" style={{ padding: 0 }}>
+                  <IonSelect
+                    value={selectedPid}
+                    onIonChange={e => setSelectedPid(e.detail.value)}
+                    interface="popover"
+                    style={{ width: "100%", "--padding-start": "14px" }}
+                  >
+                    <IonSelectOption value="0">All Projects</IonSelectOption>
+                    {projects.map(p => <IonSelectOption key={p.P_ID} value={p.P_ID}>{p.project}</IonSelectOption>)}
+                  </IonSelect>
+                </div>
+              </div>
 
-              <IonRow style={{ marginTop: -15, paddingLeft: 8 }}>
-                <h2 style={{ color: "rgb(36, 138, 169)", fontWeight: "bold" }}>
-                  Project Wise Tickets ( <span style={{ color: "rgb(189,58,58)" }}>{count}</span> )
-                </h2>
-              </IonRow>
-
-              {display && (
-                <section className="example-container" style={{ marginLeft: 8 }}>
-                  <div className="table nine">
-                    <div className="thead">
-                      <div>Sno</div><div>TicketID</div><div>Client</div><div>Project</div>
-                      <div>Date</div><div>Description</div><div>Status</div>
-                      <div>AssignedBy</div><div>AssignedTo</div>
-                    </div>
-                    {rows.map((r:any, i:number) => (
-                      <div className="trow" key={r.TicketID+i}>
-                        <div>&nbsp;&nbsp;{i+1}</div>
-                        <div>{r.TicketID}</div>
-                        <div>{r.Client}</div>
-                        <div>{r.Project}</div>
-                        <div style={{ whiteSpace: "nowrap" }}>{r.TDate}</div>
-                        <div>{r.Remarks}</div>
-                        <div style={{ whiteSpace: "nowrap" }}>{r.STATUS}</div>
-                        <div title={r.AssignedBy}>{r.AssignedBy}</div>
-                        <div title={r.AssignedTo}>{r.AssignedTo}</div>
-                      </div>
+              <div className="pwt-form-group">
+                <label className="pwt-label">Status</label>
+                <div className="pwt-input-box" style={{ padding: 0 }}>
+                  <IonSelect
+                    value={status}
+                    onIonChange={e => setStatus(e.detail.value)}
+                    interface="popover"
+                    style={{ width: "100%", "--padding-start": "14px" }}
+                  >
+                    {Object.entries(STATUS_MAP).map(([code, label]) => (
+                      <IonSelectOption key={code} value={code}>{label}</IonSelectOption>
                     ))}
+                  </IonSelect>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pwt-results-header pwt-fade-in">
+            <h2 className="pwt-results-title">Tickets Data ({tickets.length})</h2>
+          </div>
+
+          {/* Web Table View */}
+          <div className="pwt-table-wrapper pwt-fade-in">
+            <table className="pwt-premium-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Client</th>
+                  <th>Project</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Assigned To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tickets.map((t, i) => (
+                  <tr key={`${t.TicketID}-${i}`}>
+                    <td className="pwt-tid">#{t.TicketID}</td>
+                    <td>{t.Client}</td>
+                    <td>{t.Project}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{t.TDate}</td>
+                    <td>
+                      <span className={`pwt-badge pwt-badge-${(t.STATUS_CODE || 'P').toLowerCase()}`}>
+                        {t.STATUS}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: "12px" }}>{t.AssignedTo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile & Tablet Card List */}
+          <div className="pwt-mobile-list pwt-fade-in">
+            {tickets.map((t, i) => (
+              <div key={`${t.TicketID}-${i}`} className="pwt-ticket-card">
+                <div className="pwt-card-row">
+                  <span className="pwt-tid">#{t.TicketID}</span>
+                  <span className={`pwt-badge pwt-badge-${(t.STATUS_CODE || 'P').toLowerCase()}`}>{t.STATUS}</span>
+                </div>
+                <div className="pwt-client">{t.Client}</div>
+                <div className="pwt-project">{t.Project}</div>
+                <div className="pwt-card-footer">
+                  <div className="pwt-footer-item">
+                    <IonIcon icon={timeOutline} />
+                    {t.TDate}
                   </div>
-                </section>
-              )}
-            </IonCardContent>
-          </IonCard>
+                  <div className="pwt-footer-item">
+                    <IonIcon icon={businessOutline} />
+                    {t.AssignedTo}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {tickets.length === 0 && !loading && (
+            <div style={{ textAlign: "center", padding: "60px 20px", opacity: 0.5 }}>
+              <IonIcon icon={listOutline} style={{ fontSize: "48px" }} />
+              <p>No tickets found for the selected criteria.</p>
+            </div>
+          )}
+
+          {/* Date Modal Pattern */}
+          <IonModal isOpen={dateOpen} onDidDismiss={() => setDateOpen(false)} className="pwt-date-modal">
+            <div className="pwt-modal-content">
+              <h3 className="pwt-modal-title">Select Date</h3>
+              <IonDatetime
+                presentation="date"
+                value={date}
+                onIonChange={(e) => {
+                  const v = e.detail.value as string | null;
+                  if (typeof v === "string") setDate(v.split('T')[0]);
+                  setDateOpen(false);
+                }}
+              />
+              <IonButton expand="block" mode="ios" onClick={() => setDateOpen(false)}>Close</IonButton>
+            </div>
+          </IonModal>
+
+          <IonToast
+            isOpen={toast.open} message={toast.msg} color={toast.color}
+            duration={2000} onDidDismiss={() => setToast({ ...toast, open: false })}
+          />
         </div>
       </IonContent>
     </IonPage>

@@ -1,0 +1,451 @@
+/* Login.css - Trendy, Creative, Light Theme, Native-App style */
+
+:root {
+    --db-primary: #f57c00;
+    --db-primary-light: #ffab40;
+    --db-primary-gradient: linear-gradient(135deg, #f57c00 0%, #ffab40 100%);
+    --db-bg-light: #f8fafc;
+    --db-glass-bg: rgba(255, 255, 255, 0.85);
+    --db-glass-border: rgba(255, 255, 255, 0.5);
+    --db-text-main: #1e293b;
+    --db-text-muted: #000;
+    --db-error: #ef4444;
+    --db-transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --db-shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+.db-login-page {
+    position: relative;
+    width: 100%;
+    height: 100dvh;
+    background: var(--db-bg-light);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Enhanced Background Blobs for Light Theme */
+.db-login-bg-shapes {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.db-shape {
+    position: absolute;
+    filter: blur(100px);
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: db-blob-float 15s infinite alternate ease-in-out;
+}
+
+.db-shape-1 {
+    width: 400px;
+    height: 400px;
+    background: #ffedd5;
+    top: -150px;
+    left: -100px;
+}
+
+.db-shape-2 {
+    width: 500px;
+    height: 500px;
+    background: #dbeafe;
+    bottom: -200px;
+    right: -100px;
+    animation-delay: -7s;
+}
+
+@keyframes db-blob-float {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+    }
+
+    100% {
+        transform: translate(60px, 80px) scale(1.1) rotate(15deg);
+    }
+}
+
+/* Step 1: Splash Screen */
+.db-splash-screen {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: db-zoom-in 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.db-animated-logo-large {
+    width: 150px;
+    /* Reduced from 200px */
+    height: auto;
+    filter: drop-shadow(0 15px 30px rgba(245, 124, 0, 0.2));
+    animation: db-bounce-subtle 3s infinite ease-in-out;
+}
+
+@keyframes db-zoom-in {
+    from {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes db-bounce-subtle {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* Step 2: Welcome Screen */
+.db-welcome-screen {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 380px;
+    /* Reduced from 420px */
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    animation: db-slide-up-fade 0.8s ease-out;
+}
+
+.db-welcome-screen .db-animated-logo-large {
+    width: 230px;
+    /* Reduced from 160px */
+    margin-bottom: 2rem;
+}
+
+.db-welcome-title {
+    font-size: 2rem;
+    /* Reduced from 2.8rem */
+    font-weight: 900;
+    color: var(--db-text-main);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+    background: var(--db-primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.db-welcome-subtitle {
+    font-size: 0.95rem;
+    /* Reduced from 1.1rem */
+    color: var(--db-text-muted);
+    margin-bottom: 2.5rem;
+    /* Reduced from 3.5rem */
+    line-height: 1.4;
+}
+
+.db-get-started-btn {
+    width: 100%;
+    padding: 1rem;
+    /* Reduced from 1.25rem */
+    background: var(--db-primary-gradient);
+    border: none;
+    border-radius: 16px;
+    /* Reduced from 20px */
+    color: white;
+    font-size: 1.05rem;
+    /* Reduced from 1.15rem */
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(245, 124, 0, 0.2);
+    transition: var(--db-transition-smooth);
+}
+
+.db-get-started-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(245, 124, 0, 0.25);
+}
+
+.db-get-started-btn:active {
+    transform: scale(0.97);
+}
+
+/* Step 3: Login Screen */
+.db-login-screen {
+    position: relative;
+    z-index: 10;
+    /* width: 100%; */
+    /* min-height: 100%; */
+    display: flex;
+    flex-direction: column;
+}
+
+.db-login-header {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* padding: 1.5rem; */
+}
+
+.db-login-header img {
+    width: 90px;
+    /* Reduced from 140px */
+    animation: db-fade-in 1s ease-out;
+}
+
+.db-login-card {
+    background: var(--db-glass-bg);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid var(--db-glass-border);
+    border-radius: 32px;
+    /* Reduced from 40px */
+    padding: 2.5rem 1.75rem 2.5rem;
+    /* Reduced padding */
+    width: 100%;
+    max-width: 450px;
+    /* Reduced from 500px */
+    margin: 0 auto;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.05);
+    animation: db-slide-up-full 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.db-login-title {
+    font-size: 1.6rem;
+    /* Reduced from 2rem */
+    font-weight: 800;
+    color: var(--db-text-main);
+    margin-bottom: 0.4rem;
+}
+
+.db-login-subtitle {
+    color: var(--db-text-muted);
+    margin-bottom: 2rem;
+    /* Reduced from 2.5rem */
+    font-size: 0.9rem;
+    /* Reduced from 1rem */
+}
+
+.db-input-group {
+    margin-bottom: 1.4rem;
+    /* Reduced from 1.8rem */
+    display: flex;
+    flex-direction: column;
+}
+
+.db-input-label {
+    font-size: 0.85rem;
+    /* Reduced from 0.9rem */
+    font-weight: 700;
+    color: var(--db-text-main);
+    margin-bottom: 0.5rem;
+    margin-left: 4px;
+}
+
+.db-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.db-input-field {
+    width: 100%;
+    background: #fff;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    /* Reduced from 18px */
+    padding: 0.9rem 1.2rem;
+    /* Reduced from 1.1rem */
+    color: var(--db-text-main);
+    font-size: 0.95rem;
+    /* Reduced from 1.05rem */
+    outline: none;
+    transition: var(--db-transition-smooth);
+}
+
+.db-input-field:focus {
+    border-color: var(--db-primary);
+    box-shadow: 0 0 0 4px rgba(245, 124, 0, 0.08);
+}
+
+.db-password-toggle {
+    position: absolute;
+    right: 1.2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--db-text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: color 0.3s;
+}
+
+.db-password-toggle:hover {
+    color: var(--db-primary);
+}
+
+/* Custom Validation Toast */
+.db-validation-toast {
+    position: fixed;
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: #fff;
+    padding: 0.85rem 1.25rem;
+    border-radius: 14px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    z-index: 1000;
+    border-left: 4px solid var(--db-error);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 85%;
+    max-width: 360px;
+}
+
+.db-validation-toast.active {
+    transform: translateX(-50%) translateY(0);
+}
+
+.db-toast-icon {
+    color: var(--db-error);
+    font-size: 1.2rem;
+}
+
+.db-toast-msg {
+    color: var(--db-text-main);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.db-login-button {
+    width: 100%;
+    padding: 1rem;
+    /* Reduced from 1.2rem */
+    background: var(--db-primary-gradient);
+    border: none;
+    border-radius: 14px;
+    /* Reduced from 18px */
+    color: white;
+    font-size: 1.05rem;
+    /* Reduced from 1.15rem */
+    font-weight: 700;
+    margin-top: 0.8rem;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(245, 124, 0, 0.2);
+    transition: var(--db-transition-smooth);
+}
+
+.db-login-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* New Modern Animations */
+@keyframes db-slide-up-fade {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes db-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes db-slide-up-full {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* Media Queries starting from 320px onwards */
+@media screen and (min-width: 320px) {
+    .db-login-card {
+        /* padding: 1rem 1.25rem 1rem; */
+        /* width: 90%; */
+        margin: auto;
+    }
+
+    .db-input-field {
+        padding: 0.7rem 1rem;
+    }
+
+    .db-welcome-title {
+        font-size: 1.8rem;
+    }
+
+    .db-login-header img {
+        width: 80px;
+    }
+
+    .db-login-title {
+        font-size: 1.4rem;
+    }
+}
+
+@media screen and (min-width: 480px) {
+    .db-welcome-title {
+        font-size: 2rem;
+    }
+
+    .db-login-card {
+        padding: 2.5rem 1.75rem 3.5rem;
+    }
+}
+
+@media screen and (min-width: 768px) {
+    .db-login-card {
+        border-radius: 24px;
+        margin-bottom: 2rem;
+    }
+
+    .db-login-screen {
+        justify-content: center;
+        align-items: center;
+    }
+
+    .db-login-header {
+        flex: none;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Safe Area for Mobile Notch */
+/* @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .db-login-card {
+        padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    }
+} */

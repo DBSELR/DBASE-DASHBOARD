@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: "io.ionic.starter",
-  appName: "dbase-dashboard",
+  appName: "DBS OFFICE",
   webDir: "dist",
   plugins: {
     Geolocation: {

@@ -1,0 +1,430 @@
+/* AdminWorkReport.css */
+
+:root {
+  --admin-primary: #6366f1;
+  --admin-primary-light: #818cf8;
+  --admin-success: #10b981;
+  --admin-danger: #ef4444;
+  --admin-warning: #f59e0b;
+  --admin-bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --admin-card-bg: rgba(255, 255, 255, 0.7);
+  --admin-glass-border: rgba(255, 255, 255, 0.4);
+  --admin-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --admin-shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --admin-shadow-3d: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.admin-report-page {
+  --background: var(--admin-bg-gradient);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.admin-header-toolbar {
+  --background: rgba(255, 255, 255, 0.8);
+  --border-color: transparent;
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+}
+
+.admin-logo {
+  height: 32px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: transform 0.3s ease;
+}
+
+.admin-logo:hover {
+  transform: scale(1.05);
+}
+
+.admin-content {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 20px;
+  --padding-bottom: 40px;
+}
+
+/* Glass Container for Filters */
+/* Modern Filter Card with Gradient & Shapes */
+.filters-container {
+  position: relative;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--admin-shadow-md);
+  animation: slideInDown 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.filters-container::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 180px;
+  height: 180px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.filters-container::after {
+  content: '';
+  position: absolute;
+  bottom: -40px;
+  left: -40px;
+  width: 120px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.filters-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filters-header h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.025em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filters-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.filter-item {
+  position: relative;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.filter-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.filter-value {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Work Report Cards */
+.reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.date-divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0 12px;
+}
+
+.date-divider span {
+  position: relative;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  color: white;
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--admin-shadow-3d);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.date-divider span::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.date-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.05);
+  margin-left: 12px;
+}
+
+.report-card {
+  position: relative;
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--admin-shadow-md);
+  border: 1px solid rgba(0, 0, 0, 0.02);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.report-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.status-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.emp-project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.emp-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.project-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.project-tag::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.project-tag svg {
+  position: relative;
+  z-index: 1;
+  opacity: 0.9;
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  box-shadow: var(--admin-shadow-3d);
+}
+
+.btn-approve {
+  background: #ecfdf5;
+  color: var(--admin-success);
+}
+
+.btn-approve:hover {
+  background: var(--admin-success);
+  color: white;
+  transform: scale(1.1);
+}
+
+.btn-reject {
+  background: #fef2f2;
+  color: var(--admin-danger);
+}
+
+.btn-reject:hover {
+  background: var(--admin-danger);
+  color: white;
+  transform: scale(1.1);
+}
+
+.report-body {
+  margin-top: 8px;
+}
+
+.report-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.report-desc {
+  font-size: 0.9rem;
+  color: #000;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  text-align: center;
+  background: var(--admin-card-bg);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+  margin-top: 20px;
+}
+
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  color: #cbd5e1;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  max-width: 250px;
+}
+
+/* Status Colors */
+.status-green {
+  --indicator: var(--admin-success);
+  --bg: rgba(16, 185, 129, 0.05);
+}
+
+.status-red {
+  --indicator: var(--admin-danger);
+  --bg: rgba(239, 68, 68, 0.05);
+}
+
+.status-orange {
+  --indicator: var(--admin-warning);
+  --bg: rgba(245, 158, 11, 0.05);
+}
+
+/* Animations */
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Select Styling */
+.admin-select {
+  --placeholder-color: rgba(255, 255, 255, 0.6);
+  --placeholder-opacity: 1;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+/* 3D Icon styling helper */
+.icon-3d {
+  filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.15));
+}
+
+@media (max-width: 320px) {
+  .emp-name {
+    font-size: 10px;
+  }
+}

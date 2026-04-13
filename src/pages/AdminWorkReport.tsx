@@ -1,61 +1,63 @@
 // src/pages/AdminWorkReport.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  IonButton,
   IonContent,
   IonHeader,
-  IonIcon,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonList,
   IonPage,
-  IonPopover,
-  IonRadio,
-  IonRadioGroup,
-  IonRow,
   IonSelect,
   IonSelectOption,
   IonToast,
   IonToolbar,
+  IonLabel,
 } from "@ionic/react";
 import axios from "axios";
 import moment from "moment";
-import { checkmarkCircle, closeCircle } from "ionicons/icons";
+import {
+  Users,
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  Briefcase,
+  FileText,
+  SearchX,
+  UserCheck
+} from "lucide-react";
 
 // --------- helpers (inline, no new files) ---------
-const API_BASE =
-  (window as any).__API_BASE__ ||
-  import.meta.env.VITE_API_BASE ||
-  "/api"; // works with proxy/rewrite
+import { API_BASE } from "../config";
+import "./AdminWorkReport.css";
 
-const getUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "{}");
-  } catch {
-    return {};
-  }
-};
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token")?.replace(/"/g, "");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-// Robust month read (object with MY or array[0])
-const readMY = (x: any) => (typeof x === "object" && x?.MY ? x.MY : x?.[0]);
+const generateMonthList = () => {
+  const months: string[] = [];
+  const startYear = 2014;
+  const current = moment().add(1, 'month');
+  const currentYear = current.year();
+
+  for (let y = currentYear; y >= startYear; y--) {
+    const endMonth = y === currentYear ? current.month() : 11;
+    for (let m = endMonth; m >= 0; m--) {
+      months.push(moment().year(y).month(m).format("MMM-YYYY"));
+    }
+  }
+  return months;
+};
 
 // Normalize a row coming back either as object or array
 const normalizeWR = (r: any) => {
   if (!r) return null;
   if (!Array.isArray(r)) {
-    // object-shaped (Angular-like)
     const t = (r.tClass || "").toString().toLowerCase();
     const colors =
       t === "green"
-        ? { stripe: "#28a745", bg: "rgba(155, 238, 155, 0.06)" }
+        ? { stripe: "#10b981", bg: "rgba(16, 185, 129, 0.05)", status: "green" }
         : t === "red"
-        ? { stripe: "#dc3545", bg: "rgba(244, 146, 146, 0.07)" }
-        : { stripe: "#ff9800", bg: "rgba(255, 193, 7, 0.1)" };
+          ? { stripe: "#ef4444", bg: "rgba(239, 68, 68, 0.05)", status: "red" }
+          : { stripe: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)", status: "orange" };
 
     return {
       WorkId: r.WorkId ?? r.wrid ?? r.id,
@@ -70,34 +72,35 @@ const normalizeWR = (r: any) => {
       __colors: colors,
     };
   } else {
-    // array-shaped; safest guesses from your current code:
-    // [0]=WorkId, [1]=Empname, [2]=Client_project, [3]=Title, [4]=WDescription, [5]=wdate, [6]=DateStatus?, [7]=LPClass?, [8]=tClass?
     const t = ((r[8] ?? r[7] ?? "").toString() || "").toLowerCase();
     const colors =
       t === "green"
-        ? { stripe: "#28a745", bg: "rgba(155, 238, 155, 0.06)" }
+        ? { stripe: "#10b981", bg: "rgba(16, 185, 129, 0.05)", status: "green" }
         : t === "red"
-        ? { stripe: "#dc3545", bg: "rgba(244, 146, 146, 0.07)" }
-        : { stripe: "#ff9800", bg: "rgba(255, 193, 7, 0.1)" };
+          ? { stripe: "#ef4444", bg: "rgba(239, 68, 68, 0.05)", status: "red" }
+          : { stripe: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)", status: "orange" };
+
+    const empnameStr = String(r[1] || "");
+    const rowEmpCode = empnameStr.includes("-") ? empnameStr.split("-")[0].trim() : "";
 
     return {
       WorkId: r[0],
       Empname: r[1],
-      Client_project: r[2],
-      Title: r[3],
+      Client_project: r[3] ?? r[2],
+      Title: r[2],
       WDescription: r[4],
       wdate: r[5],
-      DateStatus: r[6] ?? "0",
+      DateStatus: String(r[10] ?? "0"),
       LPClass: r[7] ?? "",
       tClass: r[8] ?? "",
+      rowEmpCode,
       __colors: colors,
     };
   }
 };
 
 const AdminWorkReport: React.FC = () => {
-  // Angular equivalents
-  const [Seachdate, setSeachdate] = useState<string>(""); // MMM-YYYY
+  const [Seachdate, setSeachdate] = useState<string>("");
   const [SelectEmpcode, setSelectEmpcode] = useState<string>("All Employees");
   const [SelectEmp, setSelectEmp] = useState<string>("All Employees");
 
@@ -107,77 +110,44 @@ const AdminWorkReport: React.FC = () => {
     { EmpCode: string; EmpName: string; Designation?: string }[]
   >([]);
 
-  // UI
-  const [empPopoverOpen, setEmpPopoverOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
-  const [toastColor, setToastColor] = useState<"success" | "danger">("success");
+  const [toastColor, setToastColor] = useState<"success" | "danger" | "warning">("success");
 
   const currentMY = useMemo(() => moment().format("MMM-YYYY"), []);
 
   useEffect(() => {
     bootstrap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const showToast = (m: string, c: "success" | "danger" = "success") => {
+  const showToast = (m: string, c: "success" | "danger" | "warning" = "success") => {
     setToastMsg(m);
     setToastColor(c);
     setToastOpen(true);
   };
 
   const bootstrap = async () => {
-    // default month
     setSeachdate(currentMY);
-
-    await loadEmployeesActive(); // populates popover list with All Employees + active employees
-    await loadWorkreportMY(); // months list
-    await loadWorkReport(); // initial list for "All Employees" + currentMY
+    setDtmy(generateMonthList());
+    await loadEmployeesActive();
+    await loadWorkReport();
   };
-
-  
 
   const loadEmployeesActive = async () => {
     try {
-      const url = `${API_BASE}/Employee/Load_Employees?SearchEmp=Active`;
+      const url = `${API_BASE}Employee/Load_Employees?SearchEmp=Active`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
       let list = Array.isArray(r.data) ? r.data : [];
-      // expect objects {EmpCode, EmpName, Designation} or array rows; normalize:
       list = list.map((x: any) =>
         Array.isArray(x)
           ? { EmpCode: x[0], EmpName: x[1], Designation: x[2] }
           : { EmpCode: x.EmpCode, EmpName: x.EmpName, Designation: x.Designation }
       );
-      // filter out Director
       list = list.filter((xx: any) => (xx.Designation || "").toLowerCase() !== "director");
-      // prepend "All Employees"
       list.unshift({ EmpCode: "All Employees", EmpName: "All Employees" });
       setDtEmpActive(list);
     } catch (e) {
-      console.error(e);
-      // still ensure All Employees exists
       setDtEmpActive([{ EmpCode: "All Employees", EmpName: "All Employees" }]);
-    }
-  };
-
-  const loadWorkreportMY = async () => {
-    try {
-      const me = getUser();
-      const emp = me?.empCode || me?.EmpCode;
-      if (!emp) return;
-
-      const url = `${API_BASE}/Workreport/Load_Workreport_MY?Empcode=${emp}`;
-      const r = await axios.get(url, { headers: getAuthHeaders() });
-      const months = (Array.isArray(r.data) ? r.data : []).map(readMY).filter(Boolean);
-      setDtmy(months.length ? months : [currentMY]);
-      if (!months.includes(currentMY)) {
-        // keep whatever came in from Angular default
-        setSeachdate(months[0] || currentMY);
-      }
-    } catch (e) {
-      console.error(e);
-      setDtmy([currentMY]);
-      if (!Seachdate) setSeachdate(currentMY);
     }
   };
 
@@ -187,28 +157,27 @@ const AdminWorkReport: React.FC = () => {
         EmpCode: SelectEmpcode || "All Employees",
         SearchDate: Seachdate || currentMY,
       });
-      const url = `${API_BASE}/Workreport/Load_WorkReport?${params.toString()}`;
-      console.log("[wr][list] GET", url);
+      const url = `${API_BASE}Workreport/Load_WorkReport?${params.toString()}`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
       const rows = Array.isArray(r.data) ? r.data : [];
       setDtworkreport(rows);
-      if (!rows.length) showToast("No work reports found.", "danger");
+      if (!rows.length) showToast("No records found for this selection.", "warning");
     } catch (e) {
-      console.error(e);
       setDtworkreport([]);
       showToast("Failed to load work reports.", "danger");
     }
   };
 
-  const updateWorkStatus = async (wrid: any, status: "Approved" | "Rejected") => {
+  const updateWorkStatus = async (item: any, status: "Approved" | "Rejected") => {
     try {
-      const url = `${API_BASE}/Workreport/update_WR_Permission?Wrid=${encodeURIComponent(
+      const wrid = item.WorkId;
+      const emp = item.rowEmpCode || SelectEmpcode;
+
+      const url = `${API_BASE}Workreport/update_WR_Permission?Wrid=${encodeURIComponent(
         wrid
-      )}&Status=${encodeURIComponent(status)}&EmpCode=${encodeURIComponent(SelectEmpcode)}`;
-      console.log("[wr][update] GET", url);
+      )}&Status=${encodeURIComponent(status)}&EmpCode=${encodeURIComponent(emp)}`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
 
-      // backend returns list again (Angular assigns dtworkreport = update_Wr)
       const rows = Array.isArray(r.data) ? r.data : [];
       setDtworkreport(rows);
 
@@ -217,164 +186,180 @@ const AdminWorkReport: React.FC = () => {
         "success"
       );
     } catch (e) {
-      console.error(e);
-      showToast("Failed to update report.", "danger");
+      showToast("Failed to update report status.", "danger");
     }
   };
 
-  // When an employee is chosen from the popover
-  const chooseEmployee = async (empCode: string, empName: string) => {
-    setSelectEmp(empName);
-    setSelectEmpcode(empCode);
-    setEmpPopoverOpen(false);
-    await loadWorkReport();
-  };
 
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar className="menu-toolbar">
-          <img src="./images/dbase.png" alt="DBase" className="menu-logo" />
-        </IonToolbar>
-      </IonHeader>
+    <IonPage className="admin-report-page">
 
-      <IonContent className="ion-padding admin-report-content">
-        <div className="form-card">
-          <div className="form-header">
-            <div>Work Report&apos;s</div>
-            <hr />
+
+      <IonContent className="admin-content" fullscreen>
+        {/* Modern Filter Card */}
+        <div className="filters-container">
+          <div className="filters-header">
+            <FileText className="icon-3d" size={24} color="#ffffff" />
+            <h2>Work Reports</h2>
           </div>
 
-          {/* Employee chooser (popover like Angular) */}
-          <IonItem className="field" lines="none">
-            <IonLabel position="stacked">Employee</IonLabel>
-            <IonInput
-              id="WRemp"
-              readonly
-              value={SelectEmp}
-              onClick={() => setEmpPopoverOpen(true)}
-            />
-          </IonItem>
+          <div className="filters-grid">
+            {/* Employee Selection */}
+            <div className="filter-item">
+              <span className="filter-label">Team Member</span>
+              <div className="filter-value">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                  <Users size={18} color="rgba(255, 255, 255, 0.9)" />
+                  <IonSelect
+                    interface="popover"
+                    value={SelectEmpcode}
+                    placeholder="Select Employee"
+                    onIonChange={(e) => {
+                      const empCode = e.detail.value;
+                      const found = dtEmpActive.find((x) => x.EmpCode === empCode);
+                      if (found) {
+                        setSelectEmpcode(empCode);
+                        setSelectEmp(found.EmpName);
+                        // Trigger load
+                        const params = new URLSearchParams({
+                          EmpCode: empCode,
+                          SearchDate: Seachdate,
+                        });
+                        const url = `${API_BASE}Workreport/Load_WorkReport?${params.toString()}`;
+                        axios.get(url, { headers: getAuthHeaders() }).then(r => {
+                          setDtworkreport(Array.isArray(r.data) ? r.data : []);
+                        }).catch(() => setDtworkreport([]));
+                      }
+                    }}
+                    style={{ '--padding-start': '0', width: '100%', fontSize: '1rem' }}
+                    className="admin-select"
+                  >
+                    {dtEmpActive.map((x) => (
+                      <IonSelectOption key={x.EmpCode} value={x.EmpCode}>
+                        {x.EmpName}
+                      </IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </div>
+              </div>
+            </div>
 
-          <IonPopover
-            isOpen={empPopoverOpen}
-            onDidDismiss={() => setEmpPopoverOpen(false)}
-            className="IonListStyles"
-          >
-            <IonContent>
-              <IonList>
-                <IonRadioGroup
-                  value={SelectEmp}
-                  onIonChange={(e) => {
-                    const name = e.detail.value as string;
-                    const found = dtEmpActive.find((x) => x.EmpName === name);
-                    if (found) chooseEmployee(found.EmpCode, found.EmpName);
-                  }}
-                >
-                  {dtEmpActive.map((x) => (
-                    <IonItem
-                      key={x.EmpCode}
-                      button
-                      onClick={() => chooseEmployee(x.EmpCode, x.EmpName)}
-                    >
-                      <IonRadio slot="start" value={x.EmpName} />
-                      <IonLabel>{x.EmpName}</IonLabel>
-                    </IonItem>
-                  ))}
-                </IonRadioGroup>
-              </IonList>
-            </IonContent>
-          </IonPopover>
-
-          {/* Month filter (Angular used <select> with dtmy) */}
-          <IonItem className="field">
-            <IonLabel>Month</IonLabel>
-            <IonSelect
-              interface="popover"
-              value={Seachdate}
-              onIonChange={async (e) => {
-                setSeachdate(e.detail.value as string);
-                await loadWorkReport();
-              }}
-            >
-              {dtmy.map((m, i) => (
-                <IonSelectOption key={i} value={m}>
-                  {m}
-                </IonSelectOption>
-              ))}
-            </IonSelect>
-          </IonItem>
-
-          {/* Reports list */}
-          <div className="reports">
-            {dtworkreport.length ? (
-              dtworkreport.map((raw, idx) => {
-                const x = normalizeWR(raw);
-                if (!x) return null;
-
-                const t = (x.tClass || "").toString().toLowerCase();
-                const showApprove = t === "red" || t === "orange";
-                const showReject = t === "green" || t === "orange";
-
-                return (
-                  <div key={idx}>
-                    {String(x.DateStatus) === "1" && (
-                      <div className="card-date">{x.wdate || ""}</div>
-                    )}
-
-                    <div
-                      className={`wr-card ${x.LPClass || ""}`}
-                      style={{
-                        borderLeft: `6px solid ${x.__colors.stripe}`,
-                        backgroundColor: x.__colors.bg,
-                      }}
-                    >
-                      <div className="badge">
-                        {x.Empname || "-"} &nbsp;--&nbsp; {x.Client_project || "-"}
-                      </div>
-
-                      <div className="wr-actions">
-                        {showApprove && (
-                          <IonButton
-                            fill="clear"
-                            color="success"
-                            onClick={() => updateWorkStatus(x.WorkId, "Approved")}
-                            aria-label="Approve"
-                          >
-                            <IonIcon icon={checkmarkCircle} />
-                          </IonButton>
-                        )}
-                        {showReject && (
-                          <IonButton
-                            fill="clear"
-                            color="danger"
-                            onClick={() => updateWorkStatus(x.WorkId, "Rejected")}
-                            aria-label="Reject"
-                          >
-                            <IonIcon icon={closeCircle} />
-                          </IonButton>
-                        )}
-                      </div>
-
-                      {x.Title ? <div className="wr-title">{x.Title}</div> : null}
-                      <div className="wr-desc">{x.WDescription || ""}</div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="empty">No reports found.</p>
-            )}
+            {/* Month Selection */}
+            <div className="filter-item">
+              <span className="filter-label">Reporting Period</span>
+              <div className="filter-value">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={18} color="rgba(255, 255, 255, 0.9)" />
+                  <IonSelect
+                    interface="popover"
+                    value={Seachdate}
+                    placeholder="Select Month"
+                    onIonChange={async (e) => {
+                      setSeachdate(e.detail.value);
+                      // Trigger load
+                      const params = new URLSearchParams({
+                        EmpCode: SelectEmpcode,
+                        SearchDate: e.detail.value,
+                      });
+                      const url = `${API_BASE}Workreport/Load_WorkReport?${params.toString()}`;
+                      const r = await axios.get(url, { headers: getAuthHeaders() });
+                      setDtworkreport(Array.isArray(r.data) ? r.data : []);
+                    }}
+                    style={{ '--padding-start': '0', width: '100%', fontSize: '1rem' }}
+                  >
+                    {dtmy.map((m, i) => (
+                      <IonSelectOption key={i} value={m}>{m}</IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Toast */}
+
+        {/* Reports List */}
+        <div className="reports-list">
+          {dtworkreport.length ? (
+            dtworkreport.map((raw, idx) => {
+              const x = normalizeWR(raw);
+              if (!x) return null;
+
+              const t = (x.tClass || "").toString().toLowerCase();
+              const showApprove = t === "red" || t === "orange";
+              const showReject = t === "green" || t === "orange";
+
+              return (
+                <div key={idx} style={{ animationDelay: `${idx * 0.05}s` }}>
+                  {String(x.DateStatus) === "1" && (
+                    <div className="date-divider">
+                      <span>{x.wdate || ""}</span>
+                    </div>
+                  )}
+
+                  <div className={`report-card status-${x.__colors.status}`}>
+                    <div className="status-indicator" style={{ background: x.__colors.stripe }}></div>
+
+                    <div className="report-header">
+                      <div className="emp-project-info">
+                        <span className="emp-name">{x.Empname}</span>
+                        <div className="project-tag">
+                          <Briefcase size={14} />
+                          {x.Client_project || "Unknown Project"}
+                        </div>
+                      </div>
+
+                      <div className="report-actions">
+                        {showApprove && (
+                          <button
+                            className="action-btn btn-approve"
+                            onClick={() => updateWorkStatus(x, "Approved")}
+                            title="Approve Report"
+                          >
+                            <CheckCircle2 size={20} />
+                          </button>
+                        )}
+                        {showReject && (
+                          <button
+                            className="action-btn btn-reject"
+                            onClick={() => updateWorkStatus(x, "Rejected")}
+                            title="Reject Report"
+                          >
+                            <XCircle size={20} />
+                          </button>
+                        )}
+                        {!showApprove && !showReject && (
+                          <div className="action-btn" style={{ background: '#f1f5f9', color: '#94a3b8', boxShadow: 'none' }}>
+                            <UserCheck size={20} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="report-body">
+                      {x.Title && <div className="report-title">{x.Title}</div>}
+                      <div className="report-desc">{x.WDescription}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="empty-state">
+              <SearchX className="empty-icon" />
+              <h3>No Reports Found</h3>
+              <p>Try adjusting your filters or selecting a different month.</p>
+            </div>
+          )}
+        </div>
+
         <IonToast
           isOpen={toastOpen}
           onDidDismiss={() => setToastOpen(false)}
           message={toastMsg}
-          duration={2200}
-          color={toastColor}
+          duration={2500}
+          color={toastColor === 'warning' ? 'warning' : toastColor}
+          position="top"
         />
       </IonContent>
     </IonPage>

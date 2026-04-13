@@ -43,26 +43,22 @@ const Invoices: React.FC = () => {
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar className="menu-toolbar">
-          <img src="./images/dbase.png" alt="DBase Logo" className="menu-logo" />
-        </IonToolbar>
-        </IonHeader>
-          <IonSegment
-            value={selectedTab}
-            onIonChange={(e) => setSelectedTab(e.detail.value! as string)}
-          >
-            <IonSegmentButton value="tracking">
-              <IonLabel>Tracking</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="inward">
-              <IonLabel>Inward</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="outward">
-              <IonLabel>Outward</IonLabel>
-            </IonSegmentButton>
-          </IonSegment>
-      
+
+      <IonSegment
+        value={selectedTab}
+        onIonChange={(e) => setSelectedTab(e.detail.value! as string)}
+      >
+        <IonSegmentButton value="tracking">
+          <IonLabel>Tracking</IonLabel>
+        </IonSegmentButton>
+        <IonSegmentButton value="inward">
+          <IonLabel>Inward</IonLabel>
+        </IonSegmentButton>
+        <IonSegmentButton value="outward">
+          <IonLabel>Outward</IonLabel>
+        </IonSegmentButton>
+      </IonSegment>
+
 
       <IonContent className="invoices-page">
         {/* Filters - Common for all tabs */}

@@ -1,39 +1,54 @@
 /* ✅ Default Theme (Fallback) */
 :root {
-  --ion-color-primary: #e2711d; /* Default Blue */
+  --ion-color-primary: #e2711d;
+  /* Default Blue */
   --ion-color-secondary: #ff9505;
   --ion-color-tertiary: #ffb627;
   --ion-text-color: #000000;
   --theme-shadow: rgba(0, 119, 182, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+  --premium-gradient: var(--ion-color-primary, var(--theme-color, #0077b6));
 }
 
 /* ✅ Theme: Blue */
-[data-theme="blue"] { 
+[data-theme="blue"] {
   --ion-color-primary: #0077b6;
   --ion-color-secondary: #00b4d8;
   --ion-color-tertiary: #90e0ef;
+  --theme-bg-surface: #e3f2fd;
   --ion-text-color: #03045e;
   --theme-shadow: rgba(0, 119, 182, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 🟠 Theme: Orange */
 [data-theme="orange"] {
-  --ion-color-primary: #e2711d;
-  --ion-color-secondary: #ff9505;
-  --ion-color-tertiary: #ffb627;
-  /* --ion-background-color: #FFC971; */
-  --ion-text-color: #cc5803;
-  /* --theme-shadow: rgba(255, 149, 5, 0.3); */
+  --ion-color-primary: #ff9505;
+  --ion-color-secondary: #ffb627;
+  --ion-color-tertiary: #ffc971;
+  --theme-bg-surface: #fff3e0;
+  --ion-text-color: #e65100;
+  --theme-shadow: rgba(255, 149, 5, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 🟢 Theme: Green */
 [data-theme="green"] {
   --ion-color-primary: #588157;
-  --ion-color-secondary: #3a5a40;
-  --ion-color-tertiary: #344e41;
-  --ion-background-color: #a3b18a;
-  --ion-text-color: #dad7cd;
+  --ion-color-secondary: #a3b18a;
+  --ion-color-tertiary: #dad7cd;
+  --theme-bg-surface: #edf1e6;
+  --ion-text-color: #344e41;
   --theme-shadow: rgba(88, 129, 87, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 🟣 Theme: Violet */
@@ -41,9 +56,12 @@
   --ion-color-primary: #957fef;
   --ion-color-secondary: #b79ced;
   --ion-color-tertiary: #dec0f1;
-  --ion-background-color: #efd9ce;
+  --theme-bg-surface: #efe2fff4;
   --ion-text-color: #7161ef;
   --theme-shadow: rgba(149, 127, 239, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 🔵 Theme: Teal */
@@ -51,29 +69,25 @@
   --ion-color-primary: #008080;
   --ion-color-secondary: #20b2aa;
   --ion-color-tertiary: #66cdaa;
-  --ion-background-color: #afeeee;
-  --ion-text-color: #004c4c;
+  --theme-bg-surface: #e0f2f1;
+  --ion-text-color: #004d40;
   --theme-shadow: rgba(0, 128, 128, 0.3);
-}
-
-/* 🔴 Theme: Magenta */
-[data-theme="magenta"] {
-  --ion-color-primary: #d72638;
-  --ion-color-secondary: #ff5376;
-  --ion-color-tertiary: #ff8ea3;
-  --ion-background-color: #ffd1dc;
-  --ion-text-color: #960018;
-  --theme-shadow: rgba(215, 38, 56, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 💖 Theme: Pink */
 [data-theme="pink"] {
   --ion-color-primary: #ff6ec7;
   --ion-color-secondary: #ff92d0;
-  --ion-color-tertiary: #ffc1e3;
-  --ion-background-color: #ffd6e0;
-  --ion-text-color: #c71585;
+  --ion-color-tertiary: #ffb7e2;
+  --theme-bg-surface: #fff0f6;
+  --ion-text-color: #c026d3;
   --theme-shadow: rgba(255, 110, 199, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 🍫 Theme: Chocolate */
@@ -81,19 +95,138 @@
   --ion-color-primary: #7b3f00;
   --ion-color-secondary: #a0522d;
   --ion-color-tertiary: #d2691e;
-  --ion-background-color: #8b4513;
-  --ion-text-color: #f5deb3;
+  --theme-bg-surface: #fdf5e6;
+  --ion-text-color: #5d2906;
   --theme-shadow: rgba(123, 63, 0, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
 }
 
 /* 🟠 Theme: DBASE */
 [data-theme="dbase"] {
   --ion-color-primary: #f15a24;
-  --ion-color-secondary: #f15a24;
-  --ion-color-tertiary: #f15a24;
-  --ion-background-color: #f15a24;
-  --ion-text-color: #f15a24;
+  --ion-color-secondary: #f47b4e;
+  --ion-color-tertiary: #f7a384;
+  --theme-bg-surface: #fff4f1;
+  --ion-text-color: #9a2b06;
   --theme-shadow: rgba(241, 90, 36, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 💎 Premium: Midnight */
+[data-theme="midnight"] {
+  --ion-color-primary: #1d3557;
+  --ion-color-secondary: #457b9d;
+  --ion-color-tertiary: #a8dadc;
+  --theme-bg-surface: #98b2fff3;
+  --ion-text-color: #050631;
+  --theme-shadow: rgba(29, 53, 87, 0.5);
+  --glass-bg: rgba(29, 53, 87, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-blur: 20px;
+}
+
+/* 🌸 Theme: Lavender */
+[data-theme="lavender"] {
+  --ion-color-primary: #a29bfe;
+  --ion-color-secondary: #6c5ce7;
+  --ion-color-tertiary: #d63031;
+  --theme-bg-surface: #f3f0ff;
+  --ion-text-color: #4834d4;
+  --theme-shadow: rgba(162, 155, 254, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 🌹 Theme: Crimson */
+[data-theme="crimson"] {
+  --ion-color-primary: #dc143c;
+  --ion-color-secondary: #ff4d6d;
+  --ion-color-tertiary: #ff8fa3;
+  --theme-bg-surface: #fff0f3;
+  --ion-text-color: #800020;
+  --theme-shadow: rgba(220, 20, 60, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 🍯 Theme: Amber */
+[data-theme="amber"] {
+  --ion-color-primary: #ffbf00;
+  --ion-color-secondary: #ffca28;
+  --ion-color-tertiary: #ffe082;
+  --theme-bg-surface: #fff8e1;
+  --ion-text-color: #ff8f00;
+  --theme-shadow: rgba(255, 191, 0, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 🌲 Theme: Forest */
+[data-theme="forest"] {
+  --ion-color-primary: #1b4332;
+  --ion-color-secondary: #2d6a4f;
+  --ion-color-tertiary: #40916c;
+  --theme-bg-surface: #e9f5ee;
+  --ion-text-color: #081c15;
+  --theme-shadow: rgba(27, 67, 50, 0.4);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 🍇 Theme: Plum */
+[data-theme="plum"] {
+  --ion-color-primary: #4a0e4e;
+  --ion-color-secondary: #7b2cbf;
+  --ion-color-tertiary: #9d4edd;
+  --theme-bg-surface: #f3e5f5;
+  --ion-text-color: #310a35;
+  --theme-shadow: rgba(74, 14, 78, 0.4);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 🌑 Theme: Coal */
+[data-theme="coal"] {
+  --ion-color-primary: #2f3640;
+  --ion-color-secondary: #7f8c8d;
+  --ion-color-tertiary: #bdc3c7;
+  --theme-bg-surface: #f4f6f7;
+  --ion-text-color: #2c3e50;
+  --theme-shadow: rgba(47, 54, 64, 0.4);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+/* 🍷 Theme: Burgundy */
+[data-theme="burgundy"] {
+  --ion-color-primary: #641220;
+  --ion-color-secondary: #800e13;
+  --ion-color-tertiary: #ad2831;
+  --theme-bg-surface: #fdf2f2;
+  --ion-text-color: #441019;
+  --theme-shadow: rgba(100, 18, 32, 0.4);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 14px;
+}
+
+
+
+
+/* Helper Class for Themed Backgrounds (e.g. for Cards) */
+.themed-bg {
+  background-color: var(--theme-bg-surface) !important;
+  color: var(--ion-text-color) !important;
 }
 
 body[data-theme="dbase"] {
@@ -112,4 +245,87 @@ body[data-theme="dbase"] {
   --ion-background-color: #121212;
   --ion-text-color: #ffffff;
   --theme-shadow: rgba(255, 255, 255, 0.1);
+}
+
+/* 👤 Profile Header Styles */
+.header-profile {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 12px;
+}
+
+.profile-img-mini {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--ion-color-primary);
+  box-shadow: 0 2px 8px var(--theme-shadow);
+}
+
+.profile-info-mini {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-name-mini {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--ion-text-color);
+  line-height: 1.2;
+}
+
+.profile-desig-mini {
+  font-size: 0.75rem;
+  color: var(--ion-color-secondary);
+  font-weight: 500;
+}
+
+.menu-logo {
+  height: 32px;
+  object-fit: contain;
+}
+
+/* ✨ Premium Trendy Background Utility (Reusable) */
+.premium-trendy-bg {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+/* Top Right Bubble */
+.premium-trendy-bg::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Bottom Left Bubble */
+.premium-trendy-bg::after {
+  content: '';
+  position: absolute;
+  bottom: -30px;
+  left: -30px;
+  width: 100px;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Ensure children are above pseudo-elements */
+.premium-trendy-bg>* {
+  position: relative;
+  z-index: 2;
 }

@@ -1,42 +1,25 @@
 import React, { useState, useEffect } from "react";
 import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonCard,
-  IonCardContent,
-  IonIcon,
-  IonLabel,
-  IonGrid,
-  IonRow,
-  IonCol,
-} from "@ionic/react";
-import {
-  construct,
-  ticket,
-  barChart,
-  briefcase,
-  time,
-  chatbubble,
-  cash,
-  laptop,
-  documentText,
-  hammer,
-  camera,
-  scan,
-  fileTrayStacked,
-  alertCircle,
-} from "ionicons/icons";
+  MapPin,
+  X,
+  Scan
+} from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
 import axios from "axios";
 import "../theme/Home.css";
 import { useHistory } from "react-router-dom";
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'lord-icon': any;
+    }
+  }
+}
 
 const Home: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [location, setLocation] = useState<string>("Fetching location...");
+  const [showNotifications, setShowNotifications] = useState(false);
   const history = useHistory();
 
   useEffect(() => {
@@ -61,7 +44,6 @@ const Home: React.FC = () => {
 
   const getLocation = async () => {
     try {
-      // Mobile: Use Capacitor Geolocation
       const permission = await Geolocation.requestPermissions();
       if (permission.location !== "granted") {
         setLocation("Location access denied.");
@@ -70,7 +52,6 @@ const Home: React.FC = () => {
       const coordinates = await Geolocation.getCurrentPosition();
       reverseGeocode(coordinates.coords.latitude, coordinates.coords.longitude);
     } catch (error) {
-      // Web: Use Navigator Geolocation
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -101,219 +82,129 @@ const Home: React.FC = () => {
     }
   };
 
-  const [isPaused, setIsPaused] = useState(false);
+  const notifications = [
+    { id: 1, text: "Welcome to D Base Solutions Pvt.Ltd.", icon: "🔔", type: "welcome" },
+    { id: 2, text: "New features updated recently!", icon: "🚀", type: "update" },
+    { id: 3, text: "Office timing updated for next week.", icon: "📅", type: "info" },
+    { id: 4, text: "Please complete your pending tasks.", icon: "⚠️", type: "warning" },
+  ];
 
-  const handleMouseEnter = () => {
-    setIsPaused(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsPaused(false);
-  };
+  const menuItems = [
+    { id: "tasks", label: "Tasks", icon: "https://cdn.lordicon.com/wloilxuq.json", path: "/tasks", colorClass: "home-card-tasks" },
+    { id: "tickets", label: "Tickets", icon: "https://cdn.lordicon.com/raawsqec.json", path: "/tickets", colorClass: "home-card-tickets" },
+    { id: "productivity", label: "Productivity", icon: "https://cdn.lordicon.com/erxuunyq.json", path: null, colorClass: "home-card-productivity" },
+    { id: "performance", label: "Performance", icon: "https://cdn.lordicon.com/kwnsnjyg.json", path: null, colorClass: "home-card-performance" },
+    { id: "punctuality", label: "Punctuality", icon: "https://cdn.lordicon.com/kiqyrejq.json", path: null, colorClass: "home-card-punctuality" },
+    { id: "requests", label: "Requests", icon: "https://cdn.lordicon.com/zpxybbhl.json", path: "/leaverequest", colorClass: "home-card-requests" },
+    { id: "transactions", label: "Transactions", icon: "https://cdn.lordicon.com/ynsswhvj.json", path: "/transactions/0", colorClass: "home-card-transactions" },
+    { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: null, colorClass: "home-card-stock" },
+    { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },
+    { id: "maintenance", label: "Maintenance", icon: "https://cdn.lordicon.com/qawxkplz.json", path: null, colorClass: "home-card-maintenance" },
+    { id: "scanner", label: "Scanner", icon: <Scan size={32} color="#ffffff" />, path: "/camera", colorClass: "home-card-scanner", isLucide: true },
+  ];
 
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonToolbar className="menu-toolbar">
-            <img
-              src="./images/dbase.png"
-              alt="DBase Logo"
-              className="menu-logo"
-            />
-          </IonToolbar>
-        </IonToolbar>
-      </IonHeader>
+    <div className="home-container">
+      {/* Premium Header */}
+      <header className="home-header">
+        <img src="./images/dbase.png" alt="DBase Logo" className="home-logo" />
+      </header>
 
-      {/* <div className="dashboard-header">
-        <h2>Check-in: {currentTime} | Location: {location}</h2>
-      </div> */}
+      {/* Status Widget */}
+      <div className="home-status-card">
+        <div className="home-status-item">
+          {/* @ts-ignore */}
+          <lord-icon
+            src="https://cdn.lordicon.com/uvofdfal.json"
+            trigger="loop"
+            colors="primary:#ffffff,secondary:#ffffff"
+            style={{ width: "24px", height: "24px" }}
+          ></lord-icon>
+          <div className="home-status-text">Check-in: {currentTime}</div>
+        </div>
+        <div className="home-status-item">
+          <MapPin className="home-status-icon" />
+          <div className="home-status-location">{location}</div>
+        </div>
+      </div>
 
-      <IonContent className="ion-padding dashboard-page">
-        <IonCard className="dashboard-header">
-          <IonLabel>
-            Check-in: {currentTime} | Location: {location}
-          </IonLabel>
-        </IonCard>
-
-        {/* Notice Board */}
-        <IonCard className="notice-board">
-          <IonCardContent>
-            <div className="notice-header">
-              <IonIcon icon={alertCircle} className="notice-icon" />
-              <IonLabel className="notice-title">Notices</IonLabel>
-            </div>
-            <div
-              className="notice-container"
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}>
-              <div className={`scrolling-text ${isPaused ? "paused" : ""}`}>
-                <IonLabel>🔔 Welcome to D Base Solutions Pvt.Ltd.</IonLabel>
-                {/* <IonLabel>🚀 Team meeting at 4 PM today.</IonLabel>
-                <IonLabel>🎉 Office party on Friday!</IonLabel>
-                <IonLabel>📢 Submit your reports by the 10th.</IonLabel>
-                <IonLabel>⚠️ Office closed on Monday for maintenance.</IonLabel> */}
+      {/* Notice Board */}
+      <div className="home-notice-wrapper" onClick={() => setShowNotifications(true)}>
+        <div className="home-notice-icon-box">
+          {/* @ts-ignore */}
+          <lord-icon
+            src="https://cdn.lordicon.com/ahxaipjb.json"
+            trigger="loop"
+            colors="primary:#ffffff,secondary:#ffffff"
+            style={{ width: "22px", height: "22px" }}
+          ></lord-icon>
+        </div>
+        <div className="home-notice-content">
+          <div className="home-notice-ticker">
+            {notifications.map((n, i) => (
+              <div key={`ticker-${n.id}-${i}`} className="home-notice-item">
+                {n.icon} {n.text}
               </div>
+            ))}
+            {/* Duplicate for infinite feel if needed, but for now we have multiple */}
+            <div className="home-notice-item">{notifications[0].icon} {notifications[0].text}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Grid */}
+      <div className="home-grid">
+        {menuItems.map((item) => (
+          <div
+            key={item.id}
+            className={`home-card ${item.colorClass}`}
+            onClick={() => item.path && history.push(item.path)}
+          >
+            <div className="home-card-icon-wrapper">
+              {(item as any).isLucide ? (
+                item.icon
+              ) : (
+                /* @ts-ignore */
+                <lord-icon
+                  src={item.icon as string}
+                  trigger="loop"
+                  colors="primary:#ffffff,secondary:#ffffff"
+                  className="home-card-lordicon"
+                  style={{ width: "40px", height: "40px" }}
+                ></lord-icon>
+              )}
             </div>
-          </IonCardContent>
-        </IonCard>
-
-        <IonGrid>
-          <IonRow>
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card tasks-card" onClick={() => history.push("/tasks")}>
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={construct} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">TASKS</IonLabel>
+            <span className="home-card-label">{item.label}</span>
+          </div>
+        ))}
+      </div>
+      {/* Notifications Overlay */}
+      {showNotifications && (
+        <div className="home-notif-overlay" onClick={() => setShowNotifications(false)}>
+          <div className="home-notif-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="home-notif-header">
+              <div className="home-notif-header-title">Notifications</div>
+              <button className="home-notif-close" onClick={() => setShowNotifications(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="home-notif-list">
+              {notifications.map((n) => (
+                <div key={n.id} className="home-notif-item">
+                  <div className={`home-notif-icon-circle ${n.type}`}>
+                    {n.icon}
                   </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Tickets Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card tickets-card" onClick={() => history.push("/tickets")}>
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={ticket} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      TICKETS
-                    </IonLabel>
+                  <div className="home-notif-info">
+                    <div className="home-notif-text">{n.text}</div>
+                    <div className="home-notif-time">Just now</div>
                   </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Productivity Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card productivity-card">
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={barChart} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      PRODUCTIVITY
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Performance Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card performance-card">
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={briefcase} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      PERFORMANCE
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Punctuality Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card punctuality-card">
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={time} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      PUNCTUALITY
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Requests Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card requests-card" onClick={() => history.push("/leaverequest")}>
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={chatbubble} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      REQUESTS
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Transactions Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card transactions-card" onClick={() => history.push("/transactions/0")}>
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={cash} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      TRANSACTIONS
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Stock Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card stock-card">
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={fileTrayStacked} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">STOCK</IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Invoice Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card invoice-card" onClick={() => history.push("/invoices")}>
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={documentText} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      INVOICE
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            {/* Maintenance Card */}
-            <IonCol size="4" sizeMd="3">
-              <IonCard className="dashboard-card maintenance-card">
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={hammer} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      MAINTENANCE
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-
-            <IonCol size="4" sizeMd="3">
-              <IonCard
-                className="dashboard-card camera-card"
-                onClick={() => history.push("/camera")}
-              >
-                <IonCardContent className="dashboard-card-content">
-                  <IonIcon icon={scan} className="dashboard-icon" />
-                  <div className="dashboard-card-text">
-                    <IonLabel className="dashboard-card-title">
-                      SCANNER
-                    </IonLabel>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-          </IonRow>
-        </IonGrid>
-      </IonContent>
-    </IonPage>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

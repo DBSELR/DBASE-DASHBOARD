@@ -1,0 +1,314 @@
+/* DashboardButtons.css - Premium Glassmorphism & Logic-Ready UI */
+
+.dbase-dash-main {
+    padding: 0;
+    background: transparent;
+}
+
+/* Status Chips Container - Premium Horizontal Scroll */
+.dbase-chips-wrapper {
+    margin: 12px -16px 24px -16px;
+    padding: 12px 16px 30px 16px; /* Extra bottom padding for tooltip clearance */
+    overflow-x: auto;
+    overflow-y: visible; /* CRITICAL: Allows tooltips to show without clipping */
+    display: flex;
+    gap: 12px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.dbase-chips-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+/* Trendy Glassmorphism Chip */
+.dbase-status-chip {
+    flex: 0 0 auto;
+    min-width: 64px;
+    height: 64px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.dark .dbase-status-chip {
+    background: rgba(30, 30, 30, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dbase-chip-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+}
+
+.dbase-chip-abbr {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--ion-color-primary);
+    margin-bottom: 2px;
+}
+
+.dbase-chip-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ion-text-color);
+    opacity: 0.6;
+}
+
+/* Hover States */
+.dbase-status-chip:hover {
+    transform: translateY(-8px) scale(1.05);
+    background: white;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.dark .dbase-status-chip:hover {
+    background: #333;
+}
+
+.dbase-status-chip.active {
+    background: var(--ion-color-primary);
+    border-color: transparent;
+    box-shadow: 0 15px 35px var(--theme-shadow);
+}
+
+.dbase-status-chip.active .dbase-chip-abbr,
+.dbase-status-chip.active .dbase-chip-count {
+    color: #fff;
+    opacity: 1;
+}
+
+/* Floating Label (Tooltip) */
+.dbase-chip-tooltip {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(5px);
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    z-index: 100;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.dbase-status-chip:hover .dbase-chip-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Active Gradient Overrides */
+.status-p.active { background: linear-gradient(135deg, #ffab00, #ff8c00); }
+.status-a.active { background: linear-gradient(135deg, #36b37e, #27855d); }
+.status-o.active { background: linear-gradient(135deg, #00b8d9, #008da6); }
+.status-h.active { background: linear-gradient(135deg, #ff5630, #d32f2f); }
+.status-c.active { background: linear-gradient(135deg, #9747ff, #7b1fa2); }
+.status-e.active { background: linear-gradient(135deg, #ff896b, #f4511e); }
+.status-u.active { background: linear-gradient(135deg, #4c9aff, #1976d2); }
+.status-w.active { background: linear-gradient(135deg, #6b778c, #454f5d); }
+
+/* Task Section List */
+.dbase-section-header {
+    margin: 8px 0 16px;
+}
+
+.dbase-section-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--ion-text-color);
+    letter-spacing: -0.5px;
+}
+
+.dbase-ticket-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+/* Ticket Cards - Aligned with other pages */
+.dbase-ticket-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+}
+
+.dark .dbase-ticket-card {
+    background: rgba(30, 30, 30, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dbase-ticket-card:active {
+    transform: scale(0.98);
+}
+
+.dbase-ticket-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+}
+
+.dbase-ticket-card.p-border::before { background: #ffab00; }
+.dbase-ticket-card.a-border::before { background: #36b37e; }
+.dbase-ticket-card.o-border::before { background: #00b8d9; }
+.dbase-ticket-card.h-border::before { background: #ff5630; }
+.dbase-ticket-card.c-border::before { background: #9747ff; }
+
+.dbase-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.dbase-ticket-number {
+    font-weight: 900;
+    font-size: 14px;
+    color: var(--ion-color-primary);
+    font-family: 'Poppins', sans-serif;
+}
+
+.dbase-status-tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+}
+
+.dbase-tag-p { background: rgba(255, 171, 0, 0.1); color: #ffab00; }
+.dbase-tag-a { background: rgba(54, 179, 126, 0.1); color: #36b37e; }
+.dbase-tag-o { background: rgba(0, 184, 217, 0.1); color: #00b8d9; }
+.dbase-tag-h { background: rgba(255, 86, 48, 0.1); color: #ff5630; }
+.dbase-tag-c { background: rgba(151, 71, 255, 0.1); color: #9747ff; }
+
+.dbase-card-remarks {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ion-text-color);
+    margin-bottom: 16px;
+    font-weight: 500;
+}
+
+.dbase-card-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    padding-top: 14px;
+}
+
+.dbase-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ion-color-medium);
+    font-weight: 600;
+}
+
+.dbase-meta-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--ion-color-primary);
+}
+
+.dbase-card-actions {
+    margin-top: 16px;
+}
+
+.dbase-primary-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--ion-color-primary);
+    color: white;
+    font-weight: 800;
+    font-size: 12px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 8px 20px var(--theme-shadow);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Modal Enhancements */
+.dbase-modal-content {
+    padding: 24px;
+    background: var(--ion-background-color);
+}
+
+.dbase-custom-textarea {
+    width: 100%;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.02);
+    font-family: inherit;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.dark .dbase-custom-textarea {
+    border-color: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.02);
+}
+
+.dbase-custom-textarea:focus {
+    border-color: var(--ion-color-primary);
+    background: var(--ion-background-color);
+}
+
+/* Responsiveness */
+@media screen and (min-width: 768px) {
+    .dbase-ticket-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media screen and (min-width: 1200px) {
+    .dbase-ticket-list {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

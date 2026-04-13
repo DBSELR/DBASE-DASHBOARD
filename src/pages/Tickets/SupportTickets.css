@@ -1,0 +1,512 @@
+/* Support Tickets - Trendy Grid Redesign */
+.dbase-tickets-root2 {
+  padding: 0px 0px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  min-height: 100vh;
+}
+
+.dbase-tickets-container {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.dbase-ticket-row-container {
+  background: #ffffff;
+  border: 1px solid rgba(193, 203, 215, 0.6);
+  border-radius: 16px; /* Trendy rounded corners */
+  margin-bottom: 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Priority Left Accent Strip */
+.dbase-ticket-row-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  background: var(--status-color, #004a99);
+  opacity: 1;
+  transition: width 0.3s ease;
+}
+
+.dbase-ticket-row-container:hover {
+  transform: translateY(-6px) scale(1.005);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08), 0 5px 15px rgba(0, 0, 0, 0.04);
+  border-color: rgba(var(--ion-color-primary-rgb, 59, 130, 246), 0.3);
+}
+
+.dbase-ticket-row-container:hover::before {
+  width: 8px;
+}
+
+/* ID Badge - Top Left */
+.dbase-ticket-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--ion-color-primary);
+  color: white;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  border-bottom-right-radius: 12px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+  z-index: 10;
+  letter-spacing: 0.5px;
+}
+
+/* Main Grid Layout */
+.dbase-ticket-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr;
+  padding: 24px 20px 16px;
+  gap: 0;
+}
+
+.dbase-grid-column {
+  padding: 8px 16px;
+  border-right: 1px solid rgba(226, 232, 240, 0.8);
+  transition: background-color 0.3s ease;
+}
+
+.dbase-grid-column:hover {
+  background-color: rgba(248, 250, 252, 0.5);
+}
+
+.dbase-grid-column:last-child {
+  border-right: none;
+}
+
+.dbase-info-item {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  align-items: flex-start;
+}
+
+.dbase-info-item.vertical {
+  flex-direction: column;
+}
+
+.dbase-label {
+  font-weight: 800;
+  color: #000;
+  min-width: 100px;
+  margin-right: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  opacity: 0.9;
+}
+
+.dbase-value {
+  color: #000;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.dbase-value.small-text {
+  font-size: 12px;
+  color: #000;
+}
+
+.dbase-value-remarks {
+  color: #000;
+  font-size: 13px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 2px solid #e2e8f0;
+}
+
+/* Action Bar - Bottom Row */
+.dbase-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border-top: 1px solid rgba(193, 203, 215, 0.4);
+  padding: 12px 20px;
+  z-index: 5;
+}
+
+.dbase-action-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dbase-action-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dbase-action-label {
+  color: #ef4444; /* Modern red highlight */
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.dbase-inline-select {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  background: #fff;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.dbase-inline-select:hover, .dbase-inline-select:focus-within {
+  border-color: var(--ion-color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
+}
+
+.dbase-inline-select.mini {
+  min-width: 70px;
+}
+
+.dbase-inline-select ion-select {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  width: 100%;
+}
+
+.dbase-send-icon-btn {
+  background: var(--ion-color-primary);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+
+.dbase-send-icon-btn:hover {
+  background: #2563eb;
+  transform: rotate(-15deg) scale(1.1);
+  box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
+}
+
+.dbase-send-icon-btn ion-icon {
+  font-size: 16px;
+}
+
+.dbase-action-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.dbase-file-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #000;
+}
+
+.status-label {
+  font-weight: 800;
+  opacity: 0.8;
+}
+
+.status-icon {
+  font-size: 20px;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.status-icon:hover {
+  transform: scale(1.2);
+}
+
+.status-icon.active {
+  color: var(--ion-color-primary);
+}
+
+.status-none {
+  font-weight: 500;
+  color: #000;
+  font-size: 11px;
+}
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 1100px) {
+  .dbase-action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .dbase-ticket-main-grid {
+    grid-template-columns: 1fr;
+    padding: 24px 20px 8px;
+  }
+
+  .dbase-grid-column {
+    border-right: none;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+    padding: 16px 0;
+  }
+
+  .dbase-grid-column:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Mobile Tweak */
+@media (max-width: 600px) {
+  .dbase-action-left {
+    gap: 12px;
+  }
+  
+  .dbase-action-item {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dbase-inline-select {
+    flex: 1;
+    max-width: 180px;
+  }
+}
+
+/* Fade Up with Slide */
+.dbase-fade-up {
+  opacity: 0;
+  animation: dbaseFadeSlideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+@keyframes dbaseFadeSlideUp {
+  0% { 
+    opacity: 0; 
+    transform: translateY(30px);
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Searchable Dropdown Trigger */
+.searchable-trigger {
+  cursor: pointer;
+  position: relative;
+  justify-content: flex-start !important;
+  padding: 0 10px !important;
+}
+
+.searchable-trigger.active {
+  border-color: var(--ion-color-primary);
+  background: rgba(var(--ion-color-primary-rgb), 0.05);
+}
+
+.dbase-select-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* Custom Searchable Dropdown Overlays */
+.dropdown-outside-click-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9998;
+  background: transparent;
+}
+
+.custom-inline-dropdown {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: top;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  min-width: 250px;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: scaleY(0.9) translateY(-10px); }
+  to { opacity: 1; transform: scaleY(1) translateY(0); }
+}
+
+.dropdown-search-sec {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+}
+
+.dropdown-search-icon {
+  position: absolute;
+  left: 22px;
+  font-size: 16px;
+  color: #94a3b8;
+}
+
+.dropdown-pure-input {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000;
+  outline: none;
+}
+
+.dropdown-pure-input:focus {
+  background: #ffffff;
+  border-color: var(--ion-color-primary);
+}
+
+.dropdown-clear-btn {
+  position: absolute;
+  right: 18px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.dropdown-body {
+  height: 250px !important;
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  display: block !important;
+  padding: 6px;
+  background: #ffffff;
+}
+
+.dropdown-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.dropdown-emp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 2px;
+  background: transparent;
+}
+
+.dropdown-emp-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+  transform: translateX(4px);
+}
+
+.dropdown-emp-item.selected {
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+}
+
+.dr-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.dr-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.dr-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dr-id {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.dr-check {
+  font-size: 16px;
+  color: var(--ion-color-primary);
+}
+
+.dr-no-results {
+  padding: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Gradients for avatars */
+.grad-0 { background: linear-gradient(135deg, #6366f1, #a855f7); }
+.grad-1 { background: linear-gradient(135deg, #f43f5e, #fb7185); }
+.grad-2 { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+.grad-3 { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.grad-4 { background: linear-gradient(135deg, #10b981, #34d399); }
