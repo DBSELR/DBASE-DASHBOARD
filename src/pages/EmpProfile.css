@@ -879,3 +879,98 @@ input:checked+.ep-slider:before {
   /* Approximate RGB for primary (blue) if needed for shadows/borders */
   --ion-color-primary-rgb: 0, 119, 182;
 }
+/* Reporting Matrix History Styles */
+.ep-reporting-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.ep-history-item {
+  background: rgba(0, 119, 182, 0.05);
+  border: 1px solid rgba(0, 119, 182, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.ep-history-item:hover {
+  background: white;
+  border-color: var(--ion-color-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+
+.ep-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed rgba(0,0,0,0.1);
+  padding-bottom: 8px;
+}
+
+.ep-history-type {
+  font-weight: 700;
+  color: var(--ion-color-primary);
+  font-size: 0.95rem;
+}
+
+.ep-history-id {
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 600;
+}
+
+.ep-history-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ep-history-ra-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.ep-ra-label {
+  font-weight: 700;
+  color: #666;
+  min-width: 35px;
+}
+
+.ep-ra-value {
+  color: var(--ion-text-color);
+  font-weight: 500;
+}
+
+.ep-history-footer {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.ep-edit-hint {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ion-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Dark mode adjustment for history items */
+.dark .ep-history-item {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dark .ep-history-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.dark .ep-ra-label {
+  color: #aaa;
+}

@@ -120,7 +120,9 @@ const EmpProfile: React.FC = () => {
   // Reporting Matrix State
   const [showReportingModal, setShowReportingModal] = useState(false);
   const [reportingLoading, setReportingLoading] = useState(false);
+  const [reportingHistory, setReportingHistory] = useState<any[]>([]);
   const [reportingFormData, setReportingFormData] = useState({
+    Id: 0,
     EmpCode: "",
     RequestType: "",
     RA1: "",
@@ -669,8 +671,9 @@ const EmpProfile: React.FC = () => {
     setShowRegisterModal(true);
   };
 
-  const openReportingModal = () => {
+  const openReportingModal = async () => {
     setReportingFormData({
+      Id: 0,
       EmpCode: formData._Ecode,
       RequestType: "",
       RA1: formData._RequestTo || "",
@@ -679,6 +682,50 @@ const EmpProfile: React.FC = () => {
       RA4: ""
     });
     setShowReportingModal(true);
+    fetchReportingHistory(formData._Ecode);
+  };
+
+  const fetchReportingHistory = async (empCode: string) => {
+    console.group(`[EmpProfile] Fetch Reporting Matrix (${empCode})`);
+    try {
+      const data = await apiService.loadReportingMatrix(empCode);
+      console.log("Raw History Data:", data);
+      
+      if (Array.isArray(data)) {
+        console.log(`Success: Found ${data.length} assignments.`);
+        data.forEach((item, i) => {
+          console.log(`Assignment #${i + 1}:`, {
+            Id: item.id || item.Id,
+            Type: item.requestType || item.RequestType,
+            RA1: item.rA1 || item.RA1,
+            RA2: item.rA2 || item.RA2,
+            RA3: item.rA3 || item.RA3,
+            RA4: item.rA4 || item.RA4
+          });
+        });
+        setReportingHistory(data);
+      } else {
+        console.warn("No data found or invalid format:", data);
+        setReportingHistory([]);
+      }
+    } catch (e) {
+      console.error("Critical error loading reporting history:", e);
+      setReportingHistory([]);
+    } finally {
+      console.groupEnd();
+    }
+  };
+
+  const editReportingMatrix = (item: any) => {
+    setReportingFormData({
+      Id: item.id || item.Id || 0,
+      EmpCode: item.empCode || item.EmpCode || formData._Ecode,
+      RequestType: item.requestType || item.RequestType || "",
+      RA1: item.rA1 || item.RA1 || "",
+      RA2: item.rA2 || item.RA2 || "",
+      RA3: item.rA3 || item.RA3 || "",
+      RA4: item.rA4 || item.RA4 || ""
+    });
   };
 
   const handleReportingInputChange = (e: any) => {
@@ -693,7 +740,17 @@ const EmpProfile: React.FC = () => {
       const response = await apiService.saveReportingMatrix(reportingFormData);
       if (response === "Saved Successfully" || response?.message === "Saved Successfully") {
         alert("Reporting matrix saved successfully");
-        setShowReportingModal(false);
+        fetchReportingHistory(reportingFormData.EmpCode);
+        // Reset form but keep EmpCode
+        setReportingFormData(prev => ({
+          Id: 0,
+          EmpCode: prev.EmpCode,
+          RequestType: "",
+          RA1: formData._RequestTo || "",
+          RA2: "",
+          RA3: "",
+          RA4: ""
+        }));
       } else {
         alert("Failed to save reporting matrix: " + (typeof response === "string" ? response : JSON.stringify(response)));
       }
@@ -1191,6 +1248,44 @@ const EmpProfile: React.FC = () => {
                       </select>
                     </div>
                   ))}
+                </div>
+
+                {/* History Section */}
+                <h4 className="ep-form-section-title">Existing Assignments</h4>
+                <div className="ep-reporting-history">
+                  {reportingHistory.length > 0 ? (
+                    reportingHistory.map((item, index) => (
+                      <div key={(item.id || item.Id) || index} className="ep-history-item" onClick={() => editReportingMatrix(item)}>
+                        <div className="ep-history-header">
+                          <span className="ep-history-type">{item.requestType || item.RequestType}</span>
+                          <span className="ep-history-id">#{(item.id || item.Id)}</span>
+                        </div>
+                        <div className="ep-history-main">
+                          <div className="ep-history-ra-row">
+                            <span className="ep-ra-label">RA1:</span>
+                            <span className="ep-ra-value">{(item.rA1 || item.RA1) || "--"}</span>
+                          </div>
+                          <div className="ep-history-ra-row">
+                            <span className="ep-ra-label">RA2:</span>
+                            <span className="ep-ra-value">{(item.rA2 || item.RA2) || "--"}</span>
+                          </div>
+                          <div className="ep-history-ra-row">
+                            <span className="ep-ra-label">RA3:</span>
+                            <span className="ep-ra-value">{(item.rA3 || item.RA3) || "--"}</span>
+                          </div>
+                          <div className="ep-history-ra-row">
+                            <span className="ep-ra-label">RA4:</span>
+                            <span className="ep-ra-value">{(item.rA4 || item.RA4) || "--"}</span>
+                          </div>
+                        </div>
+                        <div className="ep-history-footer">
+                          <span className="ep-edit-hint">Click to edit</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="ep-no-results">No existing assignments found.</div>
+                  )}
                 </div>
               </div>
 

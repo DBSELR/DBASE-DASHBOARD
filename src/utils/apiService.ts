@@ -162,4 +162,9 @@ export const apiService = {
         console.log("API: Save Reporting Matrix", data);
         return apiService.post("/Employee/Save_ReportingMatrix", data);
     },
+
+    loadReportingMatrix: async (empCode: string) => {
+        console.log("API: Load Reporting Matrix", empCode);
+        return apiService.get(`/Employee/LoadReportingMatrix?empCode=${empCode}`);
+    },
 };
