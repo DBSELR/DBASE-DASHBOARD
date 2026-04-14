@@ -794,7 +794,6 @@ const updateReportingField = async (
   requestType: string
 ) => {
   try {
-    // 🔥 Find current row values
     const row = reportingHistory.find(
       (r) => (r.requestType || r.RequestType) === requestType
     );
@@ -803,17 +802,17 @@ const updateReportingField = async (
       EmpCode: reportingFormData.EmpCode,
       RequestType: requestType,
 
-      // ✅ Preserve existing values
+      // ✅ Preserve all values including RA1
+      RA1: field === "RA1" ? value : (row?.RA1 || row?.rA1 || ""),
       RA2: field === "RA2" ? value : (row?.RA2 || row?.rA2 || ""),
       RA3: field === "RA3" ? value : (row?.RA3 || row?.rA3 || ""),
       RA4: field === "RA4" ? value : (row?.RA4 || row?.rA4 || "")
     };
 
-    console.log("Updating FIXED:", payload);
+    console.log("Updating ALL:", payload);
 
     await apiService.post("/Employee/UpdateReportingMatrix", payload);
 
-    // Refresh after update
     fetchReportingHistory(reportingFormData.EmpCode);
 
   } catch (err) {
@@ -1410,12 +1409,22 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
 
                     {/* RA1 (readonly) */}
                     <td>
-                      <input
-                        value={row?.RA1 || row?.rA1 || "-"}
-                        disabled
-                        className="ep-input"
-                      />
-                    </td>
+  <select
+    value={row?.RA1 || row?.rA1 || ""}
+    onChange={(e) =>
+      updateReportingField("RA1", e.target.value, type)
+    }
+    className="ep-select"
+  >
+    <option value="">Select</option>
+    <option value="-">-</option>
+    {ras.map((d, index) => (
+      <option key={index} value={d.name}>
+        {d.name}
+      </option>
+    ))}
+  </select>
+</td>
 
                     {/* RA2 */}
                     <td>
