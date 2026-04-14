@@ -143,9 +143,29 @@ export const apiService = {
         return apiService.get("/Sources/Load_Department");
     },
 
+    loadTlProjects: async () => {
+        console.log("API: Load TlProjects");
+        return apiService.get("/Sources/Load_TlProjects");
+    },
+
+    loadLocationType: async () => {
+        console.log("API: Load LocationType");
+        return apiService.get("/Sources/Load_LocationType");
+    },
+
+    loadLocation: async () => {
+        console.log("API: Load Location");
+        return apiService.get("/Sources/Load_Location");
+    },
+
     loadDesignations: async () => {
         console.log("API: Load Designations");
         return apiService.get("/Sources/Load_Designation");
+    },
+
+    loadRAS: async () => {
+        console.log("API: Load RAS");
+        return apiService.get("/Sources/Load_GETRAS");
     },
 
     getEmployee: async (ecode: string) => {

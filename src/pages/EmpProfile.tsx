@@ -57,18 +57,18 @@ const themeColors = [
 ];
 
 const requestTypeOptions = [
-  "Equipment - Up to ₹5,000",
-  "Equipment - Above ₹5,000",
-  "Work Report - Daily",
-  "Leave - 2 Days or Less per month",
-  "Leave - 2-4 Days per month",
-  "Leave - More Than 4 Days per month",
+  "Equipment Upto 5000",
+  "Equipment Above 5000",
+  "Work Report",
+  "Leave2 Days or Less per month",
+  "Leave 2-4 Days per month",
+  "Leave More Than 4 Days per month",
   "Permission",
-  "On Duty - Local Travel / Same Day",
-  "On Duty - Outstation / Multiple Days",
-  "Over Time - Up to 4 Hour",
-  "Over Time - 4-8 Hour",
-  "Over Time - More than 8 Hour",
+  "On Duty Local Travel / Same Day",
+  "On Duty Outstation / Multiple Days",
+  "Over Time Up to 4 Hour",
+  "Over Time 4-8 Hour",
+  "Over Time More than 8 Hour",
   "Special Request"
 ];
 
@@ -135,12 +135,17 @@ const EmpProfile: React.FC = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [designations, setDesignations] = useState<any[]>([]);
+  const [ras, setRas] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+const [locationTypes, setLocationTypes] = useState<any[]>([]);
+const [locations, setLocations] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [searchQuery, setSearchQuery] = useState("");
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isManagementView, setIsManagementView] = useState(false);
   const [loggedInUserType, setLoggedInUserType] = useState<string>("");
+  const [employeeRawRow, setEmployeeRawRow] = useState<any>(null);
   const [formData, setFormData] = useState({
     _Employee_ID: "",
     _Ecode: "",
@@ -178,7 +183,10 @@ const EmpProfile: React.FC = () => {
     _CheckIn: "09:30",
     _PFNo: "",
     _dayDA: "0",
-    _hourDA: "0"
+    _hourDA: "0",
+    _Project: "",
+_LocationType: "",
+_Location1: "",
   });
 
   const getAuthHeaders = () => {
@@ -206,14 +214,23 @@ const EmpProfile: React.FC = () => {
   const loadBaseData = async () => {
     console.group("[EmpProfile] Load Base Data (Depts/Desigs)");
     try {
-      const [depts, desigs] = await Promise.all([
+       const [depts, desigs, projs, locTypes, locs, ras] = await Promise.all([
         apiService.loadDepartments(),
-        apiService.loadDesignations()
+        apiService.loadDesignations(),
+        apiService.loadTlProjects(),
+      apiService.loadLocationType(),
+      apiService.loadLocation(),
+       apiService.loadRAS()
       ]);
       console.log("Raw Departments:", depts);
       console.log("Raw Designations:", desigs);
       setDepartments(decodeArrayResponse(depts, ["id", "name", "active"]));
       setDesignations(decodeArrayResponse(desigs, ["id", "name", "active"]));
+      setProjects(decodeArrayResponse(projs, ["id", "name"]));
+    setLocationTypes(decodeArrayResponse(locTypes, ["id", "name"]));
+    setLocations(decodeArrayResponse(locs, ["id", "name"]));
+    setRas(ras);
+
     } catch (e) {
       console.error("Error loading base data:", e);
     } finally {
@@ -266,6 +283,8 @@ const EmpProfile: React.FC = () => {
   const mapGetEmployeeResponse = (row: any) => {
     console.group("[EmpProfile] mapGetEmployeeResponse");
     console.log("Input Row Array:", row);
+    console.log("Row length:", row.length);
+    console.log("Row[50] (Project):", row[50], "Row[51] (LocationType):", row[51], "Row[52] (Location):", row[52]);
 
     if (!Array.isArray(row)) {
       console.warn("Input is not an array, returning as is");
@@ -314,7 +333,13 @@ const EmpProfile: React.FC = () => {
       _P_Time: row[49] !== null && row[49] !== undefined ? String(row[49]) : "09:30",
       _dayDA: row[47] !== null && row[47] !== undefined ? String(row[47]) : "0",
       _hourDA: row[48] !== null && row[48] !== undefined ? String(row[48]) : "0",
-      _RequestTo: row[15] !== null && row[15] !== undefined ? String(row[15]) : ""
+      _RequestTo: row[15] !== null && row[15] !== undefined ? String(row[15]) : "",
+      _Project: row[50] || "",
+      _LocationType: row[51] || "",
+      _Location1: row[52] || ""
+      // _Project: projects.find(p => p.name == row[50])?.id || row[50] || "",
+      // _LocationType: locationTypes.find(l => l.name == row[51])?.id || row[51] || "",
+      // _Location1: locations.find(l => l.name == row[52])?.id || row[52] || ""
     };
 
     console.log("Mapped Result:", mapped);
@@ -330,6 +355,7 @@ const EmpProfile: React.FC = () => {
       console.log("Raw Employee Data:", data);
       const row = Array.isArray(data) ? data[0] : data;
       console.log("Working Raw Row:", row);
+      setEmployeeRawRow(row);
       const details = mapGetEmployeeResponse(row);
       console.log("Mapped Employee Details:", details);
 
@@ -558,6 +584,28 @@ const EmpProfile: React.FC = () => {
   }, [darkMode]);
 
   useEffect(() => {
+  if (!employeeRawRow) return;
+
+  if (!projects.length || !locationTypes.length || !locations.length) return;
+
+  console.log("Fixing dropdown values...");
+
+  const projectId = projects.find(p => p.name == employeeRawRow[50])?.id;
+  const locationTypeId = locationTypes.find(l => l.name == employeeRawRow[51])?.id;
+  const locationId = locations.find(l => l.name == employeeRawRow[52])?.id;
+
+  console.log({ projectId, locationTypeId, locationId });
+
+  setFormData(prev => ({
+    ...prev,
+    _Project: projectId || "",
+    _LocationType: locationTypeId || "",
+    _Location1: locationId || ""
+  }));
+
+}, [employeeRawRow, projects, locationTypes, locations]);
+
+  useEffect(() => {
     // Apply the theme ID to the data-theme attribute
     document.documentElement.setAttribute("data-theme", themeId);
 
@@ -598,8 +646,16 @@ const EmpProfile: React.FC = () => {
     setRegisterLoading(true);
 
     try {
+      // Convert IDs to names for saving
+      const projectName = projects.find(p => p.id == formData._Project)?.name || formData._Project;
+      const locationTypeName = locationTypes.find(l => l.id == formData._LocationType)?.name || formData._LocationType;
+      const locationName = locations.find(l => l.id == formData._Location1)?.name || formData._Location1;
+
       const payload = {
         ...formData,
+        _Project: projectName,
+        _LocationType: locationTypeName,
+        _Location1: locationName,
         _Doj: formatToDDMMYYYY(formData._Doj),
         _Dob: formatToDDMMYYYY(formData._Dob)
       };
@@ -661,7 +717,10 @@ const EmpProfile: React.FC = () => {
       _CheckIn: "09:30:00",
       _PFNo: "",
       _dayDA: "0",
-      _hourDA: "0"
+      _hourDA: "0",
+      _Project: "",
+_LocationType: "",
+_Location1: "",
     });
     setShowRegisterModal(true);
   };
@@ -717,16 +776,103 @@ const EmpProfile: React.FC = () => {
   };
 
   const editReportingMatrix = (item: any) => {
-    setReportingFormData({
-      Id: item.id || item.Id || 0,
-      EmpCode: item.empCode || item.EmpCode || formData._Ecode,
-      RequestType: item.requestType || item.RequestType || "",
-      RA1: item.rA1 || item.RA1 || "",
-      RA2: item.rA2 || item.RA2 || "",
-      RA3: item.rA3 || item.RA3 || "",
-      RA4: item.rA4 || item.RA4 || ""
-    });
-  };
+  setReportingFormData({
+    Id: item.id || item.Id || 0,
+    EmpCode: item.empCode || item.EmpCode,
+    RequestType: item.requestType || item.RequestType,
+    RA1: item.rA1 || item.RA1 || "",
+    RA2: item.rA2 || item.RA2 || "",
+    RA3: item.rA3 || item.RA3 || "",
+    RA4: item.rA4 || item.RA4 || ""
+  });
+};
+
+// 🔥 Update API (now includes RequestType)
+const updateReportingField = async (
+  field: string,
+  value: string,
+  requestType: string
+) => {
+  try {
+    // 🔥 Find current row values
+    const row = reportingHistory.find(
+      (r) => (r.requestType || r.RequestType) === requestType
+    );
+
+    const payload = {
+      EmpCode: reportingFormData.EmpCode,
+      RequestType: requestType,
+
+      // ✅ Preserve existing values
+      RA2: field === "RA2" ? value : (row?.RA2 || row?.rA2 || ""),
+      RA3: field === "RA3" ? value : (row?.RA3 || row?.rA3 || ""),
+      RA4: field === "RA4" ? value : (row?.RA4 || row?.rA4 || "")
+    };
+
+    console.log("Updating FIXED:", payload);
+
+    await apiService.post("/Employee/UpdateReportingMatrix", payload);
+
+    // Refresh after update
+    fetchReportingHistory(reportingFormData.EmpCode);
+
+  } catch (err) {
+    console.error("Update error:", err);
+  }
+};
+
+
+// const updateReportingField = async (field: string, value: string) => {
+//   try {
+//     const payload = {
+//       EmpCode: reportingFormData.EmpCode,
+//       RequestType: reportingFormData.RequestType,
+//       RA2: field === "RA2" ? value : reportingFormData.RA2,
+//       RA3: field === "RA3" ? value : reportingFormData.RA3,
+//       RA4: field === "RA4" ? value : reportingFormData.RA4
+//     };
+
+//     console.log("Updating:", payload);
+
+//     const response = await apiService.post("/Employee/UpdateReportingMatrix", payload);
+
+//     if (response?.message === "Updated Successfully") {
+//       console.log("Updated Successfully");
+//     } else {
+//       console.warn("Update failed");
+//     }
+//   } catch (err) {
+//     console.error("Update error:", err);
+//   }
+// };
+
+const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
+  try {
+    const res = await apiService.get(
+      `/Employee/GetRAsByRequestType?empCode=${empCode}&requestType=${encodeURIComponent(requestType)}`
+    );
+
+    console.log("RA API Response:", res);
+
+    // ✅ HANDLE BOTH ARRAY + OBJECT
+    if (Array.isArray(res) && res.length > 0) {
+      const data = res[0];
+
+      setReportingFormData(prev => ({
+        ...prev,
+       // RA1: data.RA1 || "",
+        RA2: data.RA2 || "",
+        RA3: data.RA3 || "",
+        RA4: data.RA4 || ""
+      }));
+    } else {
+      console.warn("No RA data found");
+    }
+
+  } catch (err) {
+    console.error("Error fetching RAs:", err);
+  }
+};
 
   const handleReportingInputChange = (e: any) => {
     const { name, value } = e.target;
@@ -892,6 +1038,10 @@ const EmpProfile: React.FC = () => {
           <div className="ep-info-grid">
             <InfoItem color="var(--ion-color-primary)"  icon={Calendar} label="Joining Date" value={userData.doj} />
             <InfoItem color="var(--ion-color-primary)"  icon={Layout} label="Department" value={userData.department} />
+           
+                     
+           
+           
             <InfoItem color="var(--ion-color-primary)"  icon={Mail} label="Email" value={userData.email} />
             <InfoItem color="var(--ion-color-primary)"  icon={Users} label="Reports To" value={userData.ReportTO} />
 
@@ -903,6 +1053,7 @@ const EmpProfile: React.FC = () => {
             <InfoItem color="var(--ion-color-primary)"  icon={CreditCard} label="Bank Account" value={userData.salaryAccountNo} />
             <InfoItem color="var(--ion-color-primary)"  icon={Box} label="IFSC Code" value={userData.ifscCode} />
           </div>
+
         </div>
 
         {/* Salary Details */}
@@ -1122,6 +1273,33 @@ const EmpProfile: React.FC = () => {
                       <option value="N">No (InActive)</option>
                     </select>
                   </div>
+                  <div className="ep-input-group">
+                    <label>Project</label>
+                    <select name="_Project" value={formData._Project} onChange={handleInputChange} className="ep-select">
+                      <option value="">Select Project</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="ep-input-group">
+                    <label>Location Type</label>
+                    <select name="_LocationType" value={formData._LocationType} onChange={handleInputChange} className="ep-select">
+                      <option value="">Select Location Type</option>
+                      {locationTypes.map(l => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="ep-input-group">
+                    <label>Location</label>
+                    <select name="_Location1" value={formData._Location1} onChange={handleInputChange} className="ep-select">
+                      <option value="">Select Location</option>
+                      {locations.map(l => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Salary Section */}
@@ -1192,113 +1370,121 @@ const EmpProfile: React.FC = () => {
       )}
 
       {/* Reporting Matrix Modal */}
-      {showReportingModal && (
-        <div className="ep-overlay" onClick={() => setShowReportingModal(false)}>
-          <div className="ep-modal ep-modal-management" onClick={e => e.stopPropagation()}>
-            <div className="ep-modal-handle"></div>
-            <div className="ep-modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <button className="ep-close-btn" onClick={() => setShowReportingModal(false)}>
-                  <ArrowLeft size={20} />
-                </button>
-                <h3>Reporting Matrix</h3>
-              </div>
-              <button className="ep-close-btn" onClick={() => setShowReportingModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+     {showReportingModal && (
+  <div className="ep-overlay" onClick={() => setShowReportingModal(false)}>
+    <div className="ep-modal ep-modal-management" onClick={e => e.stopPropagation()}>
+      
+      <div className="ep-modal-header">
+        <h3>Reporting Matrix</h3>
+        <button className="ep-close-btn" onClick={() => setShowReportingModal(false)}>
+          <X size={20} />
+        </button>
+      </div>
 
-            <form className="ep-form" onSubmit={handleSaveReportingMatrix}>
-              <div className="ep-form-scrollable">
-                <div className="ep-form-grid">
-                  <div className="ep-input-group">
-                    <label>Employee Code</label>
-                    <input name="EmpCode" value={reportingFormData.EmpCode} readOnly disabled />
-                  </div>
+      <div className="ep-form-scrollable">
 
-                  <div className="ep-input-group">
-                    <label>Request Type</label>
-                    <select 
-                      name="RequestType" 
-                      value={reportingFormData.RequestType} 
-                      onChange={handleReportingInputChange} 
-                      required 
-                      className="ep-select"
-                    >
-                      <option value="">Select Request Type</option>
-                      {requestTypeOptions.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  </div>
+        {/* 🔥 TABLE VIEW */}
+        <div className="ep-reporting-table">
+          <table className="ep-table">
+            <thead>
+              <tr>
+                <th>Request Type</th>
+                <th>RA1</th>
+                <th>RA2</th>
+                <th>RA3</th>
+                <th>RA4</th>
+              </tr>
+            </thead>
 
-                  {["RA1", "RA2", "RA3", "RA4"].map((ra, idx) => (
-                    <div key={ra} className="ep-input-group">
-                      <label>Reporting Authority {idx + 1}</label>
-                      <select 
-                        name={ra} 
-                        value={reportingFormData[ra as keyof typeof reportingFormData]} 
-                        onChange={handleReportingInputChange} 
+            <tbody>
+              {requestTypeOptions.map((type) => {
+                const row = reportingHistory.find(
+                  (r) => (r.requestType || r.RequestType) === type
+                );
+
+                return (
+                  <tr key={type}>
+                    
+                    {/* Request Type */}
+                    <td>{type}</td>
+
+                    {/* RA1 (readonly) */}
+                    <td>
+                      <input
+                        value={row?.RA1 || row?.rA1 || "-"}
+                        disabled
+                        className="ep-input"
+                      />
+                    </td>
+
+                    {/* RA2 */}
+                    <td>
+                      <select
+                        value={row?.RA2 || row?.rA2 || ""}
+                        onChange={(e) =>
+                          updateReportingField("RA2", e.target.value, type)
+                        }
                         className="ep-select"
                       >
-                        <option value="">Select Designation</option>
-                        {designations.map(d => (
-                          <option key={d.id} value={d.name}>{d.name}</option>
-                        ))}
+                        <option value="">Select</option>
+                        <option value="-">-</option>
+                        {ras.map((d, index) => (
+  <option key={index} value={d.name}>
+    {d.name}
+  </option>
+))}
                       </select>
-                    </div>
-                  ))}
-                </div>
+                    </td>
 
-                {/* History Section */}
-                <h4 className="ep-form-section-title">Existing Assignments</h4>
-                <div className="ep-reporting-history">
-                  {reportingHistory.length > 0 ? (
-                    reportingHistory.map((item, index) => (
-                      <div key={(item.id || item.Id) || index} className="ep-history-item" onClick={() => editReportingMatrix(item)}>
-                        <div className="ep-history-header">
-                          <span className="ep-history-type">{item.requestType || item.RequestType}</span>
-                          <span className="ep-history-id">#{(item.id || item.Id)}</span>
-                        </div>
-                        <div className="ep-history-main">
-                          <div className="ep-history-ra-row">
-                            <span className="ep-ra-label">RA1:</span>
-                            <span className="ep-ra-value">{(item.rA1 || item.RA1) || "--"}</span>
-                          </div>
-                          <div className="ep-history-ra-row">
-                            <span className="ep-ra-label">RA2:</span>
-                            <span className="ep-ra-value">{(item.rA2 || item.RA2) || "--"}</span>
-                          </div>
-                          <div className="ep-history-ra-row">
-                            <span className="ep-ra-label">RA3:</span>
-                            <span className="ep-ra-value">{(item.rA3 || item.RA3) || "--"}</span>
-                          </div>
-                          <div className="ep-history-ra-row">
-                            <span className="ep-ra-label">RA4:</span>
-                            <span className="ep-ra-value">{(item.rA4 || item.RA4) || "--"}</span>
-                          </div>
-                        </div>
-                        <div className="ep-history-footer">
-                          <span className="ep-edit-hint">Click to edit</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="ep-no-results">No existing assignments found.</div>
-                  )}
-                </div>
-              </div>
+                    {/* RA3 */}
+                    <td>
+                      <select
+                        value={row?.RA3 || row?.rA3 || ""}
+                        onChange={(e) =>
+                          updateReportingField("RA3", e.target.value, type)
+                        }
+                        className="ep-select"
+                      >
+                        <option value="">Select</option>
+                        <option value="-">-</option>
+                        {ras.map((d, index) => (
+  <option key={index} value={d.name}>
+    {d.name}
+  </option>
+))}
+                      </select>
+                    </td>
 
-              <div className="ep-form-actions">
-                <button type="button" className="ep-btn-secondary" onClick={() => setShowReportingModal(false)}>Cancel</button>
-                <button type="submit" className="ep-btn-primary" disabled={reportingLoading}>
-                  {reportingLoading ? "Saving..." : "Save Reporting Matrix"}
-                </button>
-              </div>
-            </form>
-          </div>
+                    {/* RA4 */}
+                    <td>
+                      <select
+                        value={row?.RA4 || row?.rA4 || ""}
+                        onChange={(e) =>
+                          updateReportingField("RA4", e.target.value, type)
+                        }
+                        className="ep-select"
+                      >
+                        <option value="">Select</option>
+                        <option value="-">-</option>
+                        {ras.map((d, index) => (
+  <option key={index} value={d.name}>
+    {d.name}
+  </option>
+))}
+                      </select>
+                    </td>
+
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

@@ -491,8 +491,17 @@ input:checked+.ep-slider:before {
 }
 
 .ep-modal-management {
-  max-width: 600px;
-  height: 80vh;
+  width: 98vw;
+  max-width: 1600px;
+}
+
+.ep-reporting-table {
+  overflow-x: auto;
+}
+
+.ep-table th,
+.ep-table td {
+  min-width: 140px;
 }
 
 /* Search Controls */
@@ -973,4 +982,33 @@ input:checked+.ep-slider:before {
 
 .dark .ep-ra-label {
   color: #aaa;
+}
+
+.ep-reporting-table {
+  overflow-x: auto;
+}
+
+.ep-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ep-table th,
+.ep-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.ep-table th {
+  background-color: #f5f5f5;
+  font-weight: 300;
+}
+
+.ep-table select,
+.ep-table input {
+  width: 100%;
+  padding: 5px;
+  border-radius: 4px;
 }

@@ -721,3 +721,25 @@
 .src-scroll-list::-webkit-scrollbar-thumb:hover {
   background: hsla(var(--src-primary-h), var(--src-primary-s), var(--src-primary-l), 0.8);
 }
+
+.src-table-header,
+.src-table-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.5fr 1fr 1fr 1fr 1fr;
+  align-items: center;
+}
+
+.src-table-header {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.src-table-row {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.src-table-row:hover {
+  background: rgba(0,0,0,0.02);
+}

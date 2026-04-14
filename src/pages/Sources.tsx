@@ -232,6 +232,7 @@ const Sources: React.FC = () => {
     maint: true,
     notif: true,
     import: true,
+    reporting: true,
   });
 
   const toggleCollapse = (section: string) => {
@@ -930,6 +931,57 @@ const Sources: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* 9. Reporting Matrix */}
+{/* <div className={`src-card ${collapsed.reporting ? "collapsed" : ""}`}>
+  <SectionHeader
+    icon={<DeptIcon />}
+    title="Reporting Matrix"
+    isCollapsed={collapsed.reporting}
+    onToggle={() => toggleCollapse("reporting")}   // ✅ FIX
+  />
+
+  <div className="src-card-body-wrapper">
+    <div className="src-card-body">
+
+      <div className="src-table-wrapper">
+
+        <div className="src-table-header">
+          <div className="src-table-col">Request Type</div>
+          <div className="src-table-col">Condition</div>
+          <div className="src-table-col">RA1</div>
+          <div className="src-table-col">RA2</div>
+          <div className="src-table-col">RA3</div>
+          <div className="src-table-col">RA4</div>
+        </div>
+
+        {[
+          ["Equipment", "Up to ₹5,000", "Level1 RA", "Network Admin", "Admin", "-"],
+          ["Equipment", "Above ₹5,000", "Level1 RA", "Network Admin", "Admin", "Director"],
+          ["Work Report", "Daily", "Level1 RA", "-", "-", "-"],
+          ["Leave", "2 Days or Less per month", "Level1 RA", "HR", "-", "-"],
+          ["Leave", "2-4 Days per month", "Level1 RA", "Level2 RA", "HR", "-"],
+          ["Leave", "More Than 4 Days per month", "Level1 RA", "Level2 RA", "HR", "Director"],
+          ["Permission", "-", "Level1 RA", "HR", "-", "-"],
+          ["On Duty", "Local Travel / Same Day", "Level1 RA", "HR", "-", "-"],
+          ["On Duty", "Outstation / Multiple Days", "Level1 RA", "HR", "Director", "-"],
+          ["Over Time", "Up to 4 Hour", "Level1 RA", "HR", "-", "-"],
+          ["Over Time", "4-8 Hour", "Level1 RA", "Level2 RA", "HR", "-"],
+          ["Over Time", "More than 8 Hour", "Level1 RA", "Level2 RA", "HR", "Director"],
+          ["Special Request", "-", "Level1 RA", "HR", "Admin", "Director"],
+        ].map((row, index) => (
+          <div className="src-table-row" key={index}>
+            {row.map((col, i) => (
+              <div className="src-table-col" key={i}>{col}</div>
+            ))}
+          </div>
+        ))}
+
+      </div>
+
+    </div>
+  </div>
+</div> */}
           </div>
         </div>
 
