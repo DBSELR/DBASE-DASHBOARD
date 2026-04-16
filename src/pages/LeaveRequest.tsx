@@ -427,8 +427,10 @@ const LeaveRequest: React.FC = () => {
                 return (
                   <div key={i} className="lr-history-card themed-bg">
                     <div className="lr-card-main">
-                      <span className="lr-card-date-txt">{x.isSameDay ? x.from : `${x.from} - ${x.to}`}</span>
+                      <span className="lr-card-date-txt">{x.isSameDay ? x.from : `${x.from} - ${x.to}`} - {x.remarks}</span>
                       <span className="lr-card-type-txt">{x.typeDisp} {x.ptime ? `${x.ptime}` : ""}</span>
+                      
+                       <span className="lr-card-type-txt"></span>
                     </div>
                     <div className="lr-status-indicator" style={{ backgroundColor: x.__colors.bg, color: x.__colors.text }}>
                       {x.status}

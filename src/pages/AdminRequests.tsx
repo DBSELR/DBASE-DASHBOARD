@@ -441,16 +441,20 @@ const AdminRequests: React.FC = () => {
                         </div>
                       </div>
 
-                      {status === "pending" && (
+                      {(status === "pending" || status === "accepted" || status === "rejected") && (
                         <div className="card-actions-premium">
-                          <button className="premium-btn btn-reject" onClick={() => updateLeaveStatus(entry, "rejected")}>
-                            <IonIcon icon={closeCircle} />
-                            REJECT
-                          </button>
-                          <button className="premium-btn btn-approve" onClick={() => updateLeaveStatus(entry, "accepted")}>
-                            <IonIcon icon={checkmarkCircle} />
-                            APPROVE
-                          </button>
+                          {(status === "pending" || status === "accepted") && (
+                            <button className="premium-btn btn-reject" onClick={() => updateLeaveStatus(entry, "rejected")}>
+                              <IonIcon icon={closeCircle} />
+                              REJECT
+                            </button>
+                          )}
+                          {(status === "pending" || status === "rejected") && (
+                            <button className="premium-btn btn-approve" onClick={() => updateLeaveStatus(entry, "accepted")}>
+                              <IonIcon icon={checkmarkCircle} />
+                              APPROVE
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

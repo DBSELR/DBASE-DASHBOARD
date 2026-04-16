@@ -30,7 +30,7 @@ import {
   Camera,
   Loader2,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
 } from "lucide-react";
 import { API_BASE } from "../config";
 import { apiService } from "../utils/apiService";
@@ -69,7 +69,7 @@ const requestTypeOptions = [
   "Over Time Up to 4 Hour",
   "Over Time 4-8 Hour",
   "Over Time More than 8 Hour",
-  "Special Request"
+  "Special Request",
 ];
 
 const EmpProfile: React.FC = () => {
@@ -103,14 +103,14 @@ const EmpProfile: React.FC = () => {
     pfNo: "",
     ReportTO: "",
     profilePic: "",
-    status: "Active"
+    status: "Active",
   });
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("themeMode") === "dark"
+    localStorage.getItem("themeMode") === "dark",
   );
   const [themeId, setThemeId] = useState<string>(
-    localStorage.getItem("themeColor") || "blue"
+    localStorage.getItem("themeColor") || "blue",
   );
   const [showColorModal, setShowColorModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -128,7 +128,7 @@ const EmpProfile: React.FC = () => {
     RA1: "",
     RA2: "",
     RA3: "",
-    RA4: ""
+    RA4: "",
   });
 
   // New Management State
@@ -137,8 +137,8 @@ const EmpProfile: React.FC = () => {
   const [designations, setDesignations] = useState<any[]>([]);
   const [ras, setRas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-const [locationTypes, setLocationTypes] = useState<any[]>([]);
-const [locations, setLocations] = useState<any[]>([]);
+  const [locationTypes, setLocationTypes] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [searchQuery, setSearchQuery] = useState("");
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
@@ -185,10 +185,85 @@ const [locations, setLocations] = useState<any[]>([]);
     _dayDA: "0",
     _hourDA: "0",
     _Project: "",
-_LocationType: "",
-_Location1: "",
+    _LocationType: "",
+    _Location1: "",
   });
 
+  const CalNetSal = (gross: number) => {
+  const BasicP = 0.4;     // change as per your %
+  const HraP = 0.2;
+  const DaP = 0.1;
+  const OtherP = 0.1;
+
+  let Basic = gross * BasicP;
+  let HRA = Basic * HraP;
+  let DA = Basic * DaP;
+  let Conveyance = Basic * OtherP;
+  let OtherAmt = gross - (Basic + HRA + DA + Conveyance);
+
+  let PFAmt = Basic >= 15000 ? 15000 * 0.24 : Basic * 0.24;
+
+  let ESIAmt = gross <= 21000 ? gross * 0.0075 : 0;
+
+  let PTax = 0;
+  if (gross > 15000 && gross <= 20000) PTax = 150;
+  else if (gross > 20000) PTax = 200;
+
+  let ITax = gross > 62500 ? gross * 0.0212 : 0;
+
+  let NetSal = gross - (ITax + PTax + ESIAmt + PFAmt);
+
+  return {
+    Basic,
+    HRA,
+    DA,
+    Conveyance,
+    OtherAmt,
+    PFAmt,
+    ESIAmt,
+    PTax,
+    ITax,
+    NetSal,
+  };
+};
+const calculateFromGross = (gross: number) => {
+  const BasicP = 0.4;   // % (change if needed)
+  const HraP = 0.2;
+  const DaP = 0.1;
+  const OtherP = 0.1;
+
+  let Basic = gross * BasicP;
+  let HRA = Basic * HraP;
+  let DA = Basic * DaP;
+  let Conveyance = Basic * OtherP;
+
+  let OtherAmt = gross - (Basic + HRA + DA + Conveyance);
+
+  let PFAmt = Basic >= 15000 ? 15000 * 0.24 : Basic * 0.24;
+
+  let ESIAmt = gross <= 21000 ? gross * 0.0075 : 0;
+
+  let PTax = 0;
+  if (gross > 15000 && gross <= 20000) PTax = 150;
+  else if (gross > 20000) PTax = 200;
+
+  let ITax = gross > 62500 ? gross * 0.0212 : 0;
+
+  let NetSal = gross - (ITax + PTax + ESIAmt + PFAmt);
+
+  return {
+    Basic,
+    HRA,
+    DA,
+    Conveyance,
+    OtherAmt,
+    PFAmt,
+    ESIAmt,
+    PTax,
+    ITax,
+    NetSal,
+  };
+};
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token")?.replace(/"/g, "");
     return { Authorization: `Bearer ${token}` };
@@ -214,23 +289,22 @@ _Location1: "",
   const loadBaseData = async () => {
     console.group("[EmpProfile] Load Base Data (Depts/Desigs)");
     try {
-       const [depts, desigs, projs, locTypes, locs, ras] = await Promise.all([
+      const [depts, desigs, projs, locTypes, locs, ras] = await Promise.all([
         apiService.loadDepartments(),
         apiService.loadDesignations(),
         apiService.loadTlProjects(),
-      apiService.loadLocationType(),
-      apiService.loadLocation(),
-       apiService.loadRAS()
+        apiService.loadLocationType(),
+        apiService.loadLocation(),
+        apiService.loadRAS(),
       ]);
       console.log("Raw Departments:", depts);
       console.log("Raw Designations:", desigs);
       setDepartments(decodeArrayResponse(depts, ["id", "name", "active"]));
       setDesignations(decodeArrayResponse(desigs, ["id", "name", "active"]));
       setProjects(decodeArrayResponse(projs, ["id", "name"]));
-    setLocationTypes(decodeArrayResponse(locTypes, ["id", "name"]));
-    setLocations(decodeArrayResponse(locs, ["id", "name"]));
-    setRas(ras);
-
+      setLocationTypes(decodeArrayResponse(locTypes, ["id", "name"]));
+      setLocations(decodeArrayResponse(locs, ["id", "name"]));
+      setRas(ras);
     } catch (e) {
       console.error("Error loading base data:", e);
     } finally {
@@ -243,7 +317,13 @@ _Location1: "",
     try {
       const data = await apiService.loadEmployees(status);
       console.log("Raw Employees List:", data);
-      const decoded = decodeArrayResponse(data, ["code", "name", "dept", "desig", "mobile"]);
+      const decoded = decodeArrayResponse(data, [
+        "code",
+        "name",
+        "dept",
+        "desig",
+        "mobile",
+      ]);
       console.log("Decoded Employees List:", decoded);
       setEmployees(decoded);
     } catch (e) {
@@ -266,13 +346,16 @@ _Location1: "",
     }
 
     if (!Array.isArray(actualData)) {
-      console.warn("[EmpProfile] decodeArrayResponse: actualData is not an array", actualData);
+      console.warn(
+        "[EmpProfile] decodeArrayResponse: actualData is not an array",
+        actualData,
+      );
       return [];
     }
     const decoded = actualData.map((row: any) => {
       if (Array.isArray(row)) {
         const obj: any = {};
-        keys.forEach((key, i) => obj[key] = row[i]);
+        keys.forEach((key, i) => (obj[key] = row[i]));
         return obj;
       }
       return row;
@@ -284,7 +367,14 @@ _Location1: "",
     console.group("[EmpProfile] mapGetEmployeeResponse");
     console.log("Input Row Array:", row);
     console.log("Row length:", row.length);
-    console.log("Row[50] (Project):", row[50], "Row[51] (LocationType):", row[51], "Row[52] (Location):", row[52]);
+    console.log(
+      "Row[50] (Project):",
+      row[50],
+      "Row[51] (LocationType):",
+      row[51],
+      "Row[52] (Location):",
+      row[52],
+    );
 
     if (!Array.isArray(row)) {
       console.warn("Input is not an array, returning as is");
@@ -294,49 +384,79 @@ _Location1: "",
 
     // Normalizing isActive ('1' or 'Y' or true -> 'Y')
     const rawIsActive = row[14];
-    const normalizedIsActive = (rawIsActive === "1" || rawIsActive === "Y" || rawIsActive === true || rawIsActive === 1) ? "Y" : "N";
+    const normalizedIsActive =
+      rawIsActive === "1" ||
+      rawIsActive === "Y" ||
+      rawIsActive === true ||
+      rawIsActive === 1
+        ? "Y"
+        : "N";
 
     const mapped = {
-      _Employee_ID: row[0] !== null && row[0] !== undefined ? String(row[0]) : "",
+      _Employee_ID:
+        row[0] !== null && row[0] !== undefined ? String(row[0]) : "",
       _Ecode: row[1] !== null && row[1] !== undefined ? String(row[1]) : "",
       _Ename: row[2] !== null && row[2] !== undefined ? String(row[2]) : "",
       _Desig: row[3] !== null && row[3] !== undefined ? String(row[3]) : "",
-      _Doj: row[4] ? (String(row[4]).includes('T') ? row[4].split('T')[0] : row[4]) : "",
-      _Dob: row[45] ? (String(row[45]).includes('T') ? row[45].split('T')[0] : row[45]) : "",
+      _Doj: row[4]
+        ? String(row[4]).includes("T")
+          ? row[4].split("T")[0]
+          : row[4]
+        : "",
+      _Dob: row[45]
+        ? String(row[45]).includes("T")
+          ? row[45].split("T")[0]
+          : row[45]
+        : "",
       _Blood: row[5] !== null && row[5] !== undefined ? String(row[5]) : "",
       _Mobile: row[6] !== null && row[6] !== undefined ? String(row[6]) : "",
       _Email: row[8] !== null && row[8] !== undefined ? String(row[8]) : "",
       _Dept: row[30] !== null && row[30] !== undefined ? String(row[30]) : "",
-      _User: JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
-      _Allowed_MY: row[13] !== null && row[13] !== undefined ? String(row[13]) : "2",
-      _Allowed_CL: row[11] !== null && row[11] !== undefined ? String(row[11]) : "12",
-      _Allowed_SL: row[21] !== null && row[21] !== undefined ? String(row[21]) : "10",
+      _User:
+        JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+      _Allowed_MY:
+        row[13] !== null && row[13] !== undefined ? String(row[13]) : "2",
+      _Allowed_CL:
+        row[11] !== null && row[11] !== undefined ? String(row[11]) : "12",
+      _Allowed_SL:
+        row[21] !== null && row[21] !== undefined ? String(row[21]) : "10",
       _IsActive: normalizedIsActive,
       _HRA: row[23] !== null && row[23] !== undefined ? String(row[23]) : "0",
       _DA: row[42] !== null && row[42] !== undefined ? String(row[42]) : "0",
-      _BasicSal: row[22] !== null && row[22] !== undefined ? String(row[22]) : "0",
+      _BasicSal:
+        row[22] !== null && row[22] !== undefined ? String(row[22]) : "0",
       _LTA: row[24] !== null && row[24] !== undefined ? String(row[24]) : "0",
-      _ALLOWANCES: row[25] !== null && row[25] !== undefined ? String(row[25]) : "0",
-      _GrossSal: row[26] !== null && row[26] !== undefined ? String(row[26]) : "0",
-      _AccountNo: row[28] !== null && row[28] !== undefined ? String(row[28]) : "",
-      _IFSCCode: row[29] !== null && row[29] !== undefined ? String(row[29]) : "",
+      _ALLOWANCES:
+        row[25] !== null && row[25] !== undefined ? String(row[25]) : "0",
+      _GrossSal:
+        row[26] !== null && row[26] !== undefined ? String(row[26]) : "0",
+      _AccountNo:
+        row[28] !== null && row[28] !== undefined ? String(row[28]) : "",
+      _IFSCCode:
+        row[29] !== null && row[29] !== undefined ? String(row[29]) : "",
       _PF: row[31] !== null && row[31] !== undefined ? String(row[31]) : "0",
       _Esi: row[32] !== null && row[32] !== undefined ? String(row[32]) : "0",
       _Ptax: row[33] !== null && row[33] !== undefined ? String(row[33]) : "0",
       _Itax: row[34] !== null && row[34] !== undefined ? String(row[34]) : "0",
-      _NetSal: row[35] !== null && row[35] !== undefined ? String(row[35]) : "0",
+      _NetSal:
+        row[35] !== null && row[35] !== undefined ? String(row[35]) : "0",
       _PanNo: row[39] !== null && row[39] !== undefined ? String(row[39]) : "",
-      _AadharNo: row[40] !== null && row[40] !== undefined ? String(row[40]) : "",
+      _AadharNo:
+        row[40] !== null && row[40] !== undefined ? String(row[40]) : "",
       _PFNo: row[37] !== null && row[37] !== undefined ? String(row[37]) : "",
       _ESINo: row[36] !== null && row[36] !== undefined ? String(row[36]) : "",
-      _CheckIn: row[44] !== null && row[44] !== undefined ? String(row[44]) : "09:30",
-      _P_Time: row[49] !== null && row[49] !== undefined ? String(row[49]) : "09:30",
+      _CheckIn:
+        row[44] !== null && row[44] !== undefined ? String(row[44]) : "09:30",
+      _P_Time:
+        row[49] !== null && row[49] !== undefined ? String(row[49]) : "09:30",
       _dayDA: row[47] !== null && row[47] !== undefined ? String(row[47]) : "0",
-      _hourDA: row[48] !== null && row[48] !== undefined ? String(row[48]) : "0",
-      _RequestTo: row[15] !== null && row[15] !== undefined ? String(row[15]) : "",
+      _hourDA:
+        row[48] !== null && row[48] !== undefined ? String(row[48]) : "0",
+      _RequestTo:
+        row[15] !== null && row[15] !== undefined ? String(row[15]) : "",
       _Project: row[50] || "",
       _LocationType: row[51] || "",
-      _Location1: row[52] || ""
+      _Location1: row[52] || "",
       // _Project: projects.find(p => p.name == row[50])?.id || row[50] || "",
       // _LocationType: locationTypes.find(l => l.name == row[51])?.id || row[51] || "",
       // _Location1: locations.find(l => l.name == row[52])?.id || row[52] || ""
@@ -389,7 +509,12 @@ _Location1: "",
         pfNo: details._PFNo,
         ReportTO: details._RequestTo,
         profilePic: row[42] || userData?.profilePic, // Keep current if missing
-        status: (details._IsActive === "N" || details._IsActive === "0" || details._IsActive === false) ? "InActive" : "Active"
+        status:
+          details._IsActive === "N" ||
+          details._IsActive === "0" ||
+          details._IsActive === false
+            ? "InActive"
+            : "Active",
       };
       console.log("Setting Final userData for View:", newUserData);
       setUserData(newUserData);
@@ -398,7 +523,7 @@ _Location1: "",
       const newFormData = {
         ...details,
         _IsActive: details._IsActive || "Y",
-        _User: details._User || "admin"
+        _User: details._User || "admin",
       };
       console.log("Setting formData for Edit:", newFormData);
       setFormData(newFormData);
@@ -424,7 +549,7 @@ _Location1: "",
         {
           method: "GET",
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (response.ok) {
@@ -433,8 +558,9 @@ _Location1: "",
 
         console.log("[EmpProfile] fetchUserProfile SUCCESS", {
           raw: data,
-          image: userProfile.Img || userProfile?.ProfileImage || userProfile?.[42],
-          name: userProfile.EmpName || userProfile?.Empname
+          image:
+            userProfile.Img || userProfile?.ProfileImage || userProfile?.[42],
+          name: userProfile.EmpName || userProfile?.Empname,
         });
 
         if (Array.isArray(userProfile)) {
@@ -471,7 +597,12 @@ _Location1: "",
             email: userProfile[8],
             performanceScore: userProfile[26],
             pendingLeaves: userProfile[21],
-            status: (userProfile[14] === "N" || userProfile[14] === "0" || userProfile[14] === false) ? "InActive" : "Active"
+            status:
+              userProfile[14] === "N" ||
+              userProfile[14] === "0" ||
+              userProfile[14] === false
+                ? "InActive"
+                : "Active",
           });
         } else {
           // Object-based mapping
@@ -509,7 +640,13 @@ _Location1: "",
             availableLeaves: userProfile.AVAIL_LS,
             unseenCredits: userProfile.UnseenCredits,
             ReportTO: userProfile.ReportTO,
-            status: (userProfile.IsActive === "N" || userProfile.IsActive === "0" || userProfile.IsActive === false || userProfile.Isactive === "N") ? "InActive" : "Active"
+            status:
+              userProfile.IsActive === "N" ||
+              userProfile.IsActive === "0" ||
+              userProfile.IsActive === false ||
+              userProfile.Isactive === "N"
+                ? "InActive"
+                : "Active",
           });
         }
       } else {
@@ -543,7 +680,7 @@ _Location1: "",
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "Accept": "*/*",
+          Accept: "*/*",
           ...getAuthHeaders(),
           // Content-Type MUST NOT be set here, browser will set it with boundary
         },
@@ -584,34 +721,39 @@ _Location1: "",
   }, [darkMode]);
 
   useEffect(() => {
-  if (!employeeRawRow) return;
+    if (!employeeRawRow) return;
 
-  if (!projects.length || !locationTypes.length || !locations.length) return;
+    if (!projects.length || !locationTypes.length || !locations.length) return;
 
-  console.log("Fixing dropdown values...");
+    console.log("Fixing dropdown values...");
 
-  const projectId = projects.find(p => p.name == employeeRawRow[50])?.id;
-  const locationTypeId = locationTypes.find(l => l.name == employeeRawRow[51])?.id;
-  const locationId = locations.find(l => l.name == employeeRawRow[52])?.id;
+    const projectId = projects.find((p) => p.name == employeeRawRow[50])?.id;
+    const locationTypeId = locationTypes.find(
+      (l) => l.name == employeeRawRow[51],
+    )?.id;
+    const locationId = locations.find((l) => l.name == employeeRawRow[52])?.id;
 
-  console.log({ projectId, locationTypeId, locationId });
+    console.log({ projectId, locationTypeId, locationId });
 
-  setFormData(prev => ({
-    ...prev,
-    _Project: projectId || "",
-    _LocationType: locationTypeId || "",
-    _Location1: locationId || ""
-  }));
-
-}, [employeeRawRow, projects, locationTypes, locations]);
+    setFormData((prev) => ({
+      ...prev,
+      _Project: projectId || "",
+      _LocationType: locationTypeId || "",
+      _Location1: locationId || "",
+    }));
+  }, [employeeRawRow, projects, locationTypes, locations]);
 
   useEffect(() => {
     // Apply the theme ID to the data-theme attribute
     document.documentElement.setAttribute("data-theme", themeId);
 
     // Also set primary color as fallback for vintage components
-    const selectedColor = themeColors.find(t => t.id === themeId)?.value || "#0077b6";
-    document.documentElement.style.setProperty("--ion-color-primary", selectedColor);
+    const selectedColor =
+      themeColors.find((t) => t.id === themeId)?.value || "#0077b6";
+    document.documentElement.style.setProperty(
+      "--ion-color-primary",
+      selectedColor,
+    );
 
     localStorage.setItem("themeColor", themeId);
   }, [themeId]);
@@ -629,17 +771,44 @@ _Location1: "",
       window.location.replace("/login");
     }, 500);
   };
+   const handleInputChange = (e: any) => {
+  const { name, value } = e.target;
 
-  const handleInputChange = (e: any) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  setFormData((prev) => {
+    const updated = { ...prev, [name]: value };
+
+    // 👉 Only trigger when Gross changes
+    if (name === "_GrossSal") {
+      const gross = parseFloat(value) || 0;
+
+      const calc = calculateFromGross(gross);
+
+      updated._BasicSal = calc.Basic.toFixed(0);
+      updated._HRA = calc.HRA.toFixed(0);
+      updated._DA = calc.DA.toFixed(0);
+      updated._LTA = calc.Conveyance.toFixed(0);
+      updated._ALLOWANCES = calc.OtherAmt.toFixed(0);
+
+      updated._PF = calc.PFAmt.toFixed(0);
+      updated._Esi = calc.ESIAmt.toFixed(0);
+      updated._Ptax = calc.PTax.toString();
+      updated._Itax = calc.ITax.toFixed(0);
+      updated._NetSal = calc.NetSal.toFixed(0);
+    }
+
+    return updated;
+  });
+};
+  // const handleInputChange = (e: any) => {
+  //   const { name, value } = e.target;
+  //   setFormData((prev) => ({ ...prev, [name]: value }));
+  // };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const formatToDDMMYYYY = (dateStr: string) => {
-      if (!dateStr || !dateStr.includes('-')) return dateStr;
-      const [y, m, d] = dateStr.split('-');
+      if (!dateStr || !dateStr.includes("-")) return dateStr;
+      const [y, m, d] = dateStr.split("-");
       return `${d}/${m}/${y}`;
     };
 
@@ -647,9 +816,15 @@ _Location1: "",
 
     try {
       // Convert IDs to names for saving
-      const projectName = projects.find(p => p.id == formData._Project)?.name || formData._Project;
-      const locationTypeName = locationTypes.find(l => l.id == formData._LocationType)?.name || formData._LocationType;
-      const locationName = locations.find(l => l.id == formData._Location1)?.name || formData._Location1;
+      const projectName =
+        projects.find((p) => p.id == formData._Project)?.name ||
+        formData._Project;
+      const locationTypeName =
+        locationTypes.find((l) => l.id == formData._LocationType)?.name ||
+        formData._LocationType;
+      const locationName =
+        locations.find((l) => l.id == formData._Location1)?.name ||
+        formData._Location1;
 
       const payload = {
         ...formData,
@@ -657,18 +832,26 @@ _Location1: "",
         _LocationType: locationTypeName,
         _Location1: locationName,
         _Doj: formatToDDMMYYYY(formData._Doj),
-        _Dob: formatToDDMMYYYY(formData._Dob)
+        _Dob: formatToDDMMYYYY(formData._Dob),
       };
 
       console.log("FINAL POST PAYLOAD (Formatted):", payload);
       const response = await apiService.registerEmployee(payload);
 
-      if (response === "Employee saved successfully" || response?.message === "Employee saved successfully") {
+      if (
+        response === "Employee saved successfully" ||
+        response?.message === "Employee saved successfully"
+      ) {
         alert("Employee saved successfully");
         // setShowRegisterModal(false); // KEEP MODAL OPEN
         if (isManagementView) loadEmployees(statusFilter);
       } else {
-        alert("Registration failed: " + (typeof response === "string" ? response : JSON.stringify(response)));
+        alert(
+          "Registration failed: " +
+            (typeof response === "string"
+              ? response
+              : JSON.stringify(response)),
+        );
       }
     } catch (error: any) {
       console.error("Error registering employee:", error);
@@ -696,7 +879,8 @@ _Location1: "",
       _Blood: "",
       _Mobile: "",
       _Email: "",
-      _User: JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+      _User:
+        JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
       _Allowed_CL: "12",
       _Allowed_SL: "10",
       _RequestTo: "",
@@ -719,8 +903,8 @@ _Location1: "",
       _dayDA: "0",
       _hourDA: "0",
       _Project: "",
-_LocationType: "",
-_Location1: "",
+      _LocationType: "",
+      _Location1: "",
     });
     setShowRegisterModal(true);
   };
@@ -738,7 +922,7 @@ _Location1: "",
       RA1: formData._RequestTo || "",
       RA2: "",
       RA3: "",
-      RA4: ""
+      RA4: "",
     });
     setShowReportingModal(true);
     fetchReportingHistory(formData._Ecode);
@@ -749,7 +933,7 @@ _Location1: "",
     try {
       const data = await apiService.loadReportingMatrix(empCode);
       console.log("Raw History Data:", data);
-      
+
       if (Array.isArray(data)) {
         console.log(`Success: Found ${data.length} assignments.`);
         data.forEach((item, i) => {
@@ -759,7 +943,7 @@ _Location1: "",
             RA1: item.rA1 || item.RA1,
             RA2: item.rA2 || item.RA2,
             RA3: item.rA3 || item.RA3,
-            RA4: item.rA4 || item.RA4
+            RA4: item.rA4 || item.RA4,
           });
         });
         setReportingHistory(data);
@@ -776,106 +960,108 @@ _Location1: "",
   };
 
   const editReportingMatrix = (item: any) => {
-  setReportingFormData({
-    Id: item.id || item.Id || 0,
-    EmpCode: item.empCode || item.EmpCode,
-    RequestType: item.requestType || item.RequestType,
-    RA1: item.rA1 || item.RA1 || "",
-    RA2: item.rA2 || item.RA2 || "",
-    RA3: item.rA3 || item.RA3 || "",
-    RA4: item.rA4 || item.RA4 || ""
-  });
-};
+    setReportingFormData({
+      Id: item.id || item.Id || 0,
+      EmpCode: item.empCode || item.EmpCode,
+      RequestType: item.requestType || item.RequestType,
+      RA1: item.rA1 || item.RA1 || "",
+      RA2: item.rA2 || item.RA2 || "",
+      RA3: item.rA3 || item.RA3 || "",
+      RA4: item.rA4 || item.RA4 || "",
+    });
+  };
 
-// 🔥 Update API (now includes RequestType)
-const updateReportingField = async (
-  field: string,
-  value: string,
-  requestType: string
-) => {
-  try {
-    const row = reportingHistory.find(
-      (r) => (r.requestType || r.RequestType) === requestType
-    );
+  // 🔥 Update API (now includes RequestType)
+  const updateReportingField = async (
+    field: string,
+    value: string,
+    requestType: string,
+  ) => {
+    try {
+      const row = reportingHistory.find(
+        (r) => (r.requestType || r.RequestType) === requestType,
+      );
 
-    const payload = {
-      EmpCode: reportingFormData.EmpCode,
-      RequestType: requestType,
+      const payload = {
+        EmpCode: reportingFormData.EmpCode,
+        RequestType: requestType,
 
-      // ✅ Preserve all values including RA1
-      RA1: field === "RA1" ? value : (row?.RA1 || row?.rA1 || ""),
-      RA2: field === "RA2" ? value : (row?.RA2 || row?.rA2 || ""),
-      RA3: field === "RA3" ? value : (row?.RA3 || row?.rA3 || ""),
-      RA4: field === "RA4" ? value : (row?.RA4 || row?.rA4 || "")
-    };
+        // ✅ Preserve all values including RA1
+        RA1: field === "RA1" ? value : row?.RA1 || row?.rA1 || "",
+        RA2: field === "RA2" ? value : row?.RA2 || row?.rA2 || "",
+        RA3: field === "RA3" ? value : row?.RA3 || row?.rA3 || "",
+        RA4: field === "RA4" ? value : row?.RA4 || row?.rA4 || "",
+      };
 
-    console.log("Updating ALL:", payload);
+      console.log("Updating ALL:", payload);
 
-    await apiService.post("/Employee/UpdateReportingMatrix", payload);
+      await apiService.post("/Employee/UpdateReportingMatrix", payload);
 
-    fetchReportingHistory(reportingFormData.EmpCode);
-
-  } catch (err) {
-    console.error("Update error:", err);
-  }
-};
-
-
-// const updateReportingField = async (field: string, value: string) => {
-//   try {
-//     const payload = {
-//       EmpCode: reportingFormData.EmpCode,
-//       RequestType: reportingFormData.RequestType,
-//       RA2: field === "RA2" ? value : reportingFormData.RA2,
-//       RA3: field === "RA3" ? value : reportingFormData.RA3,
-//       RA4: field === "RA4" ? value : reportingFormData.RA4
-//     };
-
-//     console.log("Updating:", payload);
-
-//     const response = await apiService.post("/Employee/UpdateReportingMatrix", payload);
-
-//     if (response?.message === "Updated Successfully") {
-//       console.log("Updated Successfully");
-//     } else {
-//       console.warn("Update failed");
-//     }
-//   } catch (err) {
-//     console.error("Update error:", err);
-//   }
-// };
-
-const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
-  try {
-    const res = await apiService.get(
-      `/Employee/GetRAsByRequestType?empCode=${empCode}&requestType=${encodeURIComponent(requestType)}`
-    );
-
-    console.log("RA API Response:", res);
-
-    // ✅ HANDLE BOTH ARRAY + OBJECT
-    if (Array.isArray(res) && res.length > 0) {
-      const data = res[0];
-
-      setReportingFormData(prev => ({
-        ...prev,
-       // RA1: data.RA1 || "",
-        RA2: data.RA2 || "",
-        RA3: data.RA3 || "",
-        RA4: data.RA4 || ""
-      }));
-    } else {
-      console.warn("No RA data found");
+      fetchReportingHistory(reportingFormData.EmpCode);
+    } catch (err) {
+      console.error("Update error:", err);
     }
+  };
 
-  } catch (err) {
-    console.error("Error fetching RAs:", err);
-  }
-};
+  // const updateReportingField = async (field: string, value: string) => {
+  //   try {
+  //     const payload = {
+  //       EmpCode: reportingFormData.EmpCode,
+  //       RequestType: reportingFormData.RequestType,
+  //       RA2: field === "RA2" ? value : reportingFormData.RA2,
+  //       RA3: field === "RA3" ? value : reportingFormData.RA3,
+  //       RA4: field === "RA4" ? value : reportingFormData.RA4
+  //     };
+
+  //     console.log("Updating:", payload);
+
+  //     const response = await apiService.post("/Employee/UpdateReportingMatrix", payload);
+
+  //     if (response?.message === "Updated Successfully") {
+  //       console.log("Updated Successfully");
+  //     } else {
+  //       console.warn("Update failed");
+  //     }
+  //   } catch (err) {
+  //     console.error("Update error:", err);
+  //   }
+  // };
+
+  const fetchRAsByRequestType = async (
+    empCode: string,
+    requestType: string,
+  ) => {
+    try {
+      const res = await apiService.get(
+        `/Employee/GetRAsByRequestType?empCode=${empCode}&requestType=${encodeURIComponent(
+          requestType,
+        )}`,
+      );
+
+      console.log("RA API Response:", res);
+
+      // ✅ HANDLE BOTH ARRAY + OBJECT
+      if (Array.isArray(res) && res.length > 0) {
+        const data = res[0];
+
+        setReportingFormData((prev) => ({
+          ...prev,
+          // RA1: data.RA1 || "",
+          RA2: data.RA2 || "",
+          RA3: data.RA3 || "",
+          RA4: data.RA4 || "",
+        }));
+      } else {
+        console.warn("No RA data found");
+      }
+    } catch (err) {
+      console.error("Error fetching RAs:", err);
+    }
+  };
 
   const handleReportingInputChange = (e: any) => {
     const { name, value } = e.target;
-    setReportingFormData(prev => ({ ...prev, [name]: value }));
+    setReportingFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSaveReportingMatrix = async (e: React.FormEvent) => {
@@ -883,21 +1069,29 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
     setReportingLoading(true);
     try {
       const response = await apiService.saveReportingMatrix(reportingFormData);
-      if (response === "Saved Successfully" || response?.message === "Saved Successfully") {
+      if (
+        response === "Saved Successfully" ||
+        response?.message === "Saved Successfully"
+      ) {
         alert("Reporting matrix saved successfully");
         fetchReportingHistory(reportingFormData.EmpCode);
         // Reset form but keep EmpCode
-        setReportingFormData(prev => ({
+        setReportingFormData((prev) => ({
           Id: 0,
           EmpCode: prev.EmpCode,
           RequestType: "",
           RA1: formData._RequestTo || "",
           RA2: "",
           RA3: "",
-          RA4: ""
+          RA4: "",
         }));
       } else {
-        alert("Failed to save reporting matrix: " + (typeof response === "string" ? response : JSON.stringify(response)));
+        alert(
+          "Failed to save reporting matrix: " +
+            (typeof response === "string"
+              ? response
+              : JSON.stringify(response)),
+        );
       }
     } catch (error: any) {
       console.error("Error saving reporting matrix:", error);
@@ -907,25 +1101,36 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
     }
   };
 
-  const filteredEmployees = employees.filter(emp =>
-    (emp.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-    (emp.code?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-    (emp.desig?.toLowerCase() || "").includes(searchQuery.toLowerCase())
+  const filteredEmployees = employees.filter(
+    (emp) =>
+      (emp.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (emp.code?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (emp.desig?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
   );
 
   if (loading) {
     return (
-      <div className="ep-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <div
+        className="ep-container"
+        style={{ justifyContent: "center", alignItems: "center" }}
+      >
         <div className="loader">Loading...</div>
       </div>
     );
   }
 
-  if (!userData) return <div className="ep-container"><p style={{ padding: '20px' }}>No user data found.</p></div>;
+  if (!userData)
+    return (
+      <div className="ep-container">
+        <p style={{ padding: "20px" }}>No user data found.</p>
+      </div>
+    );
 
   const InfoItem = ({ icon: Icon, label, value }: any) => (
     <div className="ep-info-item">
-      <div className="ep-icon-box"><Icon size={18} /></div>
+      <div className="ep-icon-box">
+        <Icon size={18} />
+      </div>
       <div className="ep-label-value">
         <span className="ep-label">{label}</span>
         <span className="ep-value">{value || "--"}</span>
@@ -938,13 +1143,15 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
       {/* Native-style header */}
       <header className="ep-header-section">
         <div className="ep-header-content">
-          <div className={`ep-avatar-wrapper ${uploading ? 'uploading' : ''}`}>
+          <div className={`ep-avatar-wrapper ${uploading ? "uploading" : ""}`}>
             <img
               src={userData.profilePic || "./images/avatar.png"}
               alt="Profile"
               className="ep-avatar-img"
               onError={(e) => {
-                console.error("[EmpProfile] Profile image 404 or load error, falling back to default");
+                console.error(
+                  "[EmpProfile] Profile image 404 or load error, falling back to default",
+                );
                 (e.target as HTMLImageElement).src = "./images/avatar.png";
               }}
             />
@@ -956,33 +1163,51 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
                 disabled={uploading}
                 className="ep-hidden-input"
               />
-              {uploading ? <Loader2 className="ep-spin" size={18} /> : <Camera size={18} />}
+              {uploading ? (
+                <Loader2 className="ep-spin" size={18} />
+              ) : (
+                <Camera size={18} />
+              )}
             </label>
           </div>
           <h2 className="ep-user-name">Welcome, {userData.empName}!</h2>
-          <p className="ep-user-designation">{userData.designation} ({userData.userType})</p>
+          <p className="ep-user-designation">
+            {userData.designation} ({userData.userType})
+          </p>
           <div className="ep-profile-status-row">
             <span className="ep-user-code">ID: {userData.empCode}</span>
-            <span className={`ep-status-pill ${userData.status?.toLowerCase()}`}>
+            <span
+              className={`ep-status-pill ${userData.status?.toLowerCase()}`}
+            >
               {userData.status}
             </span>
           </div>
 
           <div className="ep-header-actions">
-            {(loggedInUserType === "Admin" || loggedInUserType === "ACCOUNTANT") && (
+            {(loggedInUserType === "Admin" ||
+              loggedInUserType === "ACCOUNTANT") && (
               <>
-                <button className="ep-action-btn ep-btn-search" onClick={() => setShowEmployeeSearch(true)}>
-                  <Users color="var(--ion-color-primary)"  size={18} />
+                <button
+                  className="ep-action-btn ep-btn-search"
+                  onClick={() => setShowEmployeeSearch(true)}
+                >
+                  <Users color="var(--ion-color-primary)" size={18} />
                   Find
                 </button>
-                <button className="ep-action-btn ep-btn-add" onClick={openAddModal}>
-                  <PlusCircle color="var(--ion-color-primary)"  size={18} />
+                <button
+                  className="ep-action-btn ep-btn-add"
+                  onClick={openAddModal}
+                >
+                  <PlusCircle color="var(--ion-color-primary)" size={18} />
                   Add
                 </button>
               </>
             )}
             {!isManagementView && (
-              <button className="ep-action-btn ep-btn-logout" onClick={handleLogout}>
+              <button
+                className="ep-action-btn ep-btn-logout"
+                onClick={handleLogout}
+              >
                 <LogOut size={18} />
                 Logout
               </button>
@@ -993,103 +1218,254 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
 
       {/* Main Content Area */}
       <main className="ep-content">
-
         {/* Settings / Controls */}
         <div className="ep-card">
-          <h3 className="ep-card-title"><Settings color="var(--ion-color-primary)"  size={20} /> App Settings</h3>
+          <h3 className="ep-card-title">
+            <Settings color="var(--ion-color-primary)" size={20} /> App Settings
+          </h3>
 
           <div className="ep-settings-item">
             <div className="ep-settings-label">
-              {darkMode ? <Moon color="var(--ion-color-primary)"  size={20} /> : <Sun color="var(--ion-color-primary)"  size={20} />}
+              {darkMode ? (
+                <Moon color="var(--ion-color-primary)" size={20} />
+              ) : (
+                <Sun color="var(--ion-color-primary)" size={20} />
+              )}
               Dark Mode
             </div>
             <label className="ep-toggle">
-              <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
+              <input
+                type="checkbox"
+                checked={darkMode}
+                onChange={() => setDarkMode(!darkMode)}
+              />
               <span className="ep-slider"></span>
             </label>
           </div>
 
-          <div className="ep-settings-item" onClick={() => setShowColorModal(true)} style={{ cursor: 'pointer' }}>
+          <div
+            className="ep-settings-item"
+            onClick={() => setShowColorModal(true)}
+            style={{ cursor: "pointer" }}
+          >
             <div className="ep-settings-label">
               <Palette color="var(--ion-color-primary)" size={20} />
               Theme Color
             </div>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: 'var(--ion-color-primary)' }}></div>
+            <div
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: "50%",
+                backgroundColor: "var(--ion-color-primary)",
+              }}
+            ></div>
           </div>
         </div>
 
         {/* Personal Info */}
         <div className="ep-card">
-          <h3 className="ep-card-title"><Info color="var(--ion-color-primary)"  size={20} /> Personal Details</h3>
+          <h3 className="ep-card-title">
+            <Info color="var(--ion-color-primary)" size={20} /> Personal Details
+          </h3>
           <div className="ep-info-grid">
-            <InfoItem color="var(--ion-color-primary)"  icon={Fingerprint} label="Emp Code" value={userData.empCode} />
-            <InfoItem color="var(--ion-color-primary)"  icon={User} label="Name" value={userData.empName} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Droplet} label="Blood Group" value={userData.bloodGroup} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Phone} label="Mobile" value={userData.contactNumber} />
-            <InfoItem color="var(--ion-color-primary)"  icon={FileText} label="PAN" value={userData.pan} />
-            <InfoItem color="var(--ion-color-primary)"  icon={CreditCard} label="AADHAR" value={userData.aadhar} />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Fingerprint}
+              label="Emp Code"
+              value={userData.empCode}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={User}
+              label="Name"
+              value={userData.empName}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Droplet}
+              label="Blood Group"
+              value={userData.bloodGroup}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Phone}
+              label="Mobile"
+              value={userData.contactNumber}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={FileText}
+              label="PAN"
+              value={userData.pan}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={CreditCard}
+              label="AADHAR"
+              value={userData.aadhar}
+            />
           </div>
         </div>
 
         {/* Professional Info */}
         <div className="ep-card">
-          <h3 className="ep-card-title"><Briefcase color="var(--ion-color-primary)"  size={20} /> Professional Details</h3>
+          <h3 className="ep-card-title">
+            <Briefcase color="var(--ion-color-primary)" size={20} />{" "}
+            Professional Details
+          </h3>
           <div className="ep-info-grid">
-            <InfoItem color="var(--ion-color-primary)"  icon={Calendar} label="Joining Date" value={userData.doj} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Layout} label="Department" value={userData.department} />
-           
-                     
-           
-           
-            <InfoItem color="var(--ion-color-primary)"  icon={Mail} label="Email" value={userData.email} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Users} label="Reports To" value={userData.ReportTO} />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Calendar}
+              label="Joining Date"
+              value={userData.doj}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Layout}
+              label="Department"
+              value={userData.department}
+            />
 
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Mail}
+              label="Email"
+              value={userData.email}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Users}
+              label="Reports To"
+              value={userData.ReportTO}
+            />
 
             {/* <InfoItem icon={Clock} label="Available Leaves" value={userData.availableLeaves} /> */}
             {/* <InfoItem icon={TrendingUp} label="Unseen Credits" value={userData.unseenCredits} /> */}
-            <InfoItem color="var(--ion-color-primary)"  icon={FileText} label="PF No" value={userData.pfNo} />
-            <InfoItem color="var(--ion-color-primary)"  icon={ShieldCheck} label="ESI No" value={userData.esiNo} />
-            <InfoItem color="var(--ion-color-primary)"  icon={CreditCard} label="Bank Account" value={userData.salaryAccountNo} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Box} label="IFSC Code" value={userData.ifscCode} />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={FileText}
+              label="PF No"
+              value={userData.pfNo}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={ShieldCheck}
+              label="ESI No"
+              value={userData.esiNo}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={CreditCard}
+              label="Bank Account"
+              value={userData.salaryAccountNo}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Box}
+              label="IFSC Code"
+              value={userData.ifscCode}
+            />
           </div>
-
         </div>
 
         {/* Salary Details */}
         <div className="ep-card">
           <div className="ep-card-header">
-            <h3 className="ep-card-title"><Wallet color="var(--ion-color-primary)"  size={20} /> Salary Structure</h3>
+            <h3 className="ep-card-title">
+              <Wallet color="var(--ion-color-primary)" size={20} /> Salary
+              Structure
+            </h3>
             {isManagementView && (
               <button className="ep-edit-icon-btn" onClick={openEditModal}>
-                <Palette color="var(--ion-color-primary)"  size={16} /> Edit
+                <Palette color="var(--ion-color-primary)" size={16} /> Edit
               </button>
             )}
           </div>
           <div className="ep-info-grid">
-            <InfoItem color="var(--ion-color-primary)"  icon={Wallet} label="Gross" value={userData.grossSalary} />
-            <InfoItem color="var(--ion-color-primary)"  icon={TrendingUp} label="Basic" value={userData.basicSalary} />
-            <InfoItem color="var(--ion-color-primary)"  icon={PlusCircle} label="HRA" value={userData.hra} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Layout} label="DA" value={userData.da} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Truck} label="Conveyance" value={userData.conveyance} />
-            <InfoItem color="var(--ion-color-primary)"  icon={Box} label="Others" value={userData.others} />
-            <InfoItem color="var(--ion-color-primary)"  icon={ShieldCheck} label="PF Deduction" value={userData.pf} />
-            <InfoItem color="var(--ion-color-primary)"  icon={PlusCircle} label="ESI Deduction" value={userData.esi} />
-            <InfoItem color="var(--ion-color-primary)"  icon={FileText} label="Prof Tax" value={userData.profTax} />
-            <InfoItem color="var(--ion-color-primary)"  icon={TrendingUp} label="Income Tax" value={userData.incomeTax} />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Wallet}
+              label="Gross"
+              value={userData.grossSalary}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={TrendingUp}
+              label="Basic"
+              value={userData.basicSalary}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={PlusCircle}
+              label="HRA"
+              value={userData.hra}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Layout}
+              label="DA"
+              value={userData.da}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Truck}
+              label="Conveyance"
+              value={userData.conveyance}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Box}
+              label="Others"
+              value={userData.others}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={ShieldCheck}
+              label="PF Deduction"
+              value={userData.pf}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={PlusCircle}
+              label="ESI Deduction"
+              value={userData.esi}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={FileText}
+              label="Prof Tax"
+              value={userData.profTax}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={TrendingUp}
+              label="Income Tax"
+              value={userData.incomeTax}
+            />
           </div>
         </div>
-
       </main>
 
       {/* Employee Selection Search Modal */}
       {showEmployeeSearch && (
-        <div className="ep-overlay" onClick={() => setShowEmployeeSearch(false)}>
-          <div className="ep-modal ep-modal-management" onClick={e => e.stopPropagation()}>
+        <div
+          className="ep-overlay"
+          onClick={() => setShowEmployeeSearch(false)}
+        >
+          <div
+            className="ep-modal ep-modal-management"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="ep-modal-handle"></div>
             <div className="ep-modal-header">
               <h3>Select Employee ({filteredEmployees.length})</h3>
-              <button className="ep-close-btn" onClick={() => setShowEmployeeSearch(false)}>
-                <X  size={20} />
+              <button
+                className="ep-close-btn"
+                onClick={() => setShowEmployeeSearch(false)}
+              >
+                <X size={20} />
               </button>
             </div>
 
@@ -1105,24 +1481,34 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
                 <button
                   className={statusFilter === "Active" ? "active" : ""}
                   onClick={() => setStatusFilter("Active")}
-                >Active</button>
+                >
+                  Active
+                </button>
                 <button
                   className={statusFilter === "InActive" ? "active" : ""}
                   onClick={() => setStatusFilter("InActive")}
-                >InActive</button>
+                >
+                  InActive
+                </button>
               </div>
             </div>
 
             <div className="ep-employee-list">
               {filteredEmployees.length > 0 ? (
                 filteredEmployees.map((emp, index) => (
-                  <div key={emp.code} className="ep-emp-list-item" onClick={() => selectEmployee(emp.code)}>
+                  <div
+                    key={emp.code}
+                    className="ep-emp-list-item"
+                    onClick={() => selectEmployee(emp.code)}
+                  >
                     <div className="ep-emp-initials">{index + 1}</div>
                     <div className="ep-emp-info">
                       <span className="ep-emp-name">{emp.name}</span>
-                      <span className="ep-emp-meta">{emp.code} • {emp.desig}</span>
+                      <span className="ep-emp-meta">
+                        {emp.code} • {emp.desig}
+                      </span>
                     </div>
-                    <ChevronRight color="var(--ion-color-primary)"  size={18} />
+                    <ChevronRight color="var(--ion-color-primary)" size={18} />
                   </div>
                 ))
               ) : (
@@ -1136,11 +1522,14 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
       {/* Theme Color Selection Bottom Sheet */}
       {showColorModal && (
         <div className="ep-overlay" onClick={() => setShowColorModal(false)}>
-          <div className="ep-modal" onClick={e => e.stopPropagation()}>
+          <div className="ep-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ep-modal-handle"></div>
             <div className="ep-modal-header">
               <h3>Accent Color</h3>
-              <button className="ep-close-btn" onClick={() => setShowColorModal(false)}>
+              <button
+                className="ep-close-btn"
+                onClick={() => setShowColorModal(false)}
+              >
                 <X size={20} />
               </button>
             </div>
@@ -1149,11 +1538,16 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
               {themeColors.map(({ name, value, id }) => (
                 <div key={id} className="ep-color-item">
                   <button
-                    className={`ep-color-btn ${themeId === id ? 'active' : ''}`}
+                    className={`ep-color-btn ${themeId === id ? "active" : ""}`}
                     style={{ backgroundColor: value }}
                     onClick={() => changeThemeColor(id)}
                   >
-                    {themeId === id && <CheckCircle2 color="var(--ion-color-primary)"  size={24} />}
+                    {themeId === id && (
+                      <CheckCircle2
+                        color="var(--ion-color-primary)"
+                        size={24}
+                      />
+                    )}
                   </button>
                   <span className="ep-color-name">{name}</span>
                 </div>
@@ -1166,17 +1560,32 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
       {/* Employee Registration Modal */}
       {showRegisterModal && (
         <div className="ep-overlay" onClick={() => setShowRegisterModal(false)}>
-          <div className="ep-modal ep-modal-large" onClick={e => e.stopPropagation()}>
+          <div
+            className="ep-modal ep-modal-large"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="ep-modal-handle"></div>
             <div className="ep-modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <button className="ep-close-btn" onClick={() => setShowRegisterModal(false)}>
-                  <ArrowLeft   size={20} />
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
+                <button
+                  className="ep-close-btn"
+                  onClick={() => setShowRegisterModal(false)}
+                >
+                  <ArrowLeft size={20} />
                 </button>
-                <h3>{isEditMode ? "Update Employee Profile" : "Register New Employee"}</h3>
+                <h3>
+                  {isEditMode
+                    ? "Update Employee Profile"
+                    : "Register New Employee"}
+                </h3>
               </div>
-              <button className="ep-close-btn" onClick={() => setShowRegisterModal(false)}>
-                <X   size={20} />
+              <button
+                className="ep-close-btn"
+                onClick={() => setShowRegisterModal(false)}
+              >
+                <X size={20} />
               </button>
             </div>
 
@@ -1187,39 +1596,84 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
                 <div className="ep-form-grid">
                   <div className="ep-input-group">
                     <label>Employee ID</label>
-                    <input name="_Employee_ID" value={formData._Employee_ID} onChange={handleInputChange} required />
+                    <input
+                      name="_Employee_ID"
+                      value={formData._Employee_ID}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Employee Code</label>
-                    <input name="_Ecode" value={formData._Ecode} onChange={handleInputChange} required />
+                    <input
+                      name="_Ecode"
+                      value={formData._Ecode}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Full Name</label>
-                    <input name="_Ename" value={formData._Ename} onChange={handleInputChange} required />
+                    <input
+                      name="_Ename"
+                      value={formData._Ename}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Email Address</label>
-                    <input type="email" name="_Email" value={formData._Email} onChange={handleInputChange} required />
+                    <input
+                      type="email"
+                      name="_Email"
+                      value={formData._Email}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Mobile Number</label>
-                    <input type="tel" name="_Mobile" value={formData._Mobile} onChange={handleInputChange} required />
+                    <input
+                      type="tel"
+                      name="_Mobile"
+                      value={formData._Mobile}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Date of Birth</label>
-                    <input type="date" name="_Dob" value={formData._Dob} onChange={handleInputChange} required />
+                    <input
+                      type="date"
+                      name="_Dob"
+                      value={formData._Dob}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Blood Group</label>
-                    <input name="_Blood" value={formData._Blood} onChange={handleInputChange} />
+                    <input
+                      name="_Blood"
+                      value={formData._Blood}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Pan No</label>
-                    <input name="_PanNo" value={formData._PanNo} onChange={handleInputChange} />
+                    <input
+                      name="_PanNo"
+                      value={formData._PanNo}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Aadhar No</label>
-                    <input name="_AadharNo" value={formData._AadharNo} onChange={handleInputChange} />
+                    <input
+                      name="_AadharNo"
+                      value={formData._AadharNo}
+                      onChange={handleInputChange}
+                    />
                   </div>
                 </div>
 
@@ -1228,74 +1682,137 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
                 <div className="ep-form-grid">
                   <div className="ep-input-group">
                     <label>Designation</label>
-                    <select name="_Desig" value={formData._Desig} onChange={handleInputChange} required className="ep-select">
+                    <select
+                      name="_Desig"
+                      value={formData._Desig}
+                      onChange={handleInputChange}
+                      required
+                      className="ep-select"
+                    >
                       <option value="">Select Designation</option>
-                      {designations.map(d => (
-                        <option key={d.id} value={d.name}>{d.name}</option>
+                      {designations.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="ep-input-group">
                     <label>Department</label>
-                    <select name="_Dept" value={formData._Dept} onChange={handleInputChange} required className="ep-select">
+                    <select
+                      name="_Dept"
+                      value={formData._Dept}
+                      onChange={handleInputChange}
+                      required
+                      className="ep-select"
+                    >
                       <option value="">Select Department</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.name}>{d.name}</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="ep-input-group">
                     <label>Joining Date</label>
-                    <input type="date" name="_Doj" value={formData._Doj} onChange={handleInputChange} required />
+                    <input
+                      type="date"
+                      name="_Doj"
+                      value={formData._Doj}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>PF No</label>
-                    <input name="_PFNo" value={formData._PFNo} onChange={handleInputChange} />
+                    <input
+                      name="_PFNo"
+                      value={formData._PFNo}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>ESI No</label>
-                    <input name="_ESINo" value={formData._ESINo} onChange={handleInputChange} />
+                    <input
+                      name="_ESINo"
+                      value={formData._ESINo}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Report To</label>
-                    <select name="_RequestTo" value={formData._RequestTo} onChange={handleInputChange} className="ep-select">
+                    <select
+                      name="_RequestTo"
+                      value={formData._RequestTo}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
                       <option value="">Select Manager</option>
-                      {designations.map(d => (
-                        <option key={d.id} value={d.name}>{d.name}</option>
+                      {designations.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="ep-input-group">
                     <label>Active Status</label>
-                    <select name="_IsActive" value={formData._IsActive} onChange={handleInputChange} className="ep-select">
+                    <select
+                      name="_IsActive"
+                      value={formData._IsActive}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
                       <option value="Y">Yes (Active)</option>
                       <option value="N">No (InActive)</option>
                     </select>
                   </div>
                   <div className="ep-input-group">
                     <label>Project</label>
-                    <select name="_Project" value={formData._Project} onChange={handleInputChange} className="ep-select">
+                    <select
+                      name="_Project"
+                      value={formData._Project}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
                       <option value="">Select Project</option>
-                      {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="ep-input-group">
                     <label>Location Type</label>
-                    <select name="_LocationType" value={formData._LocationType} onChange={handleInputChange} className="ep-select">
+                    <select
+                      name="_LocationType"
+                      value={formData._LocationType}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
                       <option value="">Select Location Type</option>
-                      {locationTypes.map(l => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
+                      {locationTypes.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="ep-input-group">
                     <label>Location</label>
-                    <select name="_Location1" value={formData._Location1} onChange={handleInputChange} className="ep-select">
+                    <select
+                      name="_Location1"
+                      value={formData._Location1}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
                       <option value="">Select Location</option>
-                      {locations.map(l => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1306,35 +1823,75 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
                 <div className="ep-form-grid">
                   <div className="ep-input-group">
                     <label>Basic Salary</label>
-                    <input type="number" name="_BasicSal" value={formData._BasicSal} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_BasicSal"
+                      value={formData._BasicSal}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>DA</label>
-                    <input type="number" name="_DA" value={formData._DA} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_DA"
+                      value={formData._DA}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>HRA</label>
-                    <input type="number" name="_HRA" value={formData._HRA} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_HRA"
+                      value={formData._HRA}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>LTA</label>
-                    <input type="number" name="_LTA" value={formData._LTA} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_LTA"
+                      value={formData._LTA}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Allowances</label>
-                    <input type="number" name="_ALLOWANCES" value={formData._ALLOWANCES} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_ALLOWANCES"
+                      value={formData._ALLOWANCES}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Gross Salary</label>
-                    <input type="number" name="_GrossSal" value={formData._GrossSal} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_GrossSal"
+                      value={formData._GrossSal}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Allowed CL</label>
-                    <input type="number" name="_Allowed_CL" value={formData._Allowed_CL} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_Allowed_CL"
+                      value={formData._Allowed_CL}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>Allowed SL</label>
-                    <input type="number" name="_Allowed_SL" value={formData._Allowed_SL} onChange={handleInputChange} />
+                    <input
+                      type="number"
+                      name="_Allowed_SL"
+                      value={formData._Allowed_SL}
+                      onChange={handleInputChange}
+                    />
                   </div>
                 </div>
 
@@ -1343,22 +1900,50 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
                 <div className="ep-form-grid">
                   <div className="ep-input-group">
                     <label>Account No</label>
-                    <input name="_AccountNo" value={formData._AccountNo} onChange={handleInputChange} />
+                    <input
+                      name="_AccountNo"
+                      value={formData._AccountNo}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   <div className="ep-input-group">
                     <label>IFSC Code</label>
-                    <input name="_IFSCCode" value={formData._IFSCCode} onChange={handleInputChange} />
+                    <input
+                      name="_IFSCCode"
+                      value={formData._IFSCCode}
+                      onChange={handleInputChange}
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="ep-form-actions">
-                <button type="button" className="ep-btn-secondary" onClick={() => setShowRegisterModal(false)}>Cancel</button>
-                <button type="submit" className="ep-btn-primary" disabled={registerLoading}>
-                  {registerLoading ? (isEditMode ? "Updating..." : "Registering...") : (isEditMode ? "Update Changes" : "Register Employee")}
+                <button
+                  type="button"
+                  className="ep-btn-secondary"
+                  onClick={() => setShowRegisterModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="ep-btn-primary"
+                  disabled={registerLoading}
+                >
+                  {registerLoading
+                    ? isEditMode
+                      ? "Updating..."
+                      : "Registering..."
+                    : isEditMode
+                    ? "Update Changes"
+                    : "Register Employee"}
                 </button>
                 {isEditMode && (
-                  <button type="button" className="ep-btn-reporting" onClick={openReportingModal}>
+                  <button
+                    type="button"
+                    className="ep-btn-reporting"
+                    onClick={openReportingModal}
+                  >
                     Reporting Matrix
                   </button>
                 )}
@@ -1369,131 +1954,151 @@ const fetchRAsByRequestType = async (empCode: string, requestType: string) => {
       )}
 
       {/* Reporting Matrix Modal */}
-     {showReportingModal && (
-  <div className="ep-overlay" onClick={() => setShowReportingModal(false)}>
-    <div className="ep-modal ep-modal-management" onClick={e => e.stopPropagation()}>
-      
-      <div className="ep-modal-header">
-        <h3>Reporting Matrix</h3>
-        <button className="ep-close-btn" onClick={() => setShowReportingModal(false)}>
-          <X size={20} />
-        </button>
-      </div>
+      {showReportingModal && (
+        <div
+          className="ep-overlay"
+          onClick={() => setShowReportingModal(false)}
+        >
+          <div
+            className="ep-modal ep-modal-management"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ep-modal-header">
+              <h3>Reporting Matrix</h3>
+              <button
+                className="ep-close-btn"
+                onClick={() => setShowReportingModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-      <div className="ep-form-scrollable">
+            <div className="ep-form-scrollable">
+              {/* 🔥 TABLE VIEW */}
+              <div className="ep-reporting-table">
+                <table className="ep-table">
+                  <thead>
+                    <tr>
+                      <th>Request Type</th>
+                      <th>RA1</th>
+                      <th>RA2</th>
+                      <th>RA3</th>
+                      <th>RA4</th>
+                    </tr>
+                  </thead>
 
-        {/* 🔥 TABLE VIEW */}
-        <div className="ep-reporting-table">
-          <table className="ep-table">
-            <thead>
-              <tr>
-                <th>Request Type</th>
-                <th>RA1</th>
-                <th>RA2</th>
-                <th>RA3</th>
-                <th>RA4</th>
-              </tr>
-            </thead>
+                  <tbody>
+                    {requestTypeOptions.map((type) => {
+                      const row = reportingHistory.find(
+                        (r) => (r.requestType || r.RequestType) === type,
+                      );
 
-            <tbody>
-              {requestTypeOptions.map((type) => {
-                const row = reportingHistory.find(
-                  (r) => (r.requestType || r.RequestType) === type
-                );
+                      return (
+                        <tr key={type}>
+                          {/* Request Type */}
+                          <td>{type}</td>
 
-                return (
-                  <tr key={type}>
-                    
-                    {/* Request Type */}
-                    <td>{type}</td>
+                          {/* RA1 (readonly) */}
+                          <td>
+                            <select
+                              value={row?.RA1 || row?.rA1 || ""}
+                              onChange={(e) =>
+                                updateReportingField(
+                                  "RA1",
+                                  e.target.value,
+                                  type,
+                                )
+                              }
+                              className="ep-select"
+                            >
+                              <option value="">Select</option>
+                              <option value="-">-</option>
+                              {ras.map((d, index) => (
+                                <option key={index} value={d.name}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
 
-                    {/* RA1 (readonly) */}
-                    <td>
-  <select
-    value={row?.RA1 || row?.rA1 || ""}
-    onChange={(e) =>
-      updateReportingField("RA1", e.target.value, type)
-    }
-    className="ep-select"
-  >
-    <option value="">Select</option>
-    <option value="-">-</option>
-    {ras.map((d, index) => (
-      <option key={index} value={d.name}>
-        {d.name}
-      </option>
-    ))}
-  </select>
-</td>
+                          {/* RA2 */}
+                          <td>
+                            <select
+                              value={row?.RA2 || row?.rA2 || ""}
+                              onChange={(e) =>
+                                updateReportingField(
+                                  "RA2",
+                                  e.target.value,
+                                  type,
+                                )
+                              }
+                              className="ep-select"
+                            >
+                              <option value="">Select</option>
+                              <option value="-">-</option>
+                              {ras.map((d, index) => (
+                                <option key={index} value={d.name}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
 
-                    {/* RA2 */}
-                    <td>
-                      <select
-                        value={row?.RA2 || row?.rA2 || ""}
-                        onChange={(e) =>
-                          updateReportingField("RA2", e.target.value, type)
-                        }
-                        className="ep-select"
-                      >
-                        <option value="">Select</option>
-                        <option value="-">-</option>
-                        {ras.map((d, index) => (
-  <option key={index} value={d.name}>
-    {d.name}
-  </option>
-))}
-                      </select>
-                    </td>
+                          {/* RA3 */}
+                          <td>
+                            <select
+                              value={row?.RA3 || row?.rA3 || ""}
+                              onChange={(e) =>
+                                updateReportingField(
+                                  "RA3",
+                                  e.target.value,
+                                  type,
+                                )
+                              }
+                              className="ep-select"
+                            >
+                              <option value="">Select</option>
+                              <option value="-">-</option>
+                              {ras.map((d, index) => (
+                                <option key={index} value={d.name}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
 
-                    {/* RA3 */}
-                    <td>
-                      <select
-                        value={row?.RA3 || row?.rA3 || ""}
-                        onChange={(e) =>
-                          updateReportingField("RA3", e.target.value, type)
-                        }
-                        className="ep-select"
-                      >
-                        <option value="">Select</option>
-                        <option value="-">-</option>
-                        {ras.map((d, index) => (
-  <option key={index} value={d.name}>
-    {d.name}
-  </option>
-))}
-                      </select>
-                    </td>
-
-                    {/* RA4 */}
-                    <td>
-                      <select
-                        value={row?.RA4 || row?.rA4 || ""}
-                        onChange={(e) =>
-                          updateReportingField("RA4", e.target.value, type)
-                        }
-                        className="ep-select"
-                      >
-                        <option value="">Select</option>
-                        <option value="-">-</option>
-                        {ras.map((d, index) => (
-  <option key={index} value={d.name}>
-    {d.name}
-  </option>
-))}
-                      </select>
-                    </td>
-
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {/* RA4 */}
+                          <td>
+                            <select
+                              value={row?.RA4 || row?.rA4 || ""}
+                              onChange={(e) =>
+                                updateReportingField(
+                                  "RA4",
+                                  e.target.value,
+                                  type,
+                                )
+                              }
+                              className="ep-select"
+                            >
+                              <option value="">Select</option>
+                              <option value="-">-</option>
+                              {ras.map((d, index) => (
+                                <option key={index} value={d.name}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };
