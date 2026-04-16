@@ -113,6 +113,8 @@ const [userData, setUserData] = useState<any>({
   ReportTO: "",
   profilePic: "",
   status: "Active",
+  dayDA: "",
+  hourDA: "",
 });
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(
@@ -225,7 +227,7 @@ const calculateFromGross = (gross: number) => {
     200;
 
   // 📉 Income Tax
-  const ITax = G > 62500 ? G * 0.0212 : 0;
+  const ITax = G > 100000 ? G * 0.0212 : 0;
 
   // 💰 Net Salary
   const totalDeduction = PFAmt + ESIAmt + PTax + ITax;
@@ -252,6 +254,13 @@ const calculateFromGross = (gross: number) => {
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token")?.replace(/"/g, "");
     return { Authorization: `Bearer ${token}` };
+  };
+
+  const normalizeTimeValue = (time: any) => {
+    if (time === null || time === undefined) return "";
+    const str = String(time);
+    if (!str.includes(":")) return str;
+    return str.length >= 5 ? str.slice(0, 5) : str;
   };
 
   useEffect(() => {
@@ -368,7 +377,23 @@ const calculateFromGross = (gross: number) => {
     }
 
     // Normalizing isActive ('1' or 'Y' or true -> 'Y')
-    const rawIsActive = row[14];
+    const getValue = (
+      index: number,
+      keys: string[],
+      fallback: any,
+    ) => {
+      if (Array.isArray(row)) {
+        const value = row[index];
+        if (value !== null && value !== undefined) return value;
+      }
+      for (const key of keys) {
+        const value = (row as any)[key];
+        if (value !== null && value !== undefined) return value;
+      }
+      return fallback;
+    };
+
+    const rawIsActive = getValue(14, ["_IsActive", "IsActive", "isActive"], "N");
     const normalizedIsActive =
       rawIsActive === "1" ||
       rawIsActive === "Y" ||
@@ -376,10 +401,18 @@ const calculateFromGross = (gross: number) => {
       rawIsActive === 1
         ? "Y"
         : "N";
+    const rowAny = row as any;
 
     const mapped = {
       _Employee_ID:
-        row[0] !== null && row[0] !== undefined ? String(row[0]) : "",
+        getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
+          null &&
+        getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
+          undefined
+          ? String(
+              getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], ""),
+            )
+          : "",
       _Ecode: row[1] !== null && row[1] !== undefined ? String(row[1]) : "",
       _Ename: row[2] !== null && row[2] !== undefined ? String(row[2]) : "",
       _Desig: row[3] !== null && row[3] !== undefined ? String(row[3]) : "",
@@ -431,17 +464,43 @@ const calculateFromGross = (gross: number) => {
       _PFNo: row[37] !== null && row[37] !== undefined ? String(row[37]) : "",
       _ESINo: row[36] !== null && row[36] !== undefined ? String(row[36]) : "",
       _CheckIn:
-        row[44] !== null && row[44] !== undefined ? String(row[44]) : "09:30",
+        row[44] !== null && row[44] !== undefined
+          ? normalizeTimeValue(row[44])
+          : normalizeTimeValue(
+              rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30",
+            ),
       _P_Time:
-        row[49] !== null && row[49] !== undefined ? String(row[49]) : "09:30",
-      _dayDA: row[47] !== null && row[47] !== undefined ? String(row[47]) : "0",
+        row[49] !== null && row[49] !== undefined
+          ? normalizeTimeValue(row[49])
+          : normalizeTimeValue(
+              rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "09:30",
+            ),
+      _dayDA:
+        row[47] !== null && row[47] !== undefined
+          ? String(row[47])
+          : String(
+              rowAny._dayDA ??
+                rowAny.dayDA ??
+                rowAny.DayDA ??
+                rowAny.day_da ??
+                rowAny.day_DA ??
+                "0",
+            ),
       _hourDA:
-        row[48] !== null && row[48] !== undefined ? String(row[48]) : "0",
-      _RequestTo:
-        row[15] !== null && row[15] !== undefined ? String(row[15]) : "",
-      _Project: row[50] || "",
-      _LocationType: row[51] || "",
-      _Location1: row[52] || "",
+        row[48] !== null && row[48] !== undefined
+          ? String(row[48])
+          : String(
+              rowAny._hourDA ??
+                rowAny.hourDA ??
+                rowAny.HourDA ??
+                rowAny.hour_da ??
+                rowAny.hour_DA ??
+                "0",
+            ),
+      _RequestTo: getValue(15, ["_RequestTo", "RequestTo", "requestTo"], ""),
+      _Project: getValue(50, ["_Project", "Project", "project"], ""),
+      _LocationType: getValue(51, ["_LocationType", "LocationType", "locationType"], ""),
+      _Location1: getValue(52, ["_Location1", "Location1", "location1"], ""),
       // _Project: projects.find(p => p.name == row[50])?.id || row[50] || "",
       // _LocationType: locationTypes.find(l => l.name == row[51])?.id || row[51] || "",
       // _Location1: locations.find(l => l.name == row[52])?.id || row[52] || ""
@@ -458,7 +517,11 @@ const calculateFromGross = (gross: number) => {
     try {
       const data = await apiService.getEmployee(ecode);
       console.log("Raw Employee Data:", data);
-      const row = Array.isArray(data) ? data[0] : data;
+      const row = Array.isArray(data)
+        ? data[0]
+        : data && Array.isArray(data.data)
+        ? data.data[0]
+        : data;
       console.log("Working Raw Row:", row);
       setEmployeeRawRow(row);
       const details = mapGetEmployeeResponse(row);
@@ -500,6 +563,8 @@ const calculateFromGross = (gross: number) => {
           details._IsActive === false
             ? "InActive"
             : "Active",
+        dayDA: details._dayDA,
+        hourDA: details._hourDA,
       };
       console.log("Setting Final userData for View:", newUserData);
       setUserData(newUserData);
@@ -594,6 +659,8 @@ p_time: userProfile[49] || "90",     // keep SAME as you want
 checkIn: userProfile[44] || "09:30",
 requestTo: userProfile[15] || "",
 userGroup: userProfile[9] || "",
+dayDA: userProfile[47] || "0",
+hourDA: userProfile[48] || "0",
           });
         } else {
           // Object-based mapping
@@ -643,7 +710,9 @@ sick: userProfile.ALLOWED_SL || 0,
 p_time: userProfile.P_Time || "90",
 checkIn: userProfile.CheckIn || "09:30",
 requestTo: userProfile.RequestTo || "",
-userGroup: userProfile.UserGroup || ""
+userGroup: userProfile.UserGroup || "",
+dayDA: userProfile.dayDA || userProfile.DayDA || "0",
+hourDA: userProfile.hourDA || userProfile.HourDA || "0"
           });
         }
       } else {
@@ -722,21 +791,38 @@ userGroup: userProfile.UserGroup || ""
 
     if (!projects.length || !locationTypes.length || !locations.length) return;
 
-    console.log("Fixing dropdown values...");
+    const getRowValue = (row: any, index: number, keys: string[]) => {
+      if (Array.isArray(row)) return row[index];
+      for (const key of keys) {
+        if (row[key] !== null && row[key] !== undefined) return row[key];
+      }
+      return undefined;
+    };
 
-    const projectId = projects.find((p) => p.name == employeeRawRow[50])?.id;
-    const locationTypeId = locationTypes.find(
-      (l) => l.name == employeeRawRow[51],
-    )?.id;
-    const locationId = locations.find((l) => l.name == employeeRawRow[52])?.id;
+    const projectValue = getRowValue(employeeRawRow, 50, ["_Project", "Project", "project"]);
+    const locationTypeValue = getRowValue(employeeRawRow, 51, ["_LocationType", "LocationType", "locationType"]);
+    const locationValue = getRowValue(employeeRawRow, 52, ["_Location1", "Location1", "location1"]);
 
-    console.log({ projectId, locationTypeId, locationId });
+    const projectId =
+      projects.find((p) => p.name == projectValue || p.id == projectValue)?.id ||
+      projectValue ||
+      "";
+    const locationTypeId =
+      locationTypes.find((l) => l.name == locationTypeValue || l.id == locationTypeValue)?.id ||
+      locationTypeValue ||
+      "";
+    const locationId =
+      locations.find((l) => l.name == locationValue || l.id == locationValue)?.id ||
+      locationValue ||
+      "";
+
+    console.log({ projectValue, locationTypeValue, locationValue, projectId, locationTypeId, locationId });
 
     setFormData((prev) => ({
       ...prev,
-      _Project: projectId || "",
-      _LocationType: locationTypeId || "",
-      _Location1: locationId || "",
+      _Project: projectId,
+      _LocationType: locationTypeId,
+      _Location1: locationId,
     }));
   }, [employeeRawRow, projects, locationTypes, locations]);
 
@@ -886,7 +972,7 @@ userGroup: userProfile.UserGroup || ""
       _IsActive: "Y",
       _AccountNo: "",
       _IFSCCode: "",
-      _P_Time: "09:30:00",
+      _P_Time: "09:30",
       _Dept: "",
       _PF: "0",
       _Esi: "0",
@@ -1426,6 +1512,18 @@ userGroup: userProfile.UserGroup || ""
       value={userData.userGroup}
     />
 
+    <InfoItem
+      icon={TrendingUp}
+      label="Day DA"
+      value={userData.dayDA}
+    />
+
+    <InfoItem
+      icon={TrendingUp}
+      label="Hour DA"
+      value={userData.hourDA}
+    />
+
   </div>
 </div>
         {/* Salary Details */}
@@ -1564,9 +1662,11 @@ userGroup: userProfile.UserGroup || ""
         className="ep-select"
       >
         <option value="">Select</option>
-        <option value="Director">Director</option>
-        <option value="Manager">Manager</option>
-        <option value="HR">HR</option>
+        {designations.filter(d => d.active).map((d) => (
+          <option key={d.id} value={d.name}>
+            {d.name}
+          </option>
+        ))}
       </select>
     </div>
 
@@ -1939,9 +2039,11 @@ userGroup: userProfile.UserGroup || ""
     className="ep-select"
   >
     <option value="">Select Reporting Authority</option>
-    <option value="Director">Director</option>
-    <option value="Manager">Manager</option>
-    <option value="HR">HR</option>
+    {designations.filter(d => d.active).map((d) => (
+      <option key={d.id} value={d.name}>
+        {d.name}
+      </option>
+    ))}
   </select>
 </div>
   {/* KEEP THESE AS IS 👇 */}
@@ -2048,12 +2150,12 @@ userGroup: userProfile.UserGroup || ""
   </div>
 
   <div className="ep-input-group">
-    <label>Conveyance (LTA)</label>
+    <label>Conveyance</label>
     <input value={formData._LTA} readOnly />
   </div>
 
   <div className="ep-input-group">
-    <label>Allowances</label>
+    <label>Others</label>
     <input value={formData._ALLOWANCES} readOnly />
   </div>
 
@@ -2104,6 +2206,27 @@ userGroup: userProfile.UserGroup || ""
       onChange={handleInputChange}
     />
   </div>
+
+  <div className="ep-input-group">
+    <label>P Time</label>
+    <input
+      type="time"
+      name="_P_Time"
+      value={formData._P_Time}
+      onChange={handleInputChange}
+    />
+  </div>
+
+  <div className="ep-input-group">
+    <label>Check-In</label>
+    <input
+      type="time"
+      name="_CheckIn"
+      value={formData._CheckIn}
+      onChange={handleInputChange}
+    />
+  </div>
+
   <div className="ep-input-group">
   <label>Day DA</label>
   <input
