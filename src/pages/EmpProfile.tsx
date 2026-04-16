@@ -173,7 +173,7 @@ const [userData, setUserData] = useState<any>({
     _Blood: "",
     _Mobile: "",
     _Email: "",
-    _User: JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+    _user: "Employee",
     _UserGroup: "Employee",
     _Allowed_CL: "12",
     _Allowed_SL: "10",
@@ -430,8 +430,7 @@ const calculateFromGross = (gross: number) => {
       _Mobile: row[6] !== null && row[6] !== undefined ? String(row[6]) : "",
       _Email: row[8] !== null && row[8] !== undefined ? String(row[8]) : "",
       _Dept: row[30] !== null && row[30] !== undefined ? String(row[30]) : "",
-      _User:
-        JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+      _user: getValue(9, ["_user", "_User", "user", "User", "userGroup", "UserGroup"], "Employee"),
       _Allowed_MY:
         row[13] !== null && row[13] !== undefined ? String(row[13]) : "2",
       _Allowed_CL:
@@ -573,7 +572,7 @@ const calculateFromGross = (gross: number) => {
       const newFormData = {
         ...details,
         _IsActive: details._IsActive || "Y",
-        _User: details._User || "admin",
+        _user: details._user || "Employee",
       };
       console.log("Setting formData for Edit:", newFormData);
       setFormData(newFormData);
@@ -911,6 +910,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
 
       const payload = {
         ...formData,
+        _User: formData._user,
         _Project: projectName,
         _LocationType: locationTypeName,
         _Location1: locationName,
@@ -962,8 +962,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       _Blood: "",
       _Mobile: "",
       _Email: "",
-      _User:
-        JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+      _user: "Employee",
       _UserGroup: "Employee",
       _Allowed_CL: "12",
       _Allowed_SL: "10",
@@ -2046,6 +2045,22 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
     ))}
   </select>
 </div>
+  {/* User Group */}
+  <div className="ep-input-group">
+    <label>User Group*</label>
+    <select
+      name="_user"
+      value={formData._user}
+      onChange={handleInputChange}
+      required
+      className="ep-select"
+    >
+      <option value="">Select User Group</option>
+      <option value="Admin">Admin</option>
+      <option value="Accountant">Accountant</option>
+      <option value="Employee">Employee</option>
+    </select>
+  </div>
   {/* KEEP THESE AS IS 👇 */}
 
   {/* Active Status */}
