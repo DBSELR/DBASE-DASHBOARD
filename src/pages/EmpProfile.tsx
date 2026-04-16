@@ -74,37 +74,46 @@ const requestTypeOptions = [
 
 const EmpProfile: React.FC = () => {
   const history = useHistory();
-  const [userData, setUserData] = useState<any>({
-    empCode: "",
-    empName: "",
-    designation: "",
-    department: "",
-    email: "",
-    salaryAccountNo: "",
-    ifscCode: "",
-    grossSalary: "",
-    basicSalary: "",
-    hra: "",
-    da: "",
-    conveyance: "",
-    others: "",
-    pf: "",
-    esi: "",
-    profTax: "",
-    incomeTax: "",
-    userType: "",
-    doj: "",
-    joiningDate: "",
-    bloodGroup: "",
-    contactNumber: "",
-    pan: "",
-    aadhar: "",
-    esiNo: "",
-    pfNo: "",
-    ReportTO: "",
-    profilePic: "",
-    status: "Active",
-  });
+const [userData, setUserData] = useState<any>({
+  empCode: "",
+  empName: "",
+  designation: "",
+  department: "",
+  email: "",
+
+  // ✅ ADD THESE (no other changes)
+  leave: 0,
+  sick: 0,
+  p_time: "",
+  checkIn: "",
+  requestTo: "",
+  userGroup: "",
+
+  salaryAccountNo: "",
+  ifscCode: "",
+  grossSalary: "",
+  basicSalary: "",
+  hra: "",
+  da: "",
+  conveyance: "",
+  others: "",
+  pf: "",
+  esi: "",
+  profTax: "",
+  incomeTax: "",
+  userType: "",
+  doj: "",
+  joiningDate: "",
+  bloodGroup: "",
+  contactNumber: "",
+  pan: "",
+  aadhar: "",
+  esiNo: "",
+  pfNo: "",
+  ReportTO: "",
+  profilePic: "",
+  status: "Active",
+});
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("themeMode") === "dark",
@@ -579,6 +588,12 @@ const calculateFromGross = (gross: number) => {
               userProfile[14] === false
                 ? "InActive"
                 : "Active",
+                leave: userProfile[11] || 0,
+sick: userProfile[21] || 0,
+p_time: userProfile[49] || "90",     // keep SAME as you want
+checkIn: userProfile[44] || "09:30",
+requestTo: userProfile[15] || "",
+userGroup: userProfile[9] || "",
           });
         } else {
           // Object-based mapping
@@ -623,6 +638,12 @@ const calculateFromGross = (gross: number) => {
               userProfile.Isactive === "N"
                 ? "InActive"
                 : "Active",
+                leave: userProfile.ALLOWED_CL || 0,
+sick: userProfile.ALLOWED_SL || 0,
+p_time: userProfile.P_Time || "90",
+checkIn: userProfile.CheckIn || "09:30",
+requestTo: userProfile.RequestTo || "",
+userGroup: userProfile.UserGroup || ""
           });
         }
       } else {
@@ -885,6 +906,7 @@ const calculateFromGross = (gross: number) => {
     });
     setShowRegisterModal(true);
   };
+  
 
   const openEditModal = () => {
     setIsEditMode(true);
@@ -1344,9 +1366,68 @@ const calculateFromGross = (gross: number) => {
               label="IFSC Code"
               value={userData.ifscCode}
             />
+            <InfoItem
+  color="var(--ion-color-primary)"
+  icon={Users}
+  label="Report To"
+  value={userData.ReportTO}
+/>
+<InfoItem
+  color="var(--ion-color-primary)"
+  icon={Clock}
+  label="P Time"
+  value={userData.pTime}
+/>
+
+<InfoItem
+  color="var(--ion-color-primary)"
+  icon={Clock}
+  label="Check-In"
+  value={userData.checkIn}
+/>
+
+<InfoItem
+  color="var(--ion-color-primary)"
+  icon={Users}
+  label="User Group"
+  value={userData.userGroup}
+/>
           </div>
         </div>
+        
+      <div className="ep-card">
+  <h3 className="ep-card-title">
+    <Clock color="var(--ion-color-primary)" size={20} /> Attendance & Access
+  </h3>
 
+  <div className="ep-info-grid">
+
+    <InfoItem
+      icon={Clock}
+      label="P Time"
+      value={userData.pTime}
+    />
+
+    <InfoItem
+      icon={Clock}
+      label="Check In"
+      value={userData.checkIn}
+    />
+
+    <InfoItem
+      icon={Users}
+      label="Request To"
+      value={userData.requestTo}
+    />
+
+    <InfoItem
+      icon={ShieldCheck}
+      label="User Group"
+      value={userData.userGroup}
+    />
+
+  </div>
+</div>
         {/* Salary Details */}
         <div className="ep-card">
           <div className="ep-card-header">
@@ -1423,6 +1504,98 @@ const calculateFromGross = (gross: number) => {
             />
           </div>
         </div>
+        {/* Leave & Attendance Management */}
+<div className="ep-card">
+  <h3 className="ep-card-title">
+    🧾 Leave & Attendance Management
+  </h3>
+
+  <div className="ep-form-grid">
+
+    {/* Leave */}
+    <div className="ep-input-group">
+      <label>Allowed CL</label>
+      <input
+        type="number"
+        name="_Allowed_CL"
+        value={formData._Allowed_CL}
+        onChange={handleInputChange}
+      />
+    </div>
+
+    <div className="ep-input-group">
+      <label>Allowed SL</label>
+      <input
+        type="number"
+        name="_Allowed_SL"
+        value={formData._Allowed_SL}
+        onChange={handleInputChange}
+      />
+    </div>
+
+    {/* Attendance */}
+    <div className="ep-input-group">
+      <label>P Time</label>
+      <input
+        type="time"
+        name="_P_Time"
+        value={formData._P_Time}
+        onChange={handleInputChange}
+      />
+    </div>
+
+    <div className="ep-input-group">
+      <label>Check-In</label>
+      <input
+        type="time"
+        name="_CheckIn"
+        value={formData._CheckIn}
+        onChange={handleInputChange}
+      />
+    </div>
+
+    {/* Reporting */}
+    <div className="ep-input-group">
+      <label>Request To</label>
+      <select
+        name="_RequestTo"
+        value={formData._RequestTo}
+        onChange={handleInputChange}
+        className="ep-select"
+      >
+        <option value="">Select</option>
+        <option value="Director">Director</option>
+        <option value="Manager">Manager</option>
+        <option value="HR">HR</option>
+      </select>
+    </div>
+
+    {/* Status */}
+    <div className="ep-input-group">
+      <label>Active</label>
+      <select
+        name="_IsActive"
+        value={formData._IsActive}
+        onChange={handleInputChange}
+        className="ep-select"
+      >
+        <option value="Y">Yes</option>
+        <option value="N">No</option>
+      </select>
+    </div>
+
+    {/* User Group */}
+    <div className="ep-input-group">
+      <label>User Group</label>
+      <input
+        name="_UserGroup"
+        value={formData._UserGroup}
+        onChange={handleInputChange}
+      />
+    </div>
+
+  </div>
+</div>
       </main>
 
       {/* Employee Selection Search Modal */}
@@ -1571,306 +1744,387 @@ const calculateFromGross = (gross: number) => {
                 {/* Personal Section */}
                 <h4 className="ep-form-section-title">Personal Details</h4>
                 <div className="ep-form-grid">
-                  <div className="ep-input-group">
-                    <label>Employee ID</label>
-                    <input
-                      name="_Employee_ID"
-                      value={formData._Employee_ID}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Employee Code</label>
-                    <input
-                      name="_Ecode"
-                      value={formData._Ecode}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Full Name</label>
-                    <input
-                      name="_Ename"
-                      value={formData._Ename}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Email Address</label>
-                    <input
-                      type="email"
-                      name="_Email"
-                      value={formData._Email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Mobile Number</label>
-                    <input
-                      type="tel"
-                      name="_Mobile"
-                      value={formData._Mobile}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Date of Birth</label>
-                    <input
-                      type="date"
-                      name="_Dob"
-                      value={formData._Dob}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Blood Group</label>
-                    <input
-                      name="_Blood"
-                      value={formData._Blood}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Pan No</label>
-                    <input
-                      name="_PanNo"
-                      value={formData._PanNo}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Aadhar No</label>
-                    <input
-                      name="_AadharNo"
-                      value={formData._AadharNo}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
+
+  {/* Employee Code */}
+  <div className="ep-input-group">
+    <label>Employee Code*</label>
+    <input
+      name="_Ecode"
+      value={formData._Ecode}
+      onChange={handleInputChange}
+      required
+      disabled={isEditMode}
+    />
+  </div>
+
+  {/* Employee Name */}
+  <div className="ep-input-group">
+    <label>Employee Name*</label>
+    <input
+      name="_Ename"
+      value={formData._Ename}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+
+  {/* DOB */}
+  <div className="ep-input-group">
+    <label>DOB*</label>
+    <input
+      type="date"
+      name="_Dob"
+      value={formData._Dob}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+
+  {/* Blood Group */}
+  <div className="ep-input-group">
+    <label>Blood Group*</label>
+    <select
+      name="_Blood"
+      value={formData._Blood}
+      onChange={handleInputChange}
+      required
+    >
+      <option value="">Select</option>
+      <option value="A+">A+</option>
+      <option value="A-">A-</option>
+      <option value="B+">B+</option>
+      <option value="B-">B-</option>
+      <option value="O+">O+</option>
+      <option value="O-">O-</option>
+      <option value="AB+">AB+</option>
+      <option value="AB-">AB-</option>
+    </select>
+  </div>
+
+  {/* Mobile */}
+  <div className="ep-input-group">
+    <label>Mobile*</label>
+    <input
+      type="tel"
+      name="_Mobile"
+      value={formData._Mobile}
+      onChange={handleInputChange}
+      required
+      maxLength={10}
+    />
+  </div>
+
+  {/* PAN */}
+  <div className="ep-input-group">
+    <label>PAN*</label>
+    <input
+      name="_PanNo"
+      value={formData._PanNo}
+      onChange={handleInputChange}
+      required
+      maxLength={10}
+      style={{ textTransform: "uppercase" }}
+    />
+  </div>
+
+  {/* AADHAR */}
+  <div className="ep-input-group">
+    <label>AADHAR*</label>
+    <input
+      name="_AadharNo"
+      value={formData._AadharNo}
+      onChange={handleInputChange}
+      required
+      maxLength={12}
+    />
+  </div>
+
+</div>
 
                 {/* Professional Section */}
-                <h4 className="ep-form-section-title">Professional Details</h4>
-                <div className="ep-form-grid">
-                  <div className="ep-input-group">
-                    <label>Designation</label>
-                    <select
-                      name="_Desig"
-                      value={formData._Desig}
-                      onChange={handleInputChange}
-                      required
-                      className="ep-select"
-                    >
-                      <option value="">Select Designation</option>
-                      {designations.map((d) => (
-                        <option key={d.id} value={d.name}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Department</label>
-                    <select
-                      name="_Dept"
-                      value={formData._Dept}
-                      onChange={handleInputChange}
-                      required
-                      className="ep-select"
-                    >
-                      <option value="">Select Department</option>
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.name}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Joining Date</label>
-                    <input
-                      type="date"
-                      name="_Doj"
-                      value={formData._Doj}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>PF No</label>
-                    <input
-                      name="_PFNo"
-                      value={formData._PFNo}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>ESI No</label>
-                    <input
-                      name="_ESINo"
-                      value={formData._ESINo}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Report To</label>
-                    <select
-                      name="_RequestTo"
-                      value={formData._RequestTo}
-                      onChange={handleInputChange}
-                      className="ep-select"
-                    >
-                      <option value="">Select Manager</option>
-                      {designations.map((d) => (
-                        <option key={d.id} value={d.name}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Active Status</label>
-                    <select
-                      name="_IsActive"
-                      value={formData._IsActive}
-                      onChange={handleInputChange}
-                      className="ep-select"
-                    >
-                      <option value="Y">Yes (Active)</option>
-                      <option value="N">No (InActive)</option>
-                    </select>
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Project</label>
-                    <select
-                      name="_Project"
-                      value={formData._Project}
-                      onChange={handleInputChange}
-                      className="ep-select"
-                    >
-                      <option value="">Select Project</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Location Type</label>
-                    <select
-                      name="_LocationType"
-                      value={formData._LocationType}
-                      onChange={handleInputChange}
-                      className="ep-select"
-                    >
-                      <option value="">Select Location Type</option>
-                      {locationTypes.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Location</label>
-                    <select
-                      name="_Location1"
-                      value={formData._Location1}
-                      onChange={handleInputChange}
-                      className="ep-select"
-                    >
-                      <option value="">Select Location</option>
-                      {locations.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            <h4 className="ep-form-section-title">Professional Details</h4>
+<div className="ep-form-grid">
+
+  {/* DOJ */}
+  <div className="ep-input-group">
+    <label>DOJ*</label>
+    <input
+      type="date"
+      name="_Doj"
+      value={formData._Doj}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+
+  {/* Department */}
+  <div className="ep-input-group">
+    <label>Department*</label>
+    <select
+      name="_Dept"
+      value={formData._Dept}
+      onChange={handleInputChange}
+      required
+      className="ep-select"
+    >
+      <option value="">Select Department</option>
+      {departments.map((d) => (
+        <option key={d.id} value={d.name}>
+          {d.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Designation */}
+  <div className="ep-input-group">
+    <label>Designation*</label>
+    <select
+      name="_Desig"
+      value={formData._Desig}
+      onChange={handleInputChange}
+      required
+      className="ep-select"
+    >
+      <option value="">Select Designation</option>
+      {designations.map((d) => (
+        <option key={d.id} value={d.name}>
+          {d.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Official Email */}
+  <div className="ep-input-group">
+    <label>Official E-Mail*</label>
+    <input
+      type="email"
+      name="_Email"
+      value={formData._Email}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+
+  {/* PF No */}
+  <div className="ep-input-group">
+    <label>PF No*</label>
+    <input
+      name="_PFNo"
+      value={formData._PFNo}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+
+  {/* ESI No */}
+  <div className="ep-input-group">
+    <label>ESI No*</label>
+    <input
+      name="_ESINo"
+      value={formData._ESINo}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+  {/* Request To */}
+<div className="ep-input-group">
+  <label>Request To*</label>
+  <select
+    name="_RequestTo"
+    value={formData._RequestTo}
+    onChange={handleInputChange}
+    required
+    className="ep-select"
+  >
+    <option value="">Select Reporting Authority</option>
+    <option value="Director">Director</option>
+    <option value="Manager">Manager</option>
+    <option value="HR">HR</option>
+  </select>
+</div>
+  {/* KEEP THESE AS IS 👇 */}
+
+  {/* Active Status */}
+  <div className="ep-input-group">
+    <label>Active Status</label>
+    <select
+      name="_IsActive"
+      value={formData._IsActive}
+      onChange={handleInputChange}
+      className="ep-select"
+    >
+      <option value="Y">Yes (Active)</option>
+      <option value="N">No (InActive)</option>
+    </select>
+  </div>
+  {/* Project */}
+  <div className="ep-input-group">
+    <label>Project</label>
+    <select
+      name="_Project"
+      value={formData._Project}
+      onChange={handleInputChange}
+      className="ep-select"
+    >
+      <option value="">Select Project</option>
+      {projects.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Location Type */}
+  <div className="ep-input-group">
+    <label>Location Type</label>
+    <select
+      name="_LocationType"
+      value={formData._LocationType}
+      onChange={handleInputChange}
+      className="ep-select"
+    >
+      <option value="">Select Location Type</option>
+      {locationTypes.map((l) => (
+        <option key={l.id} value={l.id}>
+          {l.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Location */}
+  <div className="ep-input-group">
+    <label>Location</label>
+    <select
+      name="_Location1"
+      value={formData._Location1}
+      onChange={handleInputChange}
+      className="ep-select"
+    >
+      <option value="">Select Location</option>
+      {locations.map((l) => (
+        <option key={l.id} value={l.id}>
+          {l.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+</div>
 
                 {/* Salary Section */}
-                <h4 className="ep-form-section-title">Salary & Leave</h4>
-                <div className="ep-form-grid">
-                  <div className="ep-input-group">
-                    <label>Basic Salary</label>
-                    <input
-                      type="number"
-                      name="_BasicSal"
-                      value={formData._BasicSal}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>DA</label>
-                    <input
-                      type="number"
-                      name="_DA"
-                      value={formData._DA}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>HRA</label>
-                    <input
-                      type="number"
-                      name="_HRA"
-                      value={formData._HRA}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>LTA</label>
-                    <input
-                      type="number"
-                      name="_LTA"
-                      value={formData._LTA}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Allowances</label>
-                    <input
-                      type="number"
-                      name="_ALLOWANCES"
-                      value={formData._ALLOWANCES}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Gross Salary</label>
-                    <input
-                      type="number"
-                      name="_GrossSal"
-                      value={formData._GrossSal}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Allowed CL</label>
-                    <input
-                      type="number"
-                      name="_Allowed_CL"
-                      value={formData._Allowed_CL}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="ep-input-group">
-                    <label>Allowed SL</label>
-                    <input
-                      type="number"
-                      name="_Allowed_SL"
-                      value={formData._Allowed_SL}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
+               <h4 className="ep-form-section-title">Salary & Leave</h4>
+<div className="ep-form-grid">
+
+  {/* Gross Salary (MAIN INPUT) */}
+  <div className="ep-input-group">
+    <label>Gross Salary*</label>
+    <input
+      type="number"
+      name="_GrossSal"
+      value={formData._GrossSal}
+      onChange={handleInputChange}
+      required
+    />
+  </div>
+
+  {/* Calculated Fields */}
+  <div className="ep-input-group">
+    <label>Basic</label>
+    <input value={formData._BasicSal} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>HRA</label>
+    <input value={formData._HRA} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>DA</label>
+    <input value={formData._DA} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>Conveyance (LTA)</label>
+    <input value={formData._LTA} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>Allowances</label>
+    <input value={formData._ALLOWANCES} readOnly />
+  </div>
+
+  {/* Deductions */}
+  <div className="ep-input-group">
+    <label>PF</label>
+    <input value={formData._PF} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>ESI</label>
+    <input value={formData._Esi} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>Professional Tax</label>
+    <input value={formData._Ptax} readOnly />
+  </div>
+
+  <div className="ep-input-group">
+    <label>Income Tax</label>
+    <input value={formData._Itax} readOnly />
+  </div>
+
+  {/* Net Salary */}
+  {/* <div className="ep-input-group">
+    <label>Net Salary</label>
+    <input value={formData._NetSal} readOnly />
+  </div> */}
+
+  {/* Leave */}
+  <div className="ep-input-group">
+    <label>Allowed CL</label>
+    <input
+      type="number"
+      name="_Allowed_CL"
+      value={formData._Allowed_CL}
+      onChange={handleInputChange}
+    />
+  </div>
+
+  <div className="ep-input-group">
+    <label>Allowed SL</label>
+    <input
+      type="number"
+      name="_Allowed_SL"
+      value={formData._Allowed_SL}
+      onChange={handleInputChange}
+    />
+  </div>
+  <div className="ep-input-group">
+  <label>Day DA</label>
+  <input
+    type="number"
+    name="_dayDA"
+    value={formData._dayDA}
+    onChange={handleInputChange}
+  />
+</div>
+
+<div className="ep-input-group">
+  <label>Hour DA</label>
+  <input
+    type="number"
+    name="_hourDA"
+    value={formData._hourDA}
+    onChange={handleInputChange}
+  />
+</div>
+
+</div>
 
                 {/* Banking Section */}
                 <h4 className="ep-form-section-title">Banking Details</h4>
