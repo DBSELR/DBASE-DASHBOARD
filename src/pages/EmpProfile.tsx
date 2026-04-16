@@ -189,81 +189,56 @@ const EmpProfile: React.FC = () => {
     _Location1: "",
   });
 
-  const CalNetSal = (gross: number) => {
-  const BasicP = 0.4;     // change as per your %
-  const HraP = 0.2;
-  const DaP = 0.1;
-  const OtherP = 0.1;
 
-  let Basic = gross * BasicP;
-  let HRA = Basic * HraP;
-  let DA = Basic * DaP;
-  let Conveyance = Basic * OtherP;
-  let OtherAmt = gross - (Basic + HRA + DA + Conveyance);
+const calculateFromGross = (gross) => {
+  const G = Number(gross);
 
-  let PFAmt = Basic >= 15000 ? 15000 * 0.24 : Basic * 0.24;
+  // 🧮 Earnings (MATCHING YOUR UI)
+  const Basic = G * 0.50;
+  const HRA = Basic * 0.40;
+  const DA = Basic * 0.25;
+  const Conveyance = Basic * 0.15;
 
-  let ESIAmt = gross <= 21000 ? gross * 0.0075 : 0;
+  const used = Basic + HRA + DA + Conveyance;
+  const OtherAmt = G - used;
 
-  let PTax = 0;
-  if (gross > 15000 && gross <= 20000) PTax = 150;
-  else if (gross > 20000) PTax = 200;
+  // 📉 PF (24% of Basic)
+  const PFAmt = Basic * 0.24;
 
-  let ITax = gross > 62500 ? gross * 0.0212 : 0;
+  // 📉 ESI
+  const ESIAmt = G <= 21000 ? G * 0.0075 : 0;
 
-  let NetSal = gross - (ITax + PTax + ESIAmt + PFAmt);
+  // 📉 Professional Tax
+  const PTax =
+    G <= 15000 ? 0 :
+    G <= 20000 ? 150 :
+    200;
+
+  // 📉 Income Tax
+  const ITax = G > 62500 ? G * 0.0212 : 0;
+
+  // 💰 Net Salary
+  const totalDeduction = PFAmt + ESIAmt + PTax + ITax;
+  const NetSal = G - totalDeduction;
 
   return {
+    Gross: G,
+
     Basic,
     HRA,
     DA,
     Conveyance,
     OtherAmt,
+
     PFAmt,
     ESIAmt,
     PTax,
     ITax,
-    NetSal,
+
+    NetSal
   };
 };
-const calculateFromGross = (gross: number) => {
-  const BasicP = 0.4;   // % (change if needed)
-  const HraP = 0.2;
-  const DaP = 0.1;
-  const OtherP = 0.1;
 
-  let Basic = gross * BasicP;
-  let HRA = Basic * HraP;
-  let DA = Basic * DaP;
-  let Conveyance = Basic * OtherP;
-
-  let OtherAmt = gross - (Basic + HRA + DA + Conveyance);
-
-  let PFAmt = Basic >= 15000 ? 15000 * 0.24 : Basic * 0.24;
-
-  let ESIAmt = gross <= 21000 ? gross * 0.0075 : 0;
-
-  let PTax = 0;
-  if (gross > 15000 && gross <= 20000) PTax = 150;
-  else if (gross > 20000) PTax = 200;
-
-  let ITax = gross > 62500 ? gross * 0.0212 : 0;
-
-  let NetSal = gross - (ITax + PTax + ESIAmt + PFAmt);
-
-  return {
-    Basic,
-    HRA,
-    DA,
-    Conveyance,
-    OtherAmt,
-    PFAmt,
-    ESIAmt,
-    PTax,
-    ITax,
-    NetSal,
-  };
-};
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token")?.replace(/"/g, "");
     return { Authorization: `Bearer ${token}` };
