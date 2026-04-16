@@ -163,6 +163,7 @@ const EmpProfile: React.FC = () => {
     _Mobile: "",
     _Email: "",
     _User: JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+    _UserGroup: "Employee",
     _Allowed_CL: "12",
     _Allowed_SL: "10",
     _RequestTo: "",
@@ -190,7 +191,7 @@ const EmpProfile: React.FC = () => {
   });
 
 
-const calculateFromGross = (gross) => {
+const calculateFromGross = (gross: number) => {
   const G = Number(gross);
 
   // 🧮 Earnings (MATCHING YOUR UI)
@@ -856,6 +857,7 @@ const calculateFromGross = (gross) => {
       _Email: "",
       _User:
         JSON.parse(localStorage.getItem("user") || "{}")?.empCode || "admin",
+      _UserGroup: "Employee",
       _Allowed_CL: "12",
       _Allowed_SL: "10",
       _RequestTo: "",
