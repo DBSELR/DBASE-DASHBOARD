@@ -158,6 +158,8 @@ const [userData, setUserData] = useState<any>({
   const [isManagementView, setIsManagementView] = useState(false);
   const [loggedInUserType, setLoggedInUserType] = useState<string>("");
   const [employeeRawRow, setEmployeeRawRow] = useState<any>(null);
+  const [teamAllowance, setTeamAllowance] = useState<string>("");
+  const [showTeamAllowance, setShowTeamAllowance] = useState(false);
   const [formData, setFormData] = useState({
     _Employee_ID: "",
     _Ecode: "",
@@ -197,6 +199,7 @@ const [userData, setUserData] = useState<any>({
     _PFNo: "",
     _dayDA: "0",
     _hourDA: "0",
+    _teamAllowance: "0",
     _Project: "",
     _LocationType: "",
     _Location1: "",
@@ -344,14 +347,21 @@ const calculateFromGross = (gross: number) => {
   }, [statusFilter, isManagementView, showEmployeeSearch]);
   useEffect(() => {
   if (userData.checkIn) {
-    const minutes = getMinutes(userData.checkIn);
-
     setFormData(prev => ({
       ...prev,
-      _P_Time: minutes
+      _CheckIn: userData.checkIn
     }));
   }
 }, [userData.checkIn]);
+
+  useEffect(() => {
+  if (userData.p_time) {
+    setFormData(prev => ({
+      ...prev,
+      _P_Time: userData.p_time
+    }));
+  }
+}, [userData.p_time]);
 
   const decodeArrayResponse = (data: any, keys: string[]) => {
     let actualData = data;
@@ -547,6 +557,9 @@ const calculateFromGross = (gross: number) => {
       const details = mapGetEmployeeResponse(row);
       console.log("Mapped Employee Details:", details);
 
+      // Load team allowance for this employee
+      fetchTeamAllowance(ecode);
+
       // Map back to userData structure for display
       const newUserData = {
         empCode: details._Ecode,
@@ -610,6 +623,62 @@ const calculateFromGross = (gross: number) => {
       console.groupEnd();
     }
   };
+
+  const fetchTeamAllowance = async (empCode: string) => {
+    try {
+      const response = await apiService.get(
+        `/Employee/GetAllowance?empCode=${encodeURIComponent(empCode)}`,
+      );
+
+      console.log("[EmpProfile] GetAllowance response:", response);
+
+      let allowanceValue: string | number | null = null;
+
+      if (typeof response === "string") {
+        const trimmed = response.trim();
+        if (/invalid designation/i.test(trimmed)) {
+          allowanceValue = null;
+        } else if (!Number.isNaN(Number(trimmed))) {
+          allowanceValue = trimmed;
+        }
+      } else if (Array.isArray(response) && response.length > 0) {
+        const first = response[0] as any;
+        allowanceValue =
+          first?.PayableAmount ??
+          first?.payableAmount ??
+          first?.Amount ??
+          first?.amount ??
+          null;
+      } else if (response && typeof response === "object") {
+        allowanceValue =
+          (response as any).PayableAmount ??
+          (response as any).payableAmount ??
+          (response as any).Amount ??
+          (response as any).amount ??
+          null;
+      }
+
+      if (allowanceValue !== null && allowanceValue !== undefined) {
+        setTeamAllowance(String(allowanceValue));
+        setShowTeamAllowance(true);
+        setFormData((prev) => ({ ...prev, _teamAllowance: String(allowanceValue) }));
+      } else {
+        setShowTeamAllowance(false);
+        setTeamAllowance("");
+        setFormData((prev) => ({ ...prev, _teamAllowance: "0" }));
+      }
+    } catch (error) {
+      console.warn("Team allowance unavailable or invalid designation:", error);
+      setShowTeamAllowance(false);
+      setTeamAllowance("");
+    }
+  };
+
+  useEffect(() => {
+    if (showRegisterModal && formData._Ecode) {
+      fetchTeamAllowance(formData._Ecode);
+    }
+  }, [showRegisterModal, formData._Ecode]);
 
   const fetchUserProfile = async (empCode: string) => {
     console.group(`[EmpProfile] fetchUserProfile (${empCode})`);
@@ -735,6 +804,9 @@ dayDA: userProfile.dayDA || userProfile.DayDA || "0",
 hourDA: userProfile.hourDA || userProfile.HourDA || "0"
           });
         }
+
+        // Load team allowance for the current profile employee
+        fetchTeamAllowance(empCode);
       } else {
         console.error("[EmpProfile] fetchUserProfile FAILED:", response.status);
       }
@@ -1007,6 +1079,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       _PFNo: "",
       _dayDA: "0",
       _hourDA: "0",
+      _teamAllowance: "0",
       _Project: "",
       _LocationType: "",
       _Location1: "",
@@ -1278,7 +1351,8 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
           </div>
           <h2 className="ep-user-name">Welcome, {userData.empName}!</h2>
           <p className="ep-user-designation">
-            {userData.designation} ({userData.userType})
+            {userData.designation} 
+            {/* ({userData.userType}) */}
           </p>
           <div className="ep-profile-status-row">
             <span className="ep-user-code">ID: {userData.empCode}</span>
@@ -1490,8 +1564,8 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
   icon={Clock}
   label="P Time"
   value={
-    userData.pTime
-      ? new Date(userData.pTime).toLocaleTimeString("en-IN", {
+    userData.p_time
+      ? new Date(`1970-01-01T${userData.p_time}`).toLocaleTimeString("en-IN", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true
@@ -1526,7 +1600,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
     <InfoItem
       icon={Clock}
       label="P Time"
-      value={userData.pTime}
+      value={userData.p_time}
     />
 
     <InfoItem
@@ -1669,18 +1743,12 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
     {/* Attendance */}
     <div className="ep-input-group">
       <label>P Time</label>
-      {/* <input
-        type="text"
+      <input
+        type="time"
         name="_P_Time"
         value={formData._P_Time}
         onChange={handleInputChange}
-      /> */}
-      <input
-  type="text"
-  name="_P_Time"
-  value={formData._P_Time}
-  readOnly
-/>
+      />
     </div>
 
     <div className="ep-input-group">
@@ -2266,18 +2334,12 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
 
   <div className="ep-input-group">
     <label>P Time</label>
-    {/* <input
-      type="time"
+    <input
+      type="number"
       name="_P_Time"
       value={formData._P_Time}
       onChange={handleInputChange}
-    /> */}
-    <input
-  type="text"
-  name="_P_Time"
-  value={formData._P_Time}
-  readOnly
-/>
+    />
   </div>
 
   <div className="ep-input-group">
@@ -2309,6 +2371,18 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
     onChange={handleInputChange}
   />
 </div>
+
+{showTeamAllowance && (
+  <div className="ep-input-group">
+    <label>Team Allowance</label>
+    <input
+      type="text"
+      name="_teamAllowance"
+      value={formData._teamAllowance}
+      readOnly
+    />
+  </div>
+)}
 
 </div>
 
