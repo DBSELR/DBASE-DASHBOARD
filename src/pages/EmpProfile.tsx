@@ -20,6 +20,7 @@ import {
   Fingerprint,
   Droplet,
   Clock,
+  Text,
   Users,
   Moon,
   Sun,
@@ -200,12 +201,19 @@ const [userData, setUserData] = useState<any>({
     _LocationType: "",
     _Location1: "",
   });
+const getMinutes = (checkIn: any) => {
+  if (!checkIn) return 0;
 
+  const start = new Date(checkIn).getTime();
+  const now = new Date().getTime();
+
+  return Math.floor((now - start) / (1000 * 60));
+};
 
 const calculateFromGross = (gross: number) => {
   const G = Number(gross);
 
-  // 🧮 Earnings (MATCHING YOUR UI)
+  // 🧮 Earnings
   const Basic = G * 0.50;
   const HRA = Basic * 0.40;
   const DA = Basic * 0.25;
@@ -214,8 +222,8 @@ const calculateFromGross = (gross: number) => {
   const used = Basic + HRA + DA + Conveyance;
   const OtherAmt = G - used;
 
-  // 📉 PF (24% of Basic)
-  const PFAmt = Basic * 0.24;
+  // 📉 PF (FIXED RULE)
+  const PFAmt = G > 15000 ? 3600 : 0;
 
   // 📉 ESI
   const ESIAmt = G <= 21000 ? G * 0.0075 : 0;
@@ -235,21 +243,21 @@ const calculateFromGross = (gross: number) => {
 
   return {
     Gross: G,
-
     Basic,
     HRA,
     DA,
     Conveyance,
     OtherAmt,
-
     PFAmt,
     ESIAmt,
     PTax,
     ITax,
-
     NetSal
   };
 };
+
+
+
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token")?.replace(/"/g, "");
@@ -279,7 +287,8 @@ const calculateFromGross = (gross: number) => {
       setLoading(false);
     }
   }, []);
-
+  
+  
   const loadBaseData = async () => {
     console.group("[EmpProfile] Load Base Data (Depts/Desigs)");
     try {
@@ -331,7 +340,18 @@ const calculateFromGross = (gross: number) => {
     if (isManagementView || showEmployeeSearch) {
       loadEmployees(statusFilter);
     }
+
   }, [statusFilter, isManagementView, showEmployeeSearch]);
+  useEffect(() => {
+  if (userData.checkIn) {
+    const minutes = getMinutes(userData.checkIn);
+
+    setFormData(prev => ({
+      ...prev,
+      _P_Time: minutes
+    }));
+  }
+}, [userData.checkIn]);
 
   const decodeArrayResponse = (data: any, keys: string[]) => {
     let actualData = data;
@@ -472,6 +492,7 @@ const calculateFromGross = (gross: number) => {
         row[49] !== null && row[49] !== undefined
           ? normalizeTimeValue(row[49])
           : normalizeTimeValue(
+
               rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "09:30",
             ),
       _dayDA:
@@ -797,6 +818,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       }
       return undefined;
     };
+ 
 
     const projectValue = getRowValue(employeeRawRow, 50, ["_Project", "Project", "project"]);
     const locationTypeValue = getRowValue(employeeRawRow, 51, ["_LocationType", "LocationType", "locationType"]);
@@ -1459,9 +1481,23 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
 />
 <InfoItem
   color="var(--ion-color-primary)"
+  icon={Text}
+  label="P Time"
+ value={String(userData.pTime || "")}
+/>
+<InfoItem
+  color="var(--ion-color-primary)"
   icon={Clock}
   label="P Time"
-  value={userData.pTime}
+  value={
+    userData.pTime
+      ? new Date(userData.pTime).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true
+        })
+      : "-"
+  }
 />
 
 <InfoItem
@@ -1633,12 +1669,18 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
     {/* Attendance */}
     <div className="ep-input-group">
       <label>P Time</label>
-      <input
-        type="time"
+      {/* <input
+        type="text"
         name="_P_Time"
         value={formData._P_Time}
         onChange={handleInputChange}
-      />
+      /> */}
+      <input
+  type="text"
+  name="_P_Time"
+  value={formData._P_Time}
+  readOnly
+/>
     </div>
 
     <div className="ep-input-group">
@@ -2224,12 +2266,18 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
 
   <div className="ep-input-group">
     <label>P Time</label>
-    <input
+    {/* <input
       type="time"
       name="_P_Time"
       value={formData._P_Time}
       onChange={handleInputChange}
-    />
+    /> */}
+    <input
+  type="text"
+  name="_P_Time"
+  value={formData._P_Time}
+  readOnly
+/>
   </div>
 
   <div className="ep-input-group">
