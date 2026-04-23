@@ -501,13 +501,13 @@ const WorkReports: React.FC = () => {
                 </div>
 
                 <div className="wr-button-group">
-                  <button className="wr-btn wr-btn-outline" onClick={handleClear}>
-                    <RefreshCcw size={18} />
-                    Clear
-                  </button>
-                  <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
-                    <Send size={18} />
+                   <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
+                    <Send size={20} />
                     Submit
+                  </button>
+                   <button className="wr-btn wr-btn-outline" onClick={handleClear}>
+                    <RefreshCcw size={15} />
+                    Clear
                   </button>
                 </div>
               </div>

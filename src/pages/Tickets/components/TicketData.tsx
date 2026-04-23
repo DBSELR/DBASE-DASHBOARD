@@ -159,15 +159,24 @@ export default function TicketData() {
       const rawData = await handleResponse(res, "REPORT");
       console.log(`[TicketData] runReport DATA_RECV {count: ${rawData?.length}}`, rawData);
 
-      let mapped = (rawData || []).map((r: any) => ({
-        TicketID: r[1] || r.TicketID,
-        Client: r[2] || r.Client,
-        Project: r[3] || r.Project,
-        TDate: r[8] || r.TDate,
-        Employee: r[16] || r.Employee,
-        STATUS: r[21] || r.STATUS,
-        Remarks: r[29] || r[9] || r.Remarks
-      }));
+let mapped = (rawData || []).map((r: any) => ({
+  TicketID: r[1] || r.TicketID,
+  Client: r[2] || r.Client,
+  Project: r[3] || r.Project,
+  TDate: r[8] || r.TDate,
+  Employee: r[16] || r.Employee,
+  STATUS: r[21] || r.STATUS,
+
+  Remarks: r[29] || r[9] || r.Remarks,
+  TaskRemark: r[30] || "",
+
+  // ✅ SHOW EXACT DATA FROM SP
+  AssignedTime: r[31],   // no conversion
+  TimeTaken: r[26],      // no conversion
+
+  Client_Name: r[28]
+  
+}));
 
       // Fixed: Always apply client-side filtering to ensure correctness regardless of API behavior
       const start = moment(fromDate).startOf('day');
@@ -207,7 +216,12 @@ export default function TicketData() {
       "Date": r.TDate,
       "Employee": r.Employee,
       "Status": r.STATUS,
-      "Remarks": r.Remarks
+      "Remarks": r.Remarks,
+      "Closed Remark": r.TaskRemark,
+      "Assigned Time": String(r.AssignedTime),
+      "Time Taken": String(r.TimeTaken),
+      "Client_Name": r.Client_Name
+      
     })));
 
     const workbook = XLSX.utils.book_new();
