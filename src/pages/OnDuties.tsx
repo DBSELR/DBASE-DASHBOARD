@@ -1427,7 +1427,6 @@ const history = useHistory();
   </div>
 </IonGrid>
               </div>
-
               <div className="history-section-title">On Duty Logs</div>
               {dutiesList.map((row, idx) => (
                 <div key={`${row.id}-${idx}`} className="premium-card">
@@ -1440,7 +1439,6 @@ const history = useHistory();
                           {" "}
                           {row.Status}
                         </span>
-                       
                       </div>
                        <span >{row.Description}</span> 
                     </div>
@@ -1822,8 +1820,7 @@ const history = useHistory();
     </div>
   )}
 </div>   
-
-                    {canEdit && (
+ {canEdit && (
                       <IonButton
                         fill="clear"
                         color="primary"
