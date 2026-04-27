@@ -48,6 +48,7 @@ import ProjectWiseTickets from "./pages/Tickets/ProjectWiseTickets";
 import RaiseTicket from "./pages/Tickets/RaiseTicket";
 import TicketData from "./pages/Tickets/components/TicketData";
 import OverTime from "./pages/OverTime";
+import RequestsPage from "./pages/RequestsPage";
 
 // Additional Pages Based on API Data
 
@@ -141,6 +142,8 @@ const App: React.FC = () => {
 
                   <Route path="/tickets/ticketdata" exact component={TicketData} />
 <Route exact path="/OverTime" component={OverTime} />
+ <Route path="/requests" component={RequestsPage} exact />
+
 
                   {/* chat  */}
 

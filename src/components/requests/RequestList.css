@@ -1,0 +1,140 @@
+.premium-card {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.side-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  border-radius: 16px 0 0 16px;
+}
+
+.status-green { background: #28a745; }
+.status-red { background: #dc3545; }
+.status-yellow { background: #ffc107; }
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status-green.status-pill { background:#e6f4ea; color:#28a745; }
+.status-red.status-pill { background:#fdecea; color:#dc3545; }
+.status-yellow.status-pill { background:#fff8e1; color:#ff9800; }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.card-body {
+  margin-top: 8px;
+}
+
+.card-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.btn-approve {
+  background: #28a745;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.btn-reject {
+  background: #dc3545;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.premium-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.skeleton-card {
+  height: 80px;
+  background: #eee;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5 }
+  50% { opacity: 1 }
+  100% { opacity: 0.5 }
+}
+
+.empty {
+  text-align: center;
+  color: #888;
+}
+
+.equipment-card {
+  padding: 10px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.label {
+  font-weight: 600;
+  color: #555;
+}
+
+.priority {
+  font-weight: bold;
+}
+
+.priority.low {
+  color: green;
+}
+
+.priority.medium {
+  color: orange;
+}
+
+.priority.high {
+  color: red;
+}
+.input-group {
+  margin-bottom: 10px;
+}
+
+.input-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.amount-box,
+.comment-box {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.comment-box {
+  resize: vertical;
+  min-height: 60px;
+}
