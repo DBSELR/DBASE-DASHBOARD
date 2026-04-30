@@ -82,7 +82,7 @@ const isSaveOk = (data: any) => {
   return s.includes("success") || s.includes("successfully") || parseInt(s, 10) > 0;
 };
 
-const OverTime: React.FC = () => {
+const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
   const [empCode, setEmpCode] = useState<string>("");
   const [userDesig, setUserDesig] = useState<string>("");
   const [userLoaded, setUserLoaded] = useState<boolean>(false);
@@ -220,9 +220,14 @@ const minOtDate = moment().format("YYYY-MM-DD");
 const maxOtDate = moment().add(7, "days").format("YYYY-MM-DD");
   const loadOT = async () => {
     try {
-      const res = await api.get("Workreport/load_overtime_duties", {
-        params: { EmpCode: empCode },
-      });
+      const res = await api.get(
+  view === "my"
+    ? "Workreport/load_overtime_duties"
+    : "Workreport/load_team_overtime_duties",
+  {
+    params: { EmpCode: empCode },
+  }
+);
       const raw = Array.isArray(res.data) ? res.data : [];
 
       setOTList(
@@ -372,8 +377,8 @@ const saveOT = async () => {
   };
 const [dateModalOpen, setDateModalOpen] = useState(false);
   return (
-    <IonPage className="onduties-page">
-      <IonContent className="onduties-content">
+    <div className="onduties-page">
+      <div className="onduties-content">
         <div style={{ padding: "20px 16px 10px" }}>
           <h2 style={{ margin: 0, fontWeight: 700 }}>Over-Time Manager</h2>
         </div>
@@ -534,7 +539,7 @@ const [dateModalOpen, setDateModalOpen] = useState(false);
   </div>
 </IonGrid>
 </div>
-          <div className="history-section-title">Over-Time Logs</div>
+          {/* <div className="history-section-title">Over-Time Logs</div>
           {otList.map((row, idx) => (
             <div key={`${row.id}-${idx}`} className="premium-card">
               <div className="card-header">
@@ -590,7 +595,7 @@ const [dateModalOpen, setDateModalOpen] = useState(false);
                 </IonButton>
               </div>
             </div>
-          ))}
+          ))} */}
         </div>
 
         <IonToast
@@ -601,8 +606,8 @@ const [dateModalOpen, setDateModalOpen] = useState(false);
           onDidDismiss={() => setToast(null)}
           position="top"
         />
-      </IonContent>
-    </IonPage>
+      </div>
+    </div>
   );
 };
 

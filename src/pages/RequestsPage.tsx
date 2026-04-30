@@ -13,7 +13,7 @@ const RequestsPage: React.FC = () => {
 
   useEffect(() => {
     loadRasList();
-  }, []);
+  }, []);   
 
   const loadRasList = async () => {
     try {

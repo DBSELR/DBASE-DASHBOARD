@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import LeaveForm from "./LeaveForm";
 import EquipmentForm from "./EquipmentForm";
 import RequestList from "./RequestList";
+import OverTime from "../../pages/OverTime"; 
 
 
 const RequestContainer = ({ type, view }: any) => {
@@ -18,6 +19,9 @@ const showLeaveForm =
 
     const showEquipmentForm =
     view === "my" && normalizedType === "equipment";
+
+    const showOverTimeForm =
+  view === "my" && normalizedType === "overtime";
 
 //   const showLeaveForm =
 //   view === "my" &&
@@ -70,19 +74,25 @@ return (
       ))}
     </div>
 
-    {/* ✅ LEAVE FORM */}
-    {showLeaveForm && <LeaveForm defaultType={type} />}
+ {/* ✅ LEAVE FORM */}
+{showLeaveForm && <LeaveForm defaultType={type} />}
 
-    {/* ✅ EQUIPMENT */}
-    {type === "equipment" ? (
-      <>
-        {view === "my" && <EquipmentForm />}
-        <RequestList type="equipment" view={view} status={status} />
-      </>
-    ) : (
-      /* ✅ ALL OTHER TYPES */
-      <RequestList type={type} view={view} status={status} />
-    )}
+{normalizedType === "overtime" ? (
+  <>
+    {/* ✅ FORM only in MY tab */}
+    {view === "my" && <OverTime view={view} />}
+
+    {/* ✅ LIST always */}
+    <RequestList type="overtime" view={view} status={status} />
+  </>
+) : type === "equipment" ? (
+  <>
+    {view === "my" && <EquipmentForm />}
+    <RequestList type="equipment" view={view} status={status} />
+  </>
+) : (
+  <RequestList type={type} view={view} status={status} />
+)}
 
   </div>
 );

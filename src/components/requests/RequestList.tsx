@@ -73,55 +73,52 @@ const safeText = (val: any) => {
 //   };
 // };
 
-const normalize = (x: any) => {
-  if (!x) return null;
+// const normalize = (x: any) => {
+//   if (!x) return null;
 
-  return {
-    // ✅ COMMON
-    lid: x.lid || x.Id,
-    empcode: x.empcode || x.EmpCode,
-    Empname: safeText(x.Empname || x.empname || x.EmpCode),
+//   return {
+//     // ✅ COMMON
+//     lid: x.lid || x.Id,
+//     empcode: x.empcode || x.EmpCode,
+//     Empname: safeText(x.Empname || x.empname || x.EmpCode),
 
-    // ✅ EQUIPMENT FIX
-    Remarks: safeText(x.Remarks || x.Purpose),
-    Priority: x.Priority,
-    FilePath: x.FilePath,
-    Amount: x.Amount,
+//     // ✅ EQUIPMENT FIX
+//     Remarks: safeText(x.Remarks || x.Purpose),
+//     Priority: x.Priority,
+//     FilePath: x.FilePath,
+//     Amount: x.Amount,
 
-    // ✅ DATE
-    lfrom: safeText(x.lfrom || x.AppliedOn),
-    lto: safeText(x.lto),
+//     // ✅ DATE
+//     lfrom: safeText(x.lfrom || x.AppliedOn),
+//     lto: safeText(x.lto),
 
-    // ✅ STATUS FIX
-    L_status: safeText(x.L_status || x.Status),
-    LeaveCategory: safeText(
-  x.LeaveCategory ||
-  x.leavecategory ||
-  x.LEAVECATEGORY ||
-  x.Leavecategory
-),
+//     // ✅ STATUS FIX
+//     L_status: safeText(x.L_status || x.Status),
+//      LeaveCategory: safeText(x.LeaveCategory),
 
-    // ✅ APPROVAL
-    RA1_Status: x.RA1_Status,
-    RA2_Status: x.RA2_Status,
-    RA3_Status: x.RA3_Status,
-    RA4_Status: x.RA4_Status,
+//     // ✅ APPROVAL
+//     RA1_Status: x.RA1_Status,
+//     RA2_Status: x.RA2_Status,
+//     RA3_Status: x.RA3_Status,
+//     RA4_Status: x.RA4_Status,
 
-    CurrentLevel: x.CurrentLevel,
-    MaxLevel: x.MaxLevel,
-    CurrentRA: x.CurrentRA,
+//     CurrentLevel: x.CurrentLevel,
+//     MaxLevel: x.MaxLevel,
+//     CurrentRA: x.CurrentRA,
 
-    RA1: x.RA1,
-    RA2: x.RA2,
-    RA3: x.RA3,
-    RA4: x.RA4,
+//     RA1: x.RA1,
+//     RA2: x.RA2,
+//     RA3: x.RA3,
+//     RA4: x.RA4,
 
-    RA1_Comment: x.RA1_Comment,
-    RA2_Comment: x.RA2_Comment,
-    RA3_Comment: x.RA3_Comment,
-    RA4_Comment: x.RA4_Comment,
-  };
-};
+//     RA1_Comment: x.RA1_Comment,
+//     RA2_Comment: x.RA2_Comment,
+//     RA3_Comment: x.RA3_Comment,
+//     RA4_Comment: x.RA4_Comment,
+//   };
+// };
+
+
 const generateMonthList = () => {
   const months: string[] = [];
   const current = moment().add(1, "month");
@@ -198,6 +195,111 @@ const handleCommentChange = (id: string, value: string) => {
   const [selectedMonth, setSelectedMonth] = useState(
     moment().format("MMM-YYYY")
   );
+
+  const normalize = (x: any) => {
+    if (!x) return null;
+
+    // ✅ OVERTIME
+    if (type === "overtime") {
+      return {
+        
+        lid: x[0],
+        empcode: x[1],
+        Empname: x[2],
+        lfrom: x[3],
+        College: x[4],
+        Fromtime: x[5],
+        Totime: x[6],
+        Remarks: x[7],
+        MinDiff: x[8],
+
+        CurrentLevel: x[11],
+    MaxLevel: x[12],
+    CurrentRA: x[13],
+
+    RA1: x[15],
+    RA2: x[16],
+    RA3: x[17],
+    RA4: x[18],
+
+    RA1_Status: x[19],
+    RA2_Status: x[20],
+    RA3_Status: x[21],
+    RA4_Status: x[22],
+        L_status: x[23] || "Pending",
+      };
+    }
+
+    // ✅ EQUIPMENT
+    if (type === "equipment") {
+      return {
+        lid: x.lid,
+        empcode: x.empcode,
+        Empname: safeText(x.Empname),
+        Remarks: safeText(x.Remarks),
+        Priority: x.Priority,
+        FilePath: x.FilePath,
+        Amount: x.Amount,
+        lfrom: x.lfrom || x.AppliedOn,
+        L_status: safeText(x.L_status || x.Status),
+        RA1_Status: x.RA1_Status,
+        RA2_Status: x.RA2_Status,
+        RA3_Status: x.RA3_Status,
+        RA4_Status: x.RA4_Status,
+        RA1: x.RA1,
+        RA2: x.RA2,
+        RA3: x.RA3,
+        RA4: x.RA4,
+        RA1_Comment: x.RA1_Comment,
+        RA2_Comment: x.RA2_Comment,
+        RA3_Comment: x.RA3_Comment,
+        RA4_Comment: x.RA4_Comment,
+        CurrentLevel: x.CurrentLevel,
+        CurrentRA: x.CurrentRA,
+      };
+    }
+
+    // ✅ LEAVE / PERMISSION
+    return {
+         lid: x.lid || x.Id,
+    empcode: x.empcode || x.EmpCode,
+    Empname: safeText(x.Empname || x.empname || x.EmpCode),
+
+    // ✅ EQUIPMENT FIX
+    Remarks: safeText(x.Remarks || x.Purpose),
+    Priority: x.Priority,
+    FilePath: x.FilePath,
+    Amount: x.Amount,
+
+    // ✅ DATE
+    lfrom: safeText(x.lfrom || x.AppliedOn),
+    lto: safeText(x.lto),
+
+    // ✅ STATUS FIX
+    L_status: safeText(x.L_status || x.Status),
+     LeaveCategory: safeText(x.LeaveCategory),
+
+    // ✅ APPROVAL
+    RA1_Status: x.RA1_Status,
+    RA2_Status: x.RA2_Status,
+    RA3_Status: x.RA3_Status,
+    RA4_Status: x.RA4_Status,
+
+    CurrentLevel: x.CurrentLevel,
+    MaxLevel: x.MaxLevel,
+    CurrentRA: x.CurrentRA,
+
+    RA1: x.RA1,
+    RA2: x.RA2,
+    RA3: x.RA3,
+    RA4: x.RA4,
+
+    RA1_Comment: x.RA1_Comment,
+    RA2_Comment: x.RA2_Comment,
+    RA3_Comment: x.RA3_Comment,
+    RA4_Comment: x.RA4_Comment,
+    };
+  };
 
   useEffect(() => {
     loadData();
@@ -308,7 +410,16 @@ else if (
 try {
     let url = "";
 
-   if (type === "equipment") {
+    //  OVERTIME API
+      if (type === "overtime") {
+        url =
+          view === "my"
+            ? `${baseUrl}Workreport/load_overtime_duties?EmpCode=${empCode}`
+            : `${baseUrl}Workreport/load_team_overtime_duties?EmpCode=${empCode}`;
+      }
+
+      //  EQUIPMENT API
+      else if (type === "equipment") {
   url =
     view === "my"
       ? `${baseUrl}EquipmentRequests/MyRequests?empCode=${empCode}`
@@ -400,6 +511,21 @@ const handleReject = async (item: any) => {
       Status: "Rejected",
       Comment: commentMap[item.lid] || "",
       EmpCode: getUser()?.empCode,
+    });
+
+    loadData();
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const updateOvertime = async (item: any, status: string) => {
+  try {
+    await axios.post(`${baseUrl}Workreport/UpdateOvertimeStatus`, {
+      Id: item.lid,
+      Status: status,
+      EmpCode: getUser()?.empCode,
+      FinMinDiff: item.MinDiff
     });
 
     loadData();
@@ -531,6 +657,7 @@ const formatLeaveCategory = (value: any) => {
 
               <div className="card-body">
                 
+                
            {type === "equipment" ? (
   <div className="equipment-card">
 
@@ -577,6 +704,35 @@ const formatLeaveCategory = (value: any) => {
     {item.RA2_Comment && <p>🗨 RA2: {item.RA2_Comment}</p>}
     {item.RA3_Comment && <p>🗨 RA3: {item.RA3_Comment}</p>}
     {item.RA4_Comment && <p>🗨 RA4: {item.RA4_Comment}</p>}
+
+  </div>
+) : type === "overtime" ? (
+  <div className="equipment-card">
+
+    <div className="row">
+      <span className="label">👤 Emp:</span>
+      <span>{item.Empname}</span>
+    </div>
+
+    <div className="row">
+      <span className="label">📅 Date:</span>
+      <span>{item.lfrom}</span>
+    </div>
+
+    <div className="row">
+      <span className="label">⏰ Time:</span>
+      <span>{item.Fromtime} - {item.Totime}</span>
+    </div>
+
+    <div className="row">
+      <span className="label">🕒 Duration:</span>
+      <span>{item.MinDiff} mins</span>
+    </div>
+
+    <div className="row">
+      <span className="label">📝 Work:</span>
+      <span>{item.Remarks}</span>
+    </div>
 
   </div>
 ) : (
@@ -663,24 +819,39 @@ const formatLeaveCategory = (value: any) => {
           ❌ Reject
         </button>
       </>
-    ) : (
-      /* ✅ LEAVE / PERMISSION APPROVAL */
-      <>
-        <button
-          className="approve-btn"
-          onClick={() => updateStatus(item.lid, "Accepted")}
-        >
-          ✅ Approve
-        </button>
+   ) : type === "overtime" ? (
+  <>
+    <button
+      className="approve-btn"
+      onClick={() => updateOvertime(item, "Accepted")}
+    >
+      ✅ Approve
+    </button>
 
-        <button
-          className="reject-btn"
-          onClick={() => updateStatus(item.lid, "Rejected")}
-        >
-          ❌ Reject
-        </button>
-      </>
-    )}
+    <button
+      className="reject-btn"
+      onClick={() => updateOvertime(item, "Rejected")}
+    >
+      ❌ Reject
+    </button>
+  </>
+) : (
+  <>
+    <button
+      className="approve-btn"
+      onClick={() => updateStatus(item.lid, "Accepted")}
+    >
+      ✅ Approve
+    </button>
+
+    <button
+      className="reject-btn"
+      onClick={() => updateStatus(item.lid, "Rejected")}
+    >
+      ❌ Reject
+    </button>
+  </>
+)}
   </div>
 )}
 
