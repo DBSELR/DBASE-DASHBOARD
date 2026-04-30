@@ -1165,8 +1165,7 @@ const getPreviewUrl = (file: File | string | null | undefined) => {
 const history = useHistory();
   return (
     <IonPage className="onduties-page">
-      <IonContent className="onduties-content"  fullscreen={false} ref={contentRef} scrollEvents>
-       
+      <IonContent className="onduties-content"  fullscreen={false} ref={contentRef} scrollEvents> 
          
           <div style={{ display: "flex", gap: "1px", marginTop: "5px" }}> 
           </div>
@@ -2840,6 +2839,7 @@ const hasGeo = !!visit.latitude && !!visit.longitude;
       <IonSelectOption value="Skill Ascent  Serv.">Skill Ascent Serv.</IonSelectOption>
       <IonSelectOption value="Edvedha  Serv.">Edvedha Serv.</IonSelectOption>
       <IonSelectOption value="UNICODE  Serv.">UNICODE Serv.</IonSelectOption>
+      
     </IonSelect>
   </div>
 

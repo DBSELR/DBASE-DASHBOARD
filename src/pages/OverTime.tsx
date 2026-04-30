@@ -389,7 +389,6 @@ const [dateModalOpen, setDateModalOpen] = useState(false);
     <IonIcon icon={timeOutline} />
     <span>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
   </div>
- 
 
 <IonModal
   isOpen={dateModalOpen}
@@ -411,8 +410,6 @@ const [dateModalOpen, setDateModalOpen] = useState(false);
 />
   </IonContent>
 </IonModal>
-
-
 <IonGrid className="ion-no-padding compact-grid">
   <IonRow className="compact-row">
     <IonCol size="12" sizeMd="3">
