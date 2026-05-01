@@ -3,6 +3,7 @@ import LeaveForm from "./LeaveForm";
 import EquipmentForm from "./EquipmentForm";
 import RequestList from "./RequestList";
 import OverTime from "../../pages/OverTime"; 
+import OnDuties from "../../pages/OnDuties";
 
 
 const RequestContainer = ({ type, view }: any) => {
@@ -77,7 +78,13 @@ return (
  {/* ✅ LEAVE FORM */}
 {showLeaveForm && <LeaveForm defaultType={type} />}
 
-{normalizedType === "overtime" ? (
+{normalizedType === "onduty" ? (
+  <>
+    {view === "my" && <OnDuties />}
+
+    <RequestList type="onduty" view={view} status={status} />
+  </>
+) : normalizedType === "overtime" ? (
   <>
     {/* ✅ FORM only in MY tab */}
     {view === "my" && <OverTime view={view} />}

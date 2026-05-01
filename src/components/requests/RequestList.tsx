@@ -4,6 +4,13 @@ import moment from "moment";
 import { API_BASE } from "../../config";
 import "./RequestList.css";
 
+/* ================= TYPES ================= */
+interface Props {
+  type: string;
+  view: string;
+  status: string;
+}
+
 const getUser = () => {
   try {
     return JSON.parse(localStorage.getItem("user") || "{}");
@@ -174,7 +181,7 @@ const getRejectionInfo = (item: any) => {
 
   return null;
 };
-const RequestList: React.FC<any> = ({ type, view, status }) => {
+const RequestList: React.FC<Props> = ({ type, view, status }) => {
     const [amountMap, setAmountMap] = useState<{ [key: string]: string }>({});
 const [commentMap, setCommentMap] = useState<{ [key: string]: string }>({});
 const handleAmountChange = (id: string, value: string) => {
@@ -195,9 +202,49 @@ const handleCommentChange = (id: string, value: string) => {
   const [selectedMonth, setSelectedMonth] = useState(
     moment().format("MMM-YYYY")
   );
+  const [tripDaysByDuty, setTripDaysByDuty] = useState<{ [key: number]: any[] }>({});
 
   const normalize = (x: any) => {
     if (!x) return null;
+
+    // ✅ ONDUTY
+   if (type === "onduty") {
+  return {
+    id: x.id,
+    lid: x.id,
+
+    Empname: safeText(x.empname || x.empcode),
+    empcode: safeText(x.empcode),
+
+    College: x.college,
+    Description: x.description,
+   Mode_of_Trans: x.mode_of_Trans || x.mode,
+    Vehicle_No: x.vehicle_No,
+    Location: x.location,
+
+    DateFrom: x.dateFrom,
+    DateTo: x.dateTo,
+
+    L_status: safeText(x.finalStatus || x.status),
+
+    // 🔥 REQUIRED
+    CurrentLevel: x.CurrentLevel,
+    CurrentRA: x.CurrentRA,
+    MaxLevel: x.MaxLevel,
+
+   RA1: x.RA1 || x.rA1,
+RA2: x.RA2 || x.rA2,
+RA3: x.RA3 || x.rA3,
+RA4: x.RA4 || x.rA4,
+
+RA1_Status: x.RA1_Status || x.rA1_Status,
+RA2_Status: x.RA2_Status || x.rA2_Status,
+RA3_Status: x.RA3_Status || x.rA3_Status,
+RA4_Status: x.RA4_Status || x.rA4_Status,
+
+    dayTrips: x.dayTrips || [],
+  };
+}
 
     // ✅ OVERTIME
     if (type === "overtime") {
@@ -316,11 +363,44 @@ const handleCommentChange = (id: string, value: string) => {
     setFiltered(
       data.filter(
         (x) =>
-          safeText(x?.empname).toLowerCase().includes(s) ||
+          safeText(x?.Empname).toLowerCase().includes(s) ||
           safeText(x?.empcode).toLowerCase().includes(s)
       )
     );
   }, [search, data]);
+
+//   const loadTripDays = async (duties: any[]) => {
+//   try {
+//     const res = await axios.get(`${baseUrl}Workreport/GetDutyTripDays`, {
+//       params: { EmpCode: getUser()?.empCode },
+//     });
+
+//     const trips = Array.isArray(res.data) ? res.data : [];
+
+//     const grouped: { [key: number]: any[] } = {};
+
+//     trips.forEach((t: any) => {
+//       if (!grouped[t.Duty_Id]) grouped[t.Duty_Id] = [];
+
+//       grouped[t.Duty_Id].push({
+//         dayTrip_Id: t.DayTrip_ID,
+//         dutyDate: t.Duty_Date,
+//         readingFrom: t.Reading_From,
+//         readingTo: t.Reading_To,
+//         distance: t.Distance,
+//         fuelAmount: t.Fuel_Amount,
+//         fuelImage: t.Fuel_Image,
+//         readingFromImage: t.ReadingFrom_Image,
+//         readingToImage: t.ReadingTo_Image,
+//         visits: t.Visits || [],
+//       });
+//     });
+
+//     setTripDaysByDuty(grouped);
+//   } catch (e) {
+//     console.error(e);
+//   }
+// };
 
 //   const loadData = async () => {
 //     const empCode = getUser()?.empCode;
@@ -410,8 +490,12 @@ else if (
 try {
     let url = "";
 
-    //  OVERTIME API
-      if (type === "overtime") {
+    if (type === "onduty") {
+        url =
+          view === "my"
+            ? `${baseUrl}Workreport/load_my_duties?empCode=${empCode}`
+            : `${baseUrl}Workreport/load_duties_full?empCode=${empCode}`;
+      } else if (type === "overtime") {
         url =
           view === "my"
             ? `${baseUrl}Workreport/load_overtime_duties?EmpCode=${empCode}`
@@ -439,6 +523,9 @@ try {
 
     setData(result);
     setFiltered(result);
+    if (type === "onduty") {
+  //loadTripDays(result);
+}
   } catch (e) {
     console.error(e);
     setData([]);
@@ -447,26 +534,84 @@ try {
     setLoading(false);
   }
 };
-  const filterByStatus = (item: any) => {
-  const s = (status || "All").toLowerCase();
+//   const filterByStatus = (item: any) => {
+//   const s = (status || "All").toLowerCase();
 
+//   const raw = (item?.L_status || "").toLowerCase();
+
+//   if (s === "all") return true;
+
+//   if (s === "pending") {
+//     return raw.includes("pending");
+//   }
+
+//   if (s === "accepted") {
+//     return raw.includes("approved") || raw.includes("accepted");
+//   }
+
+//   if (s === "rejected") {
+//     return raw.includes("rejected");
+//   }
+
+//   return true;
+// };
+const filterByStatus = (item: any) => {
+  const selected = (status || "all").toLowerCase();
   const raw = (item?.L_status || "").toLowerCase();
 
-  if (s === "all") return true;
+  if (selected === "all") return true;
 
-  if (s === "pending") {
+  if (selected === "pending") {
     return raw.includes("pending");
   }
 
-  if (s === "accepted") {
+  if (selected === "accepted") {
     return raw.includes("approved") || raw.includes("accepted");
   }
 
-  if (s === "rejected") {
+  if (selected === "rejected") {
     return raw.includes("rejected");
   }
 
   return true;
+};
+ const finalData = filtered.filter(Boolean).filter(filterByStatus);
+const updateOnDuty = async (item: any, status: string) => {
+  try {
+   const payload = {
+  _id: String(item.lid),
+  _empcode: getUser()?.empCode,
+
+  _date: moment(item.DateFrom).format("YYYY-MM-DD"),
+
+  _Client: item.College,
+  _Location: item.Location,
+  _Description: item.Description,
+
+  _TransportMode: item.Mode_of_Trans,
+
+  _Starttime: item.Starttime || null,
+  _Endtime: item.Endtime || null,
+
+  _VehicleNo: item.Vehicle_No || null,
+
+  _StartReading: item.StartReading || null,
+  _EndReading: item.EndReading || null,
+  _KMS: item.KMS || null,
+
+  Status: status,
+};
+console.log("ONDUTY PAYLOAD:", payload);
+    await axios.post(
+      `${baseUrl}Workreport/SaveDuties_Approve`,
+      payload,
+      { headers: getAuthHeaders() }
+    );
+
+    loadData();
+  } catch (e) {
+    console.error(e);
+  }
 };
 
   const updateStatus = async (id: string, status: string) => {
@@ -562,31 +707,63 @@ const getStatusLabel = (item: any) => {
 };
 
  const getApprovedBy = (item: any) => {
-  // ❌ If rejected → DO NOT SHOW ANYTHING
+  if (!item) return null;
+
   if (item?.L_status?.toLowerCase().includes("rejected")) {
     return null;
   }
 
   const list: string[] = [];
 
-  if (item?.RA1_Status === "Accepted") list.push(item.RA1);
-  if (item?.RA2_Status === "Accepted") list.push(item.RA2);
-  if (item?.RA3_Status === "Accepted") list.push(item.RA3);
-  if (item?.RA4_Status === "Accepted") list.push(item.RA4);
+  if (item?.RA1_Status === "Accepted" && item?.RA1)
+    list.push(item.RA1);
 
-  return list.length ? list.join(" → ") : "Not Approved Yet";
+  if (item?.RA2_Status === "Accepted" && item?.RA2)
+    list.push(item.RA2);
+
+  if (item?.RA3_Status === "Accepted" && item?.RA3)
+    list.push(item.RA3);
+
+  if (item?.RA4_Status === "Accepted" && item?.RA4)
+    list.push(item.RA4);
+
+  return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
 };
-  const canAct = (item: any) => {
-    const user = safeText(getUser()?.designation).trim().toUpperCase();
-    const current = safeText(item?.CurrentRA).trim().toUpperCase();
+//   const canAct = (item: any) => {
+//     const user = safeText(getUser()?.designation).trim().toUpperCase();
+//     const current = safeText(item?.CurrentRA).trim().toUpperCase();
 
-    if (!item) return false;
-    if (item.L_status === "Accepted" || item.L_status === "Rejected")
-      return false;
+//     if (!item) return false;
+//     if (item.L_status === "Accepted" || item.L_status === "Rejected")
+//       return false;
 
-    return current === user;
-  };
+//     return current === user;
+//   };
 
+const canAct = (item: any) => {
+  if (!item) return false;
+
+  const status = (item.L_status || "").toLowerCase();
+
+  // ❌ already completed
+//   if (status.includes("accepted") || status.includes("rejected")) {
+//     return false;
+//   }
+
+if (
+  status.includes("approved") ||
+  status.includes("accepted") ||
+  status.includes("rejected")
+) {
+  return false;
+}
+
+  const user = safeText(getUser()?.designation).toLowerCase();
+  const current = safeText(item?.CurrentRA).toLowerCase();
+
+  // ✅ ONLY CURRENT APPROVER CAN ACT
+  return current === user;
+};
   const cleanDate = (val: any) => {
   if (!val) return "";
 
@@ -616,6 +793,10 @@ const formatLeaveCategory = (value: any) => {
   return v;
 };
 
+if (type === "onduty" && view === "my") {
+  return null; // 🔥 completely hide OnDuty in My Requests
+}
+
   return (
     <div>
       <div className="premium-filters">
@@ -641,8 +822,13 @@ const formatLeaveCategory = (value: any) => {
         filtered
           .filter(Boolean)
           .filter(filterByStatus)
-          .map((item) => (
-            <div key={`${item.lid}-${item.empcode}`} className="premium-card">
+         .map((item) => {
+  if (type === "onduty") {
+    console.log("ONDUTY ITEM:", item);
+  }
+
+  return (
+    <div key={`${item.lid}-${item.empcode}`} className="premium-card">
 
               <div className="card-header">
                 <div>
@@ -656,108 +842,190 @@ const formatLeaveCategory = (value: any) => {
               </div>
 
               <div className="card-body">
-                
-                
-           {type === "equipment" ? (
-  <div className="equipment-card">
+                {type === "equipment" ? (
+                  <div className="equipment-card">
+                    <div className="row">
+                      <span className="label">👤 Emp Code:</span>
+                      <span>{item.empcode}</span>
+                    </div>
 
-    <div className="row">
-      <span className="label">👤 Emp Code:</span>
-      <span>{item.empcode}</span>
+                    <div className="row">
+                      <span className="label">📝 Purpose:</span>
+                      <span>{item.Remarks}</span>
+                    </div>
+
+                    <div className="row">
+                      <span className="label">⚡ Priority:</span>
+                      <span className={`priority ${item.Priority?.toLowerCase()}`}>
+                        {item.Priority}
+                      </span>
+                    </div>
+
+                    <div className="row">
+                      <span className="label">📅 Applied On:</span>
+                      <span>{cleanDate(item.lfrom)}</span>
+                    </div>
+
+                    {item.FilePath && (
+                      <div className="row">
+                        <span className="label">📎 File:</span>
+                        <a href={item.FilePath} target="_blank" rel="noopener noreferrer" download>
+                          📥 Download File
+                        </a>
+                      </div>
+                    )}
+
+                    {item.Amount && (
+                      <div className="row">
+                        <span className="label">💰 Amount:</span>
+                        <span>₹{item.Amount}</span>
+                      </div>
+                    )}
+
+                    {item.RA1_Comment && <p>🗨 RA1: {item.RA1_Comment}</p>}
+                    {item.RA2_Comment && <p>🗨 RA2: {item.RA2_Comment}</p>}
+                    {item.RA3_Comment && <p>🗨 RA3: {item.RA3_Comment}</p>}
+                    {item.RA4_Comment && <p>🗨 RA4: {item.RA4_Comment}</p>}
+                  </div>
+                ) : type === "overtime" ? (
+                  <div className="equipment-card">
+                    <div className="row">
+                      <span className="label">👤 Emp:</span>
+                      <span>{item.Empname}</span>
+                    </div>
+
+                    <div className="row">
+                      <span className="label">📅 Date:</span>
+                      <span>{item.lfrom}</span>
+                    </div>
+
+                    <div className="row">
+                      <span className="label">⏰ Time:</span>
+                      <span>{item.Fromtime} - {item.Totime}</span>
+                    </div>
+
+                    <div className="row">
+                      <span className="label">🕒 Duration:</span>
+                      <span>{item.MinDiff} mins</span>
+                    </div>
+
+                    <div className="row">
+                      <span className="label">📝 Work:</span>
+                      <span>{item.Remarks}</span>
+                    </div>
+                  </div>
+                ) : type === "onduty" ? (
+                  <>
+                    <div className="history-section-title">On Duty Logs</div>
+                    <div className="row">
+                      <span className="label">🏫 {item.College}</span>
+                      <span className={`status-pill ${item.L_status?.toLowerCase()}`}>
+                        {item.L_status}
+                      </span>
+                    </div>
+                    <p>{item.Description}</p>
+                    <div className="grid-4">
+                      <div>
+                        <b>Transport</b>
+                        <p>
+                          {item.Mode_of_Trans}
+                          {item.Vehicle_No && ` • ${item.Vehicle_No}`}
+                        </p>
+                      </div>
+                      <div>
+                        <b>Timeline</b>
+                        <p>
+                          {cleanDate(item.DateFrom)} → {cleanDate(item.DateTo)}
+                        </p>
+                      </div>
+                      <div>
+                        <b>Location</b>
+                        <p>{item.Location}</p>
+                      </div>
+                    </div>
+                   {(item.dayTrips || []).map((trip: any, index: number) => (
+  <div key={trip.dayTrip_Id || index} className="trip-card">
+
+    <div className="trip-header">
+      <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
     </div>
 
-    <div className="row">
-      <span className="label">📝 Purpose:</span>
-      <span>{item.Remarks}</span>
+    <div className="trip-body">
+      <p>
+        <b>Reading:</b> {trip.readingFrom} → {trip.readingTo} ({trip.distance} Km)
+      </p>
+
+      {trip.fuelAmount && (
+        <p>
+          <b>Fuel:</b> ₹{trip.fuelAmount}
+        </p>
+      )}
     </div>
 
-    <div className="row">
-      <span className="label">⚡ Priority:</span>
-      <span className={`priority ${item.Priority?.toLowerCase()}`}>
-        {item.Priority}
-      </span>
-    </div>
+    {(trip.visits || []).map((visit: any, vIndex: number) => (
+      <div key={vIndex} className="visit-card">
 
-    <div className="row">
-      <span className="label">📅 Applied On:</span>
-      <span>{cleanDate(item.lfrom)}</span>
-    </div>
+        <p><b>Client:</b> {visit.client_Name}</p>
 
-    {item.FilePath && (
-      <div className="row">
-        <span className="label">📎 File:</span>
-       <a href={item.FilePath} target="_blank" rel="noopener noreferrer" download>
-  📥 Download File
-</a>
+        <p>
+          <b>Location:</b>{" "}
+          {visit.latitude && visit.longitude ? (
+            <span
+              style={{ color: "blue", cursor: "pointer" }}
+              onClick={() =>
+                window.open(
+                  `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
+                )
+              }
+            >
+              View Map
+            </span>
+          ) : (
+            visit.location
+          )}
+        </p>
+
+        <p>
+          <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
+        </p>
+
+        <p>
+          <b>Contact:</b> {visit.contact_Person} ({visit.mobile_Number})
+        </p>
+
+        <p>
+          <b>Remarks:</b> {visit.remarks}
+        </p>
+
       </div>
-    )}
-
-    {item.Amount && (
-      <div className="row">
-        <span className="label">💰 Amount:</span>
-        <span>₹{item.Amount}</span>
-      </div>
-    )}
-
-    {/* COMMENTS */}
-    {item.RA1_Comment && <p>🗨 RA1: {item.RA1_Comment}</p>}
-    {item.RA2_Comment && <p>🗨 RA2: {item.RA2_Comment}</p>}
-    {item.RA3_Comment && <p>🗨 RA3: {item.RA3_Comment}</p>}
-    {item.RA4_Comment && <p>🗨 RA4: {item.RA4_Comment}</p>}
-
+    ))}
   </div>
-) : type === "overtime" ? (
-  <div className="equipment-card">
+))}
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      📅 {cleanDate(item.lfrom)}
+                      {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom)
+                        ? ` - ${cleanDate(item.lto)}`
+                        : ""}
+                    </p>
+                    <p>💬 {item.Remarks}</p>
+                    <p>🏷 Category: {formatLeaveCategory(item.LeaveCategory)}</p>
+                  </>
+                )}
 
-    <div className="row">
-      <span className="label">👤 Emp:</span>
-      <span>{item.Empname}</span>
-    </div>
-
-    <div className="row">
-      <span className="label">📅 Date:</span>
-      <span>{item.lfrom}</span>
-    </div>
-
-    <div className="row">
-      <span className="label">⏰ Time:</span>
-      <span>{item.Fromtime} - {item.Totime}</span>
-    </div>
-
-    <div className="row">
-      <span className="label">🕒 Duration:</span>
-      <span>{item.MinDiff} mins</span>
-    </div>
-
-    <div className="row">
-      <span className="label">📝 Work:</span>
-      <span>{item.Remarks}</span>
-    </div>
-
-  </div>
-) : (
-  <>
-    <p>
-      📅 {cleanDate(item.lfrom)}
-      {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom)
-        ? ` - ${cleanDate(item.lto)}`
-        : ""}
-    </p>
-    <p>💬 {item.Remarks}</p>
-    <p>🏷 Category: {formatLeaveCategory(item.LeaveCategory)}</p>
-  </>
-)}
-               {!item?.L_status?.toLowerCase().includes("rejected") && (
-  <p>👤 Approved By: {getApprovedBy(item)}</p>
-)}
-{item?.L_status?.toLowerCase().includes("pending") && (
-  <p>👤 {item?.L_status}</p>
-)}
+                {!item?.L_status?.toLowerCase().includes("rejected") && (
+                  <p>👤 Approved By: {getApprovedBy(item)}</p>
+                )}
+                {item?.L_status?.toLowerCase().includes("pending") && (
+                  <p>👤 {item?.L_status}</p>
+                )}
                 {getRejectionInfo(item) && (
-    <p style={{ color: "red", fontWeight: "bold" }}>
-      {getRejectionInfo(item)}
-    </p>
-  )}
+                  <p style={{ color: "red", fontWeight: "bold" }}>
+                    {getRejectionInfo(item)}
+                  </p>
+                )}
               </div>
 
               <div className="timeline">
@@ -769,85 +1037,63 @@ const formatLeaveCategory = (value: any) => {
 
               {/* 🔥 STRICT APPROVAL CONTROL: Only show buttons for team view AND current approver */}
             {/* ✅ APPROVAL SECTION WITH COMMENTS + AMOUNT */}
-{view === "raised" && canAct(item) && (
+{view !== "my" && canAct(item) && (
   <div className="card-actions">
-
-    {/* ✅ EQUIPMENT APPROVAL */}
-    {type === "equipment" ? (
-      <>
-        {/* 💰 ONLY RA1 CAN ENTER AMOUNT */}
-        {item.CurrentLevel === 1 && (
-           <div className="input-group">
-    <label>💰 Enter Amount</label>
-    <input
-      type="number"
-      placeholder="Enter approved amount"
-      value={amountMap[item.lid] || ""}
-      onChange={(e) =>
-        handleAmountChange(item.lid, e.target.value)
-      }
-      className="amount-box"
-    />
-  </div>
-        )}
-
-        {/* 💬 COMMENT */}
-        <div className="input-group">
-  <label>💬 Approval Comment</label>
-  <textarea
-    rows={3}
-    placeholder="Enter your approval/rejection comment..."
-    value={commentMap[item.lid] || ""}
-    onChange={(e) =>
-      handleCommentChange(item.lid, e.target.value)
-    }
-    className="comment-box"
-  />
-</div>
-
-        <button
-          className="approve-btn"
-          onClick={() => handleApprove(item)}
-        >
-          ✅ Approve
-        </button>
-
-        <button
-          className="reject-btn"
-          onClick={() => handleReject(item)}
-        >
-          ❌ Reject
-        </button>
-      </>
-   ) : type === "overtime" ? (
+{type === "onduty" ? (
   <>
-    <button
-      className="approve-btn"
-      onClick={() => updateOvertime(item, "Accepted")}
-    >
+    <button onClick={() => updateOnDuty(item, "Accepted")}>
       ✅ Approve
     </button>
 
-    <button
-      className="reject-btn"
-      onClick={() => updateOvertime(item, "Rejected")}
-    >
+    <button onClick={() => updateOnDuty(item, "Rejected")}>
+      ❌ Reject
+    </button>
+  </>
+) : type === "equipment" ? (
+  <>
+    {item.CurrentLevel === 1 && (
+      <div className="input-group">
+        <label>💰 Enter Amount</label>
+        <input
+          type="number"
+          value={amountMap[item.lid] || ""}
+          onChange={(e) =>
+            handleAmountChange(item.lid, e.target.value)
+          }
+        />
+      </div>
+    )}
+
+    <div className="input-group">
+      <label>💬 Comment</label>
+      <textarea
+        value={commentMap[item.lid] || ""}
+        onChange={(e) =>
+          handleCommentChange(item.lid, e.target.value)
+        }
+      />
+    </div>
+
+    <button onClick={() => handleApprove(item)}>✅ Approve</button>
+    <button onClick={() => handleReject(item)}>❌ Reject</button>
+  </>
+) : type === "overtime" ? (
+  <>
+    <button onClick={() => updateOvertime(item, "Accepted")}>
+      ✅ Approve
+    </button>
+
+    <button onClick={() => updateOvertime(item, "Rejected")}>
       ❌ Reject
     </button>
   </>
 ) : (
   <>
-    <button
-      className="approve-btn"
-      onClick={() => updateStatus(item.lid, "Accepted")}
-    >
+    <button onClick={() => updateStatus(item.lid, "Accepted")}>
       ✅ Approve
     </button>
 
-    <button
-      className="reject-btn"
-      onClick={() => updateStatus(item.lid, "Rejected")}
-    >
+    <button onClick={() => updateStatus(item.lid, "Rejected")}>
       ❌ Reject
     </button>
   </>
@@ -856,8 +1102,10 @@ const formatLeaveCategory = (value: any) => {
 )}
 
             </div>
-          ))}
-      {!loading && filtered.length === 0 && <p>No data found</p>}
+          );
+        })}
+
+      {!loading && finalData.length === 0 && <p>No data found</p>}
     </div>
   );
 };

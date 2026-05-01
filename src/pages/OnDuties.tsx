@@ -831,7 +831,7 @@ const loadAllTrips = async (duties: DutyRow[]) => {
 
 const loadDuties = async () => {
   try {
-    const res = await api.get("Workreport/load_duties_full", {
+    const res = await api.get("Workreport/load_my_duties", {
       params: { EmpCode: empCode },
     });
 
@@ -1164,22 +1164,22 @@ const getPreviewUrl = (file: File | string | null | undefined) => {
 };
 const history = useHistory();
   return (
-    <IonPage className="onduties-page">
-      <IonContent className="onduties-content"  fullscreen={false} ref={contentRef} scrollEvents> 
-         
+    <div className="onduties-page">
+      {/* <div className="onduties-content"  fullscreen={false} ref={contentRef} scrollEvents>  */}
+          <div className="onduties-content">
           <div style={{ display: "flex", gap: "1px", marginTop: "5px" }}> 
           </div>
         
 
         <div className="page-container">
            <h2 style={{ margin: 0, fontWeight: 700 }}>Duty Manager</h2>
-          <IonButton
+          {/* <IonButton
   expand="block"
   color="primary"
   onClick={() => history.push("/OverTime")}
 >
   Go To Overtime
-</IonButton>
+</IonButton> */}
               <div> 
 
                <IonGrid className="ion-no-padding compact-duty-grid">
@@ -3085,8 +3085,8 @@ const hasGeo = !!visit.latitude && !!visit.longitude;
           onDidDismiss={() => setToast(null)}
           position="top"
         />
-      </IonContent>
-    </IonPage>
+      </div>
+    </div>
   );
 };
 
