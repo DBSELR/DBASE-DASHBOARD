@@ -398,6 +398,15 @@
   margin: auto;
 }
 
+/* When the side menu is open or split-pane is visible, expand the main container
+   so the content sits flush with the menu (removes the centered gap). */
+.menu-content-open .home-container,
+.split-pane-visible .home-container {
+  max-width: none !important;
+  margin: 0 !important;
+  padding-left: 20px !important;
+}
+
 .home-notif-header {
   display: flex;
   align-items: center;

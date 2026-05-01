@@ -1,0 +1,327 @@
+/* Main Page Background */
+ion-content {
+  --background: #f0f4f8;
+}
+
+/* Tabs Styling - Exactly as image */
+ion-segment {
+  background: transparent;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+ion-segment-button {
+  --color: #64748b;
+  --color-checked: #f57c00;
+  --indicator-color: transparent;
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: none;
+  border-bottom: 4px solid transparent;
+}
+
+ion-segment-button.segment-button-checked {
+  border-bottom: 4px solid #f57c00;
+}
+
+/* Section Containers */
+.section-container {
+  padding: 10px 20px;
+}
+
+.master-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 15px;
+}
+
+.admin-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 15px 0 10px 0;
+}
+
+/* Image-Style Inputs */
+.image-style-input {
+  --background: #e9eff5;
+  --border-radius: 4px;
+  --padding-start: 10px;
+  border: 1px solid #cbd5e1;
+  margin-bottom: 10px;
+  min-height: 40px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.image-style-input ion-input {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.image-style-input ion-select {
+  width: 100%;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+/* Buttons - Blue All Caps */
+.button-row-image {
+  display: flex;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.button-row-image-center {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+.blue-btn-image {
+  --background: #3b82f6;
+  --background-hover: #2563eb;
+  --color: white;
+  --border-radius: 4px;
+  --box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+  font-weight: 700;
+  font-size: 0.9rem;
+  height: 38px;
+  min-width: 100px;
+}
+
+/* Image-Style Table */
+.image-table-container {
+  background: white;
+  border-radius: 0px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #546c8b;
+  max-height: 362px;
+  /* Increased slightly as requested */
+  overflow-y: auto;
+}
+
+.image-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.image-table th {
+  background: #ffffff;
+  color: #64748b;
+  text-align: left;
+  padding: 12px 15px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.image-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.image-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Layout Helpers */
+.column-divider {
+  border-right: 1px solid #e2e8f0;
+}
+
+.admin-section-image {
+  margin-top: 10px;
+}
+
+/* Notched Dropdown Styles */
+.dropdown-row-notched {
+  margin-top: 20px;
+}
+
+.notched-input-container {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.notched-label {
+  position: absolute;
+  top: -10px;
+  left: 15px;
+  background: #f0f4f8;
+  /* Matches page background */
+  padding: 0 5px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  z-index: 10;
+}
+
+.notched-item {
+  --background: #f0f4f8;
+  border: 1px solid #3b82f6;
+  /* Blue border as image */
+  border-radius: 6px;
+  min-height: 45px;
+}
+
+.notched-item.pink-border {
+  border-color: #fca5a5;
+  /* Light red/pink border as image */
+}
+
+.pink-label {
+  color: #ef4444;
+}
+
+.image-select-notched {
+  width: 100%;
+  --placeholder-color: #475569;
+  --placeholder-opacity: 1;
+  font-size: 0.95rem;
+}
+
+.pink-text {
+  --placeholder-color: #ef4444;
+}
+
+/* User Details Image Styles */
+.user-detail-row-image {
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.user-label-col {
+  display: flex;
+  align-items: center;
+}
+
+.user-text-label {
+  font-size: 1.1rem;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+/* Bottom Right Action Icons */
+.bottom-right-actions {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.action-icon-box {
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.action-icon-box ion-icon {
+  font-size: 20px;
+  color: #1e293b;
+}
+
+/* Mapping Tab Styles */
+.mapping-top-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.mapping-grid-row {
+  margin-top: 10px;
+}
+
+.mapping-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mapping-table th {
+  background: #ffffff;
+  color: #64748b;
+  text-align: left;
+  padding: 12px 15px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mapping-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.mapping-table tr:hover {
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.row-selected {
+  background: #eff6ff !important;
+}
+
+.center-text {
+  text-align: center !important;
+}
+
+/* Radio & Checkbox Styling for Mapping */
+.mapping-radio {
+  --color: #cbd5e1;
+  --color-checked: #3b82f6;
+  margin: 0;
+}
+
+.mapping-checkbox {
+  --size: 18px;
+  --border-radius: 2px;
+  --border-color: #cbd5e1;
+  --checkbox-background-checked: #3b82f6;
+  margin: 0;
+}
+
+/* Header Adjustments */
+.image-header-toolbar {
+  --background: #f1f5f9;
+  --border-width: 0;
+}
+
+.image-segment {
+  width: auto;
+  margin-left: 20px;
+}
+
+@media (max-width: 768px) {
+  .column-divider {
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 20px;
+  }
+}

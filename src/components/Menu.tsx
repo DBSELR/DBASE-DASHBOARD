@@ -231,7 +231,7 @@ const Menu: React.FC = () => {
                 button
                 onClick={handleLogout}
                 className="logout-item"
-                style={{ "--item-index": menuItems.length + 1, marginBottom: "100px" } as React.CSSProperties}
+                style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
               >
                 <IonIcon className="menu-icons" slot="start" icon={logOut} />
                 <IonLabel>Logout</IonLabel>

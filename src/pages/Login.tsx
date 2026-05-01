@@ -119,7 +119,7 @@ const Login: React.FC = () => {
                 <img src="./images/dbs-logo-short.png" alt="Logo" />
               </div>
 
-              <div className="db-login-card">
+              <form className="db-login-card" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
                 {/* <h2 className="db-login-title">Sign In</h2>
                 <p className="db-login-subtitle">Secure access to your dashboard</p> */}
 
@@ -157,13 +157,14 @@ const Login: React.FC = () => {
                 </div>
 
                 <button
+                  type="submit"
                   className="db-login-button"
                   onClick={handleLogin}
                   disabled={loading}
                 >
                   {loading ? "Authenticating..." : "Login"}
                 </button>
-              </div>
+              </form>
             </div>
           )}
         </div>

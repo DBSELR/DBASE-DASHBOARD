@@ -75,48 +75,49 @@ const requestTypeOptions = [
 
 const EmpProfile: React.FC = () => {
   const history = useHistory();
-const [userData, setUserData] = useState<any>({
-  empCode: "",
-  empName: "",
-  designation: "",
-  department: "",
-  email: "",
+  const [userData, setUserData] = useState<any>({
+    empCode: "",
+    empName: "",
+    designation: "",
+    department: "",
+    email: "",
 
-  // ✅ ADD THESE (no other changes)
-  leave: 0,
-  sick: 0,
-  p_time: "",
-  checkIn: "",
-  requestTo: "",
-  userGroup: "",
+    // ✅ ADD THESE (no other changes)
+    leave: 0,
+    sick: 0,
+    p_time: "",
+    checkIn: "",
+    requestTo: "",
+    userGroup: "",
 
-  salaryAccountNo: "",
-  ifscCode: "",
-  grossSalary: "",
-  basicSalary: "",
-  hra: "",
-  da: "",
-  conveyance: "",
-  others: "",
-  pf: "",
-  esi: "",
-  profTax: "",
-  incomeTax: "",
-  userType: "",
-  doj: "",
-  joiningDate: "",
-  bloodGroup: "",
-  contactNumber: "",
-  pan: "",
-  aadhar: "",
-  esiNo: "",
-  pfNo: "",
-  ReportTO: "",
-  profilePic: "",
-  status: "Active",
-  dayDA: "",
-  hourDA: "",
-});
+    salaryAccountNo: "",
+    ifscCode: "",
+    grossSalary: "",
+    basicSalary: "",
+    hra: "",
+    da: "",
+    conveyance: "",
+    others: "",
+    pf: "",
+    esi: "",
+    profTax: "",
+    incomeTax: "",
+    userType: "",
+    doj: "",
+    joiningDate: "",
+    bloodGroup: "",
+    contactNumber: "",
+    pan: "",
+    aadhar: "",
+    esiNo: "",
+    pfNo: "",
+    ReportTO: "",
+    profilePic: "",
+    status: "Active",
+    dayDA: "",
+    hourDA: "",
+  });
+  const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("themeMode") === "dark",
@@ -204,60 +205,60 @@ const [userData, setUserData] = useState<any>({
     _LocationType: "",
     _Location1: "",
   });
-const getMinutes = (checkIn: any) => {
-  if (!checkIn) return 0;
+  const getMinutes = (checkIn: any) => {
+    if (!checkIn) return 0;
 
-  const start = new Date(checkIn).getTime();
-  const now = new Date().getTime();
+    const start = new Date(checkIn).getTime();
+    const now = new Date().getTime();
 
-  return Math.floor((now - start) / (1000 * 60));
-};
-
-const calculateFromGross = (gross: number) => {
-  const G = Number(gross);
-
-  // 🧮 Earnings
-  const Basic = G * 0.50;
-  const HRA = Basic * 0.40;
-  const DA = Basic * 0.25;
-  const Conveyance = Basic * 0.15;
-
-  const used = Basic + HRA + DA + Conveyance;
-  const OtherAmt = G - used;
-
-  // 📉 PF (FIXED RULE)
-  const PFAmt = G > 15000 ? 3600 : 0;
-
-  // 📉 ESI
-  const ESIAmt = G <= 21000 ? G * 0.0075 : 0;
-
-  // 📉 Professional Tax
-  const PTax =
-    G <= 15000 ? 0 :
-    G <= 20000 ? 150 :
-    200;
-
-  // 📉 Income Tax
-  const ITax = G > 100000 ? G * 0.0212 : 0;
-
-  // 💰 Net Salary
-  const totalDeduction = PFAmt + ESIAmt + PTax + ITax;
-  const NetSal = G - totalDeduction;
-
-  return {
-    Gross: G,
-    Basic,
-    HRA,
-    DA,
-    Conveyance,
-    OtherAmt,
-    PFAmt,
-    ESIAmt,
-    PTax,
-    ITax,
-    NetSal
+    return Math.floor((now - start) / (1000 * 60));
   };
-};
+
+  const calculateFromGross = (gross: number) => {
+    const G = Number(gross);
+
+    // 🧮 Earnings
+    const Basic = G * 0.50;
+    const HRA = Basic * 0.40;
+    const DA = Basic * 0.25;
+    const Conveyance = Basic * 0.15;
+
+    const used = Basic + HRA + DA + Conveyance;
+    const OtherAmt = G - used;
+
+    // 📉 PF (FIXED RULE)
+    const PFAmt = G > 15000 ? 3600 : 0;
+
+    // 📉 ESI
+    const ESIAmt = G <= 21000 ? G * 0.0075 : 0;
+
+    // 📉 Professional Tax
+    const PTax =
+      G <= 15000 ? 0 :
+        G <= 20000 ? 150 :
+          200;
+
+    // 📉 Income Tax
+    const ITax = G > 100000 ? G * 0.0212 : 0;
+
+    // 💰 Net Salary
+    const totalDeduction = PFAmt + ESIAmt + PTax + ITax;
+    const NetSal = G - totalDeduction;
+
+    return {
+      Gross: G,
+      Basic,
+      HRA,
+      DA,
+      Conveyance,
+      OtherAmt,
+      PFAmt,
+      ESIAmt,
+      PTax,
+      ITax,
+      NetSal
+    };
+  };
 
 
 
@@ -290,8 +291,8 @@ const calculateFromGross = (gross: number) => {
       setLoading(false);
     }
   }, []);
-  
-  
+
+
   const loadBaseData = async () => {
     console.group("[EmpProfile] Load Base Data (Depts/Desigs)");
     try {
@@ -346,22 +347,22 @@ const calculateFromGross = (gross: number) => {
 
   }, [statusFilter, isManagementView, showEmployeeSearch]);
   useEffect(() => {
-  if (userData.checkIn) {
-    setFormData(prev => ({
-      ...prev,
-      _CheckIn: userData.checkIn
-    }));
-  }
-}, [userData.checkIn]);
+    if (userData.checkIn) {
+      setFormData(prev => ({
+        ...prev,
+        _CheckIn: userData.checkIn
+      }));
+    }
+  }, [userData.checkIn]);
 
   useEffect(() => {
-  if (userData.p_time) {
-    setFormData(prev => ({
-      ...prev,
-      _P_Time: userData.p_time
-    }));
-  }
-}, [userData.p_time]);
+    if (userData.p_time) {
+      setFormData(prev => ({
+        ...prev,
+        _P_Time: userData.p_time
+      }));
+    }
+  }, [userData.p_time]);
 
   const decodeArrayResponse = (data: any, keys: string[]) => {
     let actualData = data;
@@ -426,9 +427,9 @@ const calculateFromGross = (gross: number) => {
     const rawIsActive = getValue(14, ["_IsActive", "IsActive", "isActive"], "N");
     const normalizedIsActive =
       rawIsActive === "1" ||
-      rawIsActive === "Y" ||
-      rawIsActive === true ||
-      rawIsActive === 1
+        rawIsActive === "Y" ||
+        rawIsActive === true ||
+        rawIsActive === 1
         ? "Y"
         : "N";
     const rowAny = row as any;
@@ -437,11 +438,11 @@ const calculateFromGross = (gross: number) => {
       _Employee_ID:
         getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
           null &&
-        getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
+          getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
           undefined
           ? String(
-              getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], ""),
-            )
+            getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], ""),
+          )
           : "",
       _Ecode: row[1] !== null && row[1] !== undefined ? String(row[1]) : "",
       _Ename: row[2] !== null && row[2] !== undefined ? String(row[2]) : "",
@@ -496,37 +497,37 @@ const calculateFromGross = (gross: number) => {
         row[44] !== null && row[44] !== undefined
           ? normalizeTimeValue(row[44])
           : normalizeTimeValue(
-              rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30",
-            ),
+            rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30",
+          ),
       _P_Time:
         row[49] !== null && row[49] !== undefined
           ? normalizeTimeValue(row[49])
           : normalizeTimeValue(
 
-              rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "09:30",
-            ),
+            rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "09:30",
+          ),
       _dayDA:
         row[47] !== null && row[47] !== undefined
           ? String(row[47])
           : String(
-              rowAny._dayDA ??
-                rowAny.dayDA ??
-                rowAny.DayDA ??
-                rowAny.day_da ??
-                rowAny.day_DA ??
-                "0",
-            ),
+            rowAny._dayDA ??
+            rowAny.dayDA ??
+            rowAny.DayDA ??
+            rowAny.day_da ??
+            rowAny.day_DA ??
+            "0",
+          ),
       _hourDA:
         row[48] !== null && row[48] !== undefined
           ? String(row[48])
           : String(
-              rowAny._hourDA ??
-                rowAny.hourDA ??
-                rowAny.HourDA ??
-                rowAny.hour_da ??
-                rowAny.hour_DA ??
-                "0",
-            ),
+            rowAny._hourDA ??
+            rowAny.hourDA ??
+            rowAny.HourDA ??
+            rowAny.hour_da ??
+            rowAny.hour_DA ??
+            "0",
+          ),
       _RequestTo: getValue(15, ["_RequestTo", "RequestTo", "requestTo"], ""),
       _Project: getValue(50, ["_Project", "Project", "project"], ""),
       _LocationType: getValue(51, ["_LocationType", "LocationType", "locationType"], ""),
@@ -550,8 +551,8 @@ const calculateFromGross = (gross: number) => {
       const row = Array.isArray(data)
         ? data[0]
         : data && Array.isArray(data.data)
-        ? data.data[0]
-        : data;
+          ? data.data[0]
+          : data;
       console.log("Working Raw Row:", row);
       setEmployeeRawRow(row);
       const details = mapGetEmployeeResponse(row);
@@ -592,8 +593,8 @@ const calculateFromGross = (gross: number) => {
         profilePic: row[42] || userData?.profilePic, // Keep current if missing
         status:
           details._IsActive === "N" ||
-          details._IsActive === "0" ||
-          details._IsActive === false
+            details._IsActive === "0" ||
+            details._IsActive === false
             ? "InActive"
             : "Active",
         dayDA: details._dayDA,
@@ -738,18 +739,18 @@ const calculateFromGross = (gross: number) => {
             pendingLeaves: userProfile[21],
             status:
               userProfile[14] === "N" ||
-              userProfile[14] === "0" ||
-              userProfile[14] === false
+                userProfile[14] === "0" ||
+                userProfile[14] === false
                 ? "InActive"
                 : "Active",
-                leave: userProfile[11] || 0,
-sick: userProfile[21] || 0,
-p_time: userProfile[49] || "90",     // keep SAME as you want
-checkIn: userProfile[44] || "09:30",
-requestTo: userProfile[15] || "",
-userGroup: userProfile[9] || "",
-dayDA: userProfile[47] || "0",
-hourDA: userProfile[48] || "0",
+            leave: userProfile[11] || 0,
+            sick: userProfile[21] || 0,
+            p_time: userProfile[49] || "90",     // keep SAME as you want
+            checkIn: userProfile[44] || "09:30",
+            requestTo: userProfile[15] || "",
+            userGroup: userProfile[9] || "",
+            dayDA: userProfile[47] || "0",
+            hourDA: userProfile[48] || "0",
           });
         } else {
           // Object-based mapping
@@ -789,19 +790,19 @@ hourDA: userProfile[48] || "0",
             ReportTO: userProfile.ReportTO,
             status:
               userProfile.IsActive === "N" ||
-              userProfile.IsActive === "0" ||
-              userProfile.IsActive === false ||
-              userProfile.Isactive === "N"
+                userProfile.IsActive === "0" ||
+                userProfile.IsActive === false ||
+                userProfile.Isactive === "N"
                 ? "InActive"
                 : "Active",
-                leave: userProfile.ALLOWED_CL || 0,
-sick: userProfile.ALLOWED_SL || 0,
-p_time: userProfile.P_Time || "90",
-checkIn: userProfile.CheckIn || "09:30",
-requestTo: userProfile.RequestTo || "",
-userGroup: userProfile.UserGroup || "",
-dayDA: userProfile.dayDA || userProfile.DayDA || "0",
-hourDA: userProfile.hourDA || userProfile.HourDA || "0"
+            leave: userProfile.ALLOWED_CL || 0,
+            sick: userProfile.ALLOWED_SL || 0,
+            p_time: userProfile.P_Time || "90",
+            checkIn: userProfile.CheckIn || "09:30",
+            requestTo: userProfile.RequestTo || "",
+            userGroup: userProfile.UserGroup || "",
+            dayDA: userProfile.dayDA || userProfile.DayDA || "0",
+            hourDA: userProfile.hourDA || userProfile.HourDA || "0"
           });
         }
 
@@ -890,7 +891,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       }
       return undefined;
     };
- 
+
 
     const projectValue = getRowValue(employeeRawRow, 50, ["_Project", "Project", "project"]);
     const locationTypeValue = getRowValue(employeeRawRow, 51, ["_LocationType", "LocationType", "locationType"]);
@@ -947,34 +948,34 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       window.location.replace("/login");
     }, 500);
   };
-   const handleInputChange = (e: any) => {
-  const { name, value } = e.target;
+  const handleInputChange = (e: any) => {
+    const { name, value } = e.target;
 
-  setFormData((prev) => {
-    const updated = { ...prev, [name]: value };
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: value };
 
-    // 👉 Only trigger when Gross changes
-    if (name === "_GrossSal") {
-      const gross = parseFloat(value) || 0;
+      // 👉 Only trigger when Gross changes
+      if (name === "_GrossSal") {
+        const gross = parseFloat(value) || 0;
 
-      const calc = calculateFromGross(gross);
+        const calc = calculateFromGross(gross);
 
-      updated._BasicSal = calc.Basic.toFixed(0);
-      updated._HRA = calc.HRA.toFixed(0);
-      updated._DA = calc.DA.toFixed(0);
-      updated._LTA = calc.Conveyance.toFixed(0);
-      updated._ALLOWANCES = calc.OtherAmt.toFixed(0);
+        updated._BasicSal = calc.Basic.toFixed(0);
+        updated._HRA = calc.HRA.toFixed(0);
+        updated._DA = calc.DA.toFixed(0);
+        updated._LTA = calc.Conveyance.toFixed(0);
+        updated._ALLOWANCES = calc.OtherAmt.toFixed(0);
 
-      updated._PF = calc.PFAmt.toFixed(0);
-      updated._Esi = calc.ESIAmt.toFixed(0);
-      updated._Ptax = calc.PTax.toString();
-      updated._Itax = calc.ITax.toFixed(0);
-      updated._NetSal = calc.NetSal.toFixed(0);
-    }
+        updated._PF = calc.PFAmt.toFixed(0);
+        updated._Esi = calc.ESIAmt.toFixed(0);
+        updated._Ptax = calc.PTax.toString();
+        updated._Itax = calc.ITax.toFixed(0);
+        updated._NetSal = calc.NetSal.toFixed(0);
+      }
 
-    return updated;
-  });
-};
+      return updated;
+    });
+  };
   // const handleInputChange = (e: any) => {
   //   const { name, value } = e.target;
   //   setFormData((prev) => ({ ...prev, [name]: value }));
@@ -1025,9 +1026,9 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       } else {
         alert(
           "Registration failed: " +
-            (typeof response === "string"
-              ? response
-              : JSON.stringify(response)),
+          (typeof response === "string"
+            ? response
+            : JSON.stringify(response)),
         );
       }
     } catch (error: any) {
@@ -1086,7 +1087,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
     });
     setShowRegisterModal(true);
   };
-  
+
 
   const openEditModal = () => {
     setIsEditMode(true);
@@ -1267,9 +1268,9 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
       } else {
         alert(
           "Failed to save reporting matrix: " +
-            (typeof response === "string"
-              ? response
-              : JSON.stringify(response)),
+          (typeof response === "string"
+            ? response
+            : JSON.stringify(response)),
         );
       }
     } catch (error: any) {
@@ -1351,7 +1352,7 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
           </div>
           <h2 className="ep-user-name">Welcome, {userData.empName}!</h2>
           <p className="ep-user-designation">
-            {userData.designation} 
+            {userData.designation}
             {/* ({userData.userType}) */}
           </p>
           <div className="ep-profile-status-row">
@@ -1361,28 +1362,69 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
             >
               {userData.status}
             </span>
+            <button
+              className="ep-status-pill active"
+              style={{
+                cursor: "pointer",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                background: "#3880ff", // Light blue (Ionic primary/secondary)
+                color: "#ffffff",
+                padding: "6px 16px",
+                borderRadius: "20px",
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                transform: isNavigating ? "scale(0.9) opacity(0.8)" : "scale(1)",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                filter: isNavigating ? "brightness(0.8)" : "none"
+              }}
+              onMouseEnter={(e) => {
+                if (!isNavigating) {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.background = "#4c8dff";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isNavigating) {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.background = "#3880ff";
+                }
+              }}
+              onClick={() => {
+                setIsNavigating(true);
+                // Simulate 'opening' transition
+                setTimeout(() => {
+                  history.push("/policies");
+                }, 300);
+              }}
+            >
+              <FileText size={14} color="#ffffff" />
+              Policies
+            </button>
           </div>
 
           <div className="ep-header-actions">
             {(loggedInUserType === "Admin" ||
               loggedInUserType === "ACCOUNTANT") && (
-              <>
-                <button
-                  className="ep-action-btn ep-btn-search"
-                  onClick={() => setShowEmployeeSearch(true)}
-                >
-                  <Users color="var(--ion-color-primary)" size={18} />
-                  Find
-                </button>
-                <button
-                  className="ep-action-btn ep-btn-add"
-                  onClick={openAddModal}
-                >
-                  <PlusCircle color="var(--ion-color-primary)" size={18} />
-                  Add
-                </button>
-              </>
-            )}
+                <>
+                  <button
+                    className="ep-action-btn ep-btn-search"
+                    onClick={() => setShowEmployeeSearch(true)}
+                  >
+                    <Users color="var(--ion-color-primary)" size={18} />
+                    Find
+                  </button>
+                  <button
+                    className="ep-action-btn ep-btn-add"
+                    onClick={openAddModal}
+                  >
+                    <PlusCircle color="var(--ion-color-primary)" size={18} />
+                    Add
+                  </button>
+                </>
+              )}
             {!isManagementView && (
               <button
                 className="ep-action-btn ep-btn-logout"
@@ -1548,93 +1590,93 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
               value={userData.ifscCode}
             />
             <InfoItem
-  color="var(--ion-color-primary)"
-  icon={Users}
-  label="Report To"
-  value={userData.ReportTO}
-/>
-<InfoItem
-  color="var(--ion-color-primary)"
-  icon={Text}
-  label="P Time"
- value={String(userData.pTime || "")}
-/>
-<InfoItem
-  color="var(--ion-color-primary)"
-  icon={Clock}
-  label="P Time"
-  value={
-    userData.p_time
-      ? new Date(`1970-01-01T${userData.p_time}`).toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true
-        })
-      : "-"
-  }
-/>
+              color="var(--ion-color-primary)"
+              icon={Users}
+              label="Report To"
+              value={userData.ReportTO}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Text}
+              label="P Time"
+              value={String(userData.pTime || "")}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Clock}
+              label="P Time"
+              value={
+                userData.p_time
+                  ? new Date(`1970-01-01T${userData.p_time}`).toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                  })
+                  : "-"
+              }
+            />
 
-<InfoItem
-  color="var(--ion-color-primary)"
-  icon={Clock}
-  label="Check-In"
-  value={userData.checkIn}
-/>
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Clock}
+              label="Check-In"
+              value={userData.checkIn}
+            />
 
-<InfoItem
-  color="var(--ion-color-primary)"
-  icon={Users}
-  label="User Group"
-  value={userData.userGroup}
-/>
+            <InfoItem
+              color="var(--ion-color-primary)"
+              icon={Users}
+              label="User Group"
+              value={userData.userGroup}
+            />
           </div>
         </div>
-        
-      <div className="ep-card">
-  <h3 className="ep-card-title">
-    <Clock color="var(--ion-color-primary)" size={20} /> Attendance & Access
-  </h3>
 
-  <div className="ep-info-grid">
+        <div className="ep-card">
+          <h3 className="ep-card-title">
+            <Clock color="var(--ion-color-primary)" size={20} /> Attendance & Access
+          </h3>
 
-    <InfoItem
-      icon={Clock}
-      label="P Time"
-      value={userData.p_time}
-    />
+          <div className="ep-info-grid">
 
-    <InfoItem
-      icon={Clock}
-      label="Check In"
-      value={userData.checkIn}
-    />
+            <InfoItem
+              icon={Clock}
+              label="P Time"
+              value={userData.p_time}
+            />
 
-    <InfoItem
-      icon={Users}
-      label="Request To"
-      value={userData.requestTo}
-    />
+            <InfoItem
+              icon={Clock}
+              label="Check In"
+              value={userData.checkIn}
+            />
 
-    <InfoItem
-      icon={ShieldCheck}
-      label="User Group"
-      value={userData.userGroup}
-    />
+            <InfoItem
+              icon={Users}
+              label="Request To"
+              value={userData.requestTo}
+            />
 
-    <InfoItem
-      icon={TrendingUp}
-      label="Day DA"
-      value={userData.dayDA}
-    />
+            <InfoItem
+              icon={ShieldCheck}
+              label="User Group"
+              value={userData.userGroup}
+            />
 
-    <InfoItem
-      icon={TrendingUp}
-      label="Hour DA"
-      value={userData.hourDA}
-    />
+            <InfoItem
+              icon={TrendingUp}
+              label="Day DA"
+              value={userData.dayDA}
+            />
 
-  </div>
-</div>
+            <InfoItem
+              icon={TrendingUp}
+              label="Hour DA"
+              value={userData.hourDA}
+            />
+
+          </div>
+        </div>
         {/* Salary Details */}
         <div className="ep-card">
           <div className="ep-card-header">
@@ -1712,99 +1754,111 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
           </div>
         </div>
         {/* Leave & Attendance Management */}
-<div className="ep-card">
-  <h3 className="ep-card-title">
-    🧾 Leave & Attendance Management
-  </h3>
+        <div className="ep-card">
+          <h3 className="ep-card-title">
+            🧾 Leave & Attendance Management
+          </h3>
 
-  <div className="ep-form-grid">
+          <div className="ep-form-grid">
 
-    {/* Leave */}
-    <div className="ep-input-group">
-      <label>Allowed CL</label>
-      <input
-        type="number"
-        name="_Allowed_CL"
-        value={formData._Allowed_CL}
-        onChange={handleInputChange}
-      />
-    </div>
+            {/* Leave */}
+            <div className="ep-input-group">
+              <label>Allowed CL</label>
+              <input
+                type="number"
+                name="_Allowed_CL"
+                value={formData._Allowed_CL}
+                onChange={handleInputChange}
+              />
+            </div>
 
-    <div className="ep-input-group">
-      <label>Allowed SL</label>
-      <input
-        type="number"
-        name="_Allowed_SL"
-        value={formData._Allowed_SL}
-        onChange={handleInputChange}
-      />
-    </div>
+            <div className="ep-input-group">
+              <label>Allowed SL</label>
+              <input
+                type="number"
+                name="_Allowed_SL"
+                value={formData._Allowed_SL}
+                onChange={handleInputChange}
+              />
+            </div>
 
-    {/* Attendance */}
-    <div className="ep-input-group">
-      <label>P Time</label>
-      <input
-        type="time"
-        name="_P_Time"
-        value={formData._P_Time}
-        onChange={handleInputChange}
-      />
-    </div>
+            {/* Attendance */}
+            <div className="ep-input-group">
+              <label>P Time</label>
+              <input
+                type="time"
+                name="_P_Time"
+                value={formData._P_Time}
+                onChange={handleInputChange}
+              />
+            </div>
 
-    <div className="ep-input-group">
-      <label>Check-In</label>
-      <input
-        type="time"
-        name="_CheckIn"
-        value={formData._CheckIn}
-        onChange={handleInputChange}
-      />
-    </div>
+            <div className="ep-input-group">
+              <label>Check-In</label>
+              <input
+                type="time"
+                name="_CheckIn"
+                value={formData._CheckIn}
+                onChange={handleInputChange}
+              />
+            </div>
 
-    {/* Reporting */}
-    <div className="ep-input-group">
-      <label>Request To</label>
-      <select
-        name="_RequestTo"
-        value={formData._RequestTo}
-        onChange={handleInputChange}
-        className="ep-select"
-      >
-        <option value="">Select</option>
-        {designations.filter(d => d.active).map((d) => (
-          <option key={d.id} value={d.name}>
-            {d.name}
-          </option>
-        ))}
-      </select>
-    </div>
+            {/* Reporting */}
+            <div className="ep-input-group">
+              <label>Request To</label>
+              <select
+                name="_RequestTo"
+                value={formData._RequestTo}
+                onChange={handleInputChange}
+                className="ep-select"
+              >
+                <option value="">Select</option>
+                {designations.filter(d => d.active).map((d) => (
+                  <option key={d.id} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-    {/* Status */}
-    <div className="ep-input-group">
-      <label>Active</label>
-      <select
-        name="_IsActive"
-        value={formData._IsActive}
-        onChange={handleInputChange}
-        className="ep-select"
-      >
-        <option value="Y">Yes</option>
-        <option value="N">No</option>
-      </select>
-    </div>
+            {/* Status */}
+            <div className="ep-input-group">
+              <label>Active</label>
+              <select
+                name="_IsActive"
+                value={formData._IsActive}
+                onChange={handleInputChange}
+                className="ep-select"
+              >
+                <option value="Y">Yes</option>
+                <option value="N">No</option>
+              </select>
+            </div>
 
-    {/* User Group */}
-    <div className="ep-input-group">
-      <label>User Group</label>
-      <input
-        name="_UserGroup"
-        value={formData._UserGroup}
-        onChange={handleInputChange}
-      />
-    </div>
+            <div className="ep-input-group">
+              <label>Policies</label>
+              <div
+                className="ep-select"
+                onClick={() => history.push("/policies")}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <span>View HR Policies</span>
+                <ChevronRight size={18} />
+              </div>
+            </div>
 
-  </div>
-</div>
+            {/* User Group */}
+            <div className="ep-input-group">
+              <label>User Group</label>
+              <input
+                name="_UserGroup"
+                value={formData._UserGroup}
+                onChange={handleInputChange}
+              />
+            </div>
+
+          </div>
+        </div>
       </main>
 
       {/* Employee Selection Search Modal */}
@@ -1954,437 +2008,437 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
                 <h4 className="ep-form-section-title">Personal Details</h4>
                 <div className="ep-form-grid">
 
-  {/* Employee Code */}
-  <div className="ep-input-group">
-    <label>Employee Code*</label>
-    <input
-      name="_Ecode"
-      value={formData._Ecode}
-      onChange={handleInputChange}
-      required
-      disabled={isEditMode}
-    />
-  </div>
+                  {/* Employee Code */}
+                  <div className="ep-input-group">
+                    <label>Employee Code*</label>
+                    <input
+                      name="_Ecode"
+                      value={formData._Ecode}
+                      onChange={handleInputChange}
+                      required
+                      disabled={isEditMode}
+                    />
+                  </div>
 
-  {/* Employee Name */}
-  <div className="ep-input-group">
-    <label>Employee Name*</label>
-    <input
-      name="_Ename"
-      value={formData._Ename}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
+                  {/* Employee Name */}
+                  <div className="ep-input-group">
+                    <label>Employee Name*</label>
+                    <input
+                      name="_Ename"
+                      value={formData._Ename}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
 
-  {/* DOB */}
-  <div className="ep-input-group">
-    <label>DOB*</label>
-    <input
-      type="date"
-      name="_Dob"
-      value={formData._Dob}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
+                  {/* DOB */}
+                  <div className="ep-input-group">
+                    <label>DOB*</label>
+                    <input
+                      type="date"
+                      name="_Dob"
+                      value={formData._Dob}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
 
-  {/* Blood Group */}
-  <div className="ep-input-group">
-    <label>Blood Group*</label>
-    <select
-      name="_Blood"
-      value={formData._Blood}
-      onChange={handleInputChange}
-      required
-    >
-      <option value="">Select</option>
-      <option value="A+">A+</option>
-      <option value="A-">A-</option>
-      <option value="B+">B+</option>
-      <option value="B-">B-</option>
-      <option value="O+">O+</option>
-      <option value="O-">O-</option>
-      <option value="AB+">AB+</option>
-      <option value="AB-">AB-</option>
-    </select>
-  </div>
+                  {/* Blood Group */}
+                  <div className="ep-input-group">
+                    <label>Blood Group*</label>
+                    <select
+                      name="_Blood"
+                      value={formData._Blood}
+                      onChange={handleInputChange}
+                      required
+                    >
+                      <option value="">Select</option>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                    </select>
+                  </div>
 
-  {/* Mobile */}
-  <div className="ep-input-group">
-    <label>Mobile*</label>
-    <input
-      type="tel"
-      name="_Mobile"
-      value={formData._Mobile}
-      onChange={handleInputChange}
-      required
-      maxLength={10}
-    />
-  </div>
+                  {/* Mobile */}
+                  <div className="ep-input-group">
+                    <label>Mobile*</label>
+                    <input
+                      type="tel"
+                      name="_Mobile"
+                      value={formData._Mobile}
+                      onChange={handleInputChange}
+                      required
+                      maxLength={10}
+                    />
+                  </div>
 
-  {/* PAN */}
-  <div className="ep-input-group">
-    <label>PAN*</label>
-    <input
-      name="_PanNo"
-      value={formData._PanNo}
-      onChange={handleInputChange}
-      required
-      maxLength={10}
-      style={{ textTransform: "uppercase" }}
-    />
-  </div>
+                  {/* PAN */}
+                  <div className="ep-input-group">
+                    <label>PAN*</label>
+                    <input
+                      name="_PanNo"
+                      value={formData._PanNo}
+                      onChange={handleInputChange}
+                      required
+                      maxLength={10}
+                      style={{ textTransform: "uppercase" }}
+                    />
+                  </div>
 
-  {/* AADHAR */}
-  <div className="ep-input-group">
-    <label>AADHAR*</label>
-    <input
-      name="_AadharNo"
-      value={formData._AadharNo}
-      onChange={handleInputChange}
-      required
-      maxLength={12}
-    />
-  </div>
+                  {/* AADHAR */}
+                  <div className="ep-input-group">
+                    <label>AADHAR*</label>
+                    <input
+                      name="_AadharNo"
+                      value={formData._AadharNo}
+                      onChange={handleInputChange}
+                      required
+                      maxLength={12}
+                    />
+                  </div>
 
-</div>
+                </div>
 
                 {/* Professional Section */}
-            <h4 className="ep-form-section-title">Professional Details</h4>
-<div className="ep-form-grid">
+                <h4 className="ep-form-section-title">Professional Details</h4>
+                <div className="ep-form-grid">
 
-  {/* DOJ */}
-  <div className="ep-input-group">
-    <label>DOJ*</label>
-    <input
-      type="date"
-      name="_Doj"
-      value={formData._Doj}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
+                  {/* DOJ */}
+                  <div className="ep-input-group">
+                    <label>DOJ*</label>
+                    <input
+                      type="date"
+                      name="_Doj"
+                      value={formData._Doj}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
 
-  {/* Department */}
-  <div className="ep-input-group">
-    <label>Department*</label>
-    <select
-      name="_Dept"
-      value={formData._Dept}
-      onChange={handleInputChange}
-      required
-      className="ep-select"
-    >
-      <option value="">Select Department</option>
-      {departments.map((d) => (
-        <option key={d.id} value={d.name}>
-          {d.name}
-        </option>
-      ))}
-    </select>
-  </div>
+                  {/* Department */}
+                  <div className="ep-input-group">
+                    <label>Department*</label>
+                    <select
+                      name="_Dept"
+                      value={formData._Dept}
+                      onChange={handleInputChange}
+                      required
+                      className="ep-select"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-  {/* Designation */}
-  <div className="ep-input-group">
-    <label>Designation*</label>
-    <select
-      name="_Desig"
-      value={formData._Desig}
-      onChange={handleInputChange}
-      required
-      className="ep-select"
-    >
-      <option value="">Select Designation</option>
-      {designations.map((d) => (
-        <option key={d.id} value={d.name}>
-          {d.name}
-        </option>
-      ))}
-    </select>
-  </div>
+                  {/* Designation */}
+                  <div className="ep-input-group">
+                    <label>Designation*</label>
+                    <select
+                      name="_Desig"
+                      value={formData._Desig}
+                      onChange={handleInputChange}
+                      required
+                      className="ep-select"
+                    >
+                      <option value="">Select Designation</option>
+                      {designations.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-  {/* Official Email */}
-  <div className="ep-input-group">
-    <label>Official E-Mail*</label>
-    <input
-      type="email"
-      name="_Email"
-      value={formData._Email}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
+                  {/* Official Email */}
+                  <div className="ep-input-group">
+                    <label>Official E-Mail*</label>
+                    <input
+                      type="email"
+                      name="_Email"
+                      value={formData._Email}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
 
-  {/* PF No */}
-  <div className="ep-input-group">
-    <label>PF No*</label>
-    <input
-      name="_PFNo"
-      value={formData._PFNo}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
+                  {/* PF No */}
+                  <div className="ep-input-group">
+                    <label>PF No*</label>
+                    <input
+                      name="_PFNo"
+                      value={formData._PFNo}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
 
-  {/* ESI No */}
-  <div className="ep-input-group">
-    <label>ESI No*</label>
-    <input
-      name="_ESINo"
-      value={formData._ESINo}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
-  {/* Request To */}
-<div className="ep-input-group">
-  <label>Request To*</label>
-  <select
-    name="_RequestTo"
-    value={formData._RequestTo}
-    onChange={handleInputChange}
-    required
-    className="ep-select"
-  >
-    <option value="">Select Reporting Authority</option>
-    {designations.filter(d => d.active).map((d) => (
-      <option key={d.id} value={d.name}>
-        {d.name}
-      </option>
-    ))}
-  </select>
-</div>
-  {/* User Group */}
-  <div className="ep-input-group">
-    <label>User Group*</label>
-    <select
-      name="_user"
-      value={formData._user}
-      onChange={handleInputChange}
-      required
-      className="ep-select"
-    >
-      <option value="">Select User Group</option>
-      <option value="Admin">Admin</option>
-      <option value="Accountant">Accountant</option>
-      <option value="Employee">Employee</option>
-    </select>
-  </div>
-  {/* KEEP THESE AS IS 👇 */}
+                  {/* ESI No */}
+                  <div className="ep-input-group">
+                    <label>ESI No*</label>
+                    <input
+                      name="_ESINo"
+                      value={formData._ESINo}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  {/* Request To */}
+                  <div className="ep-input-group">
+                    <label>Request To*</label>
+                    <select
+                      name="_RequestTo"
+                      value={formData._RequestTo}
+                      onChange={handleInputChange}
+                      required
+                      className="ep-select"
+                    >
+                      <option value="">Select Reporting Authority</option>
+                      {designations.filter(d => d.active).map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* User Group */}
+                  <div className="ep-input-group">
+                    <label>User Group*</label>
+                    <select
+                      name="_user"
+                      value={formData._user}
+                      onChange={handleInputChange}
+                      required
+                      className="ep-select"
+                    >
+                      <option value="">Select User Group</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Accountant">Accountant</option>
+                      <option value="Employee">Employee</option>
+                    </select>
+                  </div>
+                  {/* KEEP THESE AS IS 👇 */}
 
-  {/* Active Status */}
-  <div className="ep-input-group">
-    <label>Active Status</label>
-    <select
-      name="_IsActive"
-      value={formData._IsActive}
-      onChange={handleInputChange}
-      className="ep-select"
-    >
-      <option value="Y">Yes (Active)</option>
-      <option value="N">No (InActive)</option>
-    </select>
-  </div>
-  {/* Project */}
-  <div className="ep-input-group">
-    <label>Project</label>
-    <select
-      name="_Project"
-      value={formData._Project}
-      onChange={handleInputChange}
-      className="ep-select"
-    >
-      <option value="">Select Project</option>
-      {projects.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      ))}
-    </select>
-  </div>
+                  {/* Active Status */}
+                  <div className="ep-input-group">
+                    <label>Active Status</label>
+                    <select
+                      name="_IsActive"
+                      value={formData._IsActive}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
+                      <option value="Y">Yes (Active)</option>
+                      <option value="N">No (InActive)</option>
+                    </select>
+                  </div>
+                  {/* Project */}
+                  <div className="ep-input-group">
+                    <label>Project</label>
+                    <select
+                      name="_Project"
+                      value={formData._Project}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
+                      <option value="">Select Project</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-  {/* Location Type */}
-  <div className="ep-input-group">
-    <label>Location Type</label>
-    <select
-      name="_LocationType"
-      value={formData._LocationType}
-      onChange={handleInputChange}
-      className="ep-select"
-    >
-      <option value="">Select Location Type</option>
-      {locationTypes.map((l) => (
-        <option key={l.id} value={l.id}>
-          {l.name}
-        </option>
-      ))}
-    </select>
-  </div>
+                  {/* Location Type */}
+                  <div className="ep-input-group">
+                    <label>Location Type</label>
+                    <select
+                      name="_LocationType"
+                      value={formData._LocationType}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
+                      <option value="">Select Location Type</option>
+                      {locationTypes.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-  {/* Location */}
-  <div className="ep-input-group">
-    <label>Location</label>
-    <select
-      name="_Location1"
-      value={formData._Location1}
-      onChange={handleInputChange}
-      className="ep-select"
-    >
-      <option value="">Select Location</option>
-      {locations.map((l) => (
-        <option key={l.id} value={l.id}>
-          {l.name}
-        </option>
-      ))}
-    </select>
-  </div>
+                  {/* Location */}
+                  <div className="ep-input-group">
+                    <label>Location</label>
+                    <select
+                      name="_Location1"
+                      value={formData._Location1}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
+                      <option value="">Select Location</option>
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-</div>
+                </div>
 
                 {/* Salary Section */}
-               <h4 className="ep-form-section-title">Salary & Leave</h4>
-<div className="ep-form-grid">
+                <h4 className="ep-form-section-title">Salary & Leave</h4>
+                <div className="ep-form-grid">
 
-  {/* Gross Salary (MAIN INPUT) */}
-  <div className="ep-input-group">
-    <label>Gross Salary*</label>
-    <input
-      type="number"
-      name="_GrossSal"
-      value={formData._GrossSal}
-      onChange={handleInputChange}
-      required
-    />
-  </div>
+                  {/* Gross Salary (MAIN INPUT) */}
+                  <div className="ep-input-group">
+                    <label>Gross Salary*</label>
+                    <input
+                      type="number"
+                      name="_GrossSal"
+                      value={formData._GrossSal}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
 
-  {/* Calculated Fields */}
-  <div className="ep-input-group">
-    <label>Basic</label>
-    <input value={formData._BasicSal} readOnly />
-  </div>
+                  {/* Calculated Fields */}
+                  <div className="ep-input-group">
+                    <label>Basic</label>
+                    <input value={formData._BasicSal} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>HRA</label>
-    <input value={formData._HRA} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>HRA</label>
+                    <input value={formData._HRA} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>DA</label>
-    <input value={formData._DA} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>DA</label>
+                    <input value={formData._DA} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>Conveyance</label>
-    <input value={formData._LTA} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>Conveyance</label>
+                    <input value={formData._LTA} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>Others</label>
-    <input value={formData._ALLOWANCES} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>Others</label>
+                    <input value={formData._ALLOWANCES} readOnly />
+                  </div>
 
-  {/* Deductions */}
-  <div className="ep-input-group">
-    <label>PF</label>
-    <input value={formData._PF} readOnly />
-  </div>
+                  {/* Deductions */}
+                  <div className="ep-input-group">
+                    <label>PF</label>
+                    <input value={formData._PF} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>ESI</label>
-    <input value={formData._Esi} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>ESI</label>
+                    <input value={formData._Esi} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>Professional Tax</label>
-    <input value={formData._Ptax} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>Professional Tax</label>
+                    <input value={formData._Ptax} readOnly />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>Income Tax</label>
-    <input value={formData._Itax} readOnly />
-  </div>
+                  <div className="ep-input-group">
+                    <label>Income Tax</label>
+                    <input value={formData._Itax} readOnly />
+                  </div>
 
-  {/* Net Salary */}
-  {/* <div className="ep-input-group">
+                  {/* Net Salary */}
+                  {/* <div className="ep-input-group">
     <label>Net Salary</label>
     <input value={formData._NetSal} readOnly />
   </div> */}
 
-  {/* Leave */}
-  <div className="ep-input-group">
-    <label>Allowed CL</label>
-    <input
-      type="number"
-      name="_Allowed_CL"
-      value={formData._Allowed_CL}
-      onChange={handleInputChange}
-    />
-  </div>
+                  {/* Leave */}
+                  <div className="ep-input-group">
+                    <label>Allowed CL</label>
+                    <input
+                      type="number"
+                      name="_Allowed_CL"
+                      value={formData._Allowed_CL}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>Allowed SL</label>
-    <input
-      type="number"
-      name="_Allowed_SL"
-      value={formData._Allowed_SL}
-      onChange={handleInputChange}
-    />
-  </div>
+                  <div className="ep-input-group">
+                    <label>Allowed SL</label>
+                    <input
+                      type="number"
+                      name="_Allowed_SL"
+                      value={formData._Allowed_SL}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>P Time</label>
-    <input
-      type="number"
-      name="_P_Time"
-      value={formData._P_Time}
-      onChange={handleInputChange}
-    />
-  </div>
+                  <div className="ep-input-group">
+                    <label>P Time</label>
+                    <input
+                      type="number"
+                      name="_P_Time"
+                      value={formData._P_Time}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-  <div className="ep-input-group">
-    <label>Check-In</label>
-    <input
-      type="time"
-      name="_CheckIn"
-      value={formData._CheckIn}
-      onChange={handleInputChange}
-    />
-  </div>
+                  <div className="ep-input-group">
+                    <label>Check-In</label>
+                    <input
+                      type="time"
+                      name="_CheckIn"
+                      value={formData._CheckIn}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-  <div className="ep-input-group">
-  <label>Day DA</label>
-  <input
-    type="number"
-    name="_dayDA"
-    value={formData._dayDA}
-    onChange={handleInputChange}
-  />
-</div>
+                  <div className="ep-input-group">
+                    <label>Day DA</label>
+                    <input
+                      type="number"
+                      name="_dayDA"
+                      value={formData._dayDA}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-<div className="ep-input-group">
-  <label>Hour DA</label>
-  <input
-    type="number"
-    name="_hourDA"
-    value={formData._hourDA}
-    onChange={handleInputChange}
-  />
-</div>
+                  <div className="ep-input-group">
+                    <label>Hour DA</label>
+                    <input
+                      type="number"
+                      name="_hourDA"
+                      value={formData._hourDA}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-{showTeamAllowance && (
-  <div className="ep-input-group">
-    <label>Team Allowance</label>
-    <input
-      type="text"
-      name="_teamAllowance"
-      value={formData._teamAllowance}
-      readOnly
-    />
-  </div>
-)}
+                  {showTeamAllowance && (
+                    <div className="ep-input-group">
+                      <label>Team Allowance</label>
+                      <input
+                        type="text"
+                        name="_teamAllowance"
+                        value={formData._teamAllowance}
+                        readOnly
+                      />
+                    </div>
+                  )}
 
-</div>
+                </div>
 
                 {/* Banking Section */}
                 <h4 className="ep-form-section-title">Banking Details</h4>
@@ -2426,8 +2480,8 @@ hourDA: userProfile.hourDA || userProfile.HourDA || "0"
                       ? "Updating..."
                       : "Registering..."
                     : isEditMode
-                    ? "Update Changes"
-                    : "Register Employee"}
+                      ? "Update Changes"
+                      : "Register Employee"}
                 </button>
                 {isEditMode && (
                   <button

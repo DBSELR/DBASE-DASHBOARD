@@ -258,7 +258,7 @@ ion-item:hover {
   scrollbar-width: thin;
   scrollbar-color: var(--ion-color-primary) transparent;
   transition: all 0.3s ease-in-out;
-  margin-bottom: 100px;
+  margin-bottom: 16px;
 }
 
 /* Custom Scrollbar for Webkit Browsers */
