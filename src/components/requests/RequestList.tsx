@@ -33,98 +33,6 @@ const safeText = (val: any) => {
   return String(val);
 };
 
-// const normalize = (x: any) => {
-//   if (!x) return null;
-
-//   return {
-//     lid: x.lid,
-//     empcode: x.empcode,
-//     Empname: safeText(x.Empname || x.empname),
-
-//     lfrom: safeText(x.lfrom),
-//     lto: safeText(x.lto),
-
-//     // 🔥 KEEP FULL BACKEND STATUS
-//     L_status: safeText(x.L_status),
-
-//     ltype: safeText(x.ltype),
-//     Remarks: safeText(x.Remarks),
-
-//      Priority: x.Priority,
-//     FilePath: x.FilePath,
-//     Amount: x.Amount,
-
-//     RA1_Status: x.RA1_Status,
-//     RA2_Status: x.RA2_Status,
-//     RA3_Status: x.RA3_Status,
-//     RA4_Status: x.RA4_Status,
-
-//     CurrentLevel: x.CurrentLevel,
-//     MaxLevel: x.MaxLevel,
-//     CurrentRA: x.CurrentRA,
-
-//     LeaveCategory: safeText(x.LeaveCategory),
-
-//         RA1: x.RA1,
-//         RA2: x.RA2,
-//         RA3: x.RA3,
-//         RA4: x.RA4,
-
-//          RA1_Comment: x.RA1_Comment,
-//     RA2_Comment: x.RA2_Comment,
-//     RA3_Comment: x.RA3_Comment,
-//     RA4_Comment: x.RA4_Comment,
-//     // RA2_Status: x.RA2_Status,
-//     // RA3_Status: x.RA3_Status,
-//     // RA4_Status: x.RA4_Status,
-//   };
-// };
-
-// const normalize = (x: any) => {
-//   if (!x) return null;
-
-//   return {
-//     // ✅ COMMON
-//     lid: x.lid || x.Id,
-//     empcode: x.empcode || x.EmpCode,
-//     Empname: safeText(x.Empname || x.empname || x.EmpCode),
-
-//     // ✅ EQUIPMENT FIX
-//     Remarks: safeText(x.Remarks || x.Purpose),
-//     Priority: x.Priority,
-//     FilePath: x.FilePath,
-//     Amount: x.Amount,
-
-//     // ✅ DATE
-//     lfrom: safeText(x.lfrom || x.AppliedOn),
-//     lto: safeText(x.lto),
-
-//     // ✅ STATUS FIX
-//     L_status: safeText(x.L_status || x.Status),
-//      LeaveCategory: safeText(x.LeaveCategory),
-
-//     // ✅ APPROVAL
-//     RA1_Status: x.RA1_Status,
-//     RA2_Status: x.RA2_Status,
-//     RA3_Status: x.RA3_Status,
-//     RA4_Status: x.RA4_Status,
-
-//     CurrentLevel: x.CurrentLevel,
-//     MaxLevel: x.MaxLevel,
-//     CurrentRA: x.CurrentRA,
-
-//     RA1: x.RA1,
-//     RA2: x.RA2,
-//     RA3: x.RA3,
-//     RA4: x.RA4,
-
-//     RA1_Comment: x.RA1_Comment,
-//     RA2_Comment: x.RA2_Comment,
-//     RA3_Comment: x.RA3_Comment,
-//     RA4_Comment: x.RA4_Comment,
-//   };
-// };
-
 
 const generateMonthList = () => {
   const months: string[] = [];
@@ -139,35 +47,7 @@ const generateMonthList = () => {
   return months;
 };
 
-// const getRejectionInfo = (item: any) => {
-//   if (item?.L_status?.includes("Rejected")) {
-//     const level = item?.CurrentLevel;
 
-//     const ra =
-//       level === 1
-//         ? "RA1"
-//         : level === 2
-//         ? "RA2"
-//         : level === 3
-//         ? "RA3"
-//         : level === 4
-//         ? "RA4"
-//         : "Unknown";
-
-//     const rejectedBy =
-//       level === 1
-//         ? item.RA1Name
-//         : level === 2
-//         ? item.RA2Name
-//         : level === 3
-//         ? item.RA3Name
-//         : item.RA4Name;
-
-//     return `❌ Rejected at ${ra} `;
-//   }
-
-//   return null;
-// };
 
 const getRejectionInfo = (item: any) => {
   if (!item?.L_status) return null;
@@ -203,6 +83,8 @@ const handleCommentChange = (id: string, value: string) => {
     moment().format("MMM-YYYY")
   );
   const [tripDaysByDuty, setTripDaysByDuty] = useState<{ [key: number]: any[] }>({});
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+const [selectedDuty, setSelectedDuty] = useState<any>(null);
 
   const normalize = (x: any) => {
     if (!x) return null;
@@ -218,29 +100,31 @@ const handleCommentChange = (id: string, value: string) => {
 
     College: x.college,
     Description: x.description,
-   Mode_of_Trans: x.mode_of_Trans || x.mode,
+    Mode_of_Trans: x.mode || x.mode_of_Trans,
     Vehicle_No: x.vehicle_No,
     Location: x.location,
 
     DateFrom: x.dateFrom,
     DateTo: x.dateTo,
 
-    L_status: safeText(x.finalStatus || x.status),
+    // ✅ FIXED
+    L_status: safeText(x.status),
 
-    // 🔥 REQUIRED
-    CurrentLevel: x.CurrentLevel,
-    CurrentRA: x.CurrentRA,
-    MaxLevel: x.MaxLevel,
+    // ✅ FIXED (case correction)
+    CurrentLevel: x.currentLevel,
+    MaxLevel: x.maxLevel,
+    CurrentRA: x.currentRA,
 
-   RA1: x.RA1 || x.rA1,
-RA2: x.RA2 || x.rA2,
-RA3: x.RA3 || x.rA3,
-RA4: x.RA4 || x.rA4,
+    // ✅ FIXED RA mapping
+    RA1: x.rA1,
+    RA2: x.rA2,
+    RA3: x.rA3,
+    RA4: x.rA4,
 
-RA1_Status: x.RA1_Status || x.rA1_Status,
-RA2_Status: x.RA2_Status || x.rA2_Status,
-RA3_Status: x.RA3_Status || x.rA3_Status,
-RA4_Status: x.RA4_Status || x.rA4_Status,
+    RA1_Status: x.rA1_Status,
+    RA2_Status: x.rA2_Status,
+    RA3_Status: x.rA3_Status,
+    RA4_Status: x.rA4_Status,
 
     dayTrips: x.dayTrips || [],
   };
@@ -281,7 +165,7 @@ RA4_Status: x.RA4_Status || x.rA4_Status,
     if (type === "equipment") {
       return {
         lid: x.lid,
-        empcode: x.empcode,
+       empcode: x.empcode || x.EmpCode,
         Empname: safeText(x.Empname),
         Remarks: safeText(x.Remarks),
         Priority: x.Priority,
@@ -319,13 +203,14 @@ RA4_Status: x.RA4_Status || x.rA4_Status,
     Amount: x.Amount,
 
     // ✅ DATE
-    lfrom: safeText(x.lfrom || x.AppliedOn),
+    lfrom: safeText(x.lfrom),
+    ltype: safeText(x.ltype || x.LType),
     lto: safeText(x.lto),
-
+    AppliedOn: safeText(x.AppliedOn),
     // ✅ STATUS FIX
     L_status: safeText(x.L_status || x.Status),
      LeaveCategory: safeText(x.LeaveCategory),
-
+   ptime: safeText(x.ptime),
     // ✅ APPROVAL
     RA1_Status: x.RA1_Status,
     RA2_Status: x.RA2_Status,
@@ -369,81 +254,13 @@ RA4_Status: x.RA4_Status || x.rA4_Status,
     );
   }, [search, data]);
 
-//   const loadTripDays = async (duties: any[]) => {
-//   try {
-//     const res = await axios.get(`${baseUrl}Workreport/GetDutyTripDays`, {
-//       params: { EmpCode: getUser()?.empCode },
-//     });
 
-//     const trips = Array.isArray(res.data) ? res.data : [];
-
-//     const grouped: { [key: number]: any[] } = {};
-
-//     trips.forEach((t: any) => {
-//       if (!grouped[t.Duty_Id]) grouped[t.Duty_Id] = [];
-
-//       grouped[t.Duty_Id].push({
-//         dayTrip_Id: t.DayTrip_ID,
-//         dutyDate: t.Duty_Date,
-//         readingFrom: t.Reading_From,
-//         readingTo: t.Reading_To,
-//         distance: t.Distance,
-//         fuelAmount: t.Fuel_Amount,
-//         fuelImage: t.Fuel_Image,
-//         readingFromImage: t.ReadingFrom_Image,
-//         readingToImage: t.ReadingTo_Image,
-//         visits: t.Visits || [],
-//       });
-//     });
-
-//     setTripDaysByDuty(grouped);
-//   } catch (e) {
-//     console.error(e);
-//   }
-// };
-
-//   const loadData = async () => {
-//     const empCode = getUser()?.empCode;
-//     const leaveType = type === "permission" ? "Permission" : "Leave";
-
-//     setLoading(true);
-
-//     try {
-//       const url =
-//         view === "my"
-//           ? `${baseUrl}Leave/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${leaveType}`
-//           : `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${leaveType}`;
-
-//       const res = await axios.get(url, { headers: getAuthHeaders() });
-
-//       console.log("API:", res.data);
-
-//       const result = (Array.isArray(res.data) ? res.data : [])
-//         .map(normalize)
-//         .filter(Boolean);
-
-//       setData(result);
-//       setFiltered(result);
-//     } catch (e) {
-//       console.error(e);
-//       setData([]);
-//       setFiltered([]);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
 
 
 const loadData = async () => {
   const empCode = getUser()?.empCode;
 
-  // ✅ SET LTYPE PROPERLY
-//   const leaveType =
-//     type === "permission"
-//       ? "Permission"
-//       : type === "leave" || type === "Half Day"
-//       ? "Leave"
-//       : "";
+ 
 const normalizedType = (type || "").toLowerCase().trim();
 
 let leaveType = "";
@@ -461,31 +278,7 @@ else if (
 
   setLoading(true);
 
-//   try {
-//     const url =
-//       view === "my"
-//         ? `${baseUrl}Leave/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`
-//         : `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`;
 
-//     const res = await axios.get(url, { headers: getAuthHeaders() });
-
-//     const raw = Array.isArray(res.data) ? res.data : [];
-
-//     const result = raw.map(normalize).filter(Boolean);
-
-//     // ❌ REMOVE THIS (no need now)
-//     // filtering already handled in backend
-
-//     setData(result);
-//     setFiltered(result);
-
-//   } catch (e) {
-//     console.error(e);
-//     setData([]);
-//     setFiltered([]);
-//   } finally {
-//     setLoading(false);
-//   }
 
 try {
     let url = "";
@@ -534,27 +327,7 @@ try {
     setLoading(false);
   }
 };
-//   const filterByStatus = (item: any) => {
-//   const s = (status || "All").toLowerCase();
 
-//   const raw = (item?.L_status || "").toLowerCase();
-
-//   if (s === "all") return true;
-
-//   if (s === "pending") {
-//     return raw.includes("pending");
-//   }
-
-//   if (s === "accepted") {
-//     return raw.includes("approved") || raw.includes("accepted");
-//   }
-
-//   if (s === "rejected") {
-//     return raw.includes("rejected");
-//   }
-
-//   return true;
-// };
 const filterByStatus = (item: any) => {
   const selected = (status || "all").toLowerCase();
   const raw = (item?.L_status || "").toLowerCase();
@@ -691,16 +464,6 @@ const updateOvertime = async (item: any, status: string) => {
   await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, payload);
   loadData();
 };
-
-//   const getStatusLabel = (item: any) => {
-//     if (item?.L_status === "Rejected") return "Rejected ❌";
-//     if (item?.RA4_Status === "Accepted") return "Approved ✅";
-//     if (item?.RA3_Status === "Accepted") return "Pending at RA4";
-//     if (item?.RA2_Status === "Accepted") return "Pending at RA3";
-//     if (item?.RA1_Status === "Accepted") return "Pending at RA2";
-//     return "Pending at RA1";
-//   };
-
 const getStatusLabel = (item: any) => {
   // 🔥 SHOW EXACT BACKEND VALUE
   return item?.L_status || "";
@@ -729,39 +492,27 @@ const getStatusLabel = (item: any) => {
 
   return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
 };
-//   const canAct = (item: any) => {
-//     const user = safeText(getUser()?.designation).trim().toUpperCase();
-//     const current = safeText(item?.CurrentRA).trim().toUpperCase();
 
-//     if (!item) return false;
-//     if (item.L_status === "Accepted" || item.L_status === "Rejected")
-//       return false;
-
-//     return current === user;
-//   };
+const normalizeText = (val: any) =>
+  safeText(val).toLowerCase().replace(/\s/g, "");
 
 const canAct = (item: any) => {
   if (!item) return false;
 
-  const status = (item.L_status || "").toLowerCase();
+  const status = normalizeText(item.L_status);
 
   // ❌ already completed
-//   if (status.includes("accepted") || status.includes("rejected")) {
-//     return false;
-//   }
+  if (
+    status.includes("approved") ||
+    status.includes("accepted") ||
+    status.includes("rejected")
+  ) {
+    return false;
+  }
 
-if (
-  status.includes("approved") ||
-  status.includes("accepted") ||
-  status.includes("rejected")
-) {
-  return false;
-}
+  const user = normalizeText(getUser()?.designation);
+  const current = normalizeText(item?.CurrentRA);
 
-  const user = safeText(getUser()?.designation).toLowerCase();
-  const current = safeText(item?.CurrentRA).toLowerCase();
-
-  // ✅ ONLY CURRENT APPROVER CAN ACT
   return current === user;
 };
   const cleanDate = (val: any) => {
@@ -775,6 +526,13 @@ if (
   if (str === "{}" || str === "null" || str === "undefined") return "";
 
   return str;
+};
+
+const fmtDate = (val?: string) => {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  return moment(d).format("DD-MM-YYYY");
 };
 
 const formatLeaveCategory = (value: any) => {
@@ -826,11 +584,16 @@ if (type === "onduty" && view === "my") {
   if (type === "onduty") {
     console.log("ONDUTY ITEM:", item);
   }
+  console.log("CHECK:", {
+  user: getUser()?.designation,
+  currentRA: item.CurrentRA,
+  status: item.L_status
+});
 
   return (
     <div key={`${item.lid}-${item.empcode}`} className="premium-card">
 
-              <div className="card-header">
+              {/* <div className="card-header">
                 <div>
                   <b>{item.Empname}</b>
                   <p>ID: {item.empcode}</p>
@@ -839,179 +602,369 @@ if (type === "onduty" && view === "my") {
                 <div className="status-pill">
                   {getStatusLabel(item)}
                 </div>
-              </div>
+              </div> */}
 
               <div className="card-body">
                 {type === "equipment" ? (
-                  <div className="equipment-card">
-                    <div className="row">
-                      <span className="label">👤 Emp Code:</span>
-                      <span>{item.empcode}</span>
-                    </div>
+                    <>
+  <div className="premium-card">
+    <div className="card-accent"></div>
 
-                    <div className="row">
-                      <span className="label">📝 Purpose:</span>
-                      <span>{item.Remarks}</span>
-                    </div>
+    {/* HEADER */}
+    <div className="card-header">
+      <div style={{ flex: 1 }}>
+        <div>
+          {/* <span className="college-name">{item.empcode}</span> */}
+{/* PURPOSE */}
+        <span>PURPOSE : {item.Remarks}</span>
+          <span
+            className={`badge-pill pill-${(item.L_status || "")
+              .toLowerCase()
+              .replace(/\s/g, "")}`}
+          >
+            {item.L_status}
+          </span>
+        </div>
 
-                    <div className="row">
-                      <span className="label">⚡ Priority:</span>
-                      <span className={`priority ${item.Priority?.toLowerCase()}`}>
-                        {item.Priority}
-                      </span>
-                    </div>
-
-                    <div className="row">
-                      <span className="label">📅 Applied On:</span>
-                      <span>{cleanDate(item.lfrom)}</span>
-                    </div>
-
-                    {item.FilePath && (
-                      <div className="row">
-                        <span className="label">📎 File:</span>
-                        <a href={item.FilePath} target="_blank" rel="noopener noreferrer" download>
-                          📥 Download File
-                        </a>
-                      </div>
-                    )}
-
-                    {item.Amount && (
-                      <div className="row">
-                        <span className="label">💰 Amount:</span>
-                        <span>₹{item.Amount}</span>
-                      </div>
-                    )}
-
-                    {item.RA1_Comment && <p>🗨 RA1: {item.RA1_Comment}</p>}
-                    {item.RA2_Comment && <p>🗨 RA2: {item.RA2_Comment}</p>}
-                    {item.RA3_Comment && <p>🗨 RA3: {item.RA3_Comment}</p>}
-                    {item.RA4_Comment && <p>🗨 RA4: {item.RA4_Comment}</p>}
-                  </div>
-                ) : type === "overtime" ? (
-                  <div className="equipment-card">
-                    <div className="row">
-                      <span className="label">👤 Emp:</span>
-                      <span>{item.Empname}</span>
-                    </div>
-
-                    <div className="row">
-                      <span className="label">📅 Date:</span>
-                      <span>{item.lfrom}</span>
-                    </div>
-
-                    <div className="row">
-                      <span className="label">⏰ Time:</span>
-                      <span>{item.Fromtime} - {item.Totime}</span>
-                    </div>
-
-                    <div className="row">
-                      <span className="label">🕒 Duration:</span>
-                      <span>{item.MinDiff} mins</span>
-                    </div>
-
-                    <div className="row">
-                      <span className="label">📝 Work:</span>
-                      <span>{item.Remarks}</span>
-                    </div>
-                  </div>
-                ) : type === "onduty" ? (
-                  <>
-                    <div className="history-section-title">On Duty Logs</div>
-                    <div className="row">
-                      <span className="label">🏫 {item.College}</span>
-                      <span className={`status-pill ${item.L_status?.toLowerCase()}`}>
-                        {item.L_status}
-                      </span>
-                    </div>
-                    <p>{item.Description}</p>
-                    <div className="grid-4">
-                      <div>
-                        <b>Transport</b>
-                        <p>
-                          {item.Mode_of_Trans}
-                          {item.Vehicle_No && ` • ${item.Vehicle_No}`}
-                        </p>
-                      </div>
-                      <div>
-                        <b>Timeline</b>
-                        <p>
-                          {cleanDate(item.DateFrom)} → {cleanDate(item.DateTo)}
-                        </p>
-                      </div>
-                      <div>
-                        <b>Location</b>
-                        <p>{item.Location}</p>
-                      </div>
-                    </div>
-                   {(item.dayTrips || []).map((trip: any, index: number) => (
-  <div key={trip.dayTrip_Id || index} className="trip-card">
-
-    <div className="trip-header">
-      <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
-    </div>
-
-    <div className="trip-body">
-      <p>
-        <b>Reading:</b> {trip.readingFrom} → {trip.readingTo} ({trip.distance} Km)
-      </p>
-
-      {trip.fuelAmount && (
-        <p>
-          <b>Fuel:</b> ₹{trip.fuelAmount}
-        </p>
-      )}
-    </div>
-
-    {(trip.visits || []).map((visit: any, vIndex: number) => (
-      <div key={vIndex} className="visit-card">
-
-        <p><b>Client:</b> {visit.client_Name}</p>
-
-        <p>
-          <b>Location:</b>{" "}
-          {visit.latitude && visit.longitude ? (
-            <span
-              style={{ color: "blue", cursor: "pointer" }}
-              onClick={() =>
-                window.open(
-                  `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
-                )
-              }
-            >
-              View Map
-            </span>
-          ) : (
-            visit.location
-          )}
-        </p>
-
-        <p>
-          <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
-        </p>
-
-        <p>
-          <b>Contact:</b> {visit.contact_Person} ({visit.mobile_Number})
-        </p>
-
-        <p>
-          <b>Remarks:</b> {visit.remarks}
-        </p>
-
+        
       </div>
-    ))}
+    </div>
+
+    {/* GRID SECTION */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          window.innerWidth <= 768
+            ? "1fr"
+            : "repeat(4, minmax(0, 1fr))",
+        gap: "14px",
+        marginTop: "14px",
+      }}
+    >
+      {/* PRIORITY */}
+      <div className="footer-item">
+        <span className="item-label">Priority</span>
+        <span
+          className={`item-value priority ${item.Priority?.toLowerCase()}`}
+        >
+          {item.Priority}
+        </span>
+      </div>
+
+      {/* DATE */}
+      <div className="footer-item">
+        <span className="item-label">Applied On</span>
+        <span className="item-value">
+          {cleanDate(item.lfrom)}
+        </span>
+      </div>
+
+      {/* AMOUNT */}
+      <div className="footer-item">
+        <span className="item-label">Amount</span>
+        <span className="item-value">
+          {item.Amount ? `₹ ${item.Amount}` : "-"}
+        </span>
+      </div>
+
+      {/* FILE */}
+      <div
+        className="footer-item"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems:
+            window.innerWidth <= 768 ? "flex-start" : "center",
+        }}
+      >
+        <span className="item-label">File</span>
+
+        {item.FilePath ? (
+          <a
+            href={item.FilePath}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#2563eb",
+              textDecoration: "underline",
+              fontWeight: 600,
+              fontSize: "13px",
+            }}
+          >
+            📥 Download
+          </a>
+        ) : (
+          <span className="item-value">-</span>
+        )}
+      </div>
+    </div>
+
+    {/* COMMENTS SECTION */}
+    {(item.RA1_Comment ||
+      item.RA2_Comment ||
+      item.RA3_Comment ||
+      item.RA4_Comment) && (
+      <div style={{ marginTop: "14px" }}>
+        <b>Comments</b>
+
+        {item.RA1_Comment && <p>🗨 {item.RA1}: {item.RA1_Comment}</p>}
+        {item.RA2_Comment && <p>🗨 {item.RA2}: {item.RA2_Comment}</p>}
+        {item.RA3_Comment && <p>🗨 {item.RA3}: {item.RA3_Comment}</p>}
+        {item.RA4_Comment && <p>🗨 {item.RA4}: {item.RA4_Comment}</p>}
+      </div>
+    )}
   </div>
-))}
-                  </>
+</>
+                ) : type === "overtime" ? (
+                    <>
+  <div className="premium-card">
+    <div className="card-accent"></div>
+
+    {/* HEADER */}
+    <div className="card-header">
+      <div style={{ flex: 1 }}>
+        <div>
+          <span className="college-name">{item.Empname}</span>
+
+          <span
+            className={`badge-pill pill-${(item.L_status || "")
+              .toLowerCase()
+              .replace(/\s/g, "")}`}
+          >
+            {item.L_status}
+          </span>
+        </div>
+
+        <span>Work : {item.Remarks}</span>
+      </div>
+    </div>
+
+    {/* GRID */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          window.innerWidth <= 768
+            ? "1fr"
+            : "repeat(4, minmax(0, 1fr))",
+        gap: "14px",
+        marginTop: "14px",
+      }}
+    >
+      {/* EMP */}
+      {/* <div className="footer-item">
+        <span className="item-label">Employee</span>
+        <span className="item-value">{item.Empname}</span>
+      </div> */}
+
+      {/* DATE */}
+      <div className="footer-item">
+        <span className="item-label">Date</span>
+        <span className="item-value">{item.lfrom}</span>
+      </div>
+
+      {/* TIME */}
+      <div className="footer-item">
+        <span className="item-label">Time</span>
+        <span className="item-value">
+          {item.Fromtime} → {item.Totime}
+        </span>
+      </div>
+
+      {/* DURATION */}
+      <div className="footer-item">
+        <span className="item-label">Duration</span>
+        <span className="item-value">
+          {item.MinDiff} mins
+        </span>
+      </div>
+    </div>
+  </div>
+</>
+               
+                ) : type === "onduty" ? (
+
+<>
+  <div className="history-section-title">On Duty Logs</div>
+
+  <div className="premium-card">
+    <div className="card-accent"></div>
+
+    {/* HEADER */}
+    <div className="card-header">
+      <div style={{ flex: 1 }}>
+        <div>
+          <span className="college-name">{item.College}</span>
+
+          <span
+            className={`badge-pill pill-${(item.L_status || "")
+              .toLowerCase()
+              .replace(/\s/g, "")}`}
+          >
+            {item.L_status}
+          </span>
+        </div>
+
+        <span>{item.Description}</span>
+      </div>
+    </div>
+
+    {/* GRID SECTION */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          window.innerWidth <= 768
+            ? "1fr"
+            : "repeat(4, minmax(0, 1fr))",
+        gap: "14px",
+        marginTop: "14px",
+      }}
+    >
+      {/* TRANSPORT */}
+      <div className="footer-item">
+        <span className="item-label">Transport</span>
+        <span className="item-value">
+          {item.Mode_of_Trans}
+          {item.Vehicle_No && (
+            <span style={{ color: "#64748b" }}>
+              {" "}
+              • {item.Vehicle_No}
+            </span>
+          )}
+        </span>
+      </div>
+
+      {/* TIMELINE */}
+      <div className="footer-item">
+        <span className="item-label">Timeline</span>
+        <span className="item-value">
+          {fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}
+        </span>
+      </div>
+
+      {/* LOCATION */}
+      <div className="footer-item">
+        <span className="item-label">Location</span>
+        <span className="item-value">{item.Location}</span>
+      </div>
+
+    <a
+  href="#"
+  onClick={(e) => {
+    e.preventDefault();
+    setSelectedDuty(item);
+    setViewModalOpen(true);
+  }}
+  style={{
+    color: "#2563eb",
+    textDecoration: "underline",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: "13px",
+  }}
+>
+  👁 View
+</a>
+    </div>
+  </div>
+</>
                 ) : (
+                    
                   <>
-                    <p>
+
+                  <div className="history-section-title">Leave Details</div>
+
+  <div className="premium-card">
+    <div className="card-accent"></div>
+
+    {/* HEADER */}
+    <div className="card-header">
+      <div style={{ flex: 1 }}>
+        <div>
+          <span className="college-name">{item.Remarks}</span>
+
+          {/* <span
+            className={`badge-pill pill-${(item.L_status || "")
+              .toLowerCase()
+              .replace(/\s/g, "")}`}
+          >
+            {item.L_status}
+          </span> */}
+        </div>
+
+       
+      </div>
+    </div>
+
+    {/* GRID SECTION */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          window.innerWidth <= 768
+            ? "1fr"
+            : "repeat(4, minmax(0, 1fr))",
+        gap: "14px",
+        marginTop: "14px",
+      }}
+    >
+      {/* LeaveCategory */}
+      <div className="footer-item">
+        <span className="item-label">Category</span>
+        <span className="item-value">
+         {item.LeaveCategory}
+          {/* {item.Vehicle_No && (
+            <span style={{ color: "#64748b" }}>
+              {" "}
+              • {item.LeaveCategory}
+            </span>
+          )} */}
+        </span>
+      </div>
+       {/* Apply Date */}
+      <div className="footer-item">
+        <span className="item-label">Applied On</span>
+        <span className="item-value"> {item.AppliedOn}</span>
+      </div>
+
+     {item?.ltype?.toLowerCase() === "permission" ? (
+  <div className="footer-item">
+    <span className="item-label">Permission Time</span>
+    <span className="item-value">
+      {cleanDate(item.lfrom)} {item.ptime ? `(${item.ptime})` : ""}
+    </span>
+  </div>
+) : (
+  <div className="footer-item">
+    <span className="item-label">Leave Dates</span>
+    <span className="item-value">
+      {cleanDate(item.lfrom)}
+      {cleanDate(item.lto) &&
+      cleanDate(item.lto) !== cleanDate(item.lfrom)
+        ? ` - ${cleanDate(item.lto)}`
+        : ""}
+    </span>
+  </div>
+)}
+
+      {/* STATUS */}
+      <div className="footer-item">
+        <span className="item-label">Status</span>
+        <span className="item-value"> {item.L_status}</span>
+      </div>
+    </div>
+  </div>
+                    {/* <p>
                       📅 {cleanDate(item.lfrom)}
                       {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom)
                         ? ` - ${cleanDate(item.lto)}`
                         : ""}
                     </p>
                     <p>💬 {item.Remarks}</p>
-                    <p>🏷 Category: {formatLeaveCategory(item.LeaveCategory)}</p>
+                    <p>🏷 Category: {formatLeaveCategory(item.LeaveCategory)}</p> */}
                   </>
                 )}
 
@@ -1027,16 +980,6 @@ if (type === "onduty" && view === "my") {
                   </p>
                 )}
               </div>
-
-              <div className="timeline">
-                <div className={item.RA1_Status === "Accepted" ? "done" : ""}>RA1</div>
-                <div className={item.RA2_Status === "Accepted" ? "done" : ""}>RA2</div>
-                <div className={item.RA3_Status === "Accepted" ? "done" : ""}>RA3</div>
-                <div className={item.RA4_Status === "Accepted" ? "done" : ""}>FINAL</div>
-              </div>
-
-              {/* 🔥 STRICT APPROVAL CONTROL: Only show buttons for team view AND current approver */}
-            {/* ✅ APPROVAL SECTION WITH COMMENTS + AMOUNT */}
 {view !== "my" && canAct(item) && (
   <div className="card-actions">
 {type === "onduty" ? (
@@ -1105,6 +1048,84 @@ if (type === "onduty" && view === "my") {
           );
         })}
 
+{viewModalOpen && selectedDuty && (
+  <div className="modal-overlay">
+    <div className="modal-container">
+
+      {/* HEADER */}
+      <div className="modal-header">
+        <h3>On Duty Details</h3>
+        <button onClick={() => setViewModalOpen(false)}>✖</button>
+      </div>
+
+      {/* BODY */}
+      <div className="modal-body">
+
+        {(selectedDuty.dayTrips || []).length === 0 && (
+          <p>No trip data available</p>
+        )}
+
+        {(selectedDuty.dayTrips || []).map((trip: any, index: number) => (
+          <div key={trip.dayTrip_Id || index} className="trip-card">
+
+            <div className="trip-header">
+              <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
+            </div>
+
+            <div className="trip-body">
+              <p>
+                <b>Reading:</b> {trip.readingFrom} → {trip.readingTo} ({trip.distance} Km)
+              </p>
+
+              {trip.fuelAmount && (
+                <p><b>Fuel:</b> ₹{trip.fuelAmount}</p>
+              )}
+            </div>
+
+            {(trip.visits || []).map((visit: any, vIndex: number) => (
+              <div key={vIndex} className="visit-card">
+
+                <p><b>Client:</b> {visit.client_Name}</p>
+
+                <p>
+                  <b>Location:</b>{" "}
+                  {visit.latitude && visit.longitude ? (
+                    <span
+                      style={{ color: "blue", cursor: "pointer" }}
+                      onClick={() =>
+                        window.open(
+                          `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
+                        )
+                      }
+                    >
+                      View Map
+                    </span>
+                  ) : (
+                    visit.location
+                  )}
+                </p>
+
+                <p>
+                  <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
+                </p>
+
+                <p>
+                  <b>Contact:</b> {visit.contact_Person} ({visit.mobile_Number})
+                </p>
+
+                <p>
+                  <b>Remarks:</b> {visit.remarks}
+                </p>
+
+              </div>
+            ))}
+          </div>
+        ))}
+
+      </div>
+    </div>
+  </div>
+)}
       {!loading && finalData.length === 0 && <p>No data found</p>}
     </div>
   );
