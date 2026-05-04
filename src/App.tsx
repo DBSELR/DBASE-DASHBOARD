@@ -50,9 +50,10 @@ import TicketData from "./pages/Tickets/components/TicketData";
 import OverTime from "./pages/OverTime";
 import RequestsPage from "./pages/RequestsPage";
 import Policies from "./pages/Policies";
-
-// Additional Pages Based on API Data
-
+import AIAttendanceAdminDashboard from "./pages/AIAttendance/AIAttendanceAdminDashboard";
+import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
+import AIAttendanceReports from "./pages/AIAttendance/AIAttendanceReports";
+import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
 
 setupIonicReact();
 
@@ -97,33 +98,15 @@ const App: React.FC = () => {
             <IonSplitPane contentId="main">
               <Menu />
               <IonRouterOutlet id="main">
-                {/* <IonHeader>
-                  <IonToolbar>
-                    <IonButtons slot="start">
-                      <IonMenuButton />
-                    </IonButtons>
-                    <IonTitle>DBase Dashboard</IonTitle>
-                    <IonButtons slot="end">
-                      <IonButton onClick={() => handleThemeChange("blue")}>🔵</IonButton>
-                      <IonButton onClick={() => handleThemeChange("orange")}>🟠</IonButton>
-                      <IonButton onClick={() => handleThemeChange("green")}>🟢</IonButton>
-                      <IonButton onClick={() => handleThemeChange("violet")}>🟣</IonButton>
-                      <IonToggle checked={isDarkMode} onIonChange={handleDarkModeToggle}>
-                        🌙
-                      </IonToggle>
-                    </IonButtons>
-                  </IonToolbar>
-                </IonHeader> */}
-
                 <Switch>
-                  <Route exact path="/home" component={Home} /> {/* Dashboard */}
-                  <Route exact path="/eprofile" component={EmpProfile} /> {/* Profile Dashboard */}
+                  <Route exact path="/home" component={Home} />
+                  <Route exact path="/eprofile" component={EmpProfile} />
                   <Route exact path="/timings" component={Timings} />
-                  <Route exact path="/adminrequests" component={AdminRequests} /> {/* LeaveAndPermission admin*/}
-                  <Route exact path="/leaverequest" component={LeaveRequest} /> {/* LeaveAndPermission  user*/}
+                  <Route exact path="/adminrequests" component={AdminRequests} />
+                  <Route exact path="/leaverequest" component={LeaveRequest} />
                   <Route exact path="/transactions/0" component={Transactions} />
-                  <Route exact path="/adminworkreport" component={AdminWorkReport} /> {/* SubmitWorkReport admin */}
-                  <Route exact path="/workreport" component={WorkReports} /> {/* SubmitWorkReport user */}
+                  <Route exact path="/adminworkreport" component={AdminWorkReport} />
+                  <Route exact path="/workreport" component={WorkReports} />
                   <Route exact path="/invoices" component={Invoices} />
                   <Route exact path="/sources" component={Sources} />
                   <Route exact path="/tickets" component={Tickets} />
@@ -131,28 +114,22 @@ const App: React.FC = () => {
                   <Route exact path="/equipment" component={Equipment} />
                   <Route exact path="/salaries" component={Salaries} />
                   <Route exact path="/duties" component={OnDuties} />
-
                   <Route exact path="/tasks" component={Tasks} />
                   <Route exact path="/clientdetails" component={ClientDetails} />
                   <Route exact path="/camera" component={CameraPage} />
                   <Route exact path="/dashboard" component={TicketsDashboard} />
                   <Route exact path="/policies" component={Policies} />
                   <Route exact path="/polices" component={Policies} />
-
                   <Route path="/tickets" exact component={Tickets} />
                   <Route path="/tickets/raisedticket" exact component={RaiseTicket} />
                   <Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />
-
                   <Route path="/tickets/ticketdata" exact component={TicketData} />
                   <Route exact path="/OverTime" component={OverTime} />
                   <Route path="/requests" component={RequestsPage} exact />
-
-
-                  {/* chat  */}
-
-
-
-
+                  <Route exact path="/ai-attendance-admin-dashboard" component={AIAttendanceAdminDashboard} />
+                  <Route exact path="/ai-attendance-register" component={AIAttendanceRegister} />
+                  <Route exact path="/ai-attendance-reports" component={AIAttendanceReports} />
+                  <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>

@@ -1,0 +1,20 @@
+# === Python Backend Stack ===
+Flask
+Flask-Cors
+Flask-Mail
+PyJWT
+numpy
+opencv-python
+ultralytics
+keras-facenet
+tensorflow
+
+# === Frontend Tech Stack (Node/NPM) ===
+react
+react-dom
+react-router
+@ionic/react
+@capacitor/core
+vite
+animate.css
+ionicons

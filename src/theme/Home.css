@@ -295,6 +295,16 @@
   color: #fff;
 }
 
+.home-card-ai-attendance .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: #fff;
+}
+
+.home-card-view-reports .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  color: #fff;
+}
+
 /* Responsive Adjustments */
 @media (min-width: 480px) {
   .home-grid {

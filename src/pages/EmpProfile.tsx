@@ -1403,6 +1403,46 @@ const EmpProfile: React.FC = () => {
               <FileText size={14} color="#ffffff" />
               Policies
             </button>
+            <button
+              className="ep-status-pill active"
+              style={{
+                cursor: "pointer",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                background: "#10b981",
+                color: "#ffffff",
+                padding: "6px 16px",
+                borderRadius: "20px",
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                transform: isNavigating ? "scale(0.9) opacity(0.8)" : "scale(1)",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                filter: isNavigating ? "brightness(0.8)" : "none"
+              }}
+              onMouseEnter={(e) => {
+                if (!isNavigating) {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.background = "#34d399";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isNavigating) {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.background = "#10b981";
+                }
+              }}
+              onClick={() => {
+                setIsNavigating(true);
+                setTimeout(() => {
+                  history.push("/ai-attendance-register");
+                }, 300);
+              }}
+            >
+              <Camera size={14} color="#ffffff" />
+              Face Enrollement
+            </button>
           </div>
 
           <div className="ep-header-actions">

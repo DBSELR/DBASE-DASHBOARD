@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   MapPin,
   X,
-  Scan
+  Scan,
+  UserCheck
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
 import axios from "axios";
@@ -101,6 +102,8 @@ const Home: React.FC = () => {
     { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },
     { id: "maintenance", label: "Maintenance", icon: "https://cdn.lordicon.com/qawxkplz.json", path: null, colorClass: "home-card-maintenance" },
     { id: "scanner", label: "Scanner", icon: <Scan size={32} color="#ffffff" />, path: "/camera", colorClass: "home-card-scanner", isLucide: true },
+    { id: "ai-attendance", label: "AI Attendance", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-scanner", colorClass: "home-card-ai-attendance", isLucide: true },
+    { id: "view-reports", label: "View Reports", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-reports", colorClass: "home-card-view-reports", isLucide: true },
   ];
 
   return (
