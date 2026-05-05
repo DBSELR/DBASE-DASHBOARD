@@ -210,6 +210,7 @@ const [selectedDuty, setSelectedDuty] = useState<any>(null);
     // ✅ STATUS FIX
     L_status: safeText(x.L_status || x.Status),
      LeaveCategory: safeText(x.LeaveCategory),
+     Leavemode: safeText(x.Leavemode),
    ptime: safeText(x.ptime),
     // ✅ APPROVAL
     RA1_Status: x.RA1_Status,
@@ -884,7 +885,13 @@ if (type === "onduty" && view === "my") {
     <div className="card-header">
       <div style={{ flex: 1 }}>
         <div>
-          <span className="college-name">{item.Remarks}</span>
+          <span className="college-name"
+           
+          >
+            {item.empcode} 
+          </span>
+         <span className="college-name">: {item.Empname}</span>
+         
 
           {/* <span
             className={`badge-pill pill-${(item.L_status || "")
@@ -895,7 +902,7 @@ if (type === "onduty" && view === "my") {
           </span> */}
         </div>
 
-       
+        <span className="college-name">Purpose: {item.Remarks}</span>
       </div>
     </div>
 
@@ -915,7 +922,14 @@ if (type === "onduty" && view === "my") {
       <div className="footer-item">
         <span className="item-label">Category</span>
         <span className="item-value">
-         {item.LeaveCategory}
+          {item.Leavemode}
+          {item.Leavemode && (
+            <span style={{ color: "#64748b" }}>
+              {" ("}
+               {item.LeaveCategory}{")"}
+            </span>
+          )}
+         {/* {item.LeaveCategory} */}
           {/* {item.Vehicle_No && (
             <span style={{ color: "#64748b" }}>
               {" "}
