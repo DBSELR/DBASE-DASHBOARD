@@ -767,4 +767,95 @@
   color: #fff;
 }
  
+.employee-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.employee-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.employee-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  background: linear-gradient(
+    135deg,
+    #eef2ff 0%,
+    #f8fafc 100%
+  );
+
+  border: 1px solid #c7d2fe;
+
+  border-radius: 16px;
+
+  padding: 10px 14px;
+
+  min-width: 220px;
+
+  transition: 0.2s ease;
+}
+
+.employee-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.15);
+}
+
+.employee-avatar {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 50%;
+
+  background: linear-gradient(
+    135deg,
+    #4f46e5,
+    #6366f1
+  );
+
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-weight: 700;
+  font-size: 14px;
+
+  flex-shrink: 0;
+}
+
+.employee-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.employee-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+
+  text-transform: capitalize;
+}
+
+.employee-code {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .employee-chip {
+    width: 100%;
+    min-width: unset;
+  }
+}
  

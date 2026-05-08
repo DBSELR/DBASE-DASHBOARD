@@ -1,6 +1,7 @@
 // src/pages/Equipment.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
+  IonIcon,
   IonPage,
   IonContent,
   IonSelect,
@@ -28,9 +29,11 @@ import {
   Search,
   CheckCircle,
 } from "lucide-react";
+import { clipboardOutline, pricetagOutline, documentTextOutline, timeOutline, personOutline } from "ionicons/icons";
 import moment from "moment";
 import { API_BASE } from "../config";
 import "./Equipment.css";
+import "../components/requests/RequestList.css";
 
 type StockOption = { code: string; name: string };
 
@@ -381,87 +384,94 @@ const Equipment: React.FC = () => {
 
           <div className="equip-main-grid">
             {activeSection === "submit" && (
-              <div className="equip-card">
-                <div className="equip-section-title">
-                  <ClipboardCheck size={22} />
-                  Raise New Request
-                </div>
+              <div style={{ width: "100%", padding: "0 10px" }}>
+                <div className="lr-bento-grid" style={{ marginBottom: "16px" }}>
 
-                <div className="equip-input-group">
-                  <label className="equip-label">Request Type</label>
-                  <div className="equip-input-wrapper">
-                    <IonSelect
-                      className="equip-select-custom"
-                      value={stockType}
-                      placeholder="Choose Type"
-                      onIonChange={(e) => {
-                        setStockType(e.detail.value);
-                        if (e.detail.value === "New Item") {
-                          setStockCode("");
-                          setUsageDays("");
-                        }
-                      }}
-                    >
-                      <IonSelectOption value="Repair">Repair</IonSelectOption>
-                      <IonSelectOption value="Replacement">Replacement</IonSelectOption>
-                      <IonSelectOption value="New Item">New Item</IonSelectOption>
-                    </IonSelect>
-                  </div>
-                </div>
-
-                {stockType && stockType !== "New Item" && (
-                  <div className="equip-input-group">
-                    <label className="equip-label">Select Equipment</label>
-                    <div className="equip-input-wrapper">
+                  <div className="lr-field-box">
+                    <label className="lr-field-label">Request Type</label>
+                    <div className="lr-field-content">
+                      <IonIcon icon={clipboardOutline} className="lr-field-icon" />
                       <IonSelect
-                        className="equip-select-custom"
-                        value={stockCode}
-                        placeholder="Choose Stock"
-                        onIonChange={(e) => setStockCode(e.detail.value)}
+                        className="lr-popover-select"
+                        interface="popover"
+                        value={stockType}
+                        placeholder="Choose Type"
+                        onIonChange={(e) => {
+                          setStockType(e.detail.value);
+                          if (e.detail.value === "New Item") {
+                            setStockCode("");
+                            setUsageDays("");
+                          }
+                        }}
                       >
-                        {stockList.map(s => (
-                          <IonSelectOption key={s.code} value={s.code}>{s.name}</IonSelectOption>
-                        ))}
+                        <IonSelectOption value="Repair">Repair</IonSelectOption>
+                        <IonSelectOption value="Replacement">Replacement</IonSelectOption>
+                        <IonSelectOption value="New Item">New Item</IonSelectOption>
                       </IonSelect>
                     </div>
                   </div>
-                )}
 
-                {stockType && (
-                  <div className="equip-input-group">
-                    <label className="equip-label">
-                      {stockType === "New Item" ? "Equipment Name" : "Reason / Purpose"}
-                    </label>
-                    <textarea
-                      className="equip-textarea"
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      placeholder={stockType === "New Item" ? "What do you need?" : "Why do you need this?"}
-                      rows={4}
-                    />
-                  </div>
-                )}
-
-                {stockType && stockType !== "New Item" && (
-                  <div className="equip-input-group">
-                    <label className="equip-label">Current Usage Days</label>
-                    <div className="equip-input-wrapper">
-                      <input
-                        type="text"
-                        disabled
-                        value={usageDays}
-                        style={{ background: 'transparent', border: 'none', width: '100%', padding: '10px 0', fontWeight: 'bold' }}
-                      />
+                  {stockType && stockType !== "New Item" && (
+                    <div className="lr-field-box">
+                      <label className="lr-field-label">Select Equipment</label>
+                      <div className="lr-field-content">
+                        <IonIcon icon={pricetagOutline} className="lr-field-icon" />
+                        <IonSelect
+                          className="lr-popover-select"
+                          interface="popover"
+                          value={stockCode}
+                          placeholder="Choose Stock"
+                          onIonChange={(e) => setStockCode(e.detail.value)}
+                        >
+                          {stockList.map(s => (
+                            <IonSelectOption key={s.code} value={s.code}>{s.name}</IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
+                  {stockType && (
+                    <div className="lr-field-box" style={{ gridColumn: "1 / -1" }}>
+                      <label className="lr-field-label">
+                        {stockType === "New Item" ? "Equipment Name" : "Reason / Purpose"}
+                      </label>
+                      <div className="lr-field-content" style={{ alignItems: 'flex-start' }}>
+                        <IonIcon icon={documentTextOutline} className="lr-field-icon" style={{ marginTop: '4px' }} />
+                        <textarea
+                          className="lr-clean-input"
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder={stockType === "New Item" ? "What do you need?" : "Why do you need this?"}
+                          rows={2}
+                          style={{ resize: "none" }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {stockType && stockType !== "New Item" && (
+                    <div className="lr-field-box">
+                      <label className="lr-field-label">Current Usage Days</label>
+                      <div className="lr-field-content">
+                        <IonIcon icon={timeOutline} className="lr-field-icon" />
+                        <input
+                          type="text"
+                          disabled
+                          value={usageDays}
+                          className="lr-clean-input"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                </div>
                 <div className="equip-button-group">
-                  <button className="equip-btn equip-btn-outline" onClick={handleClear}>
+                  <button className="lr-gradient-btn" style={{ background: "#f1f5f9", color: "#1e293b" }} onClick={handleClear}>
                     <RefreshCcw size={18} />
                     Reset
                   </button>
-                  <button className="equip-btn equip-btn-primary premium-trendy-bg" onClick={handleSave}>
+                  <button className="lr-gradient-btn premium-trendy-bg" onClick={handleSave}>
                     <Send size={18} />
                     Submit
                   </button>
@@ -473,79 +483,59 @@ const Equipment: React.FC = () => {
               <div className="equip-requests-list">
                 {requests.length > 0 ? (
                   requests.map((req, idx) => (
-                    <div className="equip-request-card" key={req.RID || idx}>
-                      <div className={`card-side-indicator indicator-${(req.Request_Status || "").toLowerCase()}`} />
-
-                      <div className="card-header">
-                        <div className="request-title-sec">
-                          <span className="request-for">{req.StockName || req.RequestForStock || "Generic Item"}</span>
-                          <span className="request-id">REF: #{req.RID}</span>
+                    <div className="lr-history-card themed-bg" key={req.RID || idx}>
+                      <div className="lr-card-header-row">
+                        <div className="lr-card-main">
+                          <div className="lr-card-title">{req.StockName || req.RequestForStock || "Generic Item"}</div>
+                          <div className="lr-card-subtitle">REF: #{req.RID} &bull; {req.RequestFor}</div>
                         </div>
-                        <div className={`status-pill ${getStatusClass(req.Request_Status)}`}>
+                        <div className={`lr-status-indicator lr-status-${(req.Request_Status || "").toLowerCase().replace(/\s/g, '')}`}>
                           {req.Request_Status}
                         </div>
                       </div>
 
-                      <div className="card-info-grid">
-                        <div className="info-item">
-                          <div className="info-icon"><Layers size={14} /></div>
-                          <div className="info-content">
-                            <span className="info-label">Category</span>
-                            <span className="info-value">{req.RequestFor}</span>
-                          </div>
-                        </div>
-                        <div className="info-item">
-                          <div className="info-icon"><Calendar size={14} /></div>
-                          <div className="info-content">
-                            <span className="info-label">Date</span>
-                            <span className="info-value">{formatDisplayDate(req.CreatedOnRaw || req.RequestDate)}</span>
-                          </div>
+                      <div className="lr-card-grid">
+                        <div className="lr-grid-item">
+                          <span className="lr-grid-label">Date</span>
+                          <span className="lr-grid-value">{formatDisplayDate(req.CreatedOnRaw || req.RequestDate)}</span>
                         </div>
                         {isAccountant && (
-                          <div className="info-item full-width">
-                            <div className="info-icon"><Search size={14} /></div>
-                            <div className="info-content">
-                              <span className="info-label">Requested By</span>
-                              <span className="info-value">{req.EmpName} ({req.RequestFrom})</span>
-                            </div>
+                          <div className="lr-grid-item">
+                            <span className="lr-grid-label">Requested By</span>
+                            <span className="lr-grid-value">{req.EmpName} ({req.RequestFrom})</span>
                           </div>
                         )}
-                        <div className="info-item full-width">
-                          <div className="info-icon"><Info size={14} /></div>
-                          <div className="info-content">
-                            <span className="info-label">Reason / Remarks</span>
-                            <span className="info-value remarks-value">
-                              {req.ReasonForReplacement_Repair || req.RequestForStock || "No details provided"}
-                            </span>
-                          </div>
+                        <div className="lr-grid-item" style={{ gridColumn: "1 / -1" }}>
+                          <span className="lr-grid-label">Reason / Remarks</span>
+                          <span className="lr-grid-value">{req.ReasonForReplacement_Repair || req.RequestForStock || "No details provided"}</span>
                         </div>
                         {(req.Equipment_EstimateDate || req.Reject_Remarks) && (
-                          <div className="info-item full-width" style={{ marginTop: '4px', padding: '8px', background: '#f8fafc', borderRadius: '8px' }}>
-                            <div className="info-content">
-                              <span className="info-label">{req.Reject_Remarks ? "Rejection Reason" : "ETA / Delivery"}</span>
-                              <span className="info-value" style={{ color: req.Reject_Remarks ? 'var(--equip-danger)' : 'var(--equip-success)' }}>
-                                {req.Reject_Remarks || formatDisplayDate(req.Equipment_EstimateDate)}
-                              </span>
-                            </div>
+                          <div className="lr-grid-item" style={{ gridColumn: "1 / -1" }}>
+                            <span className="lr-grid-label" style={{ color: req.Reject_Remarks ? '#ef4444' : '#10b981' }}>
+                              {req.Reject_Remarks ? "Rejection Reason" : "ETA / Delivery"}
+                            </span>
+                            <span className="lr-grid-value" style={{ color: req.Reject_Remarks ? '#ef4444' : '#10b981' }}>
+                              {req.Reject_Remarks || formatDisplayDate(req.Equipment_EstimateDate)}
+                            </span>
                           </div>
                         )}
                       </div>
 
                       {isAccountant && (req.Request_Status?.toLowerCase().includes("pending")) && (
-                        <div className="card-actions-premium">
-                          <button className="premium-btn btn-reject" onClick={() => openActionModal(req, "reject")}>
-                            <XCircle size={16} /> REJECT
+                        <div className="lr-card-actions">
+                          <button className="lr-gradient-btn" style={{ marginTop: 0, padding: '10px', fontSize: '12px', background: '#10b981' }} onClick={() => openActionModal(req, "accept")}>
+                            ✅ ACCEPT
                           </button>
-                          <button className="premium-btn btn-approve" onClick={() => openActionModal(req, "accept")}>
-                            <CheckCircle2 size={16} /> ACCEPT
+                          <button className="lr-gradient-btn" style={{ marginTop: 0, padding: '10px', fontSize: '12px', background: '#ef4444' }} onClick={() => openActionModal(req, "reject")}>
+                            ❌ REJECT
                           </button>
                         </div>
                       )}
 
                       {!isAccountant && (req.Request_Status?.toLowerCase().includes("pending") || req.Request_Status?.toLowerCase().includes("accept")) && (
-                        <div className="card-actions-premium" style={{ justifyContent: 'flex-end' }}>
-                          <button className="premium-btn btn-receive" onClick={() => handleReceived(req)}>
-                            <CheckCircle size={16} /> ITEM RECEIVED
+                        <div className="lr-card-actions" style={{ justifyContent: 'flex-end' }}>
+                          <button className="lr-gradient-btn" style={{ marginTop: 0, padding: '10px', fontSize: '12px', background: '#3b82f6' }} onClick={() => handleReceived(req)}>
+                            ✅ ITEM RECEIVED
                           </button>
                         </div>
                       )}
@@ -593,7 +583,7 @@ const Equipment: React.FC = () => {
             )}
 
             <div className="equip-button-group">
-              <button className="equip-btn equip-btn-outline" onClick={() => setShowActionModal(false)}>Cancel</button>
+              <button className="lr-gradient-btn" style={{ background: "#f1f5f9", color: "#1e293b" }} onClick={() => setShowActionModal(false)}>Cancel</button>
               <button
                 className={`equip-btn ${actionType === "accept" ? "equip-btn-primary" : "btn-reject"}`}
                 onClick={handleStatusUpdate}

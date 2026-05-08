@@ -22,7 +22,7 @@ import {
 } from "ionicons/icons";
 import axios from "axios";
 import {
-  
+
   calendarOutline,
 } from "ionicons/icons";
 import moment from "moment";
@@ -153,25 +153,25 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
       throw e;
     }
   };
-useEffect(() => {
-  if (otFrom && otTo) {
-    const fromMinutes =
-      Number(otFrom.split(":")[0]) * 60 +
-      Number(otFrom.split(":")[1]);
+  useEffect(() => {
+    if (otFrom && otTo) {
+      const fromMinutes =
+        Number(otFrom.split(":")[0]) * 60 +
+        Number(otFrom.split(":")[1]);
 
-    const toMinutes =
-      Number(otTo.split(":")[0]) * 60 +
-      Number(otTo.split(":")[1]);
+      const toMinutes =
+        Number(otTo.split(":")[0]) * 60 +
+        Number(otTo.split(":")[1]);
 
-    const diff = toMinutes > fromMinutes ? toMinutes - fromMinutes : 0;
+      const diff = toMinutes > fromMinutes ? toMinutes - fromMinutes : 0;
 
-    setOTActualMin(diff);
-    setOTFinalMin(diff);
-  } else {
-    setOTActualMin(0);
-    setOTFinalMin(0);
-  }
-}, [otFrom, otTo]);
+      setOTActualMin(diff);
+      setOTFinalMin(diff);
+    } else {
+      setOTActualMin(0);
+      setOTFinalMin(0);
+    }
+  }, [otFrom, otTo]);
   useEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
@@ -216,18 +216,18 @@ useEffect(() => {
       setClients([]);
     }
   };
-const minOtDate = moment().format("YYYY-MM-DD");
-const maxOtDate = moment().add(7, "days").format("YYYY-MM-DD");
+  const minOtDate = moment().format("YYYY-MM-DD");
+  const maxOtDate = moment().add(7, "days").format("YYYY-MM-DD");
   const loadOT = async () => {
     try {
       const res = await api.get(
-  view === "my"
-    ? "Workreport/load_overtime_duties"
-    : "Workreport/load_team_overtime_duties",
-  {
-    params: { EmpCode: empCode },
-  }
-);
+        view === "my"
+          ? "Workreport/load_overtime_duties"
+          : "Workreport/load_team_overtime_duties",
+        {
+          params: { EmpCode: empCode },
+        }
+      );
       const raw = Array.isArray(res.data) ? res.data : [];
 
       setOTList(
@@ -267,64 +267,64 @@ const maxOtDate = moment().add(7, "days").format("YYYY-MM-DD");
     setOTDesc("");
   };
 
-const saveOT = async () => {
-  if (!otClient || !otDesc || !otFrom || !otTo|| !otDesc) {
-    notify("Please fill all OT details", "warning");
-    return;
-  }
-
-  if (!empCode) {
-    notify("Employee session missing", "danger");
-    return;
-  }
-
-  const fromMinutes =
-    Number(otFrom.split(":")[0]) * 60 +
-    Number(otFrom.split(":")[1]);
-
-  const toMinutes =
-    Number(otTo.split(":")[0]) * 60 +
-    Number(otTo.split(":")[1]);
-
-  if (toMinutes <= fromMinutes) {
-    notify("To time should be greater than From time", "warning");
-    return;
-  }
-
-  const totalMinutes = toMinutes - fromMinutes;
-
-  if (totalMinutes < 90) {
-    notify("Minimum overtime duration should be 90 minutes", "warning");
-    return;
-  }
-
-  const payload = {
-    _empcode: String(empCode),
-    _date: String(otDate),
-    _Client: String(otClient),
-    _Fromtime: String(otFrom),
-    _Totime: String(otTo),
-    _Description: String(otDesc),
-    _minDiff: String(totalMinutes),
-    _FinMinDiff: String(otFinalMin || totalMinutes),
-    _Otid: String(otEditingId || ""),
-  };
-
-  try {
-    const res = await postWithFallback(
-      "Workreport/save_overtime_duties",
-      payload
-    );
-
-    if (isSaveOk(res.data)) {
-      notify("Overtime saved successfully", "success");
-      clearOTForm();
-      loadOT();
+  const saveOT = async () => {
+    if (!otClient || !otDesc || !otFrom || !otTo || !otDesc) {
+      notify("Please fill all OT details", "warning");
+      return;
     }
-  } catch {
-    notify("OT Save failed", "danger");
-  }
-};
+
+    if (!empCode) {
+      notify("Employee session missing", "danger");
+      return;
+    }
+
+    const fromMinutes =
+      Number(otFrom.split(":")[0]) * 60 +
+      Number(otFrom.split(":")[1]);
+
+    const toMinutes =
+      Number(otTo.split(":")[0]) * 60 +
+      Number(otTo.split(":")[1]);
+
+    if (toMinutes <= fromMinutes) {
+      notify("To time should be greater than From time", "warning");
+      return;
+    }
+
+    const totalMinutes = toMinutes - fromMinutes;
+
+    if (totalMinutes < 90) {
+      notify("Minimum overtime duration should be 90 minutes", "warning");
+      return;
+    }
+
+    const payload = {
+      _empcode: String(empCode),
+      _date: String(otDate),
+      _Client: String(otClient),
+      _Fromtime: String(otFrom),
+      _Totime: String(otTo),
+      _Description: String(otDesc),
+      _minDiff: String(totalMinutes),
+      _FinMinDiff: String(otFinalMin || totalMinutes),
+      _Otid: String(otEditingId || ""),
+    };
+
+    try {
+      const res = await postWithFallback(
+        "Workreport/save_overtime_duties",
+        payload
+      );
+
+      if (isSaveOk(res.data)) {
+        notify("Overtime saved successfully", "success");
+        clearOTForm();
+        loadOT();
+      }
+    } catch {
+      notify("OT Save failed", "danger");
+    }
+  };
 
   const editOT = async (id: string) => {
     try {
@@ -375,7 +375,7 @@ const saveOT = async () => {
       notify("OT Approve failed", "danger");
     }
   };
-const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [dateModalOpen, setDateModalOpen] = useState(false);
   return (
     <div className="onduties-page">
       <div className="onduties-content">
@@ -384,158 +384,158 @@ const [dateModalOpen, setDateModalOpen] = useState(false);
         </div>
 
         <div className="ion-padding-horizontal">
-         <div className="overtime-form-container compact-form" >
-  <div className="overtime-form-title compact-title">
-    <IonIcon icon={timeOutline} />
-    <span>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
-  </div>
+          <div className="overtime-form-container compact-form" >
+            <div className="overtime-form-title compact-title">
+              <IonIcon icon={timeOutline} />
+              <span>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
+            </div>
 
-<IonModal
-  isOpen={dateModalOpen}
-  onDidDismiss={() => setDateModalOpen(false)}
-  className="native-date-modal"
->
-  <IonContent>
-  <IonDatetime
-  presentation="date"
-  preferWheel={true}
-  showDefaultButtons={true}
-  value={otDate}
-  min={minOtDate}
-  max={maxOtDate}
-  onIonChange={(e) => {
-    setOTDate(String(e.detail.value || ""));
-  }}
-  onIonCancel={() => setDateModalOpen(false)}
-/>
-  </IonContent>
-</IonModal>
-<IonGrid className="ion-no-padding compact-grid">
-  <IonRow className="compact-row">
-    <IonCol size="12" sizeMd="3">
-      <div
-        className="compact-input-card"
-        onClick={() => setDateModalOpen(true)}
-      >
-        <label className="compact-label">OT Date</label>
-
-        <div className="compact-date-display">
-          <IonIcon icon={calendarOutline} className="compact-date-icon" />
-          <span className="compact-date-text">
-            {otDate
-              ? moment(otDate).format("DD-MM-YYYY")
-              : "Pick OT Date"}
-          </span>
-        </div>
-      </div>
-
-     
-    </IonCol>
-
-    <IonCol size="12" sizeMd="5">
-      <div className="compact-input-card">
-        <label className="compact-label">Client / College</label>
-
-        <IonSelect
-          interface="popover"
-          className="compact-select"
-          value={otClient}
-          placeholder="Select Client"
-          onIonChange={(e) => setOTClient(e.detail.value)}
-        >
-          {clients.map((c, idx) => (
-            <IonSelectOption
-              key={`${c.Client_ID}-${idx}`}
-              value={c.Client_Name}
+            <IonModal
+              isOpen={dateModalOpen}
+              onDidDismiss={() => setDateModalOpen(false)}
+              className="native-date-modal"
             >
-              {c.Client_Name}
-            </IonSelectOption>
-          ))}
-        </IonSelect>
-      </div>
-    </IonCol>
+              <IonContent>
+                <IonDatetime
+                  presentation="date"
+                  preferWheel={true}
+                  showDefaultButtons={true}
+                  value={otDate}
+                  min={minOtDate}
+                  max={maxOtDate}
+                  onIonChange={(e) => {
+                    setOTDate(String(e.detail.value || ""));
+                  }}
+                  onIonCancel={() => setDateModalOpen(false)}
+                />
+              </IonContent>
+            </IonModal>
+            <IonGrid className="ion-no-padding compact-grid">
+              <IonRow className="compact-row">
+                <IonCol size="12" sizeMd="3">
+                  <div
+                    className="compact-input-card"
+                    onClick={() => setDateModalOpen(true)}
+                  >
+                    <label className="compact-label">OT Date</label>
 
-    <IonCol size="6" sizeMd="2">
-      <div className="compact-input-card">
-        <label className="compact-label">From</label>
-        <IonInput
-          type="time"
-          className="compact-time-input"
-          value={otFrom}
-          onIonInput={(e) => setOTFrom(String(e.detail.value || ""))}
-        />
-      </div>
-    </IonCol>
+                    <div className="compact-date-display">
+                      <IonIcon icon={calendarOutline} className="compact-date-icon" />
+                      <span className="compact-date-text">
+                        {otDate
+                          ? moment(otDate).format("DD-MM-YYYY")
+                          : "Pick OT Date"}
+                      </span>
+                    </div>
+                  </div>
 
-    <IonCol size="6" sizeMd="2">
-      <div className="compact-input-card">
-        <label className="compact-label">To</label>
-        <IonInput
-          type="time"
-          className="compact-time-input"
-          value={otTo}
-          onIonInput={(e) => setOTTo(String(e.detail.value || ""))}
-        />
-      </div>
-    </IonCol>
-  </IonRow>
 
-  <IonRow className="compact-row compact-second-row">
-    <IonCol size="6" sizeMd="2">
-      <div className="compact-stat-card">
-        <span className="compact-stat-label">Actual</span>
-        <span className="compact-stat-value">{otActualMin} Min</span>
-      </div>
-    </IonCol>
+                </IonCol>
 
-    <IonCol size="6" sizeMd="2">
-      <div className="compact-input-card">
-        <label className="compact-label">Approved</label>
-        <IonInput
-          className="compact-number-input"
-          value={otFinalMin}
-          onIonInput={(e) =>
-            setOTFinalMin(Number(e.detail.value || 0))
-          }
-        />
-      </div>
-    </IonCol>
+                <IonCol size="12" sizeMd="5">
+                  <div className="compact-input-card">
+                    <label className="compact-label">Client / College</label>
 
-    <IonCol size="12" sizeMd="8">
-      <div className="compact-input-card compact-summary-card">
-        <label className="compact-label">Work Summary</label>
-        <IonInput
-          className="compact-summary-input"
-          placeholder="Describe OT work done..."
-          value={otDesc}
-          onIonInput={(e) => setOTDesc(e.detail.value || "")}
-        />
-      </div>
-    </IonCol>
-  </IonRow>
+                    <IonSelect
+                      interface="popover"
+                      className="compact-select"
+                      value={otClient}
+                      placeholder="Select Client"
+                      onIonChange={(e) => setOTClient(e.detail.value)}
+                    >
+                      {clients.map((c, idx) => (
+                        <IonSelectOption
+                          key={`${c.Client_ID}-${idx}`}
+                          value={c.Client_Name}
+                        >
+                          {c.Client_Name}
+                        </IonSelectOption>
+                      ))}
+                    </IonSelect>
+                  </div>
+                </IonCol>
 
-  <div className="compact-btn-row">
-    <IonButton
-      className="compact-save-btn"
-      expand="block"
-      onClick={saveOT}
-    >
-      {otEditingId ? "Update OT" : "Save OT"}
-    </IonButton>
+                <IonCol size="6" sizeMd="2">
+                  <div className="compact-input-card">
+                    <label className="compact-label">From</label>
+                    <IonInput
+                      type="time"
+                      className="compact-time-input"
+                      value={otFrom}
+                      onIonInput={(e) => setOTFrom(String(e.detail.value || ""))}
+                    />
+                  </div>
+                </IonCol>
 
-    {canApprove && otEditingId && (
-      <IonButton
-        className="compact-approve-btn"
-        color="success"
-        expand="block"
-        onClick={approveOT}
-      >
-        Approve
-      </IonButton>
-    )}
-  </div>
-</IonGrid>
-</div>
+                <IonCol size="6" sizeMd="2">
+                  <div className="compact-input-card">
+                    <label className="compact-label">To</label>
+                    <IonInput
+                      type="time"
+                      className="compact-time-input"
+                      value={otTo}
+                      onIonInput={(e) => setOTTo(String(e.detail.value || ""))}
+                    />
+                  </div>
+                </IonCol>
+              </IonRow>
+
+              <IonRow className="compact-row compact-second-row">
+                <IonCol size="6" sizeMd="2">
+                  <div className="compact-stat-card">
+                    <span className="compact-stat-label">Actual</span>
+                    <span className="compact-stat-value">{otActualMin} Min</span>
+                  </div>
+                </IonCol>
+
+                <IonCol size="6" sizeMd="2">
+                  <div className="compact-input-card">
+                    <label className="compact-label">Approved</label>
+                    <IonInput
+                      className="compact-number-input"
+                      value={otFinalMin}
+                      onIonInput={(e) =>
+                        setOTFinalMin(Number(e.detail.value || 0))
+                      }
+                    />
+                  </div>
+                </IonCol>
+
+                <IonCol size="12" sizeMd="8">
+                  <div className="compact-input-card compact-summary-card">
+                    <label className="compact-label">Work Summary</label>
+                    <IonInput
+                      className="compact-summary-input"
+                      placeholder="Describe OT work done..."
+                      value={otDesc}
+                      onIonInput={(e) => setOTDesc(e.detail.value || "")}
+                    />
+                  </div>
+                </IonCol>
+              </IonRow>
+
+              <div className="compact-btn-row">
+                <IonButton
+                  className="compact-save-btn"
+                  expand="block"
+                  onClick={saveOT}
+                >
+                  {otEditingId ? "Update OT" : "Save OT"}
+                </IonButton>
+
+                {canApprove && otEditingId && (
+                  <IonButton
+                    className="compact-approve-btn"
+                    color="success"
+                    expand="block"
+                    onClick={approveOT}
+                  >
+                    Approve
+                  </IonButton>
+                )}
+              </div>
+            </IonGrid>
+          </div>
           {/* <div className="history-section-title">Over-Time Logs</div>
           {otList.map((row, idx) => (
             <div key={`${row.id}-${idx}`} className="premium-card">

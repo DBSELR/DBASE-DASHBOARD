@@ -4,7 +4,36 @@ import EquipmentForm from "./EquipmentForm";
 import RequestList from "./RequestList";
 import OverTime from "../../pages/OverTime"; 
 import OnDuties from "../../pages/OnDuties";
-
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonContent,
+  IonSelect,
+  IonSelectOption,
+  IonItem,
+  IonSegment,
+  IonSegmentButton,
+  IonToast,
+  IonLabel,
+  IonIcon,
+  IonSearchbar,
+  IonModal,
+  IonButton,
+  IonButtons,
+  IonTitle,
+  IonList,
+} from "@ionic/react";
+import {
+  checkmarkCircle,
+  closeCircle,
+  timeOutline,
+  personOutline,
+  calendarOutline,
+  chatbubbleEllipsesOutline,
+  layersOutline,
+  searchOutline
+} from "ionicons/icons";
 
 const RequestContainer = ({ type, view }: any) => {
   const [status, setStatus] = useState("All");
@@ -70,6 +99,14 @@ return (
           className={`filter-btn ${status === s ? "active" : ""}`}
           onClick={() => setStatus(s)}
         >
+           <IonIcon
+                            icon={
+                              status === "Accepted" ? checkmarkCircle :
+                                status === "Rejected" ? closeCircle :
+                                  status === "Pending" ? timeOutline :
+                                    layersOutline
+                            }
+                          />
           {s}
         </button>
       ))}

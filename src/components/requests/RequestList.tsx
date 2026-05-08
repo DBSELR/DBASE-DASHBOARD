@@ -4,6 +4,24 @@ import moment from "moment";
 import { API_BASE } from "../../config";
 import "./RequestList.css";
 
+import {
+  IonIcon,
+  IonSelect,
+  IonSelectOption,
+} from "@ionic/react";
+
+import {
+  personOutline,
+  calendarOutline,
+  layersOutline,
+  searchOutline,
+  closeCircle,
+  checkmarkCircle
+} from "ionicons/icons";
+
+import { createPortal } from "react-dom";
+import { useRef } from "react";
+
 /* ================= TYPES ================= */
 interface Props {
   type: string;
@@ -86,6 +104,22 @@ const handleCommentChange = (id: string, value: string) => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
 const [selectedDuty, setSelectedDuty] = useState<any>(null);
 
+const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+const [selectedEmpCode, setSelectedEmpCode] = useState<string>("0");
+
+const [searchTerm, setSearchTerm] = useState("");
+const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+const triggerRef = useRef<HTMLDivElement>(null);
+
+const [dropdownPos, setDropdownPos] = useState({
+  top: 0,
+  left: 0,
+  width: 0
+});
+
+
+
   const normalize = (x: any) => {
     if (!x) return null;
 
@@ -95,7 +129,14 @@ const [selectedDuty, setSelectedDuty] = useState<any>(null);
     id: x.id,
     lid: x.id,
 
-    Empname: safeText(x.empname || x.empcode),
+    empNames: safeText(
+      x.empNames ||   // ✅ FIX
+      x.EmpNames ||
+      x.empnames ||
+      x.Empname ||
+      x.empname
+    ),
+
     empcode: safeText(x.empcode),
 
     College: x.college,
@@ -107,15 +148,12 @@ const [selectedDuty, setSelectedDuty] = useState<any>(null);
     DateFrom: x.dateFrom,
     DateTo: x.dateTo,
 
-    // ✅ FIXED
     L_status: safeText(x.status),
 
-    // ✅ FIXED (case correction)
     CurrentLevel: x.currentLevel,
     MaxLevel: x.maxLevel,
     CurrentRA: x.currentRA,
 
-    // ✅ FIXED RA mapping
     RA1: x.rA1,
     RA2: x.rA2,
     RA3: x.rA3,
@@ -164,8 +202,8 @@ const [selectedDuty, setSelectedDuty] = useState<any>(null);
     // ✅ EQUIPMENT
     if (type === "equipment") {
       return {
-        lid: x.lid,
-       empcode: x.empcode || x.EmpCode,
+        lid: x.id || x.Id,
+        empcode: x.empcode || x.EmpCode,
         Empname: safeText(x.Empname),
         Remarks: safeText(x.Remarks),
         Priority: x.Priority,
@@ -222,6 +260,8 @@ const [selectedDuty, setSelectedDuty] = useState<any>(null);
     MaxLevel: x.MaxLevel,
     CurrentRA: x.CurrentRA,
 
+    Slip : x.Slip,
+
     RA1: x.RA1,
     RA2: x.RA2,
     RA3: x.RA3,
@@ -237,6 +277,79 @@ const [selectedDuty, setSelectedDuty] = useState<any>(null);
   useEffect(() => {
     loadData();
   }, [type, view, selectedMonth]);
+
+  useEffect(() => {
+  loadEmployees();
+}, []);
+
+useEffect(() => {
+  if (isSearchModalOpen && triggerRef.current) {
+    const rect = triggerRef.current.getBoundingClientRect();
+
+    setDropdownPos({
+      top: rect.bottom + window.scrollY + 8,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+    });
+  }
+}, [isSearchModalOpen]);
+
+const formatEmployeeNames = (value: any) => {
+  if (!value) return [];
+
+  const str = String(value);
+
+  return str
+    .split(",")
+    .map((x) => {
+      const parts = x.split("-");
+
+      if (parts.length >= 2) {
+        const empCode = parts[0]?.trim();
+
+        const empNames = parts
+          .slice(1)
+          .join("-")
+          .trim();
+
+        return {
+          code: empCode,
+          name:
+            empNames.charAt(0).toUpperCase() +
+            empNames.slice(1).toLowerCase(),
+        };
+      }
+
+      return {
+        code: "",
+        name: x.trim(),
+      };
+    })
+    .filter((x) => x.name);
+};
+
+const loadEmployees = async () => {
+  try {
+    const res = await axios.get(
+      `${baseUrl}Employee/Load_Employees?SearchEmp=`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    const mapped = (res.data || []).map((emp: any[]) => ({
+      id: emp[0]?.toString(),
+      name: emp[1],
+    }));
+
+    setEmployees([
+      { id: "0", name: "All Employees" },
+      ...mapped,
+    ]);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   useEffect(() => {
     if (!search) {
@@ -349,7 +462,16 @@ const filterByStatus = (item: any) => {
 
   return true;
 };
- const finalData = filtered.filter(Boolean).filter(filterByStatus);
+
+const finalData = filtered
+  .filter(Boolean)
+  .filter(filterByStatus)
+  .filter((x) => {
+    if (selectedEmpCode === "0") return true;
+
+    return String(x.empcode) === String(selectedEmpCode);
+  });
+//  const finalData = filtered.filter(Boolean).filter(filterByStatus);
 const updateOnDuty = async (item: any, status: string) => {
   try {
    const payload = {
@@ -557,15 +679,19 @@ if (type === "onduty" && view === "my") {
 }
 
   return (
-    <div>
-      <div className="premium-filters">
-        <input
-          placeholder="Search employee..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <select
+    <div style={{ overflowX: 'hidden', width: '100%' }}>
+      {/* ── Filters ── */}
+      {/* <div className="rl-filter-row">
+        <div className="rl-filter-box">
+          <span style={{ fontSize: 14, color: '#94a3b8' }}>🔍</span>
+          <input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="rl-filter-box">
+          <select
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
         >
@@ -573,8 +699,206 @@ if (type === "onduty" && view === "my") {
             <option key={m}>{m}</option>
           ))}
         </select>
+          
+        </div>
+      </div> */}
+
+     {view !== "my" && (
+  <div className="filters-grid">
+
+    {/* EMPLOYEE FILTER */}
+    <div className="custom-dropdown-container" ref={triggerRef}>
+      <div
+        className={`premium-filter-trigger ${
+          isSearchModalOpen ? "active" : ""
+        }`}
+        onClick={() => setIsSearchModalOpen(!isSearchModalOpen)}
+      >
+        <div className="trigger-content">
+          <div className="trigger-icon-box">
+            <IonIcon icon={personOutline} />
+          </div>
+
+          <div className="trigger-text-sec">
+            <span className="trigger-sub">Employee</span>
+
+            <span className="trigger-main">
+              {employees.find((e) => e.id === selectedEmpCode)?.name ||
+                "Select Employee"}
+            </span>
+          </div>
+        </div>
+
+        <IonIcon
+          icon={layersOutline}
+          className="trigger-icon-arrow"
+        />
       </div>
 
+      {isSearchModalOpen &&
+        createPortal(
+          <>
+            <div
+              className="dropdown-outside-click-layer"
+              onClick={() => setIsSearchModalOpen(false)}
+            />
+
+            <div
+              className="custom-inline-dropdown"
+              style={{
+                position: "absolute",
+                top: `${dropdownPos.top}px`,
+                left: `${dropdownPos.left}px`,
+                width: `${dropdownPos.width}px`,
+              }}
+            >
+              <div className="dropdown-search-sec">
+                <IonIcon
+                  icon={searchOutline}
+                  className="dropdown-search-icon"
+                />
+
+                <input
+                  type="text"
+                  className="dropdown-pure-input"
+                  placeholder="Search employee..."
+                  value={searchTerm}
+                  onChange={(e) =>
+                    setSearchTerm(e.target.value)
+                  }
+                  autoFocus
+                />
+
+                {searchTerm && (
+                  <button
+                    className="dropdown-clear-btn"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    <IonIcon icon={closeCircle} />
+                  </button>
+                )}
+              </div>
+
+              <div className="dropdown-body">
+                {employees
+                  .filter(
+                    (emp) =>
+                      emp.name
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase()) ||
+                      emp.id
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase())
+                  )
+                  .map((emp) => {
+                    const isSelected =
+                      selectedEmpCode === emp.id;
+
+                    const nameWithoutId = emp.name.includes("-")
+                      ? emp.name.split("-")[1].trim()
+                      : emp.name;
+
+                    const initials =
+                      nameWithoutId.charAt(0).toUpperCase();
+
+                    return (
+                      <div
+                        key={emp.id}
+                        className={`dropdown-emp-item ${
+                          isSelected ? "selected" : ""
+                        }`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+
+                          setSelectedEmpCode(emp.id);
+
+                          setIsSearchModalOpen(false);
+
+                          setSearchTerm("");
+                        }}
+                      >
+                        <div
+                          className={`dr-avatar grad-${
+                            (parseInt(emp.id) % 5) || 0
+                          }`}
+                        >
+                          {emp.id === "0" ? (
+                            <IonIcon icon={layersOutline} />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+
+                        <div className="dr-info">
+                          <span className="dr-name">
+                            {emp.name}
+                          </span>
+
+                          <span className="dr-id">
+                            {emp.id === "0"
+                              ? "Global"
+                              : `ID: ${emp.id}`}
+                          </span>
+                        </div>
+
+                        {isSelected && (
+                          <IonIcon
+                            icon={checkmarkCircle}
+                            className="dr-check"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+    </div>
+
+    {/* MONTH FILTER */}
+    <div className="custom-dropdown-container">
+      <div className="premium-filter-trigger">
+        <div className="trigger-content">
+          <div className="trigger-icon-box">
+            <IonIcon icon={calendarOutline} />
+          </div>
+
+          <div className="trigger-text-sec">
+            <span className="trigger-sub">Period</span>
+            <span className="trigger-main">
+              {selectedMonth}
+            </span>
+          </div>
+        </div>
+
+        <IonIcon
+          icon={layersOutline}
+          className="trigger-icon-arrow"
+        />
+
+        <IonSelect
+          className="hidden-select-overlay"
+          interface="popover"
+          toggleIcon="none"
+          value={selectedMonth}
+          onIonChange={(e) =>
+            setSelectedMonth(e.detail.value)
+          }
+        >
+          {months.map((m) => (
+            <IonSelectOption key={m} value={m}>
+              {m}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </div>
+    </div>
+
+  </div>
+)}
       {loading && <p>Loading...</p>}
 
       {!loading &&
@@ -582,486 +906,180 @@ if (type === "onduty" && view === "my") {
           .filter(Boolean)
           .filter(filterByStatus)
          .map((item) => {
-  if (type === "onduty") {
-    console.log("ONDUTY ITEM:", item);
-  }
-  console.log("CHECK:", {
-  user: getUser()?.designation,
-  currentRA: item.CurrentRA,
-  status: item.L_status
-});
-
-  return (
-    <div key={`${item.lid}-${item.empcode}`} className="premium-card">
-
-              {/* <div className="card-header">
-                <div>
-                  <b>{item.Empname}</b>
-                  <p>ID: {item.empcode}</p>
+          return (
+            <div key={`${item.lid}-${item.empcode}`} className="lr-history-card themed-bg">
+              <div className="lr-card-header-row">
+                <div className="lr-card-main">
+                  {/* <div className="lr-card-title">
+                    {type === 'equipment' ? item.Remarks : type === 'overtime' ? item.Empname : type === 'onduty' ? item.College : (item.empcode + ' : ' + item.Empname)}
+                  </div> */}
+                  <div className="lr-card-title">
+  {type === "equipment"
+    ? item.Remarks
+    : type === "overtime"
+    ? item.Empname
+    : type === "onduty"
+    ? item.College
+    :  item.empNames}
+</div>
+                  <div className="lr-card-subtitle">
+                    {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : item.Remarks}
+                  </div>
                 </div>
-
-                <div className="status-pill">
-                  {getStatusLabel(item)}
+                <div className={`lr-status-indicator lr-status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
+                  {item.L_status}
                 </div>
-              </div> */}
+              </div>
 
-              <div className="card-body">
-                {type === "equipment" ? (
-                    <>
-  <div className="premium-card">
-    <div className="card-accent"></div>
-
-    {/* HEADER */}
-    <div className="card-header">
-      <div style={{ flex: 1 }}>
-        <div>
-          {/* <span className="college-name">{item.empcode}</span> */}
-{/* PURPOSE */}
-        <span>PURPOSE : {item.Remarks}</span>
-          <span
-            className={`badge-pill pill-${(item.L_status || "")
-              .toLowerCase()
-              .replace(/\s/g, "")}`}
-          >
-            {item.L_status}
-          </span>
-        </div>
-
-        
-      </div>
-    </div>
-
-    {/* GRID SECTION */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          window.innerWidth <= 768
-            ? "1fr"
-            : "repeat(4, minmax(0, 1fr))",
-        gap: "14px",
-        marginTop: "14px",
-      }}
-    >
-      {/* PRIORITY */}
-      <div className="footer-item">
-        <span className="item-label">Priority</span>
-        <span
-          className={`item-value priority ${item.Priority?.toLowerCase()}`}
-        >
-          {item.Priority}
-        </span>
-      </div>
-
-      {/* DATE */}
-      <div className="footer-item">
-        <span className="item-label">Applied On</span>
-        <span className="item-value">
-          {cleanDate(item.lfrom)}
-        </span>
-      </div>
-
-      {/* AMOUNT */}
-      <div className="footer-item">
-        <span className="item-label">Amount</span>
-        <span className="item-value">
-          {item.Amount ? `₹ ${item.Amount}` : "-"}
-        </span>
-      </div>
-
-      {/* FILE */}
-      <div
-        className="footer-item"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          alignItems:
-            window.innerWidth <= 768 ? "flex-start" : "center",
-        }}
-      >
-        <span className="item-label">File</span>
-
-        {item.FilePath ? (
-          <a
-            href={item.FilePath}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: "#2563eb",
-              textDecoration: "underline",
-              fontWeight: 600,
-              fontSize: "13px",
-            }}
-          >
-            📥 Download
-          </a>
-        ) : (
-          <span className="item-value">-</span>
-        )}
-      </div>
-    </div>
-
-    {/* COMMENTS SECTION */}
-    {(item.RA1_Comment ||
-      item.RA2_Comment ||
-      item.RA3_Comment ||
-      item.RA4_Comment) && (
-      <div style={{ marginTop: "14px" }}>
-        <b>Comments</b>
-
-        {item.RA1_Comment && <p>🗨 {item.RA1}: {item.RA1_Comment}</p>}
-        {item.RA2_Comment && <p>🗨 {item.RA2}: {item.RA2_Comment}</p>}
-        {item.RA3_Comment && <p>🗨 {item.RA3}: {item.RA3_Comment}</p>}
-        {item.RA4_Comment && <p>🗨 {item.RA4}: {item.RA4_Comment}</p>}
-      </div>
-    )}
-  </div>
-</>
-                ) : type === "overtime" ? (
-                    <>
-  <div className="premium-card">
-    <div className="card-accent"></div>
-
-    {/* HEADER */}
-    <div className="card-header">
-      <div style={{ flex: 1 }}>
-        <div>
-          <span className="college-name">{item.Empname}</span>
-
-          <span
-            className={`badge-pill pill-${(item.L_status || "")
-              .toLowerCase()
-              .replace(/\s/g, "")}`}
-          >
-            {item.L_status}
-          </span>
-        </div>
-
-        <span>Work : {item.Remarks}</span>
-      </div>
-    </div>
-
-    {/* GRID */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          window.innerWidth <= 768
-            ? "1fr"
-            : "repeat(4, minmax(0, 1fr))",
-        gap: "14px",
-        marginTop: "14px",
-      }}
-    >
-      {/* EMP */}
-      {/* <div className="footer-item">
-        <span className="item-label">Employee</span>
-        <span className="item-value">{item.Empname}</span>
-      </div> */}
-
-      {/* DATE */}
-      <div className="footer-item">
-        <span className="item-label">Date</span>
-        <span className="item-value">{item.lfrom}</span>
-      </div>
-
-      {/* TIME */}
-      <div className="footer-item">
-        <span className="item-label">Time</span>
-        <span className="item-value">
-          {item.Fromtime} → {item.Totime}
-        </span>
-      </div>
-
-      {/* DURATION */}
-      <div className="footer-item">
-        <span className="item-label">Duration</span>
-        <span className="item-value">
-          {item.MinDiff} mins
-        </span>
-      </div>
-    </div>
-  </div>
-</>
-               
-                ) : type === "onduty" ? (
-
-<>
-  <div className="history-section-title">On Duty Logs</div>
-
-  <div className="premium-card">
-    <div className="card-accent"></div>
-
-    {/* HEADER */}
-    <div className="card-header">
-      <div style={{ flex: 1 }}>
-        <div>
-          <span className="college-name">{item.College}</span>
-
-          <span
-            className={`badge-pill pill-${(item.L_status || "")
-              .toLowerCase()
-              .replace(/\s/g, "")}`}
-          >
-            {item.L_status}
-          </span>
-        </div>
-
-        <span>{item.Description}</span>
-      </div>
-    </div>
-
-    {/* GRID SECTION */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          window.innerWidth <= 768
-            ? "1fr"
-            : "repeat(4, minmax(0, 1fr))",
-        gap: "14px",
-        marginTop: "14px",
-      }}
-    >
-      {/* TRANSPORT */}
-      <div className="footer-item">
-        <span className="item-label">Transport</span>
-        <span className="item-value">
-          {item.Mode_of_Trans}
-          {item.Vehicle_No && (
-            <span style={{ color: "#64748b" }}>
-              {" "}
-              • {item.Vehicle_No}
-            </span>
-          )}
-        </span>
-      </div>
-
-      {/* TIMELINE */}
-      <div className="footer-item">
-        <span className="item-label">Timeline</span>
-        <span className="item-value">
-          {fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}
-        </span>
-      </div>
-
-      {/* LOCATION */}
-      <div className="footer-item">
-        <span className="item-label">Location</span>
-        <span className="item-value">{item.Location}</span>
-      </div>
-
-    <a
-  href="#"
-  onClick={(e) => {
-    e.preventDefault();
-    setSelectedDuty(item);
-    setViewModalOpen(true);
-  }}
-  style={{
-    color: "#2563eb",
-    textDecoration: "underline",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: "13px",
-  }}
->
-  👁 View
-</a>
-    </div>
-  </div>
-</>
-                ) : (
-                    
+              <div className="lr-card-grid">
+                {type === 'equipment' && (
                   <>
-
-                  <div className="history-section-title">Leave Details</div>
-
-  <div className="premium-card">
-    <div className="card-accent"></div>
-
-    {/* HEADER */}
-    <div className="card-header">
-      <div style={{ flex: 1 }}>
-        <div>
-          <span className="college-name"
-           
-          >
-            {item.empcode} 
-          </span>
-         <span className="college-name">: {item.Empname}</span>
-         
-
-          {/* <span
-            className={`badge-pill pill-${(item.L_status || "")
-              .toLowerCase()
-              .replace(/\s/g, "")}`}
-          >
-            {item.L_status}
-          </span> */}
-        </div>
-
-        <span className="college-name">Purpose: {item.Remarks}</span>
-      </div>
-    </div>
-
-    {/* GRID SECTION */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns:
-          window.innerWidth <= 768
-            ? "1fr"
-            : "repeat(4, minmax(0, 1fr))",
-        gap: "14px",
-        marginTop: "14px",
-      }}
-    >
-      {/* LeaveCategory */}
-      <div className="footer-item">
-        <span className="item-label">Category</span>
-        <span className="item-value">
-          {item.Leavemode}
-          {item.Leavemode && (
-            <span style={{ color: "#64748b" }}>
-              {" ("}
-               {item.LeaveCategory}{")"}
-            </span>
-          )}
-         {/* {item.LeaveCategory} */}
-          {/* {item.Vehicle_No && (
-            <span style={{ color: "#64748b" }}>
-              {" "}
-              • {item.LeaveCategory}
-            </span>
-          )} */}
-        </span>
-      </div>
-       {/* Apply Date */}
-      <div className="footer-item">
-        <span className="item-label">Applied On</span>
-        <span className="item-value"> {item.AppliedOn}</span>
-      </div>
-
-     {item?.ltype?.toLowerCase() === "permission" ? (
-  <div className="footer-item">
-    <span className="item-label">Permission Time</span>
-    <span className="item-value">
-      {cleanDate(item.lfrom)} {item.ptime ? `(${item.ptime})` : ""}
-    </span>
-  </div>
-) : (
-  <div className="footer-item">
-    <span className="item-label">Leave Dates</span>
-    <span className="item-value">
-      {cleanDate(item.lfrom)}
-      {cleanDate(item.lto) &&
-      cleanDate(item.lto) !== cleanDate(item.lfrom)
-        ? ` - ${cleanDate(item.lto)}`
-        : ""}
-    </span>
-  </div>
-)}
-
-      {/* STATUS */}
-      <div className="footer-item">
-        <span className="item-label">Status</span>
-        <span className="item-value"> {item.L_status}</span>
-      </div>
-    </div>
-  </div>
-                    {/* <p>
-                      📅 {cleanDate(item.lfrom)}
-                      {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom)
-                        ? ` - ${cleanDate(item.lto)}`
-                        : ""}
-                    </p>
-                    <p>💬 {item.Remarks}</p>
-                    <p>🏷 Category: {formatLeaveCategory(item.LeaveCategory)}</p> */}
+                    <div className="lr-grid-item"><span className="lr-grid-label">Priority</span><span className="lr-grid-value priority">{item.Priority}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{cleanDate(item.lfrom)}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Amount</span><span className="lr-grid-value">{item.Amount ? '₹ ' + item.Amount : '-'}</span></div>
+                    {item.FilePath && (
+                      <div className="lr-grid-item">
+                        <span className="lr-grid-label">File</span>
+                        <a href={item.FilePath} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>Download</a>
+                      </div>
+                    )}
                   </>
                 )}
+                {type === 'overtime' && (
+                  <>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Date</span><span className="lr-grid-value">{item.lfrom}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Time</span><span className="lr-grid-value">{item.Fromtime} → {item.Totime}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Duration</span><span className="lr-grid-value">{item.MinDiff} mins</span></div>
+                  </>
+                )}
+                {type === 'onduty' && (
+                  <>
+                  <div className="lr-grid-item full-width">
+  <span className="lr-grid-label">Employees</span>
 
-                {!item?.L_status?.toLowerCase().includes("rejected") && (
-                  <p>👤 Approved By: {getApprovedBy(item)}</p>
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      marginTop: "6px",
+    }}
+  >
+    {formatEmployeeNames(item.empNames).map(
+      (emp: any, idx: number) => (
+        <div
+          key={idx}
+          style={{
+            background: "#eef2ff",
+            color: "#3730a3",
+            padding: "6px 10px",
+            borderRadius: "20px",
+            fontSize: "12px",
+            fontWeight: 600,
+            border: "1px solid #c7d2fe",
+          }}
+        >
+          {emp.name}
+          {emp.code && (
+            <span style={{ opacity: 0.7 }}>
+              {" "}
+              ({emp.code})
+            </span>
+          )}
+        </div>
+      )
+    )}
+  </div>
+</div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Transport</span><span className="lr-grid-value">{item.Mode_of_Trans} {item.Vehicle_No && `• ${item.Vehicle_No}`}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Timeline</span><span className="lr-grid-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Location</span><span className="lr-grid-value">{item.Location}</span></div>
+                    <div className="lr-grid-item">
+                      <span className="lr-grid-label">Details</span>
+                      <a href="#" onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }} style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>View</a>
+                    </div>
+                  </>
                 )}
-                {item?.L_status?.toLowerCase().includes("pending") && (
-                  <p>👤 {item?.L_status}</p>
-                )}
-                {getRejectionInfo(item) && (
-                  <p style={{ color: "red", fontWeight: "bold" }}>
-                    {getRejectionInfo(item)}
-                  </p>
+                {(type !== 'equipment' && type !== 'overtime' && type !== 'onduty') && (
+                  <>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Category</span><span className="lr-grid-value">{item.Leavemode} {item.Leavemode && `(${item.LeaveCategory})`}</span></div>
+                    <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{item.AppliedOn}</span></div>
+                    {item?.ltype?.toLowerCase() === 'permission' ? (
+  <>
+  
+    <div className="lr-row">
+  <div className="lr-grid-item">
+    <span className="lr-grid-label">Permission Time</span>
+    <span className="lr-grid-value">
+      {cleanDate(item.lfrom)} {item.ptime ? `(${item.ptime})` : ''}
+    </span>
+  </div>
+
+  {typeof item.Slip === "string" && item.Slip.trim() !== "" && (
+    <div className="lr-grid-item">
+      <span className="lr-grid-label">Slip</span>
+      <span className="lr-grid-value">{item.Slip}</span>
+    </div>
+  )}
+</div>
+    
+
+  
+                      </>
+                    ) : (
+                      <div className="lr-grid-item"><span className="lr-grid-label">Leave Dates</span><span className="lr-grid-value">{cleanDate(item.lfrom)} {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom) ? `- ${cleanDate(item.lto)}` : ''}</span></div>
+                    )}
+                  </>
                 )}
               </div>
-{view !== "my" && canAct(item) && (
-  <div className="card-actions">
-{type === "onduty" ? (
-  <>
-    <button onClick={() => updateOnDuty(item, "Accepted")}>
-      ✅ Approve
-    </button>
 
-    <button onClick={() => updateOnDuty(item, "Rejected")}>
-      ❌ Reject
-    </button>
-  </>
-) : type === "equipment" ? (
-  <>
-    {item.CurrentLevel === 1 && (
-      <div className="input-group">
-        <label>💰 Enter Amount</label>
-        <input
-          type="number"
-          value={amountMap[item.lid] || ""}
-          onChange={(e) =>
-            handleAmountChange(item.lid, e.target.value)
-          }
-        />
-      </div>
-    )}
+              {((item.RA1_Comment || item.RA2_Comment || item.RA3_Comment || item.RA4_Comment) && type === 'equipment') && (
+                <div style={{ marginTop: '14px', fontSize: '13px' }}>
+                  <b style={{ color: '#64748b' }}>Comments</b>
+                  {item.RA1_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA1}: {item.RA1_Comment}</p>}
+                  {item.RA2_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA2}: {item.RA2_Comment}</p>}
+                  {item.RA3_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA3}: {item.RA3_Comment}</p>}
+                  {item.RA4_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA4}: {item.RA4_Comment}</p>}
+                </div>
+              )}
 
-    <div className="input-group">
-      <label>💬 Comment</label>
-      <textarea
-        value={commentMap[item.lid] || ""}
-        onChange={(e) =>
-          handleCommentChange(item.lid, e.target.value)
-        }
-      />
-    </div>
+              {getRejectionInfo(item) && <p style={{ color: 'red', fontWeight: 'bold', fontSize: '12px', marginTop: '8px' }}>{getRejectionInfo(item)}</p>}
+              {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'overtime' && type !== 'onduty' && (
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>Approved By: {getApprovedBy(item)}</p>
+              )}
 
-    <button onClick={() => handleApprove(item)}>✅ Approve</button>
-    <button onClick={() => handleReject(item)}>❌ Reject</button>
-  </>
-) : type === "overtime" ? (
-  <>
-    <button onClick={() => updateOvertime(item, "Accepted")}>
-      ✅ Approve
-    </button>
-
-    <button onClick={() => updateOvertime(item, "Rejected")}>
-      ❌ Reject
-    </button>
-  </>
-) : (
-  <>
-    <button onClick={() => updateStatus(item.lid, "Accepted")}>
-      ✅ Approve
-    </button>
-
-    <button onClick={() => updateStatus(item.lid, "Rejected")}>
-      ❌ Reject
-    </button>
-  </>
-)}
-  </div>
-)}
-
+              {view !== 'my' && canAct(item) && (
+                <div className="lr-card-actions">
+                  {type === 'onduty' ? (
+                    <>
+                      <button className="lr-action-btn approve" onClick={() => updateOnDuty(item, 'Accepted')}>✅ Approve</button>
+                      <button className="lr-action-btn reject"  onClick={() => updateOnDuty(item, 'Rejected')}>❌ Reject</button>
+                    </>
+                  ) : type === 'equipment' ? (
+                    <>
+                      {item.CurrentLevel === 1 && (
+                        <input type="number" placeholder="Amount" value={amountMap[item.lid] || ''} onChange={(e) => handleAmountChange(item.lid, e.target.value)} />
+                      )}
+                      <input type="text" placeholder="Comment" value={commentMap[item.lid] || ''} onChange={(e) => handleCommentChange(item.lid, e.target.value)} />
+                      <button className="lr-action-btn approve" onClick={() => handleApprove(item)}>✅ Approve</button>
+                      <button className="lr-action-btn reject"  onClick={() => handleReject(item)}>❌ Reject</button>
+                    </>
+                  ) : type === 'overtime' ? (
+                    <>
+                      <button className="lr-action-btn approve" onClick={() => updateOvertime(item, 'Accepted')}>✅ Approve</button>
+                      <button className="lr-action-btn reject"  onClick={() => updateOvertime(item, 'Rejected')}>❌ Reject</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="lr-action-btn approve" onClick={() => updateStatus(item.lid, 'Accepted')}>✅ Approve</button>
+                      <button className="lr-action-btn reject"  onClick={() => updateStatus(item.lid, 'Rejected')}>❌ Reject</button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
-
 {viewModalOpen && selectedDuty && (
   <div className="modal-overlay">
     <div className="modal-container">
