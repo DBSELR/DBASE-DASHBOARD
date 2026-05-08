@@ -703,7 +703,8 @@ if (type === "onduty" && view === "my") {
         </div>
       </div> */}
 
-     {view !== "my" && (
+    {/* FILTERS */}
+{view !== "my" ? (
   <div className="filters-grid">
 
     {/* EMPLOYEE FILTER */}
@@ -896,6 +897,48 @@ if (type === "onduty" && view === "my") {
         </IonSelect>
       </div>
     </div>
+  </div>
+) : (
+  /* ONLY MONTH FILTER FOR "my" VIEW */
+  <div className="filters-grid">
+
+    <div className="custom-dropdown-container">
+      <div className="premium-filter-trigger">
+        <div className="trigger-content">
+          <div className="trigger-icon-box">
+            <IonIcon icon={calendarOutline} />
+          </div>
+
+          <div className="trigger-text-sec">
+            <span className="trigger-sub">Period</span>
+            <span className="trigger-main">
+              {selectedMonth}
+            </span>
+          </div>
+        </div>
+
+        <IonIcon
+          icon={layersOutline}
+          className="trigger-icon-arrow"
+        />
+
+        <IonSelect
+          className="hidden-select-overlay"
+          interface="popover"
+          toggleIcon="none"
+          value={selectedMonth}
+          onIonChange={(e) =>
+            setSelectedMonth(e.detail.value)
+          }
+        >
+          {months.map((m) => (
+            <IonSelectOption key={m} value={m}>
+              {m}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </div>
+    </div>
 
   </div>
 )}
@@ -919,11 +962,11 @@ if (type === "onduty" && view === "my") {
     : type === "overtime"
     ? item.Empname
     : type === "onduty"
-    ? item.College
-    :  item.empNames}
+    ? item. College : (item.empcode + ' : ' + item.Empname)}
+
 </div>
                   <div className="lr-card-subtitle">
-                    {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : item.Remarks}
+                    {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
                   </div>
                 </div>
                 <div className={`lr-status-indicator lr-status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
