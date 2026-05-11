@@ -1,587 +1,686 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// Salaries.tsx
+
+import React, { useEffect, useState } from "react";
 import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
   IonContent,
+  IonGrid,
+  IonRow,
+  IonCol,
   IonLoading,
-  IonToast,
-  IonIcon,
-  IonSelect,
-  IonSelectOption,
-  IonDatetime,
-} from '@ionic/react';
+} from "@ionic/react";
+
 import {
-  calendarOutline,
-  peopleOutline,
-  cashOutline,
-  checkmarkCircleOutline,
-  refreshOutline,
-  saveOutline,
-  chevronForwardOutline,
-  chevronDownOutline,
-  checkmarkOutline
-} from 'ionicons/icons';
-import axios from 'axios';
-import moment from 'moment';
-import { API_BASE } from '../config';
-import './Salaries.css';
+  Tabs,
+  Tab,
+  Box,
+  Checkbox,
+  TextField,
+  Button,
+  Tooltip,
+} from "@mui/material";
 
-// --- Custom Components (Pure CSS/Div) ---
+import TodayIcon from "@mui/icons-material/Today";
+import ClearIcon from "@mui/icons-material/Clear";
+import DownloadIcon from "@mui/icons-material/GetApp";
 
-interface CheckboxProps {
-  checked: boolean;
-  onChange: (val: boolean) => void;
-}
+import moment from "moment";
+import axios from "axios";
+import "./Salaries.css";
 
-const CustomCheckbox: React.FC<CheckboxProps> = ({ checked, onChange }) => (
-  <div
-    className={`sc-checkbox ${checked ? 'checked' : ''}`}
-    onClick={(e) => {
-      e.stopPropagation();
-      onChange(!checked);
-    }}
-  >
-    <IonIcon icon={checkmarkOutline} className="sc-checkbox-tick" />
-  </div>
-);
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
 
-// --- Interfaces ---
+const theme = createTheme();
+(theme as any).alpha = alpha;
 
-interface Employee {
-  EmpCode: string;
-  EmpName: string;
-  isSelected: boolean;
-}
-
-interface Holiday {
-  ID: number;
-  HolidayDate: string;
-  Remark: string;
-  Year: string;
-  isSelected: boolean;
-}
-
-interface Adjustment {
-  Ecode: string;
-  Ename: string;
-  SalMY: string;
-  AddDays: string;
-  Remark: string;
-  AdvDed: string;
-}
+const API_URL = "http://localhost:25918/api/";
 
 const Salaries: React.FC = () => {
-  // State for tab navigation
-  const [activeTab, setActiveTab] = useState<'assign' | 'generate'>('generate');
+  const [tabValue, setTabValue] = useState(0);
 
-  // State for year and month selection
-  const [hYear, setHYear] = useState<string>(moment().format('YYYY'));
-  const [hMonth, setHMonth] = useState<string>(moment().format('M'));
-  const [salMY, setSalMY] = useState<string>(moment().format('MMM-YYYY'));
+  // States from Angular Logic
+  const [Hyear, setHyear] = useState<any>(moment().subtract(1, "M"));
+  const [HMnth, setHMnth] = useState<any>(moment().subtract(1, "M"));
 
-  const years = Array.from({ length: 10 }, (_, i) => (moment().year() + 1 - i).toString());
-  const monthsList = moment.months().map((m, i) => ({ name: m, value: (i + 1).toString() }));
+  const [dt_Holidays, setDt_Holidays] = useState<any[]>([]);
+  const [dt_emp_Active, setDt_emp_Active] = useState<any[]>([]);
+  const [dt_SalAdjust, setDt_SalAdjust] = useState<any[]>([]);
 
-  const generateMonthList = () => {
-    const months: string[] = [];
-    const startYear = 2014;
-    const current = moment().add(1, 'month');
-    const currentYear = current.year();
+  const [SelectHls, setSelectHls] = useState(false);
+  const [someSelectHls, setSomeSelectHls] = useState(false);
 
-    for (let y = currentYear; y >= startYear; y--) {
-      const endMonth = y === currentYear ? current.month() : 11;
-      for (let m = endMonth; m >= 0; m--) {
-        months.push(moment().year(y).month(m).format("MMM-YYYY"));
-      }
-    }
-    return months;
-  };
+  const [SelectEmp, setSelectEmp] = useState(false);
+  const [someSelectEmp, setSomeSelectEmp] = useState(false);
 
-  const payrollPeriods = generateMonthList();
+  const [SalMY, setSalMY] = useState<any>(moment().subtract(1, "M"));
+  const [SalReset, setSalReset] = useState(false);
 
-  // State for data
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [salAdjustments, setSalAdjustments] = useState<Adjustment[]>([]);
-  const [resetAdjustments, setResetAdjustments] = useState(false);
-
-  // State for selection
-  const [selectAllHolidays, setSelectAllHolidays] = useState(false);
-  const [selectAllEmployees, setSelectAllEmployees] = useState(false);
-
-  // State for UI feedback
   const [loading, setLoading] = useState(false);
-  const [progressMessage, setProgressMessage] = useState('Please wait...');
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'danger' | 'warning'>('success');
 
-  const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+  const months = moment.months();
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')?.replace(/"/g, '');
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
+  // Helper for sequential API calls with delay (parity with Angular logic)
+  const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+  // ionViewWillEnter parity
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await DelETable();
+      await DelHTable();
+      await Load_EmployeesActive();
+      await LoadHolidays();
+      await LoadAdjustments();
+      setLoading(false);
     };
+    init();
+  }, []);
+
+  // Watchers for reactivity
+  useEffect(() => {
+    if (Hyear && HMnth) {
+      LoadHolidays();
+      Load_EmployeesActive();
+    }
+  }, [Hyear, HMnth]);
+
+  useEffect(() => {
+    if (SalMY) {
+      LoadAdjustments();
+    }
+  }, [SalMY]);
+
+  // ==========================
+  // API 1: LOAD HOLIDAYS
+  // ==========================
+  const LoadHolidays = async () => {
+    try {
+      setSelectHls(false);
+      let tmpyr = moment(Hyear).format("YYYY");
+      let tmpmnth = moment(HMnth).format("M");
+
+      if (tmpyr === "Invalid date" || !Hyear) tmpyr = moment().format("YYYY");
+      if (tmpmnth === "Invalid date" || !HMnth) tmpmnth = moment().format("M");
+
+      const res = await axios.get(
+        `${API_URL}Sources/Load_Holidays?yr=${tmpyr}&mnth=${tmpmnth}`
+      );
+
+      // item[7] is the boolean flag for active/valid holidays in the response
+      const mappedData = res.data
+        .filter((item: any) => item[7] === true)
+        .map((item: any) => ({
+          HolidayDate: item[1],
+          Remark: item[2],
+          isSelected: false,
+        }));
+
+      setDt_Holidays(mappedData);
+    } catch (err) {
+      console.log("Error LoadHolidays", err);
+    }
   };
 
-  // --- Data Mapping (Defensive) ---
+  // ==========================
+  // API 2: LOAD EMPLOYEES
+  // ==========================
+  const Load_EmployeesActive = async () => {
+    try {
+      let tmpyr = moment(Hyear).format("YYYY");
+      let tmpmnth = moment(HMnth).format("MMM");
 
-  const mapHolidayData = useCallback((data: any): Holiday[] => {
-    if (!Array.isArray(data)) {
-      console.warn('Load_Holidays API returned non-array:', data);
-      return [];
+      if (tmpyr === "Invalid date" || !Hyear) tmpyr = moment().format("YYYY");
+      if (tmpmnth === "Invalid date" || !HMnth) tmpmnth = moment().format("MMM");
+
+      const tmpMY = `${tmpmnth}-${tmpyr}`;
+
+      const res = await axios.get(
+        `${API_URL}Salaries/Load_Sal_Employees?SalMY=${tmpMY}`
+      );
+
+      const rawData = res.data;
+      const deduplicatedMap: any = {};
+
+      // Swagger shows duplicates: some with nulls (index 3=0) and some with data (index 3=1).
+      // We prioritize the records that have a group color (index 4) or status flag (index 3=1).
+      rawData.forEach((item: any) => {
+        const empCode = item[0];
+        const hasData = item[3] === 1 || item[4] !== null;
+
+        if (!deduplicatedMap[empCode] || hasData) {
+          deduplicatedMap[empCode] = {
+            EmpCode: item[0],
+            EmpName: item[1],
+            SalMY: item[2],
+            EmpGroupColor: item[4],
+            Holidays: item[5],
+            isSelected: false,
+          };
+        }
+      });
+
+      const mappedData = Object.values(deduplicatedMap);
+      setDt_emp_Active(mappedData);
+    } catch (err) {
+      console.log("Error Load_EmployeesActive", err);
     }
-    return data
-      .filter((h: any) => h && h[7] === true)
-      .map((h: any) => ({
-        ID: h[0], HolidayDate: h[1], Remark: h[2], Year: h[3], isSelected: false
+  };
+
+  // ==========================
+  // API 3 & 4: DELETE TEMP TABLES
+  // ==========================
+  const DelETable = async () => {
+    try {
+      await axios.post(`${API_URL}Salaries/Delete_ETable`, "");
+    } catch (err) {
+      console.log("Error DelETable", err);
+    }
+  };
+
+  const DelHTable = async () => {
+    try {
+      await axios.post(`${API_URL}Salaries/Delete_HTable`, "");
+    } catch (err) {
+      console.log("Error DelHTable", err);
+    }
+  };
+
+  // ==========================
+  // API 5: INSERT EMP TABLE (SEQUENTIAL)
+  // ==========================
+  const InsertETable = async (data = dt_emp_Active) => {
+    try {
+      setLoading(true);
+      await DelETable();
+      for (const item of data) {
+        if (item.isSelected) {
+          await delay(50); // Angular parity
+          const payload = {
+            _Ecode: item.EmpCode,
+            _Ename: item.EmpName.replace(item.EmpCode + "-", ""),
+          };
+          await axios.post(`${API_URL}Salaries/Insert_ETable`, payload);
+        }
+      }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================
+  // API 6: INSERT HOLIDAY TABLE (SEQUENTIAL)
+  // ==========================
+  const InsertHTable = async (data = dt_Holidays) => {
+    try {
+      setLoading(true);
+      await DelHTable();
+      for (const item of data) {
+        if (item.isSelected) {
+          await delay(50); // Angular parity
+          const payload = {
+            _Hdt: moment(item.HolidayDate).format("DD-MM-YYYY"),
+            _Remark: item.Remark,
+          };
+          await axios.post(`${API_URL}Salaries/Insert_HTable`, payload);
+        }
+      }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================
+  // API 7: UPDATE EMP HOLIDAY
+  // ==========================
+  const UpdateEmpHoliday = async () => {
+    try {
+      setLoading(true);
+
+      // Steps 1-4: Ensure temp tables are updated with current selections
+      // InsertHTable and InsertETable internally call DelHTable and DelETable
+      await InsertHTable(dt_Holidays);
+      await InsertETable(dt_emp_Active);
+
+      // Step 5: Final Update API
+      let tmpyr = moment(Hyear).format("YYYY");
+      let tmpmnth = moment(HMnth).format("MMM");
+      const payload = { _SalMY: `${tmpmnth}-${tmpyr}` };
+
+      await axios.post(`${API_URL}Salaries/UpdateEmpHoliday`, payload);
+
+      // Refresh data
+      await Load_EmployeesActive();
+
+      setSomeSelectEmp(false);
+      setSelectEmp(false);
+      alert("Employees Holidays Updated Successfully");
+    } catch (err) {
+      console.log(err);
+      alert("Error While Updating");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================
+  // API 8: GENERATE SALARIES
+  // ==========================
+  const Generate_Sal = async () => {
+    try {
+      if (!SalMY) return;
+      setLoading(true);
+
+      const tmpMY = moment(SalMY).format("MMM-YYYY");
+      const payload = {
+        _SalMY: tmpMY,
+        _Reset: SalReset ? "Y" : "",
+      };
+
+      await axios.post(`${API_URL}Salaries/GenerateSal`, payload);
+      await LoadAdjustments();
+      alert("Salaries Generated Successfully");
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================
+  // API 9: LOAD ADJUSTMENTS
+  // ==========================
+  const LoadAdjustments = async () => {
+    try {
+      if (!SalMY) return;
+      const tmpMY = moment(SalMY).format("MMM-YYYY");
+      const res = await axios.get(
+        `${API_URL}Salaries/Load_Sal_Adjustments?SalMY=${tmpMY}`
+      );
+
+      const mappedData = res.data.map((item: any) => ({
+        Empcode: item[0],
+        Empname: item[1],
+        Add_Days: item[3],
+        Remarks: item[4],
+        Advance: item[5],
+        Advance_Ded: item[6],
       }));
-  }, []);
 
-  const mapEmployeeData = useCallback((data: any): Employee[] => {
-    if (!Array.isArray(data)) {
-      console.warn('Load_Employees API returned non-array:', data);
-      return [];
+      setDt_SalAdjust(mappedData);
+    } catch (err) {
+      console.log(err);
     }
-    return data.map((emp: any) => ({
-      EmpCode: emp[0],
-      EmpName: emp[1] && emp[1].includes('-') ? emp[1].split('-')[1].trim() : (emp[1] || 'Unknown'),
-      isSelected: false
-    }));
-  }, []);
+  };
 
-  const mapAdjustmentData = useCallback((data: any): Adjustment[] => {
-    if (!Array.isArray(data)) {
-      console.warn('Load_Adjustments API returned non-array:', data);
-      return [];
+  // ==========================
+  // API 10: UPDATE ADJUSTMENT
+  // ==========================
+  const UpdateAdjustment = async (
+    Ecode: any,
+    AddDays: any,
+    Remark: any,
+    AdvDed: any
+  ) => {
+    try {
+      if (!SalMY) return;
+      const tmpMY = moment(SalMY).format("MMM-YYYY");
+      const payload = {
+        _SalMY: tmpMY,
+        _Ecode: Ecode,
+        _AddDays: AddDays || 0,
+        _Remark: Remark || "",
+        _AdvDed: AdvDed || 0,
+      };
+
+      await axios.post(`${API_URL}Salaries/UpdateSalAdjust`, payload);
+    } catch (err) {
+      console.log(err);
     }
-    return data.map((adj: any) => ({
-      Ecode: adj[0], Ename: adj[1], SalMY: adj[2],
-      AddDays: adj[3]?.toString() || '0', Remark: adj[4] || '', AdvDed: adj[5]?.toString() || '0'
-    }));
-  }, []);
-
-  // --- API Actions ---
-
-  const loadHolidays = useCallback(async () => {
-    setLoading(true);
-    setProgressMessage('Fetching holidays...');
-    try {
-      console.log(`[Salaries] Loading holidays for yr=${hYear}, mnth=${hMonth}`);
-      const res = await axios.get(`${baseUrl}/Sources/Load_Holidays?yr=${hYear}&mnth=${hMonth}`, {
-        headers: getAuthHeaders(),
-      });
-      console.log('[Salaries] Holidays Raw:', res.data);
-      setHolidays(mapHolidayData(res.data));
-    } catch (err) {
-      console.error('[Salaries] Holidays Load Error:', err);
-      setToastType('danger'); setToastMessage('Failed to load holidays.'); setShowToast(true);
-    } finally { setLoading(false); }
-  }, [baseUrl, hYear, hMonth, mapHolidayData]);
-
-  const loadEmployeesActive = useCallback(async () => {
-    setLoading(true);
-    setProgressMessage('Fetching employees...');
-    try {
-      const currentSalMY = `${moment(hMonth, 'M').format('MMM')}-${hYear}`;
-      console.log(`[Salaries] Loading employees for SalMY=${currentSalMY}`);
-      const res = await axios.get(`${baseUrl}/Salaries/Load_Sal_Employees?SalMY=${currentSalMY}`, {
-        headers: getAuthHeaders(),
-      });
-      console.log('[Salaries] Employees Raw:', res.data);
-      setEmployees(mapEmployeeData(res.data));
-    } catch (err) {
-      console.error('[Salaries] Employees Load Error:', err);
-      setToastType('danger'); setToastMessage('Failed to load employees.'); setShowToast(true);
-    } finally { setLoading(false); }
-  }, [baseUrl, hYear, hMonth, mapEmployeeData]);
-
-  const loadAdjustments = useCallback(async () => {
-    setLoading(true);
-    setProgressMessage('Updating payroll...');
-    try {
-      console.log(`[Salaries] Loading adjustments for SalMY=${salMY}`);
-      const res = await axios.get(`${baseUrl}/Salaries/Load_Sal_Adjustments?SalMY=${salMY}`, {
-        headers: getAuthHeaders(),
-      });
-      console.log('[Salaries] Adjustments Raw:', res.data);
-      setSalAdjustments(mapAdjustmentData(res.data));
-    } catch (err) {
-      console.error('[Salaries] Adjustments Load Error:', err);
-      setToastType('danger'); setToastMessage('Failed to load adjustments.'); setShowToast(true);
-    } finally { setLoading(false); }
-  }, [baseUrl, salMY, mapAdjustmentData]);
-
-  const handleUpdateEmpHolidays = async () => {
-    const selectedEmps = employees.filter(e => e.isSelected);
-    const selectedHols = holidays.filter(h => h.isSelected);
-    if (!selectedEmps.length || !selectedHols.length) {
-      setToastType('warning'); setToastMessage('Select target employees and holidays first.'); setShowToast(true);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      setProgressMessage('Syncing holiday registers...');
-      await axios.post(`${baseUrl}/Salaries/Delete_HTable`, {}, { headers: getAuthHeaders() });
-      for (let i = 0; i < selectedHols.length; i++) {
-        const h = selectedHols[i];
-        await axios.post(`${baseUrl}/Salaries/Insert_HTable`, {
-          _Hdt: moment(h.HolidayDate).format('DD-MM-YYYY'), _Remark: h.Remark, _Recno: (i + 1).toString()
-        }, { headers: getAuthHeaders() });
-      }
-      setProgressMessage('Updating employee records...');
-      await axios.post(`${baseUrl}/Salaries/Delete_ETable`, {}, { headers: getAuthHeaders() });
-      for (const emp of selectedEmps) {
-        await axios.post(`${baseUrl}/Salaries/Insert_ETable`, { _Ecode: emp.EmpCode, _Ename: emp.EmpName }, { headers: getAuthHeaders() });
-      }
-      setProgressMessage('Finalizing payroll sync...');
-      const currentSalMY = `${moment(hMonth, 'M').format('MMM')}-${hYear}`;
-      await axios.post(`${baseUrl}/Salaries/UpdateEmpHoliday`, { _SalMY: currentSalMY }, { headers: getAuthHeaders() });
-      setToastType('success'); setToastMessage('Salaries synced successfully!'); setShowToast(true);
-      loadEmployeesActive();
-    } catch (err) {
-      setToastType('danger'); setToastMessage('Record sync failed.'); setShowToast(true);
-    } finally { setLoading(false); }
   };
 
-  const handleGenerateSal = async () => {
-    setLoading(true);
-    setProgressMessage('Generating records...');
-    try {
-      const res = await axios.post(`${baseUrl}/Salaries/GenerateSal`, { _SalMY: salMY, _Reset: resetAdjustments ? 'Y' : '' }, { headers: getAuthHeaders() });
-      if (res.data.includes('Successfully')) {
-        setToastType('success'); setToastMessage('Payroll generated!'); setShowToast(true);
-        loadAdjustments();
-      } else throw new Error(res.data);
-    } catch (err) {
-      setToastType('danger'); setToastMessage('Generation failed.'); setShowToast(true);
-    } finally { setLoading(false); }
+  // ==========================
+  // Selection Logic
+  // ==========================
+  const selectUnselectAllEmp = async (e: any) => {
+    const checked = e.target.checked;
+    setSelectEmp(checked);
+    const updated = dt_emp_Active.map((x: any) => ({ ...x, isSelected: checked }));
+    setDt_emp_Active(updated);
+    await InsertETable(updated);
   };
 
-  const handleUpdateAdjustment = async (adj: Adjustment) => {
-    setLoading(true);
-    setProgressMessage(`Saving ${adj.Ename}...`);
-    try {
-      await axios.post(`${baseUrl}/Salaries/UpdateSalAdjust`, {
-        _SalMY: salMY, _Ecode: adj.Ecode, _AddDays: adj.AddDays || '0', _Remark: adj.Remark || '', _AdvDed: adj.AdvDed || '0'
-      }, { headers: getAuthHeaders() });
-      setToastType('success'); setToastMessage('Adjustment saved!'); setShowToast(true);
-    } catch (err) {
-      setToastType('danger'); setToastMessage('Save failed.'); setShowToast(true);
-    } finally { setLoading(false); }
+  const selectUnselectAllHls = async (e: any) => {
+    const checked = e.target.checked;
+    setSelectHls(checked);
+    const updated = dt_Holidays.map((x: any) => ({ ...x, isSelected: checked }));
+    setDt_Holidays(updated);
+    await InsertHTable(updated);
   };
 
-  // --- Handlers ---
-
-  const handleToggleHoliday = (id: number) => {
-    const nextHolidays = holidays.map(h => h.ID === id ? { ...h, isSelected: !h.isSelected } : h);
-    setHolidays(nextHolidays);
-    setSelectAllHolidays(nextHolidays.length > 0 && nextHolidays.every(h => h.isSelected));
+  const singleChangeEmp = async (e: any, id: any) => {
+    const checked = e.target.checked;
+    const updated = dt_emp_Active.map((x: any) =>
+      x.EmpName === id ? { ...x, isSelected: checked } : x
+    );
+    setDt_emp_Active(updated);
+    const filtered = updated.filter((x: any) => x.isSelected);
+    setSelectEmp(filtered.length > 0);
+    setSomeSelectEmp(filtered.length > 0 && filtered.length !== updated.length);
+    await InsertETable(updated);
   };
 
-  const handleToggleEmployee = (code: string) => {
-    const nextEmployees = employees.map(e => e.EmpCode === code ? { ...e, isSelected: !e.isSelected } : e);
-    setEmployees(nextEmployees);
-    setSelectAllEmployees(nextEmployees.length > 0 && nextEmployees.every(e => e.isSelected));
+  const singleChangeHls = async (e: any, id: any) => {
+    const checked = e.target.checked;
+    const updated = dt_Holidays.map((x: any) =>
+      x.HolidayDate === id ? { ...x, isSelected: checked } : x
+    );
+    setDt_Holidays(updated);
+    const filtered = updated.filter((x: any) => x.isSelected);
+    setSelectHls(filtered.length > 0);
+    setSomeSelectHls(filtered.length > 0 && filtered.length !== updated.length);
+    await InsertHTable(updated);
   };
-
-  const updateAdjField = (code: string, field: keyof Adjustment, value: string) => {
-    setSalAdjustments(prev => prev.map(a => a.Ecode === code ? { ...a, [field]: value } : a));
-  };
-
-  useEffect(() => {
-    if (activeTab === 'assign') { loadHolidays(); loadEmployeesActive(); }
-    else { loadAdjustments(); }
-  }, [activeTab, hYear, hMonth, salMY, loadHolidays, loadEmployeesActive, loadAdjustments]);
-
-  // --- Scroll Effects ---
-  useEffect(() => {
-    const content = document.querySelector('ion-content');
-    if (content) {
-      // Content scrolling reset when tab changes
-      content.scrollToTop();
-    }
-  }, [activeTab]);
 
   return (
-    <IonPage>
+    <ThemeProvider theme={theme}>
+      <LocalizationProvider dateAdapter={AdapterMoment}>
+        <IonContent>
+          <Box sx={{ width: "100%" }}>
+            <Tabs
+              value={tabValue}
+              onChange={(e, newValue) => setTabValue(newValue)}
+              className="salary-tabs"
+              variant="fullWidth"
+            >
+              <Tab label="Assign Holidays" className="salary-tab" />
+              <Tab label="Generate Salaries" className="salary-tab" />
+            </Tabs>
 
-
-      <IonContent className="sc-container">
-        <div className="sc-header-card premium-trendy-bg">
-          <div className="sc-header-info">
-            <h1 className="sc-title">Salaries Dashboard</h1>
-            <p className="sc-subtitle">Official payroll management and holiday processing.</p>
-          </div>
-          <div className="sc-header-icon-bg">
-            <IonIcon icon={cashOutline} />
-          </div>
-        </div>
-
-        <IonLoading isOpen={loading} message={progressMessage} />
-        <IonToast
-          isOpen={showToast}
-          onDidDismiss={() => setShowToast(false)}
-          message={toastMessage}
-          duration={2500}
-          color={toastType === 'success' ? 'success' : (toastType === 'warning' ? 'warning' : 'danger')}
-          position="top"
-          mode="ios"
-        />
-
-        {/* Custom Segment Swiper */}
-        <div className="sc-segment">
-          <div
-            className={`sc-segment-item ${activeTab === 'assign' ? 'active' : ''}`}
-            onClick={() => setActiveTab('assign')}
-          >
-            Assign Holidays
-          </div>
-          <div
-            className={`sc-segment-item ${activeTab === 'generate' ? 'active' : ''}`}
-            onClick={() => setActiveTab('generate')}
-          >
-            Generate Salaries
-          </div>
-        </div>
-
-        {activeTab === 'assign' ? (
-          <div>
-            <div className="sc-grid">
-              <div className="sc-input-card premium-trendy-bg">
-                <div style={{ flex: 1 }}>
-                  <div className="sc-input-label">Processing Year</div>
-                  <IonSelect
-                    value={hYear}
-                    onIonChange={(e: CustomEvent) => setHYear(e.detail.value)}
-                    interface="popover"
-                    className="lr-popover-select"
-                  >
-                    {years.map(y => <IonSelectOption key={y} value={y}>{y}</IonSelectOption>)}
-                  </IonSelect>
-                </div>
-                <IonIcon icon={calendarOutline} color="primary" />
-              </div>
-              <div className="sc-input-card premium-trendy-bg">
-                <div style={{ flex: 1 }}>
-                  <div className="sc-input-label">Processing Month</div>
-                  <IonSelect
-                    value={hMonth}
-                    onIonChange={(e: CustomEvent) => setHMonth(e.detail.value)}
-                    interface="popover"
-                    className="lr-popover-select"
-                  >
-                    {monthsList.map(m => <IonSelectOption key={m.value} value={m.value}>{m.name}</IonSelectOption>)}
-                  </IonSelect>
-                </div>
-                <IonIcon icon={chevronDownOutline} color="primary" />
-              </div>
-            </div>
-
-            <div className="sc-desktop-split">
-              {/* Employee Area */}
-              <div className="sc-card">
-                <div className="sc-card-header">
-                  <div className="sc-card-title">
-                    <IonIcon icon={peopleOutline} color="primary" />
-                    Employees <span className="sc-badge">{employees.filter(e => e.isSelected).length}</span>
-                  </div>
-                  <CustomCheckbox
-                    checked={selectAllEmployees}
-                    onChange={(checked) => {
-                      setSelectAllEmployees(checked);
-                      setEmployees(prev => prev.map(e => ({ ...e, isSelected: checked })));
-                    }}
-                  />
-                </div>
-                <div className="sc-list">
-                  {employees.map(emp => (
-                    <div
-                      key={emp.EmpCode}
-                      className={`sc-list-item ${emp.isSelected ? 'selected' : ''}`}
-                      onClick={() => handleToggleEmployee(emp.EmpCode)}
+            {/* TAB 1: ASSIGN HOLIDAYS */}
+            {tabValue === 0 && (
+              <IonGrid className="ion-no-margin">
+                <IonRow className="salary-header-row" style={{ justifyContent: "center" }}>
+                  <IonCol size="3" style={{ textAlign: "center" }}>
+                    <Button
+                      variant="outlined"
+                      className="update-btn"
+                      onClick={UpdateEmpHoliday}
+                      disabled={!SelectHls || !SelectEmp}
+                      fullWidth
                     >
-                      <CustomCheckbox checked={emp.isSelected} onChange={() => handleToggleEmployee(emp.EmpCode)} />
-                      <span className="sc-item-name">{emp.EmpName}</span>
-                    </div>
-                  ))}
-                  {!employees.length && <div style={{ padding: '40px', textAlign: 'center', color: '#555' }}>No employees found.</div>}
-                </div>
-              </div>
+                      <DownloadIcon />
+                      &nbsp;Update
+                    </Button>
+                  </IonCol>
 
-              {/* Holiday Area */}
-              <div className="sc-card">
-                <div className="sc-card-header">
-                  <div className="sc-card-title">
-                    <IonIcon icon={calendarOutline} color="primary" />
-                    Holidays <span className="sc-badge">{holidays.filter(h => h.isSelected).length}</span>
-                  </div>
-                  <CustomCheckbox
-                    checked={selectAllHolidays}
-                    onChange={(checked) => {
-                      setSelectAllHolidays(checked);
-                      setHolidays(prev => prev.map(h => ({ ...h, isSelected: checked })));
-                    }}
-                  />
-                </div>
-                <div className="sc-list">
-                  {holidays.map(h => (
-                    <div
-                      key={h.ID}
-                      className={`sc-list-item ${h.isSelected ? 'selected' : ''}`}
-                      onClick={() => handleToggleHoliday(h.ID)}
-                    >
-                      <CustomCheckbox checked={h.isSelected} onChange={() => handleToggleHoliday(h.ID)} />
-                      <div className="sc-item-name">
-                        <div>{moment(h.HolidayDate).format('DD MMM YYYY')}</div>
-                        <div style={{ fontSize: '11px', color: '#71717a' }}>{h.Remark}</div>
+                  <IonCol size="9">
+                    <DatePicker
+                      views={["month", "year"]}
+                      label="Mon-Year"
+                      format="MMM-YYYY"
+                      value={Hyear}
+                      onChange={(newValue) => {
+                        setHyear(newValue);
+                        setHMnth(newValue);
+                      }}
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          fullWidth: true,
+                          className: "date-input-field",
+                        },
+                      }}
+                    />
+                  </IonCol>
+                </IonRow>
+
+                <IonRow>
+                  {/* EMPLOYEES LIST */}
+                  <IonCol size-lg="6" size-md="6" size-sm="12" size="12">
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 0", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <Checkbox
+                          checked={SelectEmp}
+                          indeterminate={someSelectEmp}
+                          onChange={selectUnselectAllEmp}
+                          size="small"
+                        />
+                        <b style={{ fontSize: "14px" }}>Select All Employees</b>
                       </div>
+
+                      {/* GROUP WISE SELECTION */}
+                      {Array.from(new Set(dt_emp_Active.map(x => x.EmpGroupColor))).filter(Boolean).map((color, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            const updated = dt_emp_Active.map(e =>
+                              e.EmpGroupColor === color ? { ...e, isSelected: !e.isSelected } : e
+                            );
+                            setDt_emp_Active(updated);
+                            const selectedCount = updated.filter(x => x.isSelected).length;
+                            setSelectEmp(selectedCount === updated.length);
+                            setSomeSelectEmp(selectedCount > 0 && selectedCount < updated.length);
+                            InsertETable(updated);
+                          }}
+                          style={{
+                            backgroundColor: color,
+                            width: "24px",
+                            height: "24px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            border: "1px solid #ccc",
+                            display: "inline-block"
+                          }}
+                          title="Select Group"
+                        />
+                      ))}
                     </div>
-                  ))}
-                  {!holidays.length && <div style={{ padding: '40px', textAlign: 'center', color: '#555' }}>No holidays in this period.</div>}
-                </div>
-              </div>
-            </div>
 
-            <div className="sc-footer">
-              <button
-                className="sc-btn"
-                style={{ width: '100%' }}
-                onClick={handleUpdateEmpHolidays}
-              >
-                <IonIcon icon={checkmarkCircleOutline} />
-                Assign & Sync Salaries
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div className="sc-grid">
-              <div className="sc-input-card premium-trendy-bg">
-                <div style={{ flex: 1 }}>
-                  <div className="sc-input-label">Payroll Period</div>
-                  <IonSelect
-                    value={salMY}
-                    onIonChange={(e: CustomEvent) => setSalMY(e.detail.value)}
-                    interface="popover"
-                    className="lr-popover-select"
-                  >
-                    {payrollPeriods.map(p => <IonSelectOption key={p} value={p}>{p}</IonSelectOption>)}
-                  </IonSelect>
-                </div>
-                <IonIcon icon={cashOutline} color="primary" />
-              </div>
-              <div className="sc-input-card premium-trendy-bg" style={{ cursor: 'default' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <CustomCheckbox checked={resetAdjustments} onChange={setResetAdjustments} />
-                  <span style={{ fontWeight: '700', fontSize: '14px', color: '#fff' }}>Reset Adjustments</span>
-                </div>
-              </div>
-            </div>
+                    <div className="employee-list">
+                      {dt_emp_Active.map((x: any, i: number) => (
+                        <Tooltip title={x.Holidays || ""} key={i}>
+                          <div
+                            className={`Dynamic-card-style1 ${x.isSelected ? "highlighted" : ""
+                              }`}
+                            style={{
+                              backgroundColor: x.isSelected ? "var(--salary-row-highlight)" : x.EmpGroupColor || "#9cbce0"
+                            }}
+                          >
+                            <div className="badgeplain">{i + 1}</div>
+                            <div className="checkbox-row">
+                              <Checkbox
+                                size="small"
+                                checked={x.isSelected || false}
+                                onChange={(e) => singleChangeEmp(e, x.EmpName)}
+                              />
+                              <span className="emp-name-text">{x.EmpName}</span>
+                            </div>
+                          </div>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </IonCol>
 
-            {/* Desktop Table */}
-            <div className="sc-card sc-desktop-only" style={{ padding: '0' }}>
-              <div className="sc-card-header" style={{ padding: '20px', marginBottom: '0' }}>
-                <div className="sc-card-title">Salary Variations</div>
-                <IonIcon icon={refreshOutline} className="clickable" style={{ fontSize: '20px' }} onClick={loadAdjustments} />
-              </div>
-              <div className="sc-table-container">
-                <table className="sc-table">
-                  <thead>
-                    <tr>
-                      <th className="sc-th">Employee Name</th>
-                      <th className="sc-th" style={{ width: '120px' }}>Add Days</th>
-                      <th className="sc-th">Adjustment Remark</th>
-                      <th className="sc-th" style={{ width: '150px' }}>Advance Recovery</th>
-                      <th className="sc-th" style={{ width: '80px' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {salAdjustments.map(adj => (
-                      <tr key={adj.Ecode}>
-                        <td className="sc-td" style={{ fontWeight: '700' }}>{adj.Ename}</td>
-                        <td className="sc-td">
-                          <input
-                            className="sc-input"
-                            value={adj.AddDays}
-                            onChange={(e) => updateAdjField(adj.Ecode, 'AddDays', e.target.value)}
+                  {/* HOLIDAYS LIST */}
+                  <IonCol size-lg="6" size-md="6" size-sm="12" size="12">
+                    <div style={{ padding: "10px 0" }}>
+                      {HMnth && (
+                        <>
+                          <Checkbox
+                            checked={SelectHls}
+                            indeterminate={someSelectHls}
+                            onChange={selectUnselectAllHls}
                           />
-                        </td>
-                        <td className="sc-td">
-                          <input
-                            className="sc-input"
-                            value={adj.Remark}
-                            onChange={(e) => updateAdjField(adj.Ecode, 'Remark', e.target.value)}
-                            placeholder="Reason..."
+                          <b>Select All Holidays</b>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="holiday-list">
+                      {dt_Holidays.map((x: any, i: number) => (
+                        <div className="card-style" key={i}>
+                          <Checkbox
+                            size="small"
+                            checked={x.isSelected || false}
+                            onChange={(e) => singleChangeHls(e, x.HolidayDate)}
                           />
-                        </td>
-                        <td className="sc-td">
+                          <div className="holiday-info">
+                            <span className="holiday-date">
+                              {i + 1} -- {moment(x.HolidayDate).format("DD-MM-YYYY")}
+                            </span>
+                            <span className="holiday-remark">{x.Remark}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </IonCol>
+                </IonRow>
+              </IonGrid>
+            )}
+
+            {/* TAB 2: GENERATE SALARIES */}
+            {tabValue === 1 && (
+              <>
+                <IonGrid className="ion-no-margin">
+                  <IonRow className="salary-header-row" style={{ justifyContent: "flex-start", gap: "10px" }}>
+                    <IonCol size="9">
+                      <DatePicker
+                        views={["month", "year"]}
+                        label="Mon-Year"
+                        format="MMM-YYYY"
+                        value={SalMY}
+                        onChange={(newValue) => setSalMY(newValue)}
+                        slotProps={{
+                          textField: {
+                            size: "small",
+                            fullWidth: true,
+                            className: "date-input-field",
+                          },
+                        }}
+                      />
+                    </IonCol>
+                    <IonCol size="3">
+                      <Button
+                        variant="outlined"
+                        className="update-btn"
+                        onClick={Generate_Sal}
+                        fullWidth
+                      >
+                        <DownloadIcon />
+                        &nbsp;Generate
+                      </Button>
+                    </IonCol>
+                  </IonRow>
+
+                  <IonRow style={{ padding: "0 10px" }}>
+                    <IonCol size="12" style={{ display: "flex", alignItems: "center" }}>
+                      <Checkbox
+                        checked={SalReset}
+                        onChange={(e: any) => setSalReset(e.target.checked)}
+                        size="small"
+                      />
+                      <b>Reset Adjustments</b>
+                    </IonCol>
+                  </IonRow>
+                </IonGrid>
+
+                <IonGrid className="ion-no-padding" style={{ marginTop: 0 }}>
+                  <IonRow className="ion-grid-heading-row">
+                    <IonCol size="4"><input value="Employee Name" readOnly /></IonCol>
+                    <IonCol size="2"><input value="Add_Days" readOnly /></IonCol>
+                    <IonCol size="2"><input value="Remarks" readOnly /></IonCol>
+                    <IonCol size="2"><input value="Advance" readOnly /></IonCol>
+                    <IonCol size="2"><input value="Adv. Repay" readOnly /></IonCol>
+                  </IonRow>
+
+                  <div className="adjustment-list-container">
+                    {dt_SalAdjust.map((x: any, i: number) => (
+                      <IonRow key={i} className="adjustment-row">
+                        <IonCol size="4">
                           <input
-                            className="sc-input"
+                            type="text"
+                            className="adjustment-input"
+                            readOnly
+                            value={x.Empname}
+                          />
+                        </IonCol>
+                        <IonCol size="2">
+                          <input
                             type="number"
-                            value={adj.AdvDed}
-                            onChange={(e) => updateAdjField(adj.Ecode, 'AdvDed', e.target.value)}
+                            className="adjustment-input"
+                            placeholder="Add Days"
+                            value={x.Add_Days || ""}
+                            onChange={(e: any) => {
+                              const updated = [...dt_SalAdjust];
+                              updated[i].Add_Days = e.target.value;
+                              setDt_SalAdjust(updated);
+                            }}
+                            onBlur={() =>
+                              UpdateAdjustment(x.Empcode, x.Add_Days, x.Remarks, x.Advance_Ded)
+                            }
                           />
-                        </td>
-                        <td className="sc-td">
-                          <button className="sc-btn sc-btn-save" onClick={() => handleUpdateAdjustment(adj)}>
-                            <IonIcon icon={saveOutline} />
-                          </button>
-                        </td>
-                      </tr>
+                        </IonCol>
+                        <IonCol size="2">
+                          <input
+                            type="text"
+                            className="adjustment-input"
+                            placeholder="Remarks"
+                            value={x.Remarks || ""}
+                            onChange={(e: any) => {
+                              const updated = [...dt_SalAdjust];
+                              updated[i].Remarks = e.target.value;
+                              setDt_SalAdjust(updated);
+                            }}
+                            onBlur={() =>
+                              UpdateAdjustment(x.Empcode, x.Add_Days, x.Remarks, x.Advance_Ded)
+                            }
+                          />
+                        </IonCol>
+                        <IonCol size="2">
+                          <input
+                            type="text"
+                            className="adjustment-input"
+                            readOnly
+                            placeholder="Advance"
+                            value={x.Advance || ""}
+                          />
+                        </IonCol>
+                        <IonCol size="2">
+                          <input
+                            type="text"
+                            className="adjustment-input"
+                            placeholder="Adv. Repay"
+                            value={x.Advance_Ded || ""}
+                            onChange={(e: any) => {
+                              const updated = [...dt_SalAdjust];
+                              updated[i].Advance_Ded = e.target.value;
+                              setDt_SalAdjust(updated);
+                            }}
+                            onBlur={() =>
+                              UpdateAdjustment(x.Empcode, x.Add_Days, x.Remarks, x.Advance_Ded)
+                            }
+                          />
+                        </IonCol>
+                      </IonRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Cards */}
-            <div className="sc-mobile-only">
-              <h4 style={{ padding: '0 8px', marginBottom: '16px', fontWeight: '800' }}>Adjustments</h4>
-              {salAdjustments.map(adj => (
-                <div key={adj.Ecode} className="sc-mobile-adj-card">
-                  <div style={{ marginBottom: '15px', fontWeight: '800', fontSize: '18px' }}>{adj.Ename}</div>
-                  <div className="sc-adj-row">
-                    <div className="sc-adj-field">
-                      <div className="sc-input-label">Add Days</div>
-                      <input className="sc-input" value={adj.AddDays} onChange={(e) => updateAdjField(adj.Ecode, 'AddDays', e.target.value)} />
-                    </div>
-                    <div className="sc-adj-field">
-                      <div className="sc-input-label">Advance</div>
-                      <input className="sc-input" type="number" value={adj.AdvDed} onChange={(e) => updateAdjField(adj.Ecode, 'AdvDed', e.target.value)} />
-                    </div>
                   </div>
-                  <div className="sc-adj-field">
-                    <div className="sc-input-label">Adjustment Remark</div>
-                    <input className="sc-input" value={adj.Remark} onChange={(e) => updateAdjField(adj.Ecode, 'Remark', e.target.value)} />
-                  </div>
-                  <button className="sc-btn" style={{ width: '100%', height: '48px', marginTop: '10px' }} onClick={() => handleUpdateAdjustment(adj)}>
-                    <IonIcon icon={saveOutline} /> Save Changes
-                  </button>
-                </div>
-              ))}
-            </div>
+                </IonGrid>
+              </>
+            )}
+          </Box>
 
-            <div className="sc-footer">
-              <button
-                className="sc-btn"
-                style={{ width: '100%' }}
-                onClick={handleGenerateSal}
-              >
-                <IonIcon icon={refreshOutline} />
-                Generate Salaries
-              </button>
-            </div>
-          </div>
-        )}
+          <IonLoading isOpen={loading} message="Processing..." />
+        </IonContent>
 
-
-      </IonContent>
-    </IonPage>
+        <div className="headerblank"></div>
+      </LocalizationProvider>
+    </ThemeProvider>
   );
 };
 
