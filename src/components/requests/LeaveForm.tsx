@@ -21,9 +21,8 @@ const fmtDMY = (iso: string | null) =>
 
 const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   const [requestType, setRequestType] = useState("Leave");
-  const [leaveMode, setLeaveMode] = useState("Leave");
-  const [leaveCategory, setLeaveCategory] = useState("");
-
+  const [leaveMode, setLeaveMode] = useState("");
+const [leaveCategory, setLeaveCategory] = useState("");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
   const [remarks, setRemarks] = useState("");
@@ -304,6 +303,19 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
     if (!startDate) return showToast("Select date");
     if (!remarks) return showToast("Enter remarks");
+    // ✅ Leave Type Validation
+if (requestType === "Leave" && !leaveMode) {
+  return showToast("Select leave type");
+}
+
+// ✅ Category Validation
+if (
+  requestType === "Leave" &&
+  leaveMode === "Leave" &&
+  !leaveCategory
+) {
+  return showToast("Select leave category");
+}
 
     if (isDuplicateDate(startDate)) {
       clearForm();
@@ -413,11 +425,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
                 interface="popover"
                 className="lr-popover-select"
               >
-                <IonSelectOption value="Leave">Leave</IonSelectOption>
-                <IonSelectOption value="Forenoon">Forenoon</IonSelectOption>
-                <IonSelectOption value="Afternoon">Afternoon</IonSelectOption>
-                <IonSelectOption value="Maternity">Maternity</IonSelectOption>
-                <IonSelectOption value="Paternity">Paternity</IonSelectOption>
+               <IonSelectOption value="">Select Leave Type</IonSelectOption>
+<IonSelectOption value="Leave">Leave</IonSelectOption>
+<IonSelectOption value="Forenoon">Forenoon</IonSelectOption>
+<IonSelectOption value="Afternoon">Afternoon</IonSelectOption>
+<IonSelectOption value="Maternity">Maternity</IonSelectOption>
+<IonSelectOption value="Paternity">Paternity</IonSelectOption>
               </IonSelect>
             </div>
           </div>
@@ -428,13 +441,14 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             <label className="lr-field-label">Category</label>
             <div className="lr-field-content">
               <IonIcon icon={optionsOutline} className="lr-field-icon" />
-              <IonSelect
-                placeholder="Category"
+             <IonSelect
+  placeholder="Select Category"
                 value={leaveCategory}
                 onIonChange={(e) => setLeaveCategory(e.detail.value)}
                 interface="popover"
                 className="lr-popover-select"
               >
+               <IonSelectOption value="">Select Category</IonSelectOption>
                 <IonSelectOption value="Casual">Casual</IonSelectOption>
                 <IonSelectOption value="Sick">Sick</IonSelectOption>
               </IonSelect>
