@@ -157,8 +157,7 @@ ion-grid ion-row {
 .ion-grid-heading-row {
   background-color: #f0f0f0 !important;
   color: #000;
-  border: 1px solid #000;
-  border-bottom: none;
+  border-bottom: 1px solid #000;
 }
 
 .ion-grid-heading-row ion-col {
@@ -183,7 +182,7 @@ ion-grid ion-row {
 
 .adjustment-list-container {
   overflow-y: auto;
-  height: 55vh;
+  height: 65vh;
   border: 1px solid #000;
   background-color: #fff;
 }

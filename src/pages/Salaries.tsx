@@ -591,15 +591,14 @@ const Salaries: React.FC = () => {
                 </IonGrid>
 
                 <IonGrid className="ion-no-padding" style={{ marginTop: 0 }}>
-                  <IonRow className="ion-grid-heading-row">
-                    <IonCol size="4"><input value="Employee Name" readOnly /></IonCol>
-                    <IonCol size="2"><input value="Add_Days" readOnly /></IonCol>
-                    <IonCol size="2"><input value="Remarks" readOnly /></IonCol>
-                    <IonCol size="2"><input value="Advance" readOnly /></IonCol>
-                    <IonCol size="2"><input value="Adv. Repay" readOnly /></IonCol>
-                  </IonRow>
-
                   <div className="adjustment-list-container">
+                    <IonRow className="ion-grid-heading-row" style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                      <IonCol size="4"><input value="Employee Name" readOnly /></IonCol>
+                      <IonCol size="2"><input value="Add_Days" readOnly /></IonCol>
+                      <IonCol size="2"><input value="Remarks" readOnly /></IonCol>
+                      <IonCol size="2"><input value="Advance" readOnly /></IonCol>
+                      <IonCol size="2"><input value="Adv. Repay" readOnly /></IonCol>
+                    </IonRow>
                     {dt_SalAdjust.map((x: any, i: number) => (
                       <IonRow key={i} className="adjustment-row">
                         <IonCol size="4">
