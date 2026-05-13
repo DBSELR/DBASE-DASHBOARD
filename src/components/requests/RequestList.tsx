@@ -3,6 +3,7 @@ import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
 import "./RequestList.css";
+import { speedometerOutline } from "ionicons/icons";
 
 import {
   IonIcon,
@@ -118,6 +119,22 @@ const [dropdownPos, setDropdownPos] = useState({
   width: 0
 });
 
+const [editOtModal, setEditOtModal] = useState(false);
+
+const [editOT, setEditOT] = useState<any>({
+  lid: "",
+  empcode: "",
+  date: "",
+  client: "",
+  fromtime: "",
+  totime: "",
+  description: "",
+  minDiff: 0,
+  finMinDiff: 0,
+});
+const [permissionModal, setPermissionModal] = useState(false);
+
+const [permissionData, setPermissionData] = useState<any[]>([]);
 
 
   const normalize = (x: any) => {
@@ -575,6 +592,90 @@ const updateOvertime = async (item: any, status: string) => {
   }
 };
 
+const openOvertimeEdit = (item: any) => {
+  const fromMinutes =
+    Number(item.Fromtime.split(":")[0]) * 60 +
+    Number(item.Fromtime.split(":")[1]);
+
+  const toMinutes =
+    Number(item.Totime.split(":")[0]) * 60 +
+    Number(item.Totime.split(":")[1]);
+
+  const diff = toMinutes - fromMinutes;
+
+  setEditOT({
+    lid: item.lid,
+    empcode: item.empcode,
+     date: moment(item.lfrom).format("YYYY-MM-DD"),
+    client: item.College,
+    fromtime: item.Fromtime,
+    totime: item.Totime,
+    description: item.Remarks,
+    minDiff: diff,
+    finMinDiff: diff,
+  });
+
+  setEditOtModal(true);
+};
+
+const saveEditedOvertime = async () => {
+  try {
+    const fromMinutes =
+      Number(editOT.fromtime.split(":")[0]) * 60 +
+      Number(editOT.fromtime.split(":")[1]);
+
+    const toMinutes =
+      Number(editOT.totime.split(":")[0]) * 60 +
+      Number(editOT.totime.split(":")[1]);
+
+    if (toMinutes <= fromMinutes) {
+      alert("To time should be greater than From time");
+      return;
+    }
+
+    const totalMinutes = toMinutes - fromMinutes;
+
+    const payload = {
+      _empcode: editOT.empcode,
+      _date: editOT.date,
+      _Client: editOT.client,
+      _Fromtime: editOT.fromtime,
+      _Totime: editOT.totime,
+      _Description: editOT.description,
+      _minDiff: String(totalMinutes),
+      _FinMinDiff: String(totalMinutes),
+      _Otid: String(editOT.lid),
+    };
+    console.log("BASE URL", baseUrl);
+
+console.log("SAVE OT PAYLOAD", payload);
+    await axios.post(
+      `${baseUrl}Workreport/save_overtime_duties`,
+      payload,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    setEditOtModal(false);
+
+    loadData();
+
+    alert("Overtime updated successfully");
+  } catch (e: any) {
+  console.error("SAVE OT ERROR", e);
+
+  console.log("Response:", e?.response?.data);
+
+  const errorMsg =
+    e?.response?.data?.errors?.["$._Otid"]?.[0] ||
+    e?.response?.data?.title ||
+    "Failed to update overtime";
+
+  alert(errorMsg);
+}
+};
+
   const updateEquipment = async (item: any, status: string) => {
   const payload = {
     RequestId: item.lid,
@@ -677,7 +778,103 @@ const formatLeaveCategory = (value: any) => {
 if (type === "onduty" && view === "my") {
   return null; // 🔥 completely hide OnDuty in My Requests
 }
+// const loadPermissionDashboard = async (empcode?: string) => {
+//   try {
 
+//     const m = moment(selectedMonth, "MMM-YYYY").month() + 1;
+//     const y = moment(selectedMonth, "MMM-YYYY").year();
+
+//     const finalEmp =
+//       view === "my"
+//         ? getUser()?.empCode
+//         : empcode || selectedEmpCode;
+
+//     const res = await axios.get(
+//       `${baseUrl}Leave/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
+//       {
+//         headers: getAuthHeaders(),
+//       }
+//     );
+
+//     setPermissionData(res.data || []);
+
+//     setPermissionModal(true);
+
+//   } catch (e) {
+//     console.error(e);
+//   }
+// };
+const loadPermissionDashboard = async (empcode?: string) => {
+  try {
+    const m =
+      moment(selectedMonth, "MMM-YYYY").month() + 1;
+
+    const y =
+      moment(selectedMonth, "MMM-YYYY").year();
+
+    let finalEmp = "";
+
+    // ✅ MY REQUESTS
+    if (view === "my") {
+      finalEmp = getUser()?.empCode;
+    }
+
+    // ✅ TEAM REQUESTS
+    else {
+      // selected employee
+      if (
+        selectedEmpCode &&
+        selectedEmpCode !== "0"
+      ) {
+        finalEmp = selectedEmpCode;
+      }
+
+      // all reporting employees
+      else {
+        finalEmp = "";
+      }
+    }
+
+    const res = await axios.get(
+      `${baseUrl}Leave/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    setPermissionData(res.data || []);
+
+    setPermissionModal(true);
+
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const loadTeamPermissionDashboard = async () => {
+  try {
+
+    const m =
+      moment(selectedMonth, "MMM-YYYY").month() + 1;
+
+    const y =
+      moment(selectedMonth, "MMM-YYYY").year();
+
+    const res = await axios.get(
+      `${baseUrl}Leave/GetTeamPermissionDashboard?EmpCode=${getUser()?.empCode}&Month=${m}&Year=${y}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    setPermissionData(res.data || []);
+
+    setPermissionModal(true);
+
+  } catch (e) {
+    console.error(e);
+  }
+};
   return (
     <div style={{ overflowX: 'hidden', width: '100%' }}>
       {/* ── Filters ── */}
@@ -883,7 +1080,7 @@ if (type === "onduty" && view === "my") {
         <IonSelect
           className="hidden-select-overlay"
           interface="popover"
-          toggleIcon="none"
+         toggleIcon={undefined}
           value={selectedMonth}
           onIonChange={(e) =>
             setSelectedMonth(e.detail.value)
@@ -897,6 +1094,20 @@ if (type === "onduty" && view === "my") {
         </IonSelect>
       </div>
     </div>
+    {type === "permission" && (
+  <button
+    className="permission-dashboard-btn top-dashboard-btn"
+    onClick={() => {
+      if (view === "my") {
+        loadPermissionDashboard();
+      } else {
+        loadTeamPermissionDashboard();
+      }
+    }}
+  >
+    <IonIcon icon={speedometerOutline} />
+  </button>
+)}
   </div>
 ) : (
   /* ONLY MONTH FILTER FOR "my" VIEW */
@@ -939,7 +1150,14 @@ if (type === "onduty" && view === "my") {
         </IonSelect>
       </div>
     </div>
-
+{type === "permission" && (
+  <button
+    className="permission-dashboard-btn top-dashboard-btn"
+    onClick={() => loadPermissionDashboard()}
+  >
+    <IonIcon icon={speedometerOutline} />
+  </button>
+)}
   </div>
 )}
       {loading && <p>Loading...</p>}
@@ -969,9 +1187,27 @@ if (type === "onduty" && view === "my") {
                     {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
                   </div>
                 </div>
-                <div className={`lr-status-indicator lr-status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
+                <div style={{ display: "flex", gap: "10px" }}>
+
+    {/* <button
+      className="permission-dashboard-btn"
+      onClick={() => loadPermissionDashboard(item.empcode)}
+    >
+      <IonIcon icon={speedometerOutline} />
+    </button> */}
+
+    <div
+      className={`lr-status-indicator lr-status-${(item.L_status || '')
+        .toLowerCase()
+        .replace(/\s/g, '')}`}
+    >
+      {item.L_status}
+    </div>
+
+  </div>
+                {/* <div className={`lr-status-indicator lr-status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
                   {item.L_status}
-                </div>
+                </div> */}
               </div>
 
               <div className="lr-card-grid">
@@ -1091,7 +1327,7 @@ if (type === "onduty" && view === "my") {
                 <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>Approved By: {getApprovedBy(item)}</p>
               )}
 
-              {view !== 'my' && canAct(item) && (
+            {((view !== "my" && canAct(item)) || (type === "overtime" && view === "my")) && (
                 <div className="lr-card-actions">
                   {type === 'onduty' ? (
                     <>
@@ -1107,12 +1343,39 @@ if (type === "onduty" && view === "my") {
                       <button className="lr-action-btn approve" onClick={() => handleApprove(item)}>✅ Approve</button>
                       <button className="lr-action-btn reject"  onClick={() => handleReject(item)}>❌ Reject</button>
                     </>
-                  ) : type === 'overtime' ? (
-                    <>
-                      <button className="lr-action-btn approve" onClick={() => updateOvertime(item, 'Accepted')}>✅ Approve</button>
-                      <button className="lr-action-btn reject"  onClick={() => updateOvertime(item, 'Rejected')}>❌ Reject</button>
-                    </>
-                  ) : (
+                 ) : type === 'overtime' ? (
+  <>
+    {view !== "my" && canAct(item) && (
+      <>
+        <button
+          className="lr-action-btn approve"
+          onClick={() => updateOvertime(item, 'Accepted')}
+        >
+          ✅ Approve
+        </button>
+
+        <button
+          className="lr-action-btn reject"
+          onClick={() => updateOvertime(item, 'Rejected')}
+        >
+          ❌ Reject
+        </button>
+      </>
+    )}
+
+    {/* 🔥 SHOW EDIT ONLY BEFORE RA1 ACTION */}
+    {view === "my" &&
+      (!item.RA1_Status ||
+        item.RA1_Status.toLowerCase() === "pending") && (
+        <button
+          className="lr-action-btn edit"
+          onClick={() => openOvertimeEdit(item)}
+        >
+          ✏️ Edit
+        </button>
+      )}
+  </>
+) : (
                     <>
                       <button className="lr-action-btn approve" onClick={() => updateStatus(item.lid, 'Accepted')}>✅ Approve</button>
                       <button className="lr-action-btn reject"  onClick={() => updateStatus(item.lid, 'Rejected')}>❌ Reject</button>
@@ -1199,6 +1462,280 @@ if (type === "onduty" && view === "my") {
 
       </div>
     </div>
+  </div>
+)}
+{editOtModal && (
+  <div className="modal-overlay">
+    <div className="modal-container">
+
+      <div className="modal-header">
+        <h3>Edit Overtime</h3>
+
+        <button onClick={() => setEditOtModal(false)}>
+          ✖
+        </button>
+      </div>
+
+      <div className="modal-body">
+
+        <div className="form-group">
+          <label>From Time</label>
+
+          <input
+            type="time"
+            value={editOT.fromtime}
+            onChange={(e) =>
+              setEditOT({
+                ...editOT,
+                fromtime: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <div className="form-group">
+          <label>To Time</label>
+
+          <input
+            type="time"
+            value={editOT.totime}
+            onChange={(e) =>
+              setEditOT({
+                ...editOT,
+                totime: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Description</label>
+
+          <textarea
+            value={editOT.description}
+            onChange={(e) =>
+              setEditOT({
+                ...editOT,
+                description: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <button
+          className="lr-action-btn approve"
+          onClick={saveEditedOvertime}
+        >
+          Save Changes
+        </button>
+
+      </div>
+    </div>
+  </div>
+)}
+{permissionModal && (
+  <div className="modal-overlay center-modal">
+
+    <div className="permission-modal-container">
+
+      <div className="modal-header">
+        <h3>Permission Dashboard</h3>
+
+        <button
+          onClick={() => setPermissionModal(false)}
+        >
+          ✖
+        </button>
+      </div>
+
+      <div className="modal-body">
+<div className="team-permission-grid">
+
+  {permissionData.map((x: any, idx: number) => {
+
+    const usedPercent =
+      Number(x.usedPercent || 0);
+
+    const rowClass =
+      usedPercent >= 100
+        ? "danger-row"
+        : usedPercent >= 70
+        ? "warning-row"
+        : usedPercent >= 40
+        ? "medium-row"
+        : "safe-row";
+
+    return (
+      <div
+        key={idx}
+        className={`team-permission-card ${rowClass}`}
+      >
+
+        <div className="team-card-left">
+
+          <div className="team-avatar">
+            {x.empName?.charAt(0)}
+          </div>
+
+          <div>
+            <div className="team-name">
+              {x.empName}
+            </div>
+
+            <div className="team-code">
+              EMP ID : {x.empCode}
+            </div>
+          </div>
+
+        </div>
+
+        <div className="team-card-right">
+
+          <div className="team-stat">
+            <span>Total</span>
+            <strong>
+              {x.totalAvailableDisplay}
+            </strong>
+          </div>
+
+          <div className="team-stat">
+            <span>Used</span>
+            <strong>
+              {x.usedDisplay}
+            </strong>
+          </div>
+
+          <div className="team-stat">
+            <span>Balance</span>
+            <strong>
+              {x.balanceDisplay}
+            </strong>
+          </div>
+
+          <div className="team-stat">
+            <span>OT Earned</span>
+            <strong>
+              {x.earnedOTMin}m
+            </strong>
+          </div>
+
+        </div>
+
+        <div className="team-progress-section">
+
+          <div className="team-progress-top">
+            <span>Usage</span>
+
+            <span>
+              {usedPercent.toFixed(0)}%
+            </span>
+          </div>
+
+          <div className="team-progress-bar">
+            <div
+              className="team-progress-fill"
+              style={{
+                width: `${Math.min(
+                  usedPercent,
+                  100
+                )}%`,
+              }}
+            />
+          </div>
+
+        </div>
+
+      </div>
+    );
+  })}
+</div>
+        {/* <div className="permission-dashboard-grid">
+
+          {permissionData.map((x: any, idx: number) => {
+
+            const usedPercent =
+              x.totalAvailableMin > 0
+                ? (
+                    (x.usedMin /
+                      x.totalAvailableMin) * 100
+                  ).toFixed(0)
+                : 0;
+
+            return (
+              <div
+                key={idx}
+                className="permission-card"
+              >
+
+                <div className="permission-top">
+
+                  <div>
+                    <h2>
+                      {x.empCode}
+                    </h2>
+
+                    <p>{x.empName}</p>
+                  </div>
+
+                  <div className="balance-badge">
+                    {x.balanceDisplay}
+                  </div>
+
+                </div>
+
+                <div className="permission-stats">
+
+                  <div className="stat-box">
+                    <span>Total</span>
+                    <h3>
+                      {x.totalAvailableDisplay}
+                    </h3>
+                  </div>
+
+                  <div className="stat-box">
+                    <span>Used</span>
+                    <h3>
+                      {x.usedDisplay}
+                    </h3>
+                  </div>
+
+                  <div className="stat-box">
+                    <span>OT Earned</span>
+                    <h3>
+                      {x.earnedOTMin} mins
+                    </h3>
+                  </div>
+
+                </div>
+
+                <div className="progress-wrap">
+                  <div className="progress-label">
+                    Usage
+                  </div>
+
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${usedPercent}%`
+                      }}
+                    />
+                  </div>
+
+                  <div className="progress-text">
+                    {usedPercent}% used
+                  </div>
+                </div>
+
+              </div>
+            );
+          })}
+        </div> */}
+
+      </div>
+
+    </div>
+
   </div>
 )}
       {!loading && finalData.length === 0 && <p>No data found</p>}
