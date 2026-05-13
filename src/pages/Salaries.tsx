@@ -7,6 +7,8 @@ import {
   IonRow,
   IonCol,
   IonLoading,
+  IonHeader,
+  IonToolbar,
 } from "@ionic/react";
 
 import {
@@ -26,7 +28,7 @@ import DownloadIcon from "@mui/icons-material/GetApp";
 import moment from "moment";
 import axios from "axios";
 import "./Salaries.css";
-
+import { API_BASE } from "../config";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -35,7 +37,35 @@ import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
 const theme = createTheme();
 (theme as any).alpha = alpha;
 
-const API_URL = "http://localhost:25918/api/";
+
+const mapGroupColor = (color: any) => {
+  if (!color || color === "" || color === "null") return color;
+  const lower = color.toString().toLowerCase();
+  if (
+    lower.includes("pink") ||
+    lower.includes("lightpink") ||
+    lower.includes("hotpink")
+  )
+    return "#FFD700";
+  if (lower.startsWith("#")) {
+    const hex = lower.substring(1);
+    let r = 0,
+      g = 0,
+      b = 0;
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+    if (r > 200 && r > b && b >= g) return "#c6ceddff";
+  }
+  return color;
+};
+
 
 const Salaries: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -105,7 +135,7 @@ const Salaries: React.FC = () => {
       if (tmpmnth === "Invalid date" || !HMnth) tmpmnth = moment().format("M");
 
       const res = await axios.get(
-        `${API_URL}Sources/Load_Holidays?yr=${tmpyr}&mnth=${tmpmnth}`
+        `${API_BASE}Sources/Load_Holidays?yr=${tmpyr}&mnth=${tmpmnth}`
       );
 
       // item[7] is the boolean flag for active/valid holidays in the response
@@ -137,7 +167,7 @@ const Salaries: React.FC = () => {
       const tmpMY = `${tmpmnth}-${tmpyr}`;
 
       const res = await axios.get(
-        `${API_URL}Salaries/Load_Sal_Employees?SalMY=${tmpMY}`
+        `${API_BASE}Salaries/Load_Sal_Employees?SalMY=${tmpMY}`
       );
 
       const rawData = res.data;
@@ -154,7 +184,7 @@ const Salaries: React.FC = () => {
             EmpCode: item[0],
             EmpName: item[1],
             SalMY: item[2],
-            EmpGroupColor: item[4],
+            EmpGroupColor: mapGroupColor(item[4]),
             Holidays: item[5],
             isSelected: false,
           };
@@ -173,7 +203,7 @@ const Salaries: React.FC = () => {
   // ==========================
   const DelETable = async () => {
     try {
-      await axios.post(`${API_URL}Salaries/Delete_ETable`, "");
+      await axios.post(`${API_BASE}Salaries/Delete_ETable`, "");
     } catch (err) {
       console.log("Error DelETable", err);
     }
@@ -181,7 +211,7 @@ const Salaries: React.FC = () => {
 
   const DelHTable = async () => {
     try {
-      await axios.post(`${API_URL}Salaries/Delete_HTable`, "");
+      await axios.post(`${API_BASE}Salaries/Delete_HTable`, "");
     } catch (err) {
       console.log("Error DelHTable", err);
     }
@@ -201,7 +231,7 @@ const Salaries: React.FC = () => {
             _Ecode: item.EmpCode,
             _Ename: item.EmpName.replace(item.EmpCode + "-", ""),
           };
-          await axios.post(`${API_URL}Salaries/Insert_ETable`, payload);
+          await axios.post(`${API_BASE}Salaries/Insert_ETable`, payload);
         }
       }
     } catch (err) {
@@ -225,7 +255,7 @@ const Salaries: React.FC = () => {
             _Hdt: moment(item.HolidayDate).format("DD-MM-YYYY"),
             _Remark: item.Remark,
           };
-          await axios.post(`${API_URL}Salaries/Insert_HTable`, payload);
+          await axios.post(`${API_BASE}Salaries/Insert_HTable`, payload);
         }
       }
     } catch (err) {
@@ -252,7 +282,7 @@ const Salaries: React.FC = () => {
       let tmpmnth = moment(HMnth).format("MMM");
       const payload = { _SalMY: `${tmpmnth}-${tmpyr}` };
 
-      await axios.post(`${API_URL}Salaries/UpdateEmpHoliday`, payload);
+      await axios.post(`${API_BASE}Salaries/UpdateEmpHoliday`, payload);
 
       // Refresh data
       await Load_EmployeesActive();
@@ -282,7 +312,7 @@ const Salaries: React.FC = () => {
         _Reset: SalReset ? "Y" : "",
       };
 
-      await axios.post(`${API_URL}Salaries/GenerateSal`, payload);
+      await axios.post(`${API_BASE}Salaries/GenerateSal`, payload);
       await LoadAdjustments();
       alert("Salaries Generated Successfully");
     } catch (err) {
@@ -300,7 +330,7 @@ const Salaries: React.FC = () => {
       if (!SalMY) return;
       const tmpMY = moment(SalMY).format("MMM-YYYY");
       const res = await axios.get(
-        `${API_URL}Salaries/Load_Sal_Adjustments?SalMY=${tmpMY}`
+        `${API_BASE}Salaries/Load_Sal_Adjustments?SalMY=${tmpMY}`
       );
 
       const mappedData = res.data.map((item: any) => ({
@@ -338,7 +368,7 @@ const Salaries: React.FC = () => {
         _AdvDed: AdvDed || 0,
       };
 
-      await axios.post(`${API_URL}Salaries/UpdateSalAdjust`, payload);
+      await axios.post(`${API_BASE}Salaries/UpdateSalAdjust`, payload);
     } catch (err) {
       console.log(err);
     }
@@ -390,7 +420,13 @@ const Salaries: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterMoment}>
-        <IonContent>
+        <IonHeader className="ion-no-border">
+          <Box className="salaries-top-header">
+            <h1>Salaries Dashboard</h1>
+            <p>Official payroll management and holiday processing.</p>
+          </Box>
+        </IonHeader>
+        <IonContent className="salary-container">
           <Box sx={{ width: "100%" }}>
             <Tabs
               value={tabValue}
@@ -405,38 +441,38 @@ const Salaries: React.FC = () => {
             {/* TAB 1: ASSIGN HOLIDAYS */}
             {tabValue === 0 && (
               <IonGrid className="ion-no-margin">
-                <IonRow className="salary-header-row" style={{ justifyContent: "center" }}>
-                  <IonCol size="3" style={{ textAlign: "center" }}>
-                    <Button
-                      variant="outlined"
-                      className="update-btn"
-                      onClick={UpdateEmpHoliday}
-                      disabled={!SelectHls || !SelectEmp}
-                      fullWidth
-                    >
-                      <DownloadIcon />
-                      &nbsp;Update
-                    </Button>
-                  </IonCol>
-
-                  <IonCol size="9">
-                    <DatePicker
-                      views={["month", "year"]}
-                      label="Mon-Year"
-                      format="MMM-YYYY"
-                      value={Hyear}
-                      onChange={(newValue) => {
-                        setHyear(newValue);
-                        setHMnth(newValue);
-                      }}
-                      slotProps={{
-                        textField: {
-                          size: "small",
-                          fullWidth: true,
-                          className: "date-input-field",
-                        },
-                      }}
-                    />
+                <IonRow className="salary-header-row">
+                  <IonCol size="12">
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "40px", width: "100%", justifyContent: "flex-start" }}>
+                      <DatePicker
+                        views={["month", "year"]}
+                        label="Mon-Year"
+                        format="MMM-YYYY"
+                        value={Hyear}
+                        onChange={(newValue) => {
+                          setHyear(newValue);
+                          setHMnth(newValue);
+                        }}
+                        slotProps={{
+                          textField: {
+                            size: "small",
+                            fullWidth: true,
+                            className: "date-input-field",
+                          },
+                        }}
+                        sx={{ width: "500px" }}
+                      />
+                      <Button
+                        variant="outlined"
+                        className="update-btn"
+                        onClick={UpdateEmpHoliday}
+                        disabled={!SelectHls || !SelectEmp}
+                        style={{ height: "40px", minWidth: "120px" }}
+                      >
+                        <DownloadIcon />
+                        &nbsp;Update
+                      </Button>
+                    </Box>
                   </IonCol>
                 </IonRow>
 
@@ -469,7 +505,7 @@ const Salaries: React.FC = () => {
                             InsertETable(updated);
                           }}
                           style={{
-                            backgroundColor: color,
+                            backgroundColor: mapGroupColor(color),
                             width: "24px",
                             height: "24px",
                             borderRadius: "4px",
@@ -489,7 +525,7 @@ const Salaries: React.FC = () => {
                             className={`Dynamic-card-style1 ${x.isSelected ? "highlighted" : ""
                               }`}
                             style={{
-                              backgroundColor: x.isSelected ? "var(--salary-row-highlight)" : x.EmpGroupColor || "#9cbce0"
+                              backgroundColor: x.isSelected ? "var(--salary-row-highlight)" : mapGroupColor(x.EmpGroupColor) || "#9cbce0"
                             }}
                           >
                             <div className="badgeplain">{i + 1}</div>
@@ -548,33 +584,34 @@ const Salaries: React.FC = () => {
             {tabValue === 1 && (
               <>
                 <IonGrid className="ion-no-margin">
-                  <IonRow className="salary-header-row" style={{ justifyContent: "flex-start", gap: "10px" }}>
-                    <IonCol size="9">
-                      <DatePicker
-                        views={["month", "year"]}
-                        label="Mon-Year"
-                        format="MMM-YYYY"
-                        value={SalMY}
-                        onChange={(newValue) => setSalMY(newValue)}
-                        slotProps={{
-                          textField: {
-                            size: "small",
-                            fullWidth: true,
-                            className: "date-input-field",
-                          },
-                        }}
-                      />
-                    </IonCol>
-                    <IonCol size="3">
-                      <Button
-                        variant="outlined"
-                        className="update-btn"
-                        onClick={Generate_Sal}
-                        fullWidth
-                      >
-                        <DownloadIcon />
-                        &nbsp;Generate
-                      </Button>
+                  <IonRow className="salary-header-row">
+                    <IonCol size="12">
+                      <Box sx={{ display: "flex", alignItems: "center", gap: "40px", width: "100%", justifyContent: "flex-start" }}>
+                        <DatePicker
+                          views={["month", "year"]}
+                          label="Mon-Year"
+                          format="MMM-YYYY"
+                          value={SalMY}
+                          onChange={(newValue) => setSalMY(newValue)}
+                          slotProps={{
+                            textField: {
+                              size: "small",
+                              fullWidth: true,
+                              className: "date-input-field",
+                            },
+                          }}
+                          sx={{ width: "500px" }}
+                        />
+                        <Button
+                          variant="outlined"
+                          className="update-btn"
+                          onClick={Generate_Sal}
+                          style={{ height: "40px", minWidth: "120px" }}
+                        >
+                          <DownloadIcon />
+                          &nbsp;Generate
+                        </Button>
+                      </Box>
                     </IonCol>
                   </IonRow>
 
