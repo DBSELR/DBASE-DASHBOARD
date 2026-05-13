@@ -3,8 +3,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   IonCheckbox, IonContent, IonDatetime, IonHeader,
   IonInput, IonItem, IonLabel, IonList, IonModal, IonPage, IonPopover,
-  IonSelect, IonSelectOption, IonToast, IonToolbar
+  IonSelect, IonSelectOption, IonToast, IonToolbar, IonAlert, IonGrid, IonRow, IonCol, IonButton, IonIcon
 } from "@ionic/react";
+
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  TextField,
+  Typography,
+  FormControlLabel,
+} from "@mui/material";
+
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { add, saveOutline, downloadOutline } from "ionicons/icons";
 
 // Custom SVG Icons for a Native Feel (No IonIcons)
 const IconBox = ({ children, color = "currentColor", size = "24" }: any) => (
@@ -21,8 +33,6 @@ const VendorIcon = () => <IconBox><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0
 const MaintIcon = () => <IconBox><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></IconBox>;
 const NotifIcon = () => <IconBox><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></IconBox>;
 const ImportIcon = () => <IconBox><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></IconBox>;
-const CloseIcon = () => <IconBox><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></IconBox>;
-const SaveIcon = () => <IconBox><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></IconBox>;
 const ChevronLeft = () => <IconBox><polyline points="15 18 9 12 15 6" /></IconBox>;
 const ChevronRight = () => <IconBox><polyline points="9 18 15 12 9 6" /></IconBox>;
 const ChevronDown = () => <IconBox><polyline points="6 9 12 15 18 9" /></IconBox>;
@@ -33,9 +43,6 @@ import moment from "moment";
 import { read, utils } from "xlsx";
 import "./Sources.css";
 
-// =====================================================================================
-// Debug helpers
-// =====================================================================================
 const DBG = true;
 const log = (...args: any[]) => DBG && console.log("[Sources]", ...args);
 const groupLog = (title: string, obj: any) => {
@@ -49,9 +56,6 @@ const groupLog = (title: string, obj: any) => {
   }
 };
 
-// =====================================================================================
-/** API helpers */
-// =====================================================================================
 import { API_BASE } from "../config";
 
 const authHeaders = () => {
@@ -81,11 +85,6 @@ const postJSON = (path: string, payload: any) =>
     headers: { "Content-Type": "application/json", ...authHeaders() },
   });
 
-// =====================================================================================
-// Decoders for array-of-arrays endpoints
-// =====================================================================================
-type KeySpec = string[];
-
 const decodeRows = (data: any, keys: KeySpec, title?: string) => {
   const out: any[] = [];
   if (!Array.isArray(data)) {
@@ -105,7 +104,6 @@ const decodeRows = (data: any, keys: KeySpec, title?: string) => {
     return out;
   }
 
-  // Already objects
   groupLog(`${title || "decodeRows"} ↔ passed-through`, data);
   return data;
 };
@@ -185,35 +183,6 @@ const decodeNotificationsData = (data: any) => {
   }));
 };
 
-const decodeHolidays = (data: any) => {
-  if (!Array.isArray(data)) return [];
-  return data.map((r: any[]) => ({
-    ID: r[0],
-    HolidayDate: r[1],
-    Remark: r[2],
-    Year: r[3],
-    FLAG: r[7] === true || String(r[7]).toLowerCase() === "true",
-  }));
-};
-
-const generateMonthList = () => {
-  const months: string[] = [];
-  const startYear = 2014;
-  const current = moment().add(1, "month");
-  const currentYear = current.year();
-
-  for (let y = currentYear; y >= startYear; y--) {
-    const endMonth = y === currentYear ? current.month() : 11;
-    for (let m = endMonth; m >= 0; m--) {
-      months.push(moment().year(y).month(m).format("MMM-YYYY"));
-    }
-  }
-  return months;
-};
-
-// =====================================================================================
-// Component
-// =====================================================================================
 const Sources: React.FC = () => {
   const [toast, setToast] = useState({
     open: false,
@@ -315,84 +284,90 @@ const Sources: React.FC = () => {
     }
   };
 
-  // 3. Holidays
-  const [Hyear, setHyear] = useState<string | null>(null);
-  const [HMnth, setHMnth] = useState<string | null>(null);
-  const [HDate, setHDate] = useState<string | null>(null);
-  const [HRemarks, setHRemarks] = useState<string>("");
-  const [holidays, setHolidays] = useState<any[]>([]);
-  const [HExistYr, setHExistYr] = useState<boolean>(true);
-  const [addHDay, setAddHDay] = useState<boolean>(true);
-  const [openPeriodModal, setOpenPeriodModal] = useState(false);
-  const [openDateModal, setOpenDateModal] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'year' | 'month'>('year');
+  // 3. Holidays Management
+  const [expanded, setExpanded] = useState(false);
+  const [Hyear, setHyear] = useState<any>("");
+  const [HMnth, setHMnth] = useState<any>("");
+  const [HDate, setHDate] = useState<any>("");
+  const [HRemarks, setHRemarks] = useState("");
+  const [dt_Holidays, setDt_Holidays] = useState<any[]>([]);
+  const [HExistYr, setHExistYr] = useState(false);
+  const [addHDay, setAddHDay] = useState(true);
+  const [addHDayCtrlName, setAddHDayCtrlName] = useState("Add Holiday");
+  const [addHDayCtrlIconName, setAddHDayCtrlIconName] = useState(add);
 
   const loadHolidays = async () => {
-    const yr = Hyear ? moment(Hyear).format("YYYY") : "0";
-    const mn = HMnth ? moment(HMnth).format("M") : "0";
+    let tmpyr = "0";
+    let tmpmnth = "0";
+    if (Hyear !== "" && moment(Hyear).format("YYYY") !== "Invalid date") {
+      tmpyr = moment(Hyear).format("YYYY");
+    }
+    if (HMnth !== "" && moment(HMnth).format("M") !== "Invalid date") {
+      tmpmnth = moment(HMnth).format("M");
+    }
     try {
-      const r = await axios.get(`${API_BASE}Sources/Load_Holidays?yr=${yr}&mnth=${mn}`, { headers: authHeaders() });
-      const rows = decodeHolidays(r.data);
-      setHolidays(rows);
-      setHExistYr(rows.length > 0);
-    } catch (e) {
-      setHolidays([]);
-      setHExistYr(true);
+      const res = await axios.get(`${API_BASE}Sources/Load_Holidays?yr=${tmpyr}&mnth=${tmpmnth}`, { headers: authHeaders() });
+      if (!Array.isArray(res.data)) {
+        setDt_Holidays([]);
+        setHExistYr(false);
+        return;
+      }
+      const formattedData = res.data.map((x: any[]) => ({
+        ID: x[0],
+        HolidayDate: x[1],
+        Remark: x[2],
+        Year: x[3],
+        FLAG: x[7],
+      }));
+      setDt_Holidays(formattedData);
+      setHExistYr(formattedData.length > 0);
+    } catch (err) {
+      setDt_Holidays([]);
+      showToast("Error Loading Holidays...!", "danger");
     }
   };
 
   const insertSundays = async () => {
-    if (!Hyear) return;
+    if (!Hyear) return showToast("Please Select Year", "warning");
     try {
-      const r = await axios.post(
-        `${API_BASE}Sources/Insert_Sundays`,
-        form({ Yr: moment(Hyear).format("YYYY") }),
-        { headers: { "Content-Type": "application/x-www-form-urlencoded", ...authHeaders() } }
-      );
-      if (Number(r.data) > 0) {
-        showToast("Records Successfully Inserted...!");
-        loadHolidays();
-      } else showToast("Record Not Inserted...!", "danger");
-    } catch (e) {
+      await axios.post(`${API_BASE}Sources/Insert_Sundays`, { yr: moment(Hyear).format("YYYY") }, { headers: { "Content-Type": "application/json", ...authHeaders() } });
+      showToast("Sundays Inserted Successfully...!");
+      loadHolidays();
+    } catch (err) {
       showToast("Error While Saving...!", "danger");
     }
   };
 
-  const toggleAddHoliday = async () => {
-    if (!addHDay) {
-      const dateOk = HDate && moment(HDate).isValid();
-      if (!HRemarks || !dateOk) return showToast("Enter a valid date and remarks to save.", "danger");
-      try {
-        const r = await axios.post(
-          `${API_BASE}Sources/Insert_Holiday`,
-          form({ Hdate: moment(HDate!).format("DD-MM-YYYY"), HRemark: HRemarks, HFlag: 1 }),
-          { headers: { "Content-Type": "application/x-www-form-urlencoded", ...authHeaders() } }
-        );
-        if (Number(r.data) > 0) {
-          showToast("Holiday Record Inserted Successfully...!");
-          setHDate(null);
-          setHRemarks("");
-          loadHolidays();
-        }
-      } catch (e) {
-        showToast("Error While Saving...!", "danger");
-      }
+  const addHoliday = async () => {
+    if (addHDay) {
+      setAddHDay(false);
+      setAddHDayCtrlName("Save Holiday");
+      setAddHDayCtrlIconName(saveOutline);
+      return;
     }
-    setAddHDay((x) => !x);
+    if (!HDate || HRemarks.trim() === "") return showToast("Please enter date and remarks", "warning");
+    try {
+      await axios.post(`${API_BASE}Sources/Insert_Holiday`, { hDate: moment(HDate).format("DD-MM-YYYY"), hRemark: HRemarks, hFlag: "0" }, { headers: { "Content-Type": "application/json", ...authHeaders() } });
+      showToast("Holiday Record Inserted Successfully...!");
+      setHDate("");
+      setHRemarks("");
+      setAddHDay(true);
+      setAddHDayCtrlName("Add Holiday");
+      setAddHDayCtrlIconName(add);
+      loadHolidays();
+    } catch (err) {
+      showToast("Error While Saving...!", "danger");
+    }
   };
 
-  const toggleHolidayActive = async (isoDate: string, checked: boolean) => {
+  const toggleHolidayActive = async (holidayDate: string, checked: boolean) => {
     try {
-      const r = await axios.post(
-        `${API_BASE}Sources/Add_Remove_Holiday`,
-        form({ Hdate: moment(isoDate).format("DD-MM-YYYY"), HFlag: checked ? 1 : 0 }),
-        { headers: { "Content-Type": "application/x-www-form-urlencoded", ...authHeaders() } }
-      );
-      if (Number(r.data) > 0) {
-        showToast(checked ? "Holiday Activated ...!" : "Holiday In-Activated ...!");
-        loadHolidays();
-      }
-    } catch (e) { }
+      await axios.post(`${API_BASE}Sources/Add_Remove_Holiday`, { hDate: moment(holidayDate).format("DD-MM-YYYY"), hFlag: checked ? "1" : "0" }, { headers: { "Content-Type": "application/json", ...authHeaders() } });
+      showToast(checked ? "Holiday Activated...!" : "Holiday In-Activated...!");
+      loadHolidays();
+    } catch (err) {
+      showToast("Error While Updating...!", "danger");
+    }
   };
 
   // 4. Checkin
@@ -464,9 +439,9 @@ const Sources: React.FC = () => {
   // 6. Notifications
   const [Notification, setNotification] = useState<string>("");
   const [dt_Notifications, setDt_Notifications] = useState<any[]>([]);
+  const [notifExpanded, setNotifExpanded] = useState(false);
   const [dt_Notifications_Data, setDt_Notifications_Data] = useState<any[]>([]);
   const [NID, setNID] = useState<number>(0);
-  const [selAllNotifEmp, setSelAllNotifEmp] = useState<boolean>(false);
   const [notifSearch, setNotifSearch] = useState<string>("");
 
   const loadNotificationsMap = async () => {
@@ -485,12 +460,6 @@ const Sources: React.FC = () => {
     } catch (e) {
       setDt_Notifications_Data([]);
     }
-  };
-
-  const toggleAllNotifEmp = () => {
-    const next = !selAllNotifEmp;
-    setSelAllNotifEmp(next);
-    setDt_Notifications((prev) => prev.map((x) => ({ ...x, Isactive: next })));
   };
 
   const clickNotifRow = (notif: any) => {
@@ -536,6 +505,7 @@ const Sources: React.FC = () => {
   const [MaintEmpName, setMaintEmpName] = useState<string>("");
   const [ds_Maintance, setDs_Maintance] = useState<any[] | null>(null);
   const [Maint_selected_id, setMaint_selected_id] = useState<number>(0);
+  const [maintExpanded, setMaintExpanded] = useState(false);
   const [openMaintDateModal, setOpenMaintDateModal] = useState(false);
   const [maintEmpPopover, setMaintEmpPopover] = useState(false);
 
@@ -587,23 +557,10 @@ const Sources: React.FC = () => {
     setCycledays(row.Maint_Cycle || "");
   };
 
-  const deleteMaint = async () => {
-    try {
-      const r = await axios.post(`${API_BASE}Sources/Delete_Maint`, form({ _Mid: Maint_selected_id }), {
-        headers: { "Content-Type": "application/x-www-form-urlencoded", ...authHeaders() }
-      });
-      if (Number(r.data) > 0) {
-        showToast("Record Deleted...");
-        loadMaintData();
-        clearMaint();
-      }
-    } catch (e) { }
-  };
-
   // 8. Import
   const [ImportFile, setImportFile] = useState<string>("0");
   const [files, setFiles] = useState<FileList | null>(null);
-  const [empActive, setEmpActive] = useState<ActiveEmp[]>([]);
+  const [empActive, setEmpActive] = useState<any[]>([]);
 
   const loadEmployeesActive = async () => {
     try {
@@ -621,9 +578,8 @@ const Sources: React.FC = () => {
       try {
         const wb = read(event.target.result);
         const sheet = wb.SheetNames[0];
-        const rows: any[] = utils.sheet_to_json(wb.Sheets[sheet]);
+        utils.sheet_to_json(wb.Sheets[sheet]);
         showToast("File processed. Uploading...");
-        // Logic omitted for brevity, keeping structure
       } catch (e) {
         showToast("Import failed.", "danger");
       }
@@ -631,9 +587,6 @@ const Sources: React.FC = () => {
     reader.readAsArrayBuffer(files[0]);
   };
 
-  // ------------------------------------------------------------------
-  // UI Helpers
-  // ------------------------------------------------------------------
   const EmptyState = ({ msg }: { msg: string }) => (
     <div className="src-empty-state">
       <div className="src-empty-icon"><EmptyIcon /></div>
@@ -653,9 +606,6 @@ const Sources: React.FC = () => {
     </div>
   );
 
-  // ------------------------------------------------------------------
-  // Lifecycle
-  // ------------------------------------------------------------------
   useEffect(() => {
     loadDepartments();
     loadDesignations();
@@ -669,8 +619,6 @@ const Sources: React.FC = () => {
 
   return (
     <IonPage>
-
-
       <IonContent className="ion-no-padding">
         <div className="src-container src-animate">
           <div className="src-header-section">
@@ -681,7 +629,6 @@ const Sources: React.FC = () => {
           </div>
 
           <div className="src-dashboard-grid">
-            {/* 1. Departments */}
             <div className={`src-card ${collapsed.dept ? "collapsed" : ""}`}>
               <SectionHeader icon={<DeptIcon />} title="Departments" isCollapsed={collapsed.dept} onToggle={() => toggleCollapse("dept")} />
               <div className="src-card-body-wrapper">
@@ -692,7 +639,7 @@ const Sources: React.FC = () => {
                       <IonInput value={DeptName} placeholder="e.g. Finance" onIonInput={(e) => setDeptName(e.detail.value!)} />
                     </div>
                   </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDepartment}><SaveIcon /> {tempDeptId ? "Update" : "Save"}</button>
+                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDepartment}>Save</button>
                   <div className="src-table-wrapper">
                     <div className="src-table-header"><div className="src-table-col">Department</div></div>
                     {depList.map(d => (
@@ -706,7 +653,6 @@ const Sources: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Designations */}
             <div className={`src-card ${collapsed.designation ? "collapsed" : ""}`}>
               <SectionHeader icon={<DesignationIcon />} title="Designations" isCollapsed={collapsed.designation} onToggle={() => toggleCollapse("designation")} />
               <div className="src-card-body-wrapper">
@@ -717,7 +663,7 @@ const Sources: React.FC = () => {
                       <IonInput value={Designation} placeholder="e.g. Lead" onIonInput={(e) => setDesignation(e.detail.value!)} />
                     </div>
                   </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDesignation}><SaveIcon /> {tempDisgId ? "Update" : "Save"}</button>
+                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDesignation}>Save</button>
                   <div className="src-table-wrapper">
                     <div className="src-table-header"><div className="src-table-col">Designation</div></div>
                     {disgList.map(d => (
@@ -731,51 +677,77 @@ const Sources: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Holidays */}
-            <div className={`src-card ${collapsed.holidays ? "collapsed" : ""}`}>
-              <SectionHeader icon={<HolidayIcon />} title="Holidays" isCollapsed={collapsed.holidays} onToggle={() => toggleCollapse("holidays")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "15px" }}>
-                    <div className="src-input-box" onClick={() => setOpenPeriodModal(true)}>
-                      <div style={{ padding: "8px 0", fontWeight: 600 }}>{Hyear ? moment(Hyear).format("YYYY") : "Year"}</div>
-                    </div>
-                    <div className="src-input-box" onClick={() => setOpenPeriodModal(true)}>
-                      <div style={{ padding: "8px 0", fontWeight: 600 }}>{HMnth ? moment(HMnth).format("MMM") : "Month"}</div>
-                    </div>
+            {/* 3. Holidays Management dropdown */}
+            <div className="src-card src-card-full src-card-accordion">
+              <Accordion expanded={expanded} onChange={() => setExpanded(!expanded)} className="src-accordion-root">
+                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'var(--src-primary)' }} />}>
+                  <div className="src-card-title-group">
+                    <div className="src-card-icon-box"><HolidayIcon /></div>
+                    <div className="src-card-title">Holidays Management</div>
                   </div>
-                  <div style={{ display: "flex", gap: "8px", marginBottom: "15px" }}>
-                    <button className="src-btn src-btn-primary src-btn-block" onClick={loadHolidays}>Fetch</button>
-                    {!HExistYr && canAdmin && <button className="src-btn src-btn-outline src-btn-block" onClick={insertSundays}>Sundays</button>}
-                  </div>
-                  {canAdmin && (
-                    <div style={{ background: "rgba(0,0,0,0.02)", padding: "12px", borderRadius: "12px", marginBottom: "15px" }}>
-                      <div className="src-input-box" onClick={() => setOpenDateModal(true)} style={{ marginBottom: "10px" }}>
-                        <div style={{ padding: "8px 0" }}>{HDate ? moment(HDate).format("DD-MM-YYYY") : "Date"}</div>
-                      </div>
-                      <div className="src-input-box" style={{ marginBottom: "10px" }}>
-                        <IonInput value={HRemarks} placeholder="Remark" onIonInput={(e) => setHRemarks(e.detail.value!)} />
-                      </div>
-                      <button className="src-btn src-btn-primary src-btn-block" onClick={toggleAddHoliday}>Add</button>
-                    </div>
-                  )}
-                  <div className="src-table-wrapper">
-                    {holidays.map(h => (
-                      <div className="src-table-row" key={h.ID}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600 }}>{h.Remark}</div>
-                          <div style={{ fontSize: "0.8rem", color: "linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary))" }}>{moment(h.HolidayDate).format("DD MMM")}</div>
+                </AccordionSummary>
+                <AccordionDetails className="src-accordion-details">
+                  <IonGrid>
+                    <IonRow className="ion-align-items-center">
+                      <IonCol size="12" sizeMd="4">
+                        <TextField fullWidth type="date" label="Year" InputLabelProps={{ shrink: true }} value={Hyear} onChange={(e) => setHyear(e.target.value)} />
+                      </IonCol>
+                      <IonCol size="12" sizeMd="4">
+                        <TextField fullWidth type="month" label="Month" InputLabelProps={{ shrink: true }} value={HMnth} onChange={(e) => setHMnth(e.target.value)} />
+                      </IonCol>
+                      <IonCol size="12" sizeMd="4" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {!HExistYr && Hyear && (
+                          <button className="src-btn src-btn-warning src-btn-block" onClick={insertSundays} style={{ height: '56px' }}>
+                            <IonIcon icon={downloadOutline} style={{ fontSize: '20px' }} /> SUNDAYS
+                          </button>
+                        )}
+                        <button className="src-btn src-btn-primary src-btn-block" onClick={addHoliday} style={{ height: '56px' }}>
+                          <IonIcon icon={addHDayCtrlIconName} style={{ fontSize: '20px' }} /> {addHDayCtrlName.toUpperCase()}
+                        </button>
+                      </IonCol>
+                    </IonRow>
+                    {!addHDay && (
+                      <IonRow className="ion-margin-top">
+                        <IonCol size="12" sizeMd="4">
+                          <TextField fullWidth type="date" label="Date" InputLabelProps={{ shrink: true }} value={HDate} onChange={(e) => setHDate(e.target.value)} />
+                        </IonCol>
+                        <IonCol size="12" sizeMd="8">
+                          <TextField fullWidth label="Remarks" value={HRemarks} onChange={(e) => setHRemarks(e.target.value)} />
+                        </IonCol>
+                      </IonRow>
+                    )}
+                    <IonRow className="ion-margin-top">
+                      <IonCol size="12">
+                        <div className="src-scroll-list" style={{ maxHeight: "400px", padding: '10px' }}>
+                          <div className="src-grid-header">
+                            <div style={{ flex: 1 }}>Date</div>
+                            <div style={{ flex: 1, textAlign: 'center' }}>Status</div>
+                            <div style={{ flex: 1, textAlign: 'right' }}>Remark</div>
+                          </div>
+                          {dt_Holidays.map((x, i) => (
+                            <div key={i} className="src-grid-row" onClick={() => { setAddHDay(false); setAddHDayCtrlName("Save Holiday"); setAddHDayCtrlIconName(saveOutline); setHDate(moment(x.HolidayDate).format("YYYY-MM-DD")); setHRemarks(x.Remark); }}>
+                              <div style={{ flex: 1, fontWeight: 700 }}>{i + 1} -- {moment(x.HolidayDate).format("DD-MM-YYYY")}</div>
+                              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                                <FormControlLabel 
+                                  control={<IonCheckbox checked={x.FLAG} onIonChange={(e) => { e.stopPropagation(); toggleHolidayActive(x.HolidayDate, e.detail.checked); }} />} 
+                                  label="Active"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                              <div style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'var(--src-primary)', textTransform: 'uppercase' }}>
+                                {x.Remark}
+                              </div>
+                            </div>
+                          ))}
+                          {dt_Holidays.length === 0 && <EmptyState msg="No holidays found." />}
                         </div>
-                        {canAdmin && <IonCheckbox checked={h.FLAG} onIonChange={(e) => toggleHolidayActive(h.HolidayDate, e.detail.checked)} />}
-                      </div>
-                    ))}
-                    {holidays.length === 0 && <EmptyState msg="No holidays." />}
-                  </div>
-                </div>
-              </div>
+                      </IonCol>
+                    </IonRow>
+                  </IonGrid>
+                </AccordionDetails>
+              </Accordion>
             </div>
 
-            {/* 4. Checkin Access */}
             <div className={`src-card ${collapsed.checkin ? "collapsed" : ""}`}>
               <SectionHeader icon={<CheckinIcon />} title="Check-In Access" isCollapsed={collapsed.checkin} onToggle={() => toggleCollapse("checkin")} />
               <div className="src-card-body-wrapper">
@@ -837,11 +809,16 @@ const Sources: React.FC = () => {
               </div>
             </div>
 
-            {/* 6. Notifications */}
-            <div className={`src-card ${collapsed.notif ? "collapsed" : ""}`} style={{ gridColumn: "1 / -1" }}>
-              <SectionHeader icon={<NotifIcon />} title="Broadcast" isCollapsed={collapsed.notif} onToggle={() => toggleCollapse("notif")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
+            {/* 6. Broadcast dropdown */}
+            <div className="src-card src-card-accordion">
+              <Accordion expanded={notifExpanded} onChange={() => setNotifExpanded(!notifExpanded)} className="src-accordion-root">
+                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'var(--src-primary)' }} />}>
+                  <div className="src-card-title-group">
+                    <div className="src-card-icon-box"><NotifIcon /></div>
+                    <div className="src-card-title">Broadcast</div>
+                  </div>
+                </AccordionSummary>
+                <AccordionDetails className="src-accordion-details">
                   <div className="src-notif-row">
                     <div className="src-pane">
                       <div className="src-pane-title">Composer</div>
@@ -882,15 +859,20 @@ const Sources: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </AccordionDetails>
+              </Accordion>
             </div>
 
-            {/* 7. Maintenance */}
-            <div className={`src-card ${collapsed.maint ? "collapsed" : ""}`}>
-              <SectionHeader icon={<MaintIcon />} title="Maintenance" isCollapsed={collapsed.maint} onToggle={() => toggleCollapse("maint")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
+            {/* 7. Maintenance dropdown */}
+            <div className="src-card src-card-full src-card-accordion">
+              <Accordion expanded={maintExpanded} onChange={() => setMaintExpanded(!maintExpanded)} className="src-accordion-root">
+                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'var(--src-primary)' }} />}>
+                  <div className="src-card-title-group">
+                    <div className="src-card-icon-box"><MaintIcon /></div>
+                    <div className="src-card-title">Maintenance</div>
+                  </div>
+                </AccordionSummary>
+                <AccordionDetails className="src-accordion-details">
                   <div className="src-input-box" style={{ marginBottom: "10px" }}>
                     <IonInput value={Maintance} placeholder="Work Description" onIonInput={(e) => setMaintance(e.detail.value!)} />
                   </div>
@@ -903,7 +885,7 @@ const Sources: React.FC = () => {
                     </div>
                   </div>
                   <button className="src-btn src-btn-primary src-btn-block" onClick={saveMaint}>Save Maintenance</button>
-                  <div className="src-table-wrapper">
+                  <div className="src-table-wrapper" style={{ marginTop: '20px' }}>
                     {ds_Maintance ? ds_Maintance.map(m => (
                       <div className="src-table-row" key={m.M_id} onClick={() => editMaint(m)}>
                         <div style={{ flex: 1 }}>{m.Maint_Work}</div>
@@ -911,8 +893,8 @@ const Sources: React.FC = () => {
                       </div>
                     )) : <EmptyState msg="No items." />}
                   </div>
-                </div>
-              </div>
+                </AccordionDetails>
+              </Accordion>
             </div>
 
             {/* 8. Import */}
@@ -933,7 +915,7 @@ const Sources: React.FC = () => {
             </div>
 
             {/* 9. Reporting Matrix */}
-{/* <div className={`src-card ${collapsed.reporting ? "collapsed" : ""}`}>
+            {/* <div className={`src-card ${collapsed.reporting ? "collapsed" : ""}`}>
   <SectionHeader
     icon={<DeptIcon />}
     title="Reporting Matrix"
@@ -985,112 +967,11 @@ const Sources: React.FC = () => {
           </div>
         </div>
 
-        {/* MODALS */}
-        <IonModal
-          isOpen={openPeriodModal}
-          onDidDismiss={() => setOpenPeriodModal(false)}
-          className="src-modal-centered"
-          onWillPresent={() => setPickerMode('year')}
-        >
-          <div className="pwt-modal-content">
-            <div className="picker-header">
-              <div className="picker-title-group">
-                <span className="pwt-modal-title">Select Period</span>
-              </div>
-              <div className="src-btn src-btn-clear" onClick={() => setOpenPeriodModal(false)}>
-                <CloseIcon />
-              </div>
-            </div>
-
-            {/* Stepped Navigation */}
-            <div className="picker-nav-tabs">
-              <div
-                className={`picker-nav-item ${pickerMode === 'year' ? 'active' : ''}`}
-                onClick={() => setPickerMode('year')}
-              >
-                <div className="picker-nav-label">Year</div>
-                <div className="picker-nav-value">{Hyear ? moment(Hyear).format('YYYY') : 'Pick Year'}</div>
-              </div>
-              <div
-                className={`picker-nav-item ${pickerMode === 'month' ? 'active' : ''}`}
-                onClick={() => setPickerMode('month')}
-              >
-                <div className="picker-nav-label">Month</div>
-                <div className="picker-nav-value">{HMnth ? moment(HMnth).format('MMM') : 'Pick Month'}</div>
-              </div>
-            </div>
-
-            <div className="src-scroll" style={{ maxHeight: "60vh", overflowY: "auto", padding: "0 10px" }}>
-              {pickerMode === 'year' && (
-                <div className="src-animate">
-                  <div className="selector-grid">
-                    {(() => {
-                      const currentYear = moment().year();
-                      const years = [];
-                      for (let y = 2014; y <= currentYear + 1; y++) years.push(y);
-                      return years.reverse().map(y => (
-                        <div
-                          key={y}
-                          className={`selector-item-list ${Hyear && moment(Hyear).year() === y ? "active" : ""}`}
-                          onClick={() => {
-                            setHyear(moment().year(y).toISOString());
-                            setPickerMode('month');
-                          }}
-                        >
-                          {y}
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </div>
-              )}
-
-              {pickerMode === 'month' && (
-                <div className="src-animate">
-                  <div className="selector-grid">
-                    {moment.monthsShort().map((m, idx) => (
-                      <div
-                        key={m}
-                        className={`selector-item-list ${HMnth && moment(HMnth).month() === idx ? "active" : ""}`}
-                        onClick={() => {
-                          if (!Hyear) {
-                            setHyear(moment().toISOString());
-                          }
-                          setHMnth(moment().month(idx).toISOString());
-                          setOpenPeriodModal(false);
-                          setTimeout(() => loadHolidays(), 100);
-                        }}
-                      >
-                        {m}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </IonModal>
-
-        <IonModal isOpen={openDateModal} onDidDismiss={() => setOpenDateModal(false)} className="src-modal-centered">
-          <div className="pwt-modal-content">
-            <div className="picker-header">
-              <span className="pwt-modal-title">Select Date</span>
-              <div className="src-btn src-btn-clear" onClick={() => setOpenDateModal(false)}><CloseIcon /></div>
-            </div>
-            <IonDatetime
-              presentation="date"
-              className="src-animate"
-              style={{ borderRadius: "16px", background: "white", boxShadow: "var(--src-shadow-sm)" }}
-              onIonChange={(e: any) => { setHDate(e.detail.value); setOpenDateModal(false); }}
-            />
-          </div>
-        </IonModal>
-
         <IonModal isOpen={openMaintDateModal} onDidDismiss={() => setOpenMaintDateModal(false)} className="src-modal-centered">
           <div className="pwt-modal-content">
             <div className="picker-header">
               <span className="pwt-modal-title">Maintenance Date</span>
-              <div className="src-btn src-btn-clear" onClick={() => setOpenMaintDateModal(false)}><CloseIcon /></div>
+              <div className="src-btn src-btn-clear" onClick={() => setOpenMaintDateModal(false)}><ChevronDown /></div>
             </div>
             <IonDatetime
               presentation="date"

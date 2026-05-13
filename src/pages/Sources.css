@@ -16,7 +16,7 @@
   --src-accent: hsl(var(--src-accent-h), var(--src-accent-s), var(--src-accent-l));
 
   --src-success: #10b981;
-  --src-warning: #f59e0b;
+  --src-warning: #ffb703;
   --src-danger: #ef4444;
 
   /* Glassmorphism System */
@@ -27,7 +27,7 @@
 
   /* Text & Depth */
   --src-text-heading: #0f172a;
-  --src-text-body: #334155;
+  --src-text-body: #f0f2f5;
   --src-text-muted: #64748b;
   --src-radius-lg: 24px;
   --src-radius-md: 16px;
@@ -35,7 +35,7 @@
 
   --src-shadow-sm: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --src-shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  --src-shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --src-shadow-lg: 0 20px 25px -5px rgba(254, 252, 252, 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 .src-container {
@@ -128,6 +128,24 @@
   padding: 10px;
 }
 
+.src-card-full {
+  grid-column: 1 / -1;
+}
+
+.src-card-accordion {
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.src-accordion-root {
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.src-accordion-details {
+  padding: 0 15px 15px !important;
+}
+
 /* Card Header Decorative Element */
 .src-card::before {
   content: '';
@@ -139,6 +157,9 @@
   background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
   opacity: 0.15;
   transition: opacity 0.3s ease;
+  border-top-left-radius: var(--src-radius-lg);
+  border-top-right-radius: var(--src-radius-lg);
+  z-index: 1;
 }
 
 .src-card:hover::before {
@@ -172,7 +193,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--src-primary);
+  color: white;
   box-shadow: inset 0 0 0 1px hsla(var(--src-primary-h), var(--src-primary-s), var(--src-primary-l), 0.1);
   transition: all 0.3s ease;
 }
@@ -197,7 +218,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  color: white;
   background: var(--ion-color-primary);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -296,6 +317,17 @@
 .src-btn-primary:hover {
   filter: brightness(1.1);
   box-shadow: 0 12px 20px -4px hsla(var(--src-primary-h), var(--src-primary-s), var(--src-primary-l), 0.5);
+  transform: translateY(-2px);
+}
+
+.src-btn-warning {
+  background: var(--src-warning);
+  color: #000;
+  box-shadow: 0 8px 16px -4px rgba(255, 183, 3, 0.4);
+}
+
+.src-btn-warning:hover {
+  filter: brightness(1.1);
   transform: translateY(-2px);
 }
 
@@ -742,4 +774,76 @@
 
 .src-table-row:hover {
   background: rgba(0,0,0,0.02);
+}
+
+/* Change all icons from purple to white where appropriate */
+.MuiSvgIcon-root {
+  /* color: white !important; */ /* Disabled aggressive override */
+}
+
+/* Keep icons white even on hover */
+.MuiSvgIcon-root:hover {
+  color: white !important;
+}
+
+/* MUI IconButton icons */
+.MuiIconButton-root {
+  color: white !important;
+}
+
+.MuiIconButton-root:hover {
+  color: white !important;
+  background: transparent !important;
+}
+
+/* Card chevron icon */
+.src-card-chevron {
+  color: white !important;
+}
+
+.src-card-chevron.expanded {
+  color: white !important;
+}
+
+/* Card icon box icons */
+/* Grid Table Styling */
+.src-grid-header {
+  display: flex;
+  padding: 12px 16px;
+  background: #f1f5f9;
+  border-radius: var(--src-radius-sm);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--src-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.src-grid-row {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: white;
+  border-radius: var(--src-radius-md);
+  margin-bottom: 8px;
+  border: 1.5px solid #f1f5f9;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.src-grid-row:hover {
+  border-color: var(--src-primary);
+  transform: translateX(4px);
+  box-shadow: var(--src-shadow-sm);
+}
+
+.src-grid-row div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.src-card-icon-box svg {
+  color: white !important;
 }
