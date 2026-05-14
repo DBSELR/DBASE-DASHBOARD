@@ -1,9 +1,9 @@
 // src/pages/Sources.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  IonCheckbox, IonContent, IonDatetime, IonHeader,
-  IonInput, IonItem, IonLabel, IonList, IonModal, IonPage, IonPopover,
-  IonSelect, IonSelectOption, IonToast, IonToolbar, IonAlert, IonGrid, IonRow, IonCol, IonButton, IonIcon
+  IonCheckbox, IonContent, IonDatetime,
+  IonInput, IonModal, IonPage, IonPopover,
+  IonSelect, IonSelectOption, IonToast, IonGrid, IonRow, IonCol, IonIcon
 } from "@ionic/react";
 
 import {
@@ -11,7 +11,6 @@ import {
   AccordionSummary,
   AccordionDetails,
   TextField,
-  Typography,
   FormControlLabel,
 } from "@mui/material";
 
@@ -29,6 +28,7 @@ const DeptIcon = () => <IconBox><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4
 const HolidayIcon = () => <IconBox><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></IconBox>;
 const CheckinIcon = () => <IconBox><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></IconBox>;
 const DesignationIcon = () => <IconBox><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></IconBox>;
+const UserAccessIcon = () => <IconBox><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><path d="M20 8v6" /><path d="M23 11h-6" /></IconBox>;
 const VendorIcon = () => <IconBox><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></IconBox>;
 const MaintIcon = () => <IconBox><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></IconBox>;
 const NotifIcon = () => <IconBox><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></IconBox>;
@@ -85,6 +85,7 @@ const postJSON = (path: string, payload: any) =>
     headers: { "Content-Type": "application/json", ...authHeaders() },
   });
 
+type KeySpec = string[];
 const decodeRows = (data: any, keys: KeySpec, title?: string) => {
   const out: any[] = [];
   if (!Array.isArray(data)) {
@@ -183,13 +184,416 @@ const decodeNotificationsData = (data: any) => {
   }));
 };
 
+// =====================================================================================
+// USER ACCESS SECTION ONLY (API BASED)
+// =====================================================================================
+
+type UserAccessPermissionRow = {
+  SlNo: number;
+  MenuText: string;
+  Selected: boolean;
+  Path?: string;
+};
+
+const UserAccessSection: React.FC = () => {
+  // -------------------------------------------------------------------
+  // STATES
+  // -------------------------------------------------------------------
+  const [userAccessType, setUserAccessType] = useState<
+    "UserGroup" | "Users"
+  >("UserGroup");
+
+  const [selectedUserGroup, setSelectedUserGroup] =
+    useState("");
+
+  const [selectedUserCode, setSelectedUserCode] =
+    useState("");
+
+  const [employees, setEmployees] = useState<
+    ActiveEmp[]
+  >([]);
+
+  const [groups, setGroups] = useState<string[]>([]);
+
+  const [permissions, setPermissions] = useState<
+    UserAccessPermissionRow[]
+  >([]);
+
+  const [loading, setLoading] = useState(false);
+
+  // -------------------------------------------------------------------
+  // LOAD EMPLOYEES
+  // -------------------------------------------------------------------
+  const loadEmployees = async () => {
+    try {
+      const r = await axios.get(
+        `${API_BASE}Sources/load_empployee`,
+        { headers: authHeaders() }
+      );
+
+      log("loadEmployees raw response:", r.data);
+
+      if (!Array.isArray(r.data)) {
+        setEmployees([]);
+        return;
+      }
+
+      const rows = r.data.map((x: any) => {
+        // Handle array-of-arrays format: [name, empCode, designation, role, ...]
+        if (Array.isArray(x)) {
+          const rawName = String(x[0] ?? "");
+          const empCode = String(x[1] ?? "");
+          // Strip "CODE-" prefix from name if present
+          const empName = rawName.includes("-")
+            ? rawName.split("-").slice(1).join("-").trim()
+            : rawName;
+          return {
+            EmpCode: empCode,
+            EmpName: empName || rawName,
+            Designation: String(x[2] ?? ""),
+            Role: String(x[3] ?? ""),
+          };
+        }
+        // Handle array-of-objects format
+        const rawName = String(
+          x.EmpName ?? x.empName ?? x.Name ?? x.name ?? x.FullName ?? ""
+        );
+        const empCode = String(
+          x.EmpCode ?? x.empCode ?? x.EmployeeCode ?? x.Code ?? ""
+        );
+        const empName = rawName.includes("-")
+          ? rawName.split("-").slice(1).join("-").trim()
+          : rawName;
+        return {
+          EmpCode: empCode,
+          EmpName: empName || rawName,
+          Designation: String(x.Designation ?? x.designation ?? ""),
+          Role: String(x.Role ?? x.role ?? ""),
+        };
+      }).filter((e: any) => e.EmpCode !== ""); // remove blank rows
+
+      log("loadEmployees parsed:", rows.length, "employees");
+      setEmployees(rows);
+    } catch (e) {
+      log("loadEmployees error:", e);
+      setEmployees([]);
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // LOAD GROUPS
+  // -------------------------------------------------------------------
+  const loadGroups = async () => {
+    try {
+      const r = await axios.get(
+        `${API_BASE}Sources/Load_UserGroup`,
+        {
+          headers: authHeaders(),
+        }
+      );
+
+      if (Array.isArray(r.data)) {
+        const rows = r.data
+          .map((x: any) =>
+            Array.isArray(x)
+              ? String(x[0] ?? "")
+              : String(
+                x.UserGroup ??
+                x.Group ??
+                x.name ??
+                ""
+              )
+          )
+          .filter(Boolean);
+
+        setGroups(rows);
+      }
+    } catch (e) {
+      setGroups([]);
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // LOAD PERMISSIONS
+  // -------------------------------------------------------------------
+  const loadPermissions = async (
+    id: string,
+    isGroup: boolean
+  ) => {
+    if (!id) {
+      setPermissions([]);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const url = `${API_BASE}${isGroup
+        ? "Sources/Load_Get_UserAccess"
+        : "Sources/load_get_userPer"
+        }`;
+
+      const params = isGroup
+        ? { UserGroup: id }
+        : { EmpCode: id };
+
+      const r = await axios.get(url, {
+        headers: authHeaders(),
+        params,
+      });
+
+      if (Array.isArray(r.data)) {
+        const rows = r.data.map(
+          (row: any[], index: number) => ({
+            SlNo: index + 1,
+            MenuText: String(row[1] ?? ""),
+            Path: String(row[4] ?? ""),
+            Selected:
+              String(row[9] ?? "")
+                .toLowerCase()
+                .trim() === "true",
+          })
+        );
+        setPermissions(rows);
+      } else {
+        setPermissions([]);
+      }
+    } catch (e) {
+      setPermissions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // TOGGLE PERMISSION
+  // -------------------------------------------------------------------
+  const togglePermission = (
+    slNo: number,
+    checked: boolean
+  ) => {
+    setPermissions((prev) =>
+      prev.map((x) =>
+        x.SlNo === slNo
+          ? { ...x, Selected: checked }
+          : x
+      )
+    );
+  };
+
+  const saveUserAccess = async () => {
+    const isGroup = userAccessType === "UserGroup";
+    const id = isGroup ? selectedUserGroup : selectedUserCode;
+
+    if (!id) {
+      alert(`Please select a ${isGroup ? "User Group" : "User"} first.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const url = isGroup ? `${API_BASE}Sources/Save_UserAccess` : `${API_BASE}Sources/save_userPer`;
+
+      // Pattern: List of permission objects
+      const payload = isGroup
+        ? { UserGroup: id, Permissions: permissions }
+        : { EmpCode: id, Permissions: permissions };
+
+      await axios.post(url, payload, { headers: authHeaders() });
+      alert("Permissions saved successfully!");
+    } catch (e) {
+      alert("Error saving permissions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // INITIAL LOAD
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    loadEmployees();
+    loadGroups();
+  }, []);
+
+  // -------------------------------------------------------------------
+  // LOAD USER/GROUP PERMISSIONS
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    if (userAccessType === "UserGroup") {
+      loadPermissions(selectedUserGroup, true);
+    } else {
+      loadPermissions(selectedUserCode, false);
+    }
+  }, [
+    selectedUserGroup,
+    selectedUserCode,
+    userAccessType,
+  ]);
+
+  // -------------------------------------------------------------------
+  // SORT USERS
+  // -------------------------------------------------------------------
+  const sortedEmployees = useMemo(() => {
+    return [...employees].sort((a, b) =>
+      a.EmpName.localeCompare(b.EmpName)
+    );
+  }, [employees]);
+
+  // ===================================================================================
+  // UI
+  // ===================================================================================
+  return (
+    <div className="src-card" style={{ boxShadow: 'none', background: 'transparent', padding: 0 }}>
+
+      {/* USER TYPE */}
+      <div className="src-input-box" style={{ maxWidth: '400px' }}>
+        <IonSelect
+          value={userAccessType}
+          interface="popover"
+          placeholder="Select Type"
+          onIonChange={(e) =>
+            setUserAccessType(e.detail.value)
+          }
+        >
+          <IonSelectOption value="UserGroup">
+            User Group
+          </IonSelectOption>
+
+          <IonSelectOption value="Users">
+            Select User
+          </IonSelectOption>
+        </IonSelect>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "20px",
+          marginTop: "20px",
+        }}
+      >
+
+        {/* LEFT PANEL */}
+        <div>
+          <div className="src-pane-header">
+            {userAccessType === "UserGroup" ? "User Groups" : "Users"}
+          </div>
+
+          <div
+            className="src-scroll-list"
+            style={{
+              height: "450px",
+              marginTop: "10px"
+            }}
+          >
+
+            {userAccessType === "UserGroup" ? (
+
+              groups.map((group) => (
+                <div
+                  key={group}
+                  className="src-checkbox-row"
+                  onClick={() =>
+                    setSelectedUserGroup(group)
+                  }
+                  style={{ border: selectedUserGroup === group ? '1.5px solid var(--src-primary)' : '1px solid #f1f5f9' }}
+                >
+                  <span style={{ fontWeight: 600 }}>{group}</span>
+
+                  <IonCheckbox
+                    checked={
+                      selectedUserGroup === group
+                    }
+                  />
+                </div>
+              ))
+
+            ) : (
+
+              sortedEmployees.map((emp) => (
+                <div
+                  key={emp.EmpCode}
+                  className="src-checkbox-row"
+                  onClick={() =>
+                    setSelectedUserCode(
+                      emp.EmpCode
+                    )
+                  }
+                  style={{ border: selectedUserCode === emp.EmpCode ? '1.5px solid var(--src-primary)' : '1px solid #f1f5f9' }}
+                >
+                  <div className="src-emp-info">
+                    <div className="src-emp-name">{emp.EmpName}</div>
+                    <small className="src-emp-code">{emp.EmpCode}</small>
+                  </div>
+
+                  <IonCheckbox
+                    checked={
+                      selectedUserCode ===
+                      emp.EmpCode
+                    }
+                  />
+                </div>
+              ))
+
+            )}
+
+          </div>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div>
+          <div className="src-pane-header">Permissions</div>
+
+          {loading ? (
+            <div className="src-empty-state">Loading...</div>
+          ) : (
+            <div className="src-scroll-list" style={{ height: '450px', marginTop: '10px' }}>
+
+              {permissions.map((menu) => (
+                <div
+                  key={menu.SlNo}
+                  className="src-checkbox-row"
+                >
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    {menu.SlNo}. {menu.MenuText}
+                  </div>
+
+                  <IonCheckbox
+                    checked={menu.Selected}
+                    onIonChange={(e) =>
+                      togglePermission(
+                        menu.SlNo,
+                        e.detail.checked
+                      )
+                    }
+                  />
+                </div>
+              ))}
+              {permissions.length === 0 && (
+                <div className="src-empty-state">Select a {userAccessType === "UserGroup" ? "Group" : "User"} to view permissions</div>
+              )}
+
+            </div>
+          )}
+
+
+
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 const Sources: React.FC = () => {
   const [toast, setToast] = useState({
     open: false,
     msg: "",
-    color: "success" as "success" | "danger",
+    color: "success" as "success" | "danger" | "warning",
   });
-  const showToast = (msg: string, color: "success" | "danger" = "success") =>
+  const showToast = (msg: string, color: "success" | "danger" | "warning" = "success") =>
     setToast({ open: true, msg, color });
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
@@ -304,6 +708,11 @@ const Sources: React.FC = () => {
     }
     if (HMnth !== "" && moment(HMnth).format("M") !== "Invalid date") {
       tmpmnth = moment(HMnth).format("M");
+    }
+    if (tmpyr === "0") {
+      setDt_Holidays([]);
+      setHExistYr(false);
+      return;
     }
     try {
       const res = await axios.get(`${API_BASE}Sources/Load_Holidays?yr=${tmpyr}&mnth=${tmpmnth}`, { headers: authHeaders() });
@@ -594,7 +1003,7 @@ const Sources: React.FC = () => {
     </div>
   );
 
-  const SectionHeader = ({ icon, title, isCollapsed, onToggle }: any) => (
+  const SectionHeader = ({ icon, title, isCollapsed, onToggle }: { icon: React.ReactNode, title: string, isCollapsed: boolean, onToggle: () => void }) => (
     <div className="src-card-header" onClick={onToggle}>
       <div className="src-card-title-group">
         <div className="src-card-icon-box">{icon}</div>
@@ -617,6 +1026,10 @@ const Sources: React.FC = () => {
     loadMaintData();
   }, []);
 
+  useEffect(() => {
+    if (Hyear) loadHolidays();
+  }, [Hyear, HMnth]);
+
   return (
     <IonPage>
       <IonContent className="ion-no-padding">
@@ -629,58 +1042,27 @@ const Sources: React.FC = () => {
           </div>
 
           <div className="src-dashboard-grid">
-            <div className={`src-card ${collapsed.dept ? "collapsed" : ""}`}>
-              <SectionHeader icon={<DeptIcon />} title="Departments" isCollapsed={collapsed.dept} onToggle={() => toggleCollapse("dept")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-wrapper">
-                    <label className="src-label">Name</label>
-                    <div className="src-input-box">
-                      <IonInput value={DeptName} placeholder="e.g. Finance" onIonInput={(e) => setDeptName(e.detail.value!)} />
+            {/* User Access Section — Director only (EmpCode 1501) */}
+            {String(user?.EmpCode ?? user?.empCode ?? "") === "1501" && (
+              <div className="src-card src-card-full src-card-accordion">
+                <Accordion className="src-accordion-root">
+                  <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
+                    <div className="src-card-title-group">
+                      <div className="src-card-icon-box"><UserAccessIcon /></div>
+                      <div className="src-card-title">User Access</div>
                     </div>
-                  </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDepartment}>Save</button>
-                  <div className="src-table-wrapper">
-                    <div className="src-table-header"><div className="src-table-col">Department</div></div>
-                    {depList.map(d => (
-                      <div className="src-table-row" key={d.DID} onClick={() => { setDeptName(d.Department); setTempDeptId(d.DID); }}>
-                        <div className="src-table-col">{d.Department}</div>
-                      </div>
-                    ))}
-                    {depList.length === 0 && <EmptyState msg="No departments." />}
-                  </div>
-                </div>
+                  </AccordionSummary>
+                  <AccordionDetails className="src-accordion-details" style={{ padding: '20px' }}>
+                    <UserAccessSection />
+                  </AccordionDetails>
+                </Accordion>
               </div>
-            </div>
-
-            <div className={`src-card ${collapsed.designation ? "collapsed" : ""}`}>
-              <SectionHeader icon={<DesignationIcon />} title="Designations" isCollapsed={collapsed.designation} onToggle={() => toggleCollapse("designation")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-wrapper">
-                    <label className="src-label">Name</label>
-                    <div className="src-input-box">
-                      <IonInput value={Designation} placeholder="e.g. Lead" onIonInput={(e) => setDesignation(e.detail.value!)} />
-                    </div>
-                  </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDesignation}>Save</button>
-                  <div className="src-table-wrapper">
-                    <div className="src-table-header"><div className="src-table-col">Designation</div></div>
-                    {disgList.map(d => (
-                      <div className="src-table-row" key={d.DS_ID} onClick={() => { setDesignation(d.Designation); setTempDisgId(d.DS_ID); }}>
-                        <div className="src-table-col">{d.Designation}</div>
-                      </div>
-                    ))}
-                    {disgList.length === 0 && <EmptyState msg="No designations." />}
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* 3. Holidays Management dropdown */}
             <div className="src-card src-card-full src-card-accordion">
               <Accordion expanded={expanded} onChange={() => setExpanded(!expanded)} className="src-accordion-root">
-                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'var(--src-primary)' }} />}>
+                <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
                   <div className="src-card-title-group">
                     <div className="src-card-icon-box"><HolidayIcon /></div>
                     <div className="src-card-title">Holidays Management</div>
@@ -728,8 +1110,8 @@ const Sources: React.FC = () => {
                             <div key={i} className="src-grid-row" onClick={() => { setAddHDay(false); setAddHDayCtrlName("Save Holiday"); setAddHDayCtrlIconName(saveOutline); setHDate(moment(x.HolidayDate).format("YYYY-MM-DD")); setHRemarks(x.Remark); }}>
                               <div style={{ flex: 1, fontWeight: 700 }}>{i + 1} -- {moment(x.HolidayDate).format("DD-MM-YYYY")}</div>
                               <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                                <FormControlLabel 
-                                  control={<IonCheckbox checked={x.FLAG} onIonChange={(e) => { e.stopPropagation(); toggleHolidayActive(x.HolidayDate, e.detail.checked); }} />} 
+                                <FormControlLabel
+                                  control={<IonCheckbox checked={x.FLAG} onIonChange={(e) => { e.stopPropagation(); toggleHolidayActive(x.HolidayDate, e.detail.checked); }} />}
                                   label="Active"
                                   onClick={(e) => e.stopPropagation()}
                                 />
@@ -746,6 +1128,54 @@ const Sources: React.FC = () => {
                   </IonGrid>
                 </AccordionDetails>
               </Accordion>
+            </div>
+
+            <div className={`src-card ${collapsed.dept ? "collapsed" : ""}`}>
+              <SectionHeader icon={<DeptIcon />} title="Departments" isCollapsed={collapsed.dept} onToggle={() => toggleCollapse("dept")} />
+              <div className="src-card-body-wrapper">
+                <div className="src-card-body">
+                  <div className="src-input-wrapper">
+                    <label className="src-label">Name</label>
+                    <div className="src-input-box">
+                      <IonInput value={DeptName} placeholder="e.g. Finance" onIonInput={(e) => setDeptName(e.detail.value!)} />
+                    </div>
+                  </div>
+                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDepartment}>Save</button>
+                  <div className="src-table-wrapper">
+                    <div className="src-table-header"><div className="src-table-col">Department</div></div>
+                    {depList.map(d => (
+                      <div className="src-table-row" key={d.DID} onClick={() => { setDeptName(d.Department); setTempDeptId(d.DID); }}>
+                        <div className="src-table-col">{d.Department}</div>
+                      </div>
+                    ))}
+                    {depList.length === 0 && <EmptyState msg="No departments." />}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`src-card ${collapsed.designation ? "collapsed" : ""}`}>
+              <SectionHeader icon={<DesignationIcon />} title="Designations" isCollapsed={collapsed.designation} onToggle={() => toggleCollapse("designation")} />
+              <div className="src-card-body-wrapper">
+                <div className="src-card-body">
+                  <div className="src-input-wrapper">
+                    <label className="src-label">Name</label>
+                    <div className="src-input-box">
+                      <IonInput value={Designation} placeholder="e.g. Lead" onIonInput={(e) => setDesignation(e.detail.value!)} />
+                    </div>
+                  </div>
+                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDesignation}>Save</button>
+                  <div className="src-table-wrapper">
+                    <div className="src-table-header"><div className="src-table-col">Designation</div></div>
+                    {disgList.map(d => (
+                      <div className="src-table-row" key={d.DS_ID} onClick={() => { setDesignation(d.Designation); setTempDisgId(d.DS_ID); }}>
+                        <div className="src-table-col">{d.Designation}</div>
+                      </div>
+                    ))}
+                    {disgList.length === 0 && <EmptyState msg="No designations." />}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className={`src-card ${collapsed.checkin ? "collapsed" : ""}`}>
@@ -812,7 +1242,7 @@ const Sources: React.FC = () => {
             {/* 6. Broadcast dropdown */}
             <div className="src-card src-card-accordion">
               <Accordion expanded={notifExpanded} onChange={() => setNotifExpanded(!notifExpanded)} className="src-accordion-root">
-                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'var(--src-primary)' }} />}>
+                <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
                   <div className="src-card-title-group">
                     <div className="src-card-icon-box"><NotifIcon /></div>
                     <div className="src-card-title">Broadcast</div>
@@ -862,11 +1292,26 @@ const Sources: React.FC = () => {
                 </AccordionDetails>
               </Accordion>
             </div>
-
-            {/* 7. Maintenance dropdown */}
+            {/* 7. Import */}
+            <div className={`src-card ${collapsed.import ? "collapsed" : ""}`}>
+              <SectionHeader icon={<ImportIcon />} title="Process Import" isCollapsed={collapsed.import} onToggle={() => toggleCollapse("import")} />
+              <div className="src-card-body-wrapper">
+                <div className="src-card-body">
+                  <div className="src-input-box" style={{ marginBottom: "10px" }}>
+                    <IonSelect value={ImportFile} interface="popover" placeholder="Select Entity" onIonChange={(e) => setImportFile(e.detail.value)}>
+                      <IonSelectOption value="Productivity">Productivity</IonSelectOption>
+                      <IonSelectOption value="Attendance">Attendance</IonSelectOption>
+                    </IonSelect>
+                  </div>
+                  <input type="file" onChange={(e) => setFiles(e.target.files)} style={{ width: "100%", marginBottom: "15px" }} />
+                  <button className="src-btn src-btn-accent src-btn-block" onClick={handleImport}>Execute Import</button>
+                </div>
+              </div>
+            </div>
+            {/* 8. Maintenance dropdown */}
             <div className="src-card src-card-full src-card-accordion">
               <Accordion expanded={maintExpanded} onChange={() => setMaintExpanded(!maintExpanded)} className="src-accordion-root">
-                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'var(--src-primary)' }} />}>
+                <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
                   <div className="src-card-title-group">
                     <div className="src-card-icon-box"><MaintIcon /></div>
                     <div className="src-card-title">Maintenance</div>
@@ -897,22 +1342,7 @@ const Sources: React.FC = () => {
               </Accordion>
             </div>
 
-            {/* 8. Import */}
-            <div className={`src-card ${collapsed.import ? "collapsed" : ""}`}>
-              <SectionHeader icon={<ImportIcon />} title="Process Import" isCollapsed={collapsed.import} onToggle={() => toggleCollapse("import")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-box" style={{ marginBottom: "10px" }}>
-                    <IonSelect value={ImportFile} interface="popover" placeholder="Select Entity" onIonChange={(e) => setImportFile(e.detail.value)}>
-                      <IonSelectOption value="Productivity">Productivity</IonSelectOption>
-                      <IonSelectOption value="Attendance">Attendance</IonSelectOption>
-                    </IonSelect>
-                  </div>
-                  <input type="file" onChange={(e) => setFiles(e.target.files)} style={{ width: "100%", marginBottom: "15px" }} />
-                  <button className="src-btn src-btn-accent src-btn-block" onClick={handleImport}>Execute Import</button>
-                </div>
-              </div>
-            </div>
+          
 
             {/* 9. Reporting Matrix */}
             {/* <div className={`src-card ${collapsed.reporting ? "collapsed" : ""}`}>
