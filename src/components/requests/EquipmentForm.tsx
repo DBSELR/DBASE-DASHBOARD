@@ -16,7 +16,7 @@ const PRIORITIES = ["High", "Medium", "Low"];
 const EquipmentForm: React.FC = () => {
   const [purpose, setPurpose] = useState("");
   const [priority, setPriority] = useState("Medium");
-  const [requestType, setRequestType] = useState("Purchase");
+  const [requestType, setRequestType] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,8 +32,12 @@ const EquipmentForm: React.FC = () => {
 
   const handleSubmit = async () => {
     const empCode = getUser()?.empCode;
+    if (!requestType) {
+  notify("Please select request type");
+  return;
+}
     if (!purpose.trim()) { notify("Please enter the equipment purpose"); return; }
-
+    
     const formData = new FormData();
     formData.append("EmpCode", empCode);
     formData.append("Purpose", purpose);
@@ -76,22 +80,23 @@ const EquipmentForm: React.FC = () => {
       className="lr-field-icon"
     />
 
-    <IonSelect
-      value={requestType}
-      interface="popover"
-      className="lr-popover-select"
-      onIonChange={(e) =>
-        setRequestType(e.detail.value)
-      }
-    >
-      <IonSelectOption value="Purchase">
-        Purchase Item
-      </IonSelectOption>
+   <IonSelect
+  value={requestType}
+  interface="popover"
+  placeholder="Select Type"
+  className="lr-popover-select"
+  onIonChange={(e) =>
+    setRequestType(e.detail.value)
+  }
+>
+  <IonSelectOption value="Purchase">
+    Purchase Item
+  </IonSelectOption>
 
-      <IonSelectOption value="Replacement">
-        Replacement Item
-      </IonSelectOption>
-    </IonSelect>
+  <IonSelectOption value="Replacement">
+    Replacement Item
+  </IonSelectOption>
+</IonSelect>
   </div>
 </div>
         {/* Col 1 — Priority */}
