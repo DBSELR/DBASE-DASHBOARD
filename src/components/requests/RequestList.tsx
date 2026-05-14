@@ -135,7 +135,7 @@ const [editOT, setEditOT] = useState<any>({
 const [permissionModal, setPermissionModal] = useState(false);
 
 const [permissionData, setPermissionData] = useState<any[]>([]);
-
+const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string }>({});
 
   const normalize = (x: any) => {
     if (!x) return null;
@@ -242,6 +242,13 @@ const [permissionData, setPermissionData] = useState<any[]>([]);
         RA4_Comment: x.RA4_Comment,
         CurrentLevel: x.CurrentLevel,
         CurrentRA: x.CurrentRA,
+        ECode: x.ECode,
+        AssignStatus: x.AssignStatus,
+        ReceiveStatus: x.ReceiveStatus,
+        AssignedBy: x.AssignedBy,
+        AssignedOn: x.AssignedOn,
+        ReceivedBy: x.ReceivedBy,
+        ReceivedOn: x.ReceivedOn,
       };
     }
 
@@ -577,6 +584,45 @@ const handleReject = async (item: any) => {
   }
 };
 
+const handleAssignEquipment = async (item: any) => {
+  try {
+
+    await axios.post(
+      `${baseUrl}EquipmentRequests/UpdateStatus`,
+      {
+        RequestId: item.lid,
+        Status: "Assigned",
+        EmpCode: getUser()?.empCode,
+        ECode: equipmentCodeMap[item.lid]
+      }
+    );
+
+    loadData();
+
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const handleReceiveEquipment = async (item: any) => {
+  try {
+
+    await axios.post(
+      `${baseUrl}EquipmentRequests/UpdateStatus`,
+      {
+        RequestId: item.lid,
+        Status: "Received",
+        EmpCode: getUser()?.empCode
+      }
+    );
+
+    loadData();
+
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 const updateOvertime = async (item: any, status: string) => {
   try {
     await axios.post(`${baseUrl}Workreport/UpdateOvertimeStatus`, {
@@ -778,32 +824,7 @@ const formatLeaveCategory = (value: any) => {
 if (type === "onduty" && view === "my") {
   return null; // 🔥 completely hide OnDuty in My Requests
 }
-// const loadPermissionDashboard = async (empcode?: string) => {
-//   try {
 
-//     const m = moment(selectedMonth, "MMM-YYYY").month() + 1;
-//     const y = moment(selectedMonth, "MMM-YYYY").year();
-
-//     const finalEmp =
-//       view === "my"
-//         ? getUser()?.empCode
-//         : empcode || selectedEmpCode;
-
-//     const res = await axios.get(
-//       `${baseUrl}Leave/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
-//       {
-//         headers: getAuthHeaders(),
-//       }
-//     );
-
-//     setPermissionData(res.data || []);
-
-//     setPermissionModal(true);
-
-//   } catch (e) {
-//     console.error(e);
-//   }
-// };
 const loadPermissionDashboard = async (empcode?: string) => {
   try {
     const m =
@@ -877,28 +898,8 @@ const loadTeamPermissionDashboard = async () => {
 };
   return (
     <div style={{ overflowX: 'hidden', width: '100%' }}>
-      {/* ── Filters ── */}
-      {/* <div className="rl-filter-row">
-        <div className="rl-filter-box">
-          <span style={{ fontSize: 14, color: '#94a3b8' }}>🔍</span>
-          <input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="rl-filter-box">
-          <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-        >
-          {months.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-          
-        </div>
-      </div> */}
+     
+     
 
     {/* FILTERS */}
 {view !== "my" ? (
@@ -1163,9 +1164,7 @@ const loadTeamPermissionDashboard = async () => {
       {loading && <p>Loading...</p>}
 
       {!loading &&
-        filtered
-          .filter(Boolean)
-          .filter(filterByStatus)
+        finalData
          .map((item) => {
           return (
             <div key={`${item.lid}-${item.empcode}`} className="lr-history-card themed-bg">
@@ -1189,12 +1188,6 @@ const loadTeamPermissionDashboard = async () => {
                 </div>
                 <div style={{ display: "flex", gap: "10px" }}>
 
-    {/* <button
-      className="permission-dashboard-btn"
-      onClick={() => loadPermissionDashboard(item.empcode)}
-    >
-      <IonIcon icon={speedometerOutline} />
-    </button> */}
 
     <div
       className={`lr-status-indicator lr-status-${(item.L_status || '')
@@ -1205,9 +1198,7 @@ const loadTeamPermissionDashboard = async () => {
     </div>
 
   </div>
-                {/* <div className={`lr-status-indicator lr-status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
-                  {item.L_status}
-                </div> */}
+               
               </div>
 
               <div className="lr-card-grid">
@@ -1222,6 +1213,26 @@ const loadTeamPermissionDashboard = async () => {
                         <a href={item.FilePath} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>Download</a>
                       </div>
                     )}
+                    <div className="lr-grid-item">
+  <span className="lr-grid-label">Equipment Code</span>
+  <span className="lr-grid-value">
+    {item.ECode || "-"}
+  </span>
+</div>
+
+<div className="lr-grid-item">
+  <span className="lr-grid-label">Assign Status</span>
+  <span className="lr-grid-value">
+    {item.AssignStatus || "Pending"}
+  </span>
+</div>
+
+<div className="lr-grid-item">
+  <span className="lr-grid-label">Receive Status</span>
+  <span className="lr-grid-value">
+    {item.ReceiveStatus || "Pending"}
+  </span>
+</div>
                   </>
                 )}
                 {type === 'overtime' && (
@@ -1334,15 +1345,97 @@ const loadTeamPermissionDashboard = async () => {
                       <button className="lr-action-btn approve" onClick={() => updateOnDuty(item, 'Accepted')}>✅ Approve</button>
                       <button className="lr-action-btn reject"  onClick={() => updateOnDuty(item, 'Rejected')}>❌ Reject</button>
                     </>
-                  ) : type === 'equipment' ? (
-                    <>
-                      {item.CurrentLevel === 1 && (
-                        <input type="number" placeholder="Amount" value={amountMap[item.lid] || ''} onChange={(e) => handleAmountChange(item.lid, e.target.value)} />
-                      )}
-                      <input type="text" placeholder="Comment" value={commentMap[item.lid] || ''} onChange={(e) => handleCommentChange(item.lid, e.target.value)} />
-                      <button className="lr-action-btn approve" onClick={() => handleApprove(item)}>✅ Approve</button>
-                      <button className="lr-action-btn reject"  onClick={() => handleReject(item)}>❌ Reject</button>
-                    </>
+              ) : type === 'equipment' ? (
+  <>
+
+    {/* NORMAL APPROVAL FLOW */}
+
+    {canAct(item) && (
+      <>
+        {item.CurrentLevel === 1 && (
+          <input
+            type="number"
+            placeholder="Amount"
+            value={amountMap[item.lid] || ''}
+            onChange={(e) =>
+              handleAmountChange(item.lid, e.target.value)
+            }
+          />
+        )}
+
+        <input
+          type="text"
+          placeholder="Comment"
+          value={commentMap[item.lid] || ''}
+          onChange={(e) =>
+            handleCommentChange(item.lid, e.target.value)
+          }
+        />
+
+        <button
+          className="lr-action-btn approve"
+          onClick={() => handleApprove(item)}
+        >
+          ✅ Approve
+        </button>
+
+        <button
+          className="lr-action-btn reject"
+          onClick={() => handleReject(item)}
+        >
+          ❌ Reject
+        </button>
+      </>
+    )}
+
+{/* 
+  
+
+    {item.L_status === "Approved" &&
+      item.AssignStatus !== "Assigned" &&
+      getUser()?.designation === item.RA1 && (
+console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
+        <div style={{ marginTop: "10px" }}>
+
+          <input
+            type="text"
+            placeholder="Enter Equipment Code"
+            value={equipmentCodeMap[item.lid] || ""}
+            onChange={(e) =>
+              setEquipmentCodeMap({
+                ...equipmentCodeMap,
+                [item.lid]: e.target.value
+              })
+            }
+          />
+
+          <button
+            className="lr-action-btn approve"
+            onClick={() => handleAssignEquipment(item)}
+          >
+            Assign Equipment
+          </button>
+
+        </div>
+      )}
+
+
+   
+
+    {item.AssignStatus === "Assigned" &&
+      item.ReceiveStatus !== "Received" &&
+      view === "my" &&
+      item.empcode === getUser()?.empCode && (
+
+        <button
+          className="lr-action-btn approve"
+          onClick={() => handleReceiveEquipment(item)}
+        >
+          Receive Equipment
+        </button>
+      )} */}
+
+  </>
                  ) : type === 'overtime' ? (
   <>
     {view !== "my" && canAct(item) && (
@@ -1383,6 +1476,56 @@ const loadTeamPermissionDashboard = async () => {
                   )}
                 </div>
               )}
+              {/* NETWORK ADMIN ASSIGN */}
+
+{type === "equipment" &&
+  item.L_status === "Approved" &&
+  item.AssignStatus !== "Assigned" &&
+  getUser()?.designation === item.RA1 && (
+
+    <div className="lr-card-actions">
+
+      <input
+        type="text"
+        placeholder="Enter Equipment Code"
+        value={equipmentCodeMap[item.lid] || ""}
+        onChange={(e) =>
+          setEquipmentCodeMap({
+            ...equipmentCodeMap,
+            [item.lid]: e.target.value
+          })
+        }
+      />
+
+      <button
+        className="lr-action-btn approve"
+        onClick={() => handleAssignEquipment(item)}
+      >
+        Assign Equipment
+      </button>
+
+    </div>
+)}
+
+{/* EMPLOYEE RECEIVE */}
+
+{type === "equipment" &&
+  item.AssignStatus === "Assigned" &&
+  item.ReceiveStatus !== "Received" &&
+  view === "my" &&
+  item.empcode === getUser()?.empCode && (
+
+    <div className="lr-card-actions">
+
+      <button
+        className="lr-action-btn approve"
+        onClick={() => handleReceiveEquipment(item)}
+      >
+        Receive Equipment
+      </button>
+
+    </div>
+)}
             </div>
           );
         })}
@@ -1649,88 +1792,7 @@ const loadTeamPermissionDashboard = async () => {
     );
   })}
 </div>
-        {/* <div className="permission-dashboard-grid">
-
-          {permissionData.map((x: any, idx: number) => {
-
-            const usedPercent =
-              x.totalAvailableMin > 0
-                ? (
-                    (x.usedMin /
-                      x.totalAvailableMin) * 100
-                  ).toFixed(0)
-                : 0;
-
-            return (
-              <div
-                key={idx}
-                className="permission-card"
-              >
-
-                <div className="permission-top">
-
-                  <div>
-                    <h2>
-                      {x.empCode}
-                    </h2>
-
-                    <p>{x.empName}</p>
-                  </div>
-
-                  <div className="balance-badge">
-                    {x.balanceDisplay}
-                  </div>
-
-                </div>
-
-                <div className="permission-stats">
-
-                  <div className="stat-box">
-                    <span>Total</span>
-                    <h3>
-                      {x.totalAvailableDisplay}
-                    </h3>
-                  </div>
-
-                  <div className="stat-box">
-                    <span>Used</span>
-                    <h3>
-                      {x.usedDisplay}
-                    </h3>
-                  </div>
-
-                  <div className="stat-box">
-                    <span>OT Earned</span>
-                    <h3>
-                      {x.earnedOTMin} mins
-                    </h3>
-                  </div>
-
-                </div>
-
-                <div className="progress-wrap">
-                  <div className="progress-label">
-                    Usage
-                  </div>
-
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${usedPercent}%`
-                      }}
-                    />
-                  </div>
-
-                  <div className="progress-text">
-                    {usedPercent}% used
-                  </div>
-                </div>
-
-              </div>
-            );
-          })}
-        </div> */}
+       
 
       </div>
 

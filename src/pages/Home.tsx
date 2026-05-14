@@ -96,7 +96,7 @@ const Home: React.FC = () => {
     { id: "productivity", label: "Productivity", icon: "https://cdn.lordicon.com/erxuunyq.json", path: null, colorClass: "home-card-productivity" },
     { id: "performance", label: "Performance", icon: "https://cdn.lordicon.com/kwnsnjyg.json", path: null, colorClass: "home-card-performance" },
     { id: "punctuality", label: "Punctuality", icon: "https://cdn.lordicon.com/kiqyrejq.json", path: null, colorClass: "home-card-punctuality" },
-    { id: "requests", label: "Requests", icon: "https://cdn.lordicon.com/zpxybbhl.json", path: "/leaverequest", colorClass: "home-card-requests" },
+    { id: "requests", label: "Requests", icon: "https://cdn.lordicon.com/zpxybbhl.json", path: "/requests", colorClass: "home-card-requests" },
     { id: "transactions", label: "Transactions", icon: "https://cdn.lordicon.com/ynsswhvj.json", path: "/transactions/0", colorClass: "home-card-transactions" },
     { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: null, colorClass: "home-card-stock" },
     { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },

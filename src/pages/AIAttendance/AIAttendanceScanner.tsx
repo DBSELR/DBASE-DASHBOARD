@@ -123,13 +123,7 @@ const AIAttendanceScanner: React.FC = () => {
         <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', margin: '2rem auto 4rem auto', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
         </div>
 
-        <div className="credits-popup">
-          <div className="credits-content">
-            <h3>Credits</h3>
-            <p><strong>Developer:</strong><br />Sandeep Dukkipati</p>
-            <p><strong>Company:</strong><br />DBase Solutions Pvt Ltd</p>
-          </div>
-        </div>
+       
       </IonContent>
     </IonPage>
   );
