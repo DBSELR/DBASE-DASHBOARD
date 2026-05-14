@@ -16,6 +16,7 @@ const PRIORITIES = ["High", "Medium", "Low"];
 const EquipmentForm: React.FC = () => {
   const [purpose, setPurpose] = useState("");
   const [priority, setPriority] = useState("Medium");
+  const [requestType, setRequestType] = useState("Purchase");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,6 +38,7 @@ const EquipmentForm: React.FC = () => {
     formData.append("EmpCode", empCode);
     formData.append("Purpose", purpose);
     formData.append("Priority", priority);
+    formData.append("RequestType", requestType);
     if (file) formData.append("File", file);
 
     try {
@@ -64,7 +66,34 @@ const EquipmentForm: React.FC = () => {
 
       {/* ── Form Grid: 3-col (Single Row) ── */}
       <div className="lr-bento-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", alignItems: "start" }}>
+{/* Request Type */}
+<div className="lr-field-box">
+  <label className="lr-field-label">Request Type</label>
 
+  <div className="lr-field-content">
+    <IonIcon
+      icon={documentTextOutline}
+      className="lr-field-icon"
+    />
+
+    <IonSelect
+      value={requestType}
+      interface="popover"
+      className="lr-popover-select"
+      onIonChange={(e) =>
+        setRequestType(e.detail.value)
+      }
+    >
+      <IonSelectOption value="Purchase">
+        Purchase Item
+      </IonSelectOption>
+
+      <IonSelectOption value="Replacement">
+        Replacement Item
+      </IonSelectOption>
+    </IonSelect>
+  </div>
+</div>
         {/* Col 1 — Priority */}
         <div className="lr-field-box">
           <label className="lr-field-label">Priority</label>
@@ -118,7 +147,7 @@ const EquipmentForm: React.FC = () => {
         </div>
 
         {/* Col 3 — Attachment */}
-        <div
+        {/* <div
           className="lr-field-box"
           style={{ cursor: "pointer" }}
           onClick={() => document.getElementById("equip-file-input")?.click()}
@@ -150,7 +179,75 @@ const EquipmentForm: React.FC = () => {
             style={{ display: "none" }}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-        </div>
+        </div> */}
+
+        {/* Col 3 — Attachment */}
+{requestType === "Purchase" && (
+  <div
+    className="lr-field-box"
+    style={{ cursor: "pointer" }}
+    onClick={() =>
+      document
+        .getElementById("equip-file-input")
+        ?.click()
+    }
+  >
+    <label className="lr-field-label">
+      Attachment
+    </label>
+
+    <div className="lr-field-content">
+      <IonIcon
+        icon={attachOutline}
+        className="lr-field-icon"
+      />
+
+      <span
+        style={{
+          flex: 1,
+          fontSize: 13,
+          fontWeight: 500,
+          color: file ? "#1e293b" : "#cbd5e1",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {file ? file.name : "Tap to attach"}
+      </span>
+    </div>
+
+    {file && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setFile(null);
+        }}
+        style={{
+          marginTop: 4,
+          background: "none",
+          border: "none",
+          fontSize: 11,
+          cursor: "pointer",
+          color: "#94a3b8",
+          padding: 0,
+          fontWeight: 600,
+        }}
+      >
+        ✕ Remove
+      </button>
+    )}
+
+    <input
+      id="equip-file-input"
+      type="file"
+      style={{ display: "none" }}
+      onChange={(e) =>
+        setFile(e.target.files?.[0] ?? null)
+      }
+    />
+  </div>
+)}
 
       </div>
 
