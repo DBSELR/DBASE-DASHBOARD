@@ -8,4 +8,5 @@ opencv-python
 ultralytics
 keras-facenet
 tensorflow
+waitress
 

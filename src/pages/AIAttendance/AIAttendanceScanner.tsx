@@ -2,6 +2,7 @@ import { IonContent, IonPage, useIonToast } from '@ionic/react';
 import { useRef, useState, useEffect } from 'react';
 import { useHistory } from 'react-router';
 import { API_BASE_URL } from './ai_config';
+import { API_BASE } from "../../config";
 import './AIAttendanceScanner.css';
 import 'animate.css'; // Requires animate.css which is standard, but keeping exact layout animations locally is also fine.
 
@@ -12,6 +13,8 @@ const AIAttendanceScanner: React.FC = () => {
   const [statusColor, setStatusColor] = useState('var(--text-secondary)');
   const [presentToast] = useIonToast();
   const history = useHistory();
+  const [userData, setUserData] = useState<any>(null);
+const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -35,6 +38,19 @@ const AIAttendanceScanner: React.FC = () => {
   }, []);
 
   useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+
+  if (storedUser) {
+    const parsed = JSON.parse(storedUser);
+
+    setUserData(parsed);
+
+    // Optional profile from localStorage if available
+    setUserProfile(parsed);
+  }
+}, []);
+
+  useEffect(() => {
     const handleAutoCapture = async () => {
       if (!videoRef.current || isProcessing) return;
 
@@ -51,13 +67,25 @@ const AIAttendanceScanner: React.FC = () => {
         context?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const imageData = canvas.toDataURL('image/jpeg');
 
-        const response = await fetch(`${API_BASE_URL}/recognize`, {
+        const response = await fetch(`${API_BASE}Checkin/AILogAttendance`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: imageData })
+         headers: {
+   'Content-Type': 'application/json',
+   'x-api-key': 'dbase-ai-master-key-2026'
+},
+          body: JSON.stringify({
+  image: imageData,
+  empId: userData?.empCode || "",
+  empName:
+    userProfile?.EmpName ||
+    userData?.empName ||
+    ""
+})
         });
 
-        const data = await response.json();
+       const data = await response.json();
+
+console.log("API RESPONSE:", data);
 
         if (data.success && data.name && data.name.length > 0 && data.name[0] !== "Unknown") {
           const namesStr = data.name.join(", ");

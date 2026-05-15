@@ -2,6 +2,7 @@ import { IonContent, IonPage, IonInput, IonButton, IonSpinner, IonIcon } from '@
 import { useState, useEffect } from 'react';
 import { useHistory } from 'react-router';
 import { API_BASE_URL, AI_API_KEY } from './ai_config';
+import { API_BASE } from "../../config";
 
 const AIAttendanceRegister: React.FC = () => {
   const [name, setName] = useState('');
@@ -42,7 +43,7 @@ const AIAttendanceRegister: React.FC = () => {
     });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/register_employee`, {
+      const response = await fetch(`${API_BASE}Checkin/UploadModel`, {
         method: 'POST',
         headers: {
           'x-api-key': AI_API_KEY
@@ -51,16 +52,20 @@ const AIAttendanceRegister: React.FC = () => {
       });
 
       const data = await response.json();
-      if (data.success) {
-        showPopup('Registered Successfully, Thankyou!');
-        setTimeout(() => history.push('/ai-attendance-admin-dashboard'), 1500);
-      } else {
-        showPopup(data.message || 'Registration failed.');
-        
-      }
-    } catch (error) {
-      showPopup('Neural network connection error.');
-    } finally {
+
+console.log(data);
+
+if (response.ok && data.success) {
+    showPopup('Registered Successfully, Thankyou!');
+    setTimeout(() => history.push('/ai-attendance-admin-dashboard'), 1500);
+} else {
+    showPopup(data.message || 'Registration failed.');
+    console.error(data);
+}
+    } catch (error: any) {
+   console.error(error);
+   showPopup(error.message || 'Server connection failed');
+}finally {
       setIsProcessing(false);
     }
   };
