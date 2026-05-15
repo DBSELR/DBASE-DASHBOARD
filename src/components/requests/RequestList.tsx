@@ -249,6 +249,7 @@ const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string 
         AssignedOn: x.AssignedOn,
         ReceivedBy: x.ReceivedBy,
         ReceivedOn: x.ReceivedOn,
+        RequestType: x.RequestType,
       };
     }
 
@@ -1352,7 +1353,8 @@ const loadTeamPermissionDashboard = async () => {
 
     {canAct(item) && (
       <>
-        {item.CurrentLevel === 1 && (
+       {item.CurrentLevel === 1 &&
+ item.RequestType !== "Replacement" && (
           <input
             type="number"
             placeholder="Amount"
