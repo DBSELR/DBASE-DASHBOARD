@@ -227,6 +227,40 @@ useEffect(() => {
 
         const data = await response.json();
 
+        // INVALID TIME
+
+if (data.invalidTime) {
+
+  setStatusColor("#ef4444");
+
+  setResultMessage(
+    `⛔ ${data.message}`
+  );
+
+  const utterance =
+    new SpeechSynthesisUtterance(
+      data.message
+    );
+
+  window.speechSynthesis.cancel();
+
+  window.speechSynthesis.speak(
+    utterance
+  );
+
+  setTimeout(() => {
+
+    setResultMessage(
+      "Start to detect your face"
+    );
+
+    setStatusColor("#6b7280");
+
+  }, 4000);
+
+  return;
+}
+
         if (data.alreadyMarked) {
 
   setStatusColor("#f59e0b");

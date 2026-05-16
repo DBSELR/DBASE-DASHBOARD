@@ -69,9 +69,37 @@ const [userProfile, setUserProfile] = useState<any>(null);
     const formData = new FormData();
     const finalName = empId.trim() ? `${name.trim()} (${empId.trim()})` : name.trim();
     formData.append('name', finalName);
-    Array.from(images).forEach((file) => {
-      formData.append('images[]', file);
-    });
+   const validFiles = Array.from(images).filter((file) => {
+  // allow only image files
+  const isImage =
+    file.type.startsWith("image/");
+
+  // ignore hidden/system files
+  const isHidden =
+    file.name.startsWith(".");
+
+  return isImage && !isHidden;
+});
+
+// REMOVE DUPLICATES
+const uniqueFiles = validFiles.filter(
+  (file, index, self) =>
+    index ===
+    self.findIndex(
+      (f) =>
+        f.name === file.name &&
+        f.size === file.size
+    )
+);
+
+uniqueFiles.forEach((file) => {
+  formData.append("images[]", file);
+});
+
+console.log(
+  "Uploading Files:",
+  uniqueFiles.map((x) => x.name)
+);
 
     try {
       const response = await fetch(`${API_BASE}Checkin/UploadModel`, {
@@ -548,15 +576,16 @@ if (response.ok && data.success) {
               </p>
             </label>
 
-            <input
-              type="file"
-              id="image-upload"
-              onChange={(e) => setImages(e.target.files)}
-              // @ts-ignore
-              webkitdirectory="true"
-              multiple
-              style={{ display: "none" }}
-            />
+           <input
+  type="file"
+  id="image-upload"
+  accept="image/*"
+  multiple
+  onChange={(e) =>
+    setImages(e.target.files)
+  }
+  style={{ display: "none" }}
+/>
           </div>
 
           {/* BUTTONS */}
