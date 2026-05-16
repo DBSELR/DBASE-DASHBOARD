@@ -181,3 +181,226 @@
         font-size: 2.5rem;
     }
 }
+
+.attendance-page {
+  --background: #f4f7fb;
+  font-family: "Inter", sans-serif;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.attendance-header {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  padding: 18px 20px 26px;
+  color: white;
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.2);
+}
+
+.back-icon {
+  font-size: 24px;
+  margin-top: 6px;
+}
+
+.attendance-header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.attendance-header p {
+  margin-top: 6px;
+  font-size: 16px;
+  opacity: 0.95;
+}
+
+/* =========================
+   MAIN
+========================= */
+
+.scanner-wrapper {
+  padding: 34px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* =========================
+   CAMERA
+========================= */
+
+.scanner-frame {
+  width: 300px;
+  height: 380px;
+
+  border-radius: 32px;
+
+  overflow: hidden;
+  position: relative;
+
+  background: white;
+
+  box-shadow:
+    0 15px 50px rgba(0, 0, 0, 0.08),
+    0 4px 15px rgba(0, 0, 0, 0.04);
+
+  border: 1px solid #e5e7eb;
+}
+
+.scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* =========================
+   FACE FRAME
+========================= */
+
+.face-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.corner {
+  position: absolute;
+  width: 55px;
+  height: 55px;
+  border-color: white;
+  border-style: solid;
+}
+
+.top-left {
+  top: 40px;
+  left: 40px;
+  border-width: 5px 0 0 5px;
+  border-radius: 16px 0 0 0;
+}
+
+.top-right {
+  top: 40px;
+  right: 40px;
+  border-width: 5px 5px 0 0;
+  border-radius: 0 16px 0 0;
+}
+
+.bottom-left {
+  bottom: 40px;
+  left: 40px;
+  border-width: 0 0 5px 5px;
+  border-radius: 0 0 0 16px;
+}
+
+.bottom-right {
+  bottom: 40px;
+  right: 40px;
+  border-width: 0 5px 5px 0;
+  border-radius: 0 0 16px 0;
+}
+
+/* =========================
+   SCAN LINE
+========================= */
+
+.scan-line {
+  position: absolute;
+  width: 80%;
+  height: 4px;
+
+  background: linear-gradient(
+    to right,
+    transparent,
+    #38bdf8,
+    transparent
+  );
+
+  animation: scanMove 2s infinite ease-in-out;
+
+  box-shadow: 0 0 20px #38bdf8;
+}
+
+@keyframes scanMove {
+  0% {
+    top: 25%;
+  }
+
+  50% {
+    top: 70%;
+  }
+
+  100% {
+    top: 25%;
+  }
+}
+
+/* =========================
+   BUTTON
+========================= */
+
+.scan-button {
+  margin-top: 30px;
+
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+
+  color: white;
+
+  border: none;
+
+  border-radius: 18px;
+
+  padding: 16px 34px;
+
+  font-size: 22px;
+  font-weight: 700;
+
+  letter-spacing: 1px;
+
+  box-shadow:
+    0 10px 25px rgba(37, 99, 235, 0.25);
+
+  transition: 0.3s ease;
+}
+
+.scan-button:active {
+  transform: scale(0.97);
+}
+
+/* =========================
+   STATUS
+========================= */
+
+.scan-status {
+  margin-top: 18px;
+
+  font-size: 18px;
+  font-weight: 600;
+
+  text-align: center;
+}
+
+/* =========================
+   LOADER
+========================= */
+
+.camera-loader {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: rgba(255, 255, 255, 0.8);
+}

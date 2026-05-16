@@ -10,7 +10,38 @@ const AIAttendanceRegister: React.FC = () => {
   const [images, setImages] = useState<FileList | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
+  const [userData, setUserData] = useState<any>(null);
+const [userProfile, setUserProfile] = useState<any>(null);
   const history = useHistory();
+
+  useEffect(() => {
+
+  const storedUser =
+    localStorage.getItem("user");
+
+  if (storedUser) {
+
+    const parsed =
+      JSON.parse(storedUser);
+
+    setUserData(parsed);
+
+    setUserProfile(parsed);
+
+    // AUTO FILL
+
+    setEmpId(
+      parsed?.empCode || ""
+    );
+
+    setName(
+      parsed?.EmpName ||
+      parsed?.empName ||
+      ""
+    );
+  }
+
+}, []);
 
   const showPopup = (msg: string) => {
     setPopupMessage(msg);
@@ -72,99 +103,519 @@ if (response.ok && data.success) {
 
   return (
     <IonPage>
-      <IonContent fullscreen style={{ '--background': 'transparent' }}>
-        <div style={{ maxWidth: '800px', margin: '3rem auto', background: 'rgba(26, 27, 46, 0.8)', borderRadius: '20px', padding: '3rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', color: 'white', position: 'relative' }}>
-          
-          {popupMessage && (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(12px)', padding: '2rem', borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', minWidth: '300px', textAlign: 'center', color: 'white', zIndex: 9999, transition: 'all 0.3s ease' }}>
-                  {popupMessage}
-              </div>
-          )}
-          
-          <h1 style={{ textAlign: 'center', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', WebkitBackgroundClip: 'text', color: 'transparent', marginBottom: '2rem', fontSize: '2.5rem', fontWeight: 'bold' }}>
-              New Employee Registration
-          </h1>
+  <IonContent
+    fullscreen
+    style={{
+      "--background":
+        "linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e293b 100%)",
+    }}
+  >
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "30px",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "950px",
+          background: "rgba(15, 23, 42, 0.85)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: "28px",
+          overflow: "hidden",
+          backdropFilter: "blur(18px)",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.45)",
+          position: "relative",
+        }}
+      >
+        {/* TOP HEADER */}
 
-          <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', borderLeft: '4px solid #6366f1' }}>
-              <h3 style={{ color: '#a855f7', marginBottom: '1rem', fontWeight: 'bold', fontSize: '1.2rem' }}>📸 Photo Upload Instructions</h3>
-              <ul style={{ paddingLeft: '1.5rem', color: '#94a3b8', lineHeight: '1.6', fontSize: '1.1rem' }}>
-                  <li>Please select a <strong>folder</strong> containing images of the new employee's face.</li>
-                  <li>Save the file name with the employee name.</li>
-                  <li>Provide at least <strong>3-5 clear images</strong> for better recognition accuracy.</li>
-                  <li>Images should be well-lit, showing the face clearly looking near the camera.</li>
-                  <li>Avoid wearing hats, dark sunglasses, or masks in the reference photos.</li>
-                  <li>Consider the below images as reference</li>
-              </ul>
-          </div>
+        <div
+          style={{
+            padding: "35px",
+            background:
+              "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.12))",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "18px",
+            }}
+          >
+            <div
+              style={{
+                width: "72px",
+                height: "72px",
+                borderRadius: "22px",
+                background:
+                  "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "34px",
+                boxShadow: "0 10px 25px rgba(99,102,241,0.45)",
+              }}
+            >
+              👤
+            </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '12px', textAlign: 'center', width: '200px', flexGrow: 1, maxWidth: '250px', border: '2px solid #4ade80' }}>
-                  <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>👤</div>
-                  <h4 style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '1.2rem', margin: 0 }}>Good</h4>
-                  <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginTop: '0.5rem' }}>Clear face, well lit, plain background, looking straight</p>
-              </div>
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '12px', textAlign: 'center', width: '200px', flexGrow: 1, maxWidth: '250px', border: '2px solid #f87171' }}>
-                  <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>🧢🕶️</div>
-                  <h4 style={{ color: '#f87171', fontWeight: 'bold', fontSize: '1.2rem', margin: 0 }}>Bad</h4>
-                  <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginTop: '0.5rem' }}>Face covered by accessories, poor lighting, extreme angles</p>
-              </div>
-          </div>
+            <div>
+              <h1
+                style={{
+                  margin: 0,
+                  color: "#ffffff",
+                  fontSize: "2.4rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Face Attendance Registration
+              </h1>
 
-          <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginBottom: '2rem' }}>
-              <img src="/assets/reference_image.png" alt="Reference Image" style={{ width: '400px', height: '250px', objectFit: 'cover', borderRadius: '12px', border: '2px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.4)' }} />
+              <p
+                style={{
+                  marginTop: "8px",
+                  color: "#94a3b8",
+                  fontSize: "1rem",
+                  lineHeight: 1.6,
+                }}
+              >
+                Register employee facial data securely for AI-based
+                attendance authentication.
+              </p>
+            </div>
           </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8', fontWeight: 'bold' }}>Employee Full Name</label>
-              <input 
-                 type="text" 
-                 value={name} 
-                 onChange={e => setName(e.target.value)} 
-                 placeholder="e.g. John Doe"
-                 style={{ width: '100%', padding: '1rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '1.1rem', outline: 'none' }} 
-              />
-          </div>
-          
-          <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8', fontWeight: 'bold' }}>Employee ID</label>
-              <input 
-                 type="text" 
-                 value={empId} 
-                 onChange={e => setEmpId(e.target.value)} 
-                 placeholder="e.g. 1571"
-                 style={{ width: '100%', padding: '1rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '1.1rem', outline: 'none' }} 
-              />
-          </div>
-          
-          <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8', fontWeight: 'bold' }}>Select Folder with Employee Photos</label>
-              <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                  <label htmlFor="image-upload" style={{ display: 'block', padding: '2.5rem', textAlign: 'center', background: images && images.length > 0 ? 'rgba(74, 222, 128, 0.1)' : 'rgba(255,255,255,0.05)', border: images && images.length > 0 ? '2px solid #4ade80' : '2px dashed rgba(99, 102, 241, 0.5)', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.3s', color: images && images.length > 0 ? 'white' : '#94a3b8', boxSizing: 'border-box' }}>
-                      <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>{images && images.length > 0 ? '✅' : '📁'}</span>
-                      {images && images.length > 0 ? `Selected ${images.length} valid images` : 'Click here to select a folder of images'}
-                  </label>
-                  <input 
-                    type="file" 
-                    id="image-upload" 
-                    onChange={e => setImages(e.target.files)}
-                    // @ts-ignore
-                    webkitdirectory="true"
-                    multiple
-                    style={{ display: 'none' }}
-                  />
-              </div>
-          </div>
-          
-          <IonButton className="btn-primary" expand="block" shape="round" style={{ marginTop: '20px', height: '60px', fontSize: '1.2rem' }} onClick={handleSubmit} disabled={isProcessing}>
-              {isProcessing ? <IonSpinner name="bubbles" /> : "Register Employee"}
-          </IonButton>
-
-          <a href="#" onClick={(e) => { e.preventDefault(); history.push('/ai-attendance-admin-dashboard'); }} style={{ display: 'block', textAlign: 'center', marginTop: '2rem', color: '#94a3b8', textDecoration: 'none', transition: 'color 0.3s' }}>
-              ← Back to Admin Dashboard
-          </a>
         </div>
-      </IonContent>
-    </IonPage>
+
+        {/* BODY */}
+
+        <div
+          style={{
+            padding: "35px",
+          }}
+        >
+          {/* POPUP */}
+
+          {popupMessage && (
+            <div
+              style={{
+                position: "fixed",
+                top: "30px",
+                right: "30px",
+                background:
+                  "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#fff",
+                padding: "18px 28px",
+                borderRadius: "16px",
+                zIndex: 99999,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+                fontWeight: 600,
+                backdropFilter: "blur(12px)",
+              }}
+            >
+              {popupMessage}
+            </div>
+          )}
+
+          {/* INFO CARD */}
+
+          <div
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: "20px",
+              padding: "28px",
+              marginBottom: "28px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "18px",
+              }}
+            >
+              <div
+                style={{
+                  width: "45px",
+                  height: "45px",
+                  borderRadius: "14px",
+                  background:
+                    "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                }}
+              >
+                📸
+              </div>
+
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    color: "#ffffff",
+                    fontSize: "1.2rem",
+                  }}
+                >
+                  Upload Guidelines
+                </h3>
+
+                <span
+                  style={{
+                    color: "#94a3b8",
+                    fontSize: "0.92rem",
+                  }}
+                >
+                  Follow these instructions for better accuracy
+                </span>
+              </div>
+            </div>
+
+            <ul
+              style={{
+                color: "#cbd5e1",
+                lineHeight: 1.9,
+                paddingLeft: "22px",
+                marginBottom: 0,
+              }}
+            >
+              <li>Upload 3–5 clear employee face images.</li>
+              <li>Use proper lighting and front-facing photos.</li>
+              <li>Avoid masks, sunglasses, caps, and blurry photos.</li>
+              <li>Ensure only one face appears in each image.</li>
+              <li>Accepted formats: JPG, PNG, JPEG.</li>
+            </ul>
+          </div>
+
+          {/* GOOD / BAD */}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              marginBottom: "28px",
+            }}
+          >
+            <div
+              style={{
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.25)",
+                borderRadius: "20px",
+                padding: "24px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "52px",
+                  marginBottom: "10px",
+                }}
+              >
+                👤
+              </div>
+
+              <h3
+                style={{
+                  color: "#4ade80",
+                  marginBottom: "10px",
+                }}
+              >
+                Recommended
+              </h3>
+
+              <p
+                style={{
+                  color: "#cbd5e1",
+                  margin: 0,
+                  lineHeight: 1.6,
+                }}
+              >
+                Clear face visibility with proper lighting and straight
+                angle.
+              </p>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.25)",
+                borderRadius: "20px",
+                padding: "24px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "52px",
+                  marginBottom: "10px",
+                }}
+              >
+                🧢🕶️
+              </div>
+
+              <h3
+                style={{
+                  color: "#f87171",
+                  marginBottom: "10px",
+                }}
+              >
+                Avoid
+              </h3>
+
+              <p
+                style={{
+                  color: "#cbd5e1",
+                  margin: 0,
+                  lineHeight: 1.6,
+                }}
+              >
+                Covered face, dark lighting, extreme angles, or blurry
+                photos.
+              </p>
+            </div>
+          </div>
+
+          {/* REFERENCE IMAGE */}
+
+          <div
+            style={{
+              marginBottom: "30px",
+            }}
+          >
+            <img
+              src="/assets/reference_image.png"
+              alt="Reference"
+              style={{
+                width: "100%",
+                maxHeight: "320px",
+                objectFit: "cover",
+                borderRadius: "20px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 15px 40px rgba(0,0,0,0.35)",
+              }}
+            />
+          </div>
+
+          {/* FORM */}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "22px",
+              marginBottom: "25px",
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  color: "#cbd5e1",
+                  fontWeight: 600,
+                  marginBottom: "10px",
+                  display: "block",
+                }}
+              >
+                Employee Full Name
+              </label>
+
+              <input
+                type="text"
+                value={name}
+                readOnly
+                style={{
+                  width: "100%",
+                  padding: "16px",
+                  borderRadius: "14px",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#ffffff",
+                  fontSize: "1rem",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  color: "#cbd5e1",
+                  fontWeight: 600,
+                  marginBottom: "10px",
+                  display: "block",
+                }}
+              >
+                Employee ID
+              </label>
+
+              <input
+                type="text"
+                value={empId}
+                readOnly
+                style={{
+                  width: "100%",
+                  padding: "16px",
+                  borderRadius: "14px",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#ffffff",
+                  fontSize: "1rem",
+                  outline: "none",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* FILE UPLOAD */}
+
+          <div
+            style={{
+              marginBottom: "35px",
+            }}
+          >
+            <label
+              style={{
+                color: "#cbd5e1",
+                fontWeight: 600,
+                marginBottom: "10px",
+                display: "block",
+              }}
+            >
+              Upload Employee Face Images
+            </label>
+
+            <label
+              htmlFor="image-upload"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "220px",
+                borderRadius: "22px",
+                border:
+                  images && images.length > 0
+                    ? "2px solid #4ade80"
+                    : "2px dashed rgba(99,102,241,0.45)",
+                background:
+                  images && images.length > 0
+                    ? "rgba(74,222,128,0.08)"
+                    : "rgba(255,255,255,0.03)",
+                cursor: "pointer",
+                transition: "0.3s",
+                textAlign: "center",
+                padding: "30px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "4rem",
+                  marginBottom: "15px",
+                }}
+              >
+                {images && images.length > 0 ? "✅" : "📂"}
+              </div>
+
+              <h3
+                style={{
+                  color: "#ffffff",
+                  marginBottom: "10px",
+                }}
+              >
+                {images && images.length > 0
+                  ? `${images.length} Images Selected`
+                  : "Select Employee Photo Folder"}
+              </h3>
+
+              <p
+                style={{
+                  color: "#94a3b8",
+                  margin: 0,
+                }}
+              >
+                Click here to browse and upload face images
+              </p>
+            </label>
+
+            <input
+              type="file"
+              id="image-upload"
+              onChange={(e) => setImages(e.target.files)}
+              // @ts-ignore
+              webkitdirectory="true"
+              multiple
+              style={{ display: "none" }}
+            />
+          </div>
+
+          {/* BUTTONS */}
+
+          <div
+            style={{
+              display: "flex",
+              gap: "18px",
+            }}
+          >
+            <IonButton
+              expand="block"
+              shape="round"
+              onClick={handleSubmit}
+              disabled={isProcessing}
+              style={{
+                flex: 1,
+                height: "58px",
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                "--background":
+                  "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                "--box-shadow":
+                  "0 15px 35px rgba(99,102,241,0.35)",
+              }}
+            >
+              {isProcessing ? (
+                <IonSpinner name="bubbles" />
+              ) : (
+                "Register Face"
+              )}
+            </IonButton>
+
+            <IonButton
+              expand="block"
+              fill="outline"
+              shape="round"
+              onClick={() =>
+                history.push(
+                  "/ai-attendance-admin-dashboard"
+                )
+              }
+              style={{
+                flex: 1,
+                height: "58px",
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                "--border-color": "rgba(255,255,255,0.15)",
+                "--color": "#ffffff",
+              }}
+            >
+              Back to Home
+            </IonButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  </IonContent>
+</IonPage>
   );
 };
 

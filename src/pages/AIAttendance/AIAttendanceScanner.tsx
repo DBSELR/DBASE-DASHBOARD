@@ -1,157 +1,400 @@
-import { IonContent, IonPage, useIonToast } from '@ionic/react';
-import { useRef, useState, useEffect } from 'react';
-import { useHistory } from 'react-router';
-import { API_BASE_URL } from './ai_config';
+import {
+  IonContent,
+  IonPage,
+  IonIcon,
+  IonSpinner,
+} from "@ionic/react";
+import { arrowBackOutline } from "ionicons/icons";
+import { useRef, useState, useEffect } from "react";
+import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
-import './AIAttendanceScanner.css';
-import 'animate.css'; // Requires animate.css which is standard, but keeping exact layout animations locally is also fine.
+import "./AIAttendanceScanner.css";
 
 const AIAttendanceScanner: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [resultMessage, setResultMessage] = useState('Scanning for faces...');
-  const [statusColor, setStatusColor] = useState('var(--text-secondary)');
-  const [presentToast] = useIonToast();
   const history = useHistory();
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
+
+  const [resultMessage, setResultMessage] = useState(
+    "Start to detect your face"
+  );
+
+  const [statusColor, setStatusColor] = useState("#6b7280");
+
   const [userData, setUserData] = useState<any>(null);
-const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  
+
+  // =========================================
+  // LOAD USER
+  // =========================================
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    const startVideo = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Webcam error:", err);
-        setResultMessage("Error accessing webcam. Please check permissions.");
-        setStatusColor("#f87171");
-      }
-    };
-    startVideo();
+    const storedUser = localStorage.getItem("user");
 
-    return () => {
-      if (stream) stream.getTracks().forEach(track => track.stop());
-    };
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+
+      setUserData(parsed);
+      setUserProfile(parsed);
+    }
   }, []);
 
-  useEffect(() => {
-  const storedUser = localStorage.getItem("user");
+  // =========================================
+  // START CAMERA
+  // =========================================
 
-  if (storedUser) {
-    const parsed = JSON.parse(storedUser);
+useEffect(() => {
 
-    setUserData(parsed);
+  let stream: MediaStream | null = null;
 
-    // Optional profile from localStorage if available
-    setUserProfile(parsed);
-  }
+  const startVideo = async () => {
+
+    try {
+
+      // CHECK CAMERA SUPPORT
+
+      if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+      ) {
+
+        setResultMessage(
+          "Camera not supported"
+        );
+
+        setStatusColor("#ef4444");
+
+        return;
+      }
+
+      // START CAMERA
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+
+      if (videoRef.current) {
+
+        videoRef.current.srcObject = stream;
+
+        videoRef.current.onloadedmetadata = async () => {
+
+          try {
+
+            await videoRef.current?.play();
+
+            setIsCameraReady(true);
+
+            setResultMessage(
+              "Face detection started"
+            );
+
+            setStatusColor("#22c55e");
+
+          } catch (playErr) {
+
+            console.log(playErr);
+
+            setResultMessage(
+              "Video play failed"
+            );
+
+            setStatusColor("#ef4444");
+          }
+        };
+      }
+
+    } catch (err: any) {
+
+      console.error("Camera Error:", err);
+
+      // FRIENDLY ERRORS
+
+      if (
+        err.name === "NotAllowedError"
+      ) {
+
+        setResultMessage(
+          "Camera permission denied"
+        );
+
+      }
+      else if (
+        err.name === "NotFoundError"
+      ) {
+
+        setResultMessage(
+          "No camera device found"
+        );
+
+      }
+      else if (
+        err.name === "NotReadableError"
+      ) {
+
+        setResultMessage(
+          "Camera already in use"
+        );
+
+      }
+      else {
+
+        setResultMessage(
+          "Unable to access camera"
+        );
+      }
+
+      setStatusColor("#ef4444");
+    }
+  };
+
+  startVideo();
+
+  return () => {
+
+    if (stream) {
+
+      stream.getTracks().forEach(
+        (track) => track.stop()
+      );
+    }
+  };
+
 }, []);
+
+  // =========================================
+  // AUTO FACE SCAN
+  // =========================================
 
   useEffect(() => {
     const handleAutoCapture = async () => {
-      if (!videoRef.current || isProcessing) return;
-
-      // Basic check
-      if (videoRef.current.videoWidth === 0) return;
-      setIsProcessing(true);
+      if (scanSuccess) return;
+      if (!videoRef.current || isProcessing || !isCameraReady) return;
 
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+        setIsProcessing(true);
 
-        const context = canvas.getContext('2d');
-        context?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL('image/jpeg');
+        const canvas = document.createElement("canvas");
 
-        const response = await fetch(`${API_BASE}Checkin/AILogAttendance`, {
-          method: 'POST',
-         headers: {
-   'Content-Type': 'application/json',
-   'x-api-key': 'dbase-ai-master-key-2026'
-},
-          body: JSON.stringify({
-  image: imageData,
-  empId: userData?.empCode || "",
-  empName:
-    userProfile?.EmpName ||
-    userData?.empName ||
-    ""
-})
-        });
+        // canvas.width = videoRef.current.videoWidth;
+        // canvas.height = videoRef.current.videoHeight;
 
-       const data = await response.json();
+        canvas.width = 320;
+        canvas.height = 240;
 
-console.log("API RESPONSE:", data);
+        const context = canvas.getContext("2d");
 
-        if (data.success && data.name && data.name.length > 0 && data.name[0] !== "Unknown") {
-          const namesStr = data.name.join(", ");
-          setStatusColor("#4ade80");
+        context?.drawImage(
+          videoRef.current,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
 
-          // Only play audio once per recognition cycle
-          if (!resultMessage.includes("Attendance Granted")) {
-            let spokenName = namesStr.replace(/\(Cooldown\)/g, "already marked");
-            spokenName = spokenName.replace(/\(Morning In\)/g, "").replace(/\(Lunch Out\)/g, "").replace(/\(Lunch In\)/g, "").replace(/\(Evening Out\)/g, "");
-            const utterance = new SpeechSynthesisUtterance("Attendance marked for " + spokenName);
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
+        const imageData = canvas.toDataURL("image/jpeg");
+
+        const response = await fetch(
+          `${API_BASE}Checkin/AILogAttendance`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": "dbase-ai-master-key-2026",
+            },
+
+            body: JSON.stringify({
+              image: imageData,
+
+              empId: userData?.empCode || "",
+
+              empName:
+                userProfile?.EmpName ||
+                userData?.empName ||
+                "",
+            }),
           }
+        );
 
-          setResultMessage("✓ Attendance Granted for: " + namesStr);
+        const data = await response.json();
 
-          setTimeout(() => {
-            setResultMessage("Scanning for faces...");
-            setStatusColor("var(--text-secondary)");
-          }, 4000);
-        } else {
-          if (!resultMessage.includes("Attendance Granted")) {
-            setStatusColor("var(--text-secondary)");
-            setResultMessage("Scanning for faces...");
-          }
-        }
+        if (data.alreadyMarked) {
+
+  setStatusColor("#f59e0b");
+
+  setResultMessage(
+    `⚠️ ${data.message}`
+  );
+
+  const utterance =
+    new SpeechSynthesisUtterance(
+      data.message
+    );
+
+  window.speechSynthesis.cancel();
+
+  window.speechSynthesis.speak(
+    utterance
+  );
+
+  setTimeout(() => {
+
+    setResultMessage(
+      "Start to detect your face"
+    );
+
+    setStatusColor("#6b7280");
+
+  }, 4000);
+
+  return;
+}
+
+        console.log(data);
+
+       if (
+  data.success &&
+  data.name &&
+  data.name.length > 0 &&
+  data.name[0] !== "Unknown"
+) {
+ setScanSuccess(true);
+  const empName = data.empName || "";
+  const empId = data.empId || "";
+  const status = data.status || "";
+  const logTime = data.time || "";
+
+  setStatusColor("#22c55e");
+
+  // Voice Announcement
+  const utterance = new SpeechSynthesisUtterance(
+    `${empName} attendance marked successfully`
+  );
+
+  utterance.rate = 1;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+
+  // PROFESSIONAL MESSAGE
+  setResultMessage(
+    `✅ ${empName} (${empId})
+${status} at ${logTime}`
+  );
+
+  // RESET
+  setTimeout(() => {
+    setResultMessage("Start to detect your face");
+    setStatusColor("#6b7280");
+    setScanSuccess(false);
+  }, 5000);
+}
+else {
+  setResultMessage("❌ Face Not Matched");
+  setStatusColor("#ef4444");
+
+  setTimeout(() => {
+    setResultMessage("Start to detect your face");
+    setStatusColor("#6b7280");
+  }, 3000);
+}
       } catch (error) {
-        console.error("Error:", error);
-        if (!resultMessage.includes("Attendance Granted")) {
-          setStatusColor("#f87171");
-          setResultMessage("Scanner connection error... retrying.");
-        }
+        console.error(error);
+
+        setResultMessage("Connection Error");
+        setStatusColor("#ef4444");
       } finally {
         setIsProcessing(false);
       }
     };
 
-    const interval = setInterval(handleAutoCapture, 2000);
+    const interval = setInterval(handleAutoCapture, 2500);
+
     return () => clearInterval(interval);
-  }, [isProcessing, resultMessage]);
+  }, [isProcessing, isCameraReady, userData,scanSuccess]);
 
   return (
     <IonPage>
-      <IonContent fullscreen>
-        <div className="container">
-          <div className="text-content">
-            <h1 className="animate__animated animate__fadeInUp">Let's automate what's slowing you down.</h1>
-            <p className="animate__animated animate__fadeInUp">AI Powered Attendance System</p>
-            <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }} className="animate__animated animate__fadeInUp">Experience the future of attendance tracking</p>
-          </div>
+      <IonContent fullscreen className="attendance-page">
 
-          <div className="camera-module">
-            <div className="video-container">
+        {/* HEADER */}
+
+        <div className="attendance-header">
+          <IonIcon
+            icon={arrowBackOutline}
+            className="back-icon"
+            onClick={() => history.goBack()}
+          />
+
+          <div>
+            <h1>ATTENDANCE</h1>
+            <p>Scan your face to verify</p>
+          </div>
+        </div>
+
+        {/* CAMERA CARD */}
+
+        <div className="scanner-wrapper">
+
+          <div className="scanner-frame">
+
+            {/* VIDEO */}
+
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="scanner-video"
+            />
+
+            {/* FACE FRAME */}
+
+            <div className="face-overlay">
+              <div className="corner top-left"></div>
+              <div className="corner top-right"></div>
+              <div className="corner bottom-left"></div>
+              <div className="corner bottom-right"></div>
+
               <div className="scan-line"></div>
-              <video className="video-element-exact" ref={videoRef} autoPlay playsInline muted preload="metadata"></video>
             </div>
-            <div style={{ color: statusColor, marginTop: '1rem', fontSize: '1.25rem', textAlign: 'center', transition: 'all 0.3s ease' }}>
-              {resultMessage}
-            </div>
+
+            {/* LOADER */}
+
+            {!isCameraReady && (
+              <div className="camera-loader">
+                <IonSpinner name="crescent" />
+              </div>
+            )}
           </div>
-        </div>
 
-        <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', margin: '2rem auto 4rem auto', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
-        </div>
+          {/* BUTTON */}
 
-       
+          <button className="scan-button">
+            {isProcessing ? "SCANNING..." : "START SCAN"}
+          </button>
+
+          {/* STATUS */}
+
+         <div
+  className="scan-status"
+  style={{
+    color: statusColor,
+    whiteSpace: "pre-line",
+  }}
+>
+  {resultMessage}
+</div>
+        </div>
       </IonContent>
     </IonPage>
   );
