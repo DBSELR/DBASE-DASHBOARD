@@ -41,17 +41,17 @@ const EMP_1595_COLOR = "rgb(247 145 65)";
 
 const mapGroupColor = (color: any) => {
   if (!color || color === "" || color === "null") return "#9cbce0"; // Fallback to Blue
-  
+
   const lower = color.toString().toLowerCase().trim();
 
   if (lower === EMP_1595_COLOR.toLowerCase()) {
     return EMP_1595_COLOR;
   }
-  
+
   if (lower === "#ffffff" || lower === "#fff" || lower === "white") {
     return "#ffffff";
   }
-  
+
   if (
     lower === "#ffd700" ||
     lower === "#ff6f00ff" ||
@@ -64,7 +64,7 @@ const mapGroupColor = (color: any) => {
   ) {
     return "#ff6f00ff"; // Standard Orange Group
   }
-  
+
   if (lower.startsWith("#")) {
     const hex = lower.substring(1);
     let r = 0,
@@ -83,11 +83,11 @@ const mapGroupColor = (color: any) => {
       return "#c6ceddff"; // Standard Gray Group
     }
   }
-  
+
   if (lower.includes("gray") || lower.includes("grey") || lower === "#c6cedd" || lower === "#c6ceddff") {
     return "#c6ceddff"; // Standard Gray Group
   }
-  
+
   return "#9cbce0"; // Fallback/Standard Blue Group
 };
 
@@ -191,36 +191,11 @@ const Salaries: React.FC = () => {
 
       const tmpMY = `${tmpmnth}-${tmpyr}`;
 
-      // 1. Fetch Selected Month's data (for holidays and base list)
       const res = await axios.get(
         `${API_BASE}Salaries/Load_Sal_Employees?SalMY=${tmpMY}`
       );
+
       const rawData = res.data;
-
-      // 2. Try fetching May-2026 data as the master template for employee groups/colors
-      let masterData = rawData;
-      let hasMasterData = false;
-      try {
-        const resMay = await axios.get(
-          `${API_BASE}Salaries/Load_Sal_Employees?SalMY=May-2026`
-        );
-        if (resMay.data && resMay.data.length > 0) {
-          masterData = resMay.data;
-          hasMasterData = true;
-        }
-      } catch (e) {
-        console.log("Error loading May-2026 master data, falling back", e);
-      }
-
-      // 3. Build a map of the selected month's holidays for each employee
-      const selectedHolidaysMap: Record<string, string> = {};
-      rawData.forEach((item: any) => {
-        const empCode = item[0];
-        if (item[5] && item[5] !== "null" && item[5] !== "") {
-          selectedHolidaysMap[empCode] = item[5];
-        }
-      });
-
       const deduplicatedMap: any = {};
 
       // Load cached employee group colors from localStorage
@@ -236,23 +211,19 @@ const Salaries: React.FC = () => {
 
       // Swagger shows duplicates: some with nulls (index 3=0) and some with data (index 3=1).
       // We prioritize the records that have a group color (index 4) or status flag (index 3=1).
-      masterData.forEach((item: any) => {
+      rawData.forEach((item: any) => {
         const empCode = item[0];
         const hasData = item[3] === 1 || item[4] !== null;
 
         if (!deduplicatedMap[empCode] || hasData) {
           let color = item[4] && item[4] !== "null" && item[4] !== "" ? mapGroupColor(item[4]) : null;
 
-          // If this is the master data (May-2026), we learn and update the cache
-          if (hasMasterData) {
-            if (color) {
-              cachedColors[empCode] = color;
-            } else {
-              color = cachedColors[empCode] || null;
-            }
+          // If color is present, save/update it in our cache
+          if (color) {
+            cachedColors[empCode] = color;
           } else {
-            // Otherwise, we restore from cache, then fallback to current item color
-            color = cachedColors[empCode] || color;
+            // Otherwise, try to restore it from our cache
+            color = cachedColors[empCode] || null;
           }
 
           // Force colors for specific employees
@@ -268,7 +239,7 @@ const Salaries: React.FC = () => {
             EmpName: item[1],
             SalMY: item[2],
             EmpGroupColor: color,
-            Holidays: selectedHolidaysMap[empCode] || "", // Use selected month's holidays!
+            Holidays: item[5],
             isSelected: false,
           };
         }
@@ -297,7 +268,7 @@ const Salaries: React.FC = () => {
             EmpName: emp.Name,
             SalMY: tmpMY,
             EmpGroupColor: emp.Color,
-            Holidays: selectedHolidaysMap[emp.Code] || "",
+            Holidays: "",
             isSelected: false,
           };
         } else {
