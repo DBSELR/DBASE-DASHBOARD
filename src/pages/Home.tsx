@@ -9,6 +9,9 @@ import { Geolocation } from "@capacitor/geolocation";
 import axios from "axios";
 import "../theme/Home.css";
 import { useHistory } from "react-router-dom";
+import { apiService } from "../utils/apiService";
+import { IonIcon } from "@ionic/react";
+import { time } from "ionicons/icons";
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -21,6 +24,7 @@ const Home: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [location, setLocation] = useState<string>("Fetching location...");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [pendingTasksCount, setPendingTasksCount] = useState<number>(0);
   const history = useHistory();
 
   useEffect(() => {
@@ -28,6 +32,33 @@ const Home: React.FC = () => {
     const interval = setInterval(updateTime, 1000);
     getLocation(); // Fetch location on load
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchPendingTasks = async () => {
+      try {
+        const userJson = localStorage.getItem("user");
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          if (user.empCode) {
+            const received = await apiService.loadReceivedTasks(user.empCode);
+            if (received && Array.isArray(received)) {
+              const pending = received.filter((t: any) => {
+                const status = (t.Status ?? t[6] ?? "").toString().toLowerCase();
+                return status === "pending";
+              });
+              setPendingTasksCount(pending.length);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching pending tasks:", error);
+      }
+    };
+
+    fetchPendingTasks();
+    const taskInterval = setInterval(fetchPendingTasks, 10000);
+    return () => clearInterval(taskInterval);
   }, []);
 
   const updateTime = () => {
@@ -163,6 +194,12 @@ const Home: React.FC = () => {
             className={`home-card ${item.colorClass}`}
             onClick={() => item.path && history.push(item.path)}
           >
+            {item.id === "tasks" && pendingTasksCount > 0 && (
+              <div className="home-card-badge" title="Pending Received Tasks">
+                <IonIcon icon={time} style={{ fontSize: "12px", marginRight: "4px", color: "#ffffff" }} />
+                <span>{pendingTasksCount}</span>
+              </div>
+            )}
             <div className="home-card-icon-wrapper">
               {(item as any).isLucide ? (
                 item.icon

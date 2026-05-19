@@ -80,10 +80,12 @@ ion-grid ion-row {
   font-weight: 700 !important;
   font-size: 13px !important;
   color: #666 !important;
-  min-width: 50% !important;
+  min-width: 20% !important;
   border-radius: 25px !important;
   margin: 2px !important;
   min-height: 32px !important;
+  margin-left: 5px !important;
+  margin-right: 6px !important;
   transition: all 0.3s ease !important;
 }
 
@@ -145,14 +147,14 @@ ion-grid ion-row {
   border: 1px solid #ddd;
   height: calc(100vh - 215px);
   overflow-y: auto;
-  border-radius: 12px;
+  border-radius: 15px;
 }
 
 .Dynamic-card-style1 {
   background-color: #9cbce0;
   /* Default blue-ish */
-  border-radius: 4px;
-  margin-bottom: 8px;
+  border-radius: 15px;
+  margin-bottom: 1px;
   display: flex;
   align-items: center;
   padding: 2px 8px;
@@ -160,6 +162,7 @@ ion-grid ion-row {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
   width: 100%;
+  height: 46px;
 }
 
 .Dynamic-card-style1.highlighted {
@@ -188,12 +191,12 @@ ion-grid ion-row {
 .card-style {
   background-color: #fff;
   border: 1px solid #3366ff;
-  border-radius: 4px;
-  margin-bottom: 8px;
+  border-radius: 25px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  min-height: 45px;
+  height: 46px;
 
 }
 

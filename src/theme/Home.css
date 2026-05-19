@@ -175,6 +175,7 @@
 }
 
 .home-card {
+  position: relative; /* Enabled absolute positioning for badges */
   background: var(--ion-background-color);
   border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
   border-radius: 20px;
@@ -187,6 +188,42 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.home-card-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--ion-color-primary); /* Automatically adopts active theme color */
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700; /* Font weight 700 as requested */
+  padding: 3px 7px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(var(--ion-color-primary-rgb), 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 10;
+  animation: pulse-badge 2s infinite;
+}
+
+.home-card-badge span {
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+@keyframes pulse-badge {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--ion-color-primary-rgb), 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(var(--ion-color-primary-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--ion-color-primary-rgb), 0);
+  }
 }
 
 .dark .home-card {
