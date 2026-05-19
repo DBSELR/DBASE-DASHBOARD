@@ -13,6 +13,11 @@ const AIAttendanceRegister: React.FC = () => {
   const [userData, setUserData] = useState<any>(null);
 const [userProfile, setUserProfile] = useState<any>(null);
   const history = useHistory();
+  const [showSuccessPopup, setShowSuccessPopup] =
+  useState(false);
+
+const [successMessage, setSuccessMessage] =
+  useState("");
 
   useEffect(() => {
 
@@ -116,17 +121,11 @@ console.log(data);
 
 if (response.ok && data.success) {
 
-  showPopup(
+  setSuccessMessage(
     `${data.uploadedFaces} face(s) registered successfully`
   );
 
-  console.log(data);
-
-  setTimeout(() => {
-    history.push(
-      "/ai-attendance-admin-dashboard"
-    );
-  }, 1500);
+  setShowSuccessPopup(true);
 
 } else {
 
@@ -671,6 +670,88 @@ if (response.ok && data.success) {
         </div>
       </div>
     </div>
+    {
+  showSuccessPopup && (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+          "rgba(0,0,0,0.65)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 999999,
+        backdropFilter: "blur(6px)"
+      }}
+    >
+      <div
+        style={{
+          width: "90%",
+          maxWidth: "420px",
+          background:
+            "linear-gradient(135deg, #0f172a 0%, #111827 100%)",
+          border:
+            "1px solid rgba(255,255,255,0.08)",
+          borderRadius: "24px",
+          padding: "35px",
+          textAlign: "center",
+          boxShadow:
+            "0 25px 60px rgba(0,0,0,0.45)"
+        }}
+      >
+        <div
+          style={{
+            fontSize: "65px",
+            marginBottom: "18px"
+          }}
+        >
+          ✅
+        </div>
+
+        <h2
+          style={{
+            color: "#ffffff",
+            marginBottom: "12px"
+          }}
+        >
+          Registration Successful
+        </h2>
+
+        <p
+          style={{
+            color: "#cbd5e1",
+            lineHeight: 1.7,
+            marginBottom: "28px"
+          }}
+        >
+          {successMessage}
+        </p>
+
+        <IonButton
+          expand="block"
+          shape="round"
+          onClick={() => {
+
+            setShowSuccessPopup(false);
+
+            history.push(
+              "/ai-attendance-admin-dashboard"
+            );
+          }}
+          style={{
+            height: "52px",
+            fontWeight: 700,
+            "--background":
+              "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
+          }}
+        >
+          OK
+        </IonButton>
+      </div>
+    </div>
+  )
+}
   </IonContent>
 </IonPage>
   );

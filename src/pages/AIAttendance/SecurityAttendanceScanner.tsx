@@ -45,6 +45,11 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [statusColor,setStatusColor] =
     useState("#6b7280");
 
+    const [cameraMode, setCameraMode] =
+  useState<"user" | "environment">(
+    "user"
+  );
+  
   // =========================================
   // START CAMERA
   // =========================================
@@ -57,25 +62,24 @@ const SecurityAttendanceScanner: React.FC = () => {
 
       try
       {
-        stream =
-          await navigator
-          .mediaDevices
-          .getUserMedia({
+       stream = await navigator.mediaDevices.getUserMedia({
+  video: {
 
-            video:{
-              facingMode:"environment",
+    facingMode: {
+      ideal: cameraMode
+    },
 
-              width:{
-                ideal:640
-              },
+    width: {
+      ideal: 640
+    },
 
-              height:{
-                ideal:480
-              }
-            },
+    height: {
+      ideal: 480
+    }
+  },
 
-            audio:false
-          });
+  audio: false
+});
 
         if(videoRef.current)
         {
@@ -143,7 +147,7 @@ const SecurityAttendanceScanner: React.FC = () => {
       }
     };
 
-  },[]);
+ }, [cameraMode]);
 
   // =========================================
   // AUTO FACE SCAN
@@ -508,6 +512,27 @@ attendance marked successfully`
             }
 
           </button>
+
+          <button
+  className="scan-button"
+  style={{
+    marginTop: "12px",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)"
+  }}
+  onClick={() => {
+
+  setCameraReady(false);
+
+    setCameraMode((prev) =>
+      prev === "user"
+        ? "environment"
+        : "user"
+    );
+  }}
+>
+  SWITCH CAMERA
+</button>
 
           {/* STATUS */}
 

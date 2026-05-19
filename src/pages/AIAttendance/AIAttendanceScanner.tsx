@@ -26,7 +26,10 @@ const AIAttendanceScanner: React.FC = () => {
 
   const [userData, setUserData] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  
+  const [cameraMode, setCameraMode] =
+  useState<"user" | "environment">(
+    "user"
+  );
 
   // =========================================
   // LOAD USER
@@ -74,13 +77,20 @@ useEffect(() => {
       // START CAMERA
 
       stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        },
-        audio: false
-      });
+  video: {
+    facingMode: cameraMode,
+
+    width: {
+      ideal: 640
+    },
+
+    height: {
+      ideal: 480
+    }
+  },
+
+  audio: false
+});
 
       if (videoRef.current) {
 
@@ -169,7 +179,7 @@ useEffect(() => {
     }
   };
 
-}, []);
+}, [cameraMode]);
 
   // =========================================
   // AUTO FACE SCAN
@@ -455,6 +465,27 @@ const interval =
           <button className="scan-button">
             {isProcessing ? "SCANNING..." : "START SCAN"}
           </button>
+
+          <button
+  className="scan-button"
+  style={{
+    marginTop: "12px",
+    background:
+      "linear-gradient(135deg,#2563eb,#7c3aed)"
+  }}
+  onClick={() => {
+
+    setIsCameraReady(false);
+
+    setCameraMode((prev) =>
+      prev === "user"
+        ? "environment"
+        : "user"
+    );
+  }}
+>
+  SWITCH CAMERA
+</button>
 
           {/* STATUS */}
 
