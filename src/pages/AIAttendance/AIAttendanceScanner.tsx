@@ -75,7 +75,7 @@ useEffect(() => {
 
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "user",
+          facingMode: "environment",
           width: { ideal: 640 },
           height: { ideal: 480 }
         },
@@ -177,8 +177,19 @@ useEffect(() => {
 
   useEffect(() => {
     const handleAutoCapture = async () => {
-      if (scanSuccess) return;
-      if (!videoRef.current || isProcessing || !isCameraReady) return;
+     // =========================================
+// PREVENT MULTIPLE REQUESTS
+// =========================================
+
+if (
+  scanSuccess ||
+  isProcessing ||
+  !videoRef.current ||
+  !isCameraReady
+)
+{
+  return;
+}
 
       try {
         setIsProcessing(true);
@@ -188,20 +199,40 @@ useEffect(() => {
         // canvas.width = videoRef.current.videoWidth;
         // canvas.height = videoRef.current.videoHeight;
 
-        canvas.width = 320;
-        canvas.height = 240;
+       // =========================================
+// SMALLER IMAGE SIZE
+// =========================================
 
+canvas.width =
+  videoRef.current.videoWidth;
+
+canvas.height =
+  videoRef.current.videoHeight;
         const context = canvas.getContext("2d");
 
-        context?.drawImage(
-          videoRef.current,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+       context?.save();
 
-        const imageData = canvas.toDataURL("image/jpeg");
+context?.scale(-1, 1);
+
+context?.drawImage(
+  videoRef.current,
+  -canvas.width,
+  0,
+  canvas.width,
+  canvas.height
+);
+
+context?.restore();
+
+       // =========================================
+// WEBP IMAGE
+// =========================================
+
+const imageData =
+ canvas.toDataURL(
+  "image/jpeg",
+  0.85
+)
 
         const response = await fetch(
           `${API_BASE}Checkin/AILogAttendance`,
@@ -351,7 +382,15 @@ else {
       }
     };
 
-    const interval = setInterval(handleAutoCapture, 2500);
+   // =========================================
+// FASTER INTERVAL
+// =========================================
+
+const interval =
+  setInterval(
+    handleAutoCapture,
+    4000
+  );
 
     return () => clearInterval(interval);
   }, [isProcessing, isCameraReady, userData,scanSuccess]);

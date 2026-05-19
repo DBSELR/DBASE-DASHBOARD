@@ -115,12 +115,40 @@ console.log(
 console.log(data);
 
 if (response.ok && data.success) {
-    showPopup('Registered Successfully, Thankyou!');
-    setTimeout(() => history.push('/ai-attendance-admin-dashboard'), 1500);
+
+  showPopup(
+    `${data.uploadedFaces} face(s) registered successfully`
+  );
+
+  console.log(data);
+
+  setTimeout(() => {
+    history.push(
+      "/ai-attendance-admin-dashboard"
+    );
+  }, 1500);
+
 } else {
-    showPopup(data.message || 'Registration failed.');
-    console.error(data);
-}
+
+  console.log(data);
+
+  if (
+    data.errors &&
+    data.errors.length > 0
+  ) {
+
+    showPopup(
+      data.errors[0]
+    );
+
+  } else {
+
+    showPopup(
+      data.message ||
+      "Registration failed"
+    );
+  }
+} 
     } catch (error: any) {
    console.error(error);
    showPopup(error.message || 'Server connection failed');

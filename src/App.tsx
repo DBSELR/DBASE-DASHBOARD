@@ -54,6 +54,7 @@ import AIAttendanceAdminDashboard from "./pages/AIAttendance/AIAttendanceAdminDa
 import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
 import AIAttendanceReports from "./pages/AIAttendance/AIAttendanceReports";
 import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
+import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceScanner";
 
 setupIonicReact();
 
@@ -130,6 +131,7 @@ const App: React.FC = () => {
                   <Route exact path="/ai-attendance-register" component={AIAttendanceRegister} />
                   <Route exact path="/ai-attendance-reports" component={AIAttendanceReports} />
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
+                  <Route exact path="/security-attendance" component={SecurityAttendanceScanner} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>
