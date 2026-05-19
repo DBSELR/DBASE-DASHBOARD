@@ -37,16 +37,34 @@ import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
 const theme = createTheme();
 (theme as any).alpha = alpha;
 
+const EMP_1595_COLOR = "rgb(247 145 65)";
 
 const mapGroupColor = (color: any) => {
-  if (!color || color === "" || color === "null") return color;
-  const lower = color.toString().toLowerCase();
+  if (!color || color === "" || color === "null") return "#9cbce0"; // Fallback to Blue
+  
+  const lower = color.toString().toLowerCase().trim();
+
+  if (lower === EMP_1595_COLOR.toLowerCase()) {
+    return EMP_1595_COLOR;
+  }
+  
+  if (lower === "#ffffff" || lower === "#fff" || lower === "white") {
+    return "#ffffff";
+  }
+  
   if (
+    lower === "#ffd700" ||
+    lower === "#ff6f00ff" ||
     lower.includes("pink") ||
     lower.includes("lightpink") ||
-    lower.includes("hotpink")
-  )
-    return "#FFD700";
+    lower.includes("hotpink") ||
+    lower.includes("orange") ||
+    lower.includes("yellow") ||
+    lower.includes("gold")
+  ) {
+    return "#ff6f00ff"; // Standard Orange Group
+  }
+  
   if (lower.startsWith("#")) {
     const hex = lower.substring(1);
     let r = 0,
@@ -56,14 +74,21 @@ const mapGroupColor = (color: any) => {
       r = parseInt(hex[0] + hex[0], 16);
       g = parseInt(hex[1] + hex[1], 16);
       b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length === 6) {
+    } else if (hex.length === 6 || hex.length === 8) {
       r = parseInt(hex.substring(0, 2), 16);
       g = parseInt(hex.substring(2, 4), 16);
       b = parseInt(hex.substring(4, 6), 16);
     }
-    if (r > 200 && r > b && b >= g) return "#c6ceddff";
+    if (r > 200 && r > b && b >= g) {
+      return "#c6ceddff"; // Standard Gray Group
+    }
   }
-  return color;
+  
+  if (lower.includes("gray") || lower.includes("grey") || lower === "#c6cedd" || lower === "#c6ceddff") {
+    return "#c6ceddff"; // Standard Gray Group
+  }
+  
+  return "#9cbce0"; // Fallback/Standard Blue Group
 };
 
 
@@ -166,32 +191,157 @@ const Salaries: React.FC = () => {
 
       const tmpMY = `${tmpmnth}-${tmpyr}`;
 
+      // 1. Fetch Selected Month's data (for holidays and base list)
       const res = await axios.get(
         `${API_BASE}Salaries/Load_Sal_Employees?SalMY=${tmpMY}`
       );
-
       const rawData = res.data;
+
+      // 2. Try fetching May-2026 data as the master template for employee groups/colors
+      let masterData = rawData;
+      let hasMasterData = false;
+      try {
+        const resMay = await axios.get(
+          `${API_BASE}Salaries/Load_Sal_Employees?SalMY=May-2026`
+        );
+        if (resMay.data && resMay.data.length > 0) {
+          masterData = resMay.data;
+          hasMasterData = true;
+        }
+      } catch (e) {
+        console.log("Error loading May-2026 master data, falling back", e);
+      }
+
+      // 3. Build a map of the selected month's holidays for each employee
+      const selectedHolidaysMap: Record<string, string> = {};
+      rawData.forEach((item: any) => {
+        const empCode = item[0];
+        if (item[5] && item[5] !== "null" && item[5] !== "") {
+          selectedHolidaysMap[empCode] = item[5];
+        }
+      });
+
       const deduplicatedMap: any = {};
+
+      // Load cached employee group colors from localStorage
+      let cachedColors: Record<string, string> = {};
+      try {
+        const stored = localStorage.getItem("dbase_emp_colors");
+        if (stored) {
+          cachedColors = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.log("Error loading cached colors", e);
+      }
 
       // Swagger shows duplicates: some with nulls (index 3=0) and some with data (index 3=1).
       // We prioritize the records that have a group color (index 4) or status flag (index 3=1).
-      rawData.forEach((item: any) => {
+      masterData.forEach((item: any) => {
         const empCode = item[0];
         const hasData = item[3] === 1 || item[4] !== null;
 
         if (!deduplicatedMap[empCode] || hasData) {
+          let color = item[4] && item[4] !== "null" && item[4] !== "" ? mapGroupColor(item[4]) : null;
+
+          // If this is the master data (May-2026), we learn and update the cache
+          if (hasMasterData) {
+            if (color) {
+              cachedColors[empCode] = color;
+            } else {
+              color = cachedColors[empCode] || null;
+            }
+          } else {
+            // Otherwise, we restore from cache, then fallback to current item color
+            color = cachedColors[empCode] || color;
+          }
+
+          // Force colors for specific employees
+          const whiteEmpCodes = ["1615", "1616", "1625", "1634"];
+          if (whiteEmpCodes.includes(empCode)) {
+            color = "#ffffff";
+          } else if (empCode === "1595") {
+            color = EMP_1595_COLOR;
+          }
+
           deduplicatedMap[empCode] = {
             EmpCode: item[0],
             EmpName: item[1],
             SalMY: item[2],
-            EmpGroupColor: mapGroupColor(item[4]),
-            Holidays: item[5],
+            EmpGroupColor: color,
+            Holidays: selectedHolidaysMap[empCode] || "", // Use selected month's holidays!
             isSelected: false,
           };
         }
       });
 
+      // Save the updated cache back to localStorage
+      try {
+        localStorage.setItem("dbase_emp_colors", JSON.stringify(cachedColors));
+      } catch (e) {
+        console.log("Error saving colors to cache", e);
+      }
+
+      // Ensure these specific employees are always present with exact data and colors on all months
+      const requiredEmps = [
+        { Code: "1615", Name: "1615-RYALI GANGA CHARI", Color: "#ffffff" },
+        { Code: "1616", Name: "1616-PAMARTI VENKATA RAMESH", Color: "#ffffff" },
+        { Code: "1625", Name: "1625-PAMARTHI SAI VARDHAN", Color: "#ffffff" },
+        { Code: "1634", Name: "1634-MARTHA NAGU", Color: "#ffffff" },
+        { Code: "1595", Name: "1595- KANKANA HARISH", Color: EMP_1595_COLOR },
+      ];
+
+      requiredEmps.forEach((emp) => {
+        if (!deduplicatedMap[emp.Code]) {
+          deduplicatedMap[emp.Code] = {
+            EmpCode: emp.Code,
+            EmpName: emp.Name,
+            SalMY: tmpMY,
+            EmpGroupColor: emp.Color,
+            Holidays: selectedHolidaysMap[emp.Code] || "",
+            isSelected: false,
+          };
+        } else {
+          deduplicatedMap[emp.Code].EmpGroupColor = emp.Color;
+        }
+      });
+
       const mappedData = Object.values(deduplicatedMap);
+
+      // Sort based on group color order:
+      // 1. White (#ffffff) - specific 4 members (Rank 0)
+      // 2. KANKANA HARISH (rgb(247 145 65), code 1595) (Rank 1)
+      // 3. Other Orange (#ff6f00ff / #ffd700) (Rank 2)
+      // 4. Gray (#c6ceddff) (Rank 3)
+      // 5. Blue (others / #9cbce0) (Rank 4)
+      mappedData.sort((a: any, b: any) => {
+        const getRank = (emp: any) => {
+          const code = emp.EmpCode;
+          const color = (emp.EmpGroupColor || "").toString().toLowerCase();
+
+          if (code === "1615" || code === "1616" || code === "1625" || code === "1634") return 0;
+          if (code === "1595") return 1;
+          if (color === "#ffd700" || color === "#ff6f00ff" || color.includes("orange") || color.includes("yellow") || color.includes("gold")) return 2;
+          if (color === "#c6ceddff" || color === "#c6cedd" || color.includes("gray") || color.includes("grey")) return 3;
+          return 4;
+        };
+
+        const rankA = getRank(a);
+        const rankB = getRank(b);
+
+        if (rankA !== rankB) {
+          return rankA - rankB;
+        }
+
+        // Within White rank 0, preserve the exact user order: 1615 -> 1616 -> 1625 -> 1634
+        if (rankA === 0) {
+          const whiteOrder = ["1615", "1616", "1625", "1634"];
+          return whiteOrder.indexOf(a.EmpCode) - whiteOrder.indexOf(b.EmpCode);
+        }
+
+        // For others in the same group, sort alphabetically/numerically
+        return a.EmpName.localeCompare(b.EmpName);
+      });
+
       setDt_emp_Active(mappedData);
     } catch (err) {
       console.log("Error Load_EmployeesActive", err);
@@ -486,6 +636,7 @@ const Salaries: React.FC = () => {
                           indeterminate={someSelectEmp}
                           onChange={selectUnselectAllEmp}
                           size="small"
+                          sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
                         />
                         <b style={{ fontSize: "14px" }}>Select All Employees</b>
                       </div>
@@ -532,6 +683,7 @@ const Salaries: React.FC = () => {
                             <div className="checkbox-row">
                               <Checkbox
                                 size="small"
+                                sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
                                 checked={x.isSelected || false}
                                 onChange={(e) => singleChangeEmp(e, x.EmpName)}
                               />
@@ -549,6 +701,8 @@ const Salaries: React.FC = () => {
                       {HMnth && (
                         <>
                           <Checkbox
+                            size="small"
+                            sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
                             checked={SelectHls}
                             indeterminate={someSelectHls}
                             onChange={selectUnselectAllHls}
@@ -563,6 +717,7 @@ const Salaries: React.FC = () => {
                         <div className="card-style" key={i}>
                           <Checkbox
                             size="small"
+                            sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
                             checked={x.isSelected || false}
                             onChange={(e) => singleChangeHls(e, x.HolidayDate)}
                           />

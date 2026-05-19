@@ -107,8 +107,13 @@ const Tasks: React.FC = () => {
   // Filtering for Searchable Dropdown
   const filteredEmployees = employees.filter((emp) => {
     const term = empSearchTerm.toLowerCase();
-    const name = String(emp[0]).toLowerCase();
-    const id = String(emp[1]).toLowerCase();
+   const id = String(emp[0]).toLowerCase();
+
+let name = String(emp[1]);
+if (name.startsWith(emp[0] + "-")) {
+  name = name.replace(emp[0] + "-", "").trim();
+}
+name = name.toLowerCase();
     return name.includes(term) || id.includes(term);
   });
 
@@ -124,7 +129,18 @@ const Tasks: React.FC = () => {
     const strTime = String(hours).padStart(2, '0') + ':' + minutes + ' ' + ampm;
     return `${day}-${month}-${year} ${strTime}`;
   };
+  const formatEmpName = (value: string) => {
+  if (!value) return "";
 
+  const parts = value.split("-");
+
+  // remove duplicate ID if repeated
+  if (parts.length > 2 && parts[0] === parts[1]) {
+    parts.splice(1, 1);
+  }
+
+  return parts.join("-").trim();
+};
   const formatDateOnly = (dateStr: string) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -134,7 +150,13 @@ const Tasks: React.FC = () => {
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   };
+const getCleanName = (value: string) => {
+  if (!value) return "Unknown";
 
+  // remove ID prefix like "1520-"
+  const parts = value.split("-");
+  return parts.length > 1 ? parts.slice(1).join("-").trim() : value;
+};
   const formatToISODate = (date: Date | string) => {
     if (!date) return "";
     const d = new Date(date);
@@ -331,7 +353,9 @@ const Tasks: React.FC = () => {
       setToastMessage("Status updated");
       setUpdateStatusInfo("");
       setUpdateStatus("");
-      handleViewTask(activeTask);
+      setDetailModalOpen(false);
+      setActiveTask(null);
+      //handleViewTask(activeTask);
       fetchInitialData(currentEmpCode);
     } catch (error) {
       console.error("Error saving status:", error);
@@ -530,10 +554,11 @@ const Tasks: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  
                   <div className="card-body">
                     <div className="recipient">
                       <IonIcon icon={person} style={{ fontSize: '14px', marginRight: '4px' }} />
-                      From: {task.SenEName}
+                      From: {formatEmpName(task.SenEName)}
                     </div>
                     <div className="desc">{task.TDesc}</div>
                   </div>
@@ -609,25 +634,43 @@ const Tasks: React.FC = () => {
                               {filteredEmployees.map((emp, index) => {
                                 // Based on user feedback: emp[0] is ID, emp[1] is Name
                                 const empId = String(emp[0]);
-                                const empName = String(emp[1]);
+
+                          // Remove duplicate ID if present in name
+                          let empName = String(emp[1]);
+
+                          if (empName.startsWith(empId + "-")) {
+                          empName = empName.replace(empId + "-", "").trim();
+                          }
                                 const isSelected = assignTo === `${empId}-${empName}`;
 
                                 // Clean initials logic (stripping numeric prefixes if any)
-                                const cleanName = empName.includes("-") ? empName.split("-")[1].trim() : empName;
+                               const cleanName = empName.includes("-")
+                                ? empName.split("-").slice(1).join("-").trim()
+                                 : empName;
+
+                                
                                 const initials = (cleanName.charAt(0) || "?").toUpperCase();
 
                                 return (
                                   <div
                                     key={index}
-                                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setAssignTo(`${empId}-${empName}`);
-                                      setIsEmployeeDropdownOpen(false);
-                                      setEmpSearchTerm("");
-                                    }}
-                                  >
+    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+    onMouseDown={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      let name = String(empName);
+
+      // ✅ MUST FIX: remove duplicate ID if exists
+      if (name.startsWith(empId + "-")) {
+        name = name.replace(empId + "-", "").trim();
+      }
+
+      setAssignTo(`${empId}-${name}`); // ✅ clean value
+      setIsEmployeeDropdownOpen(false);
+      setEmpSearchTerm("");
+    }}
+                                                                      >
                                     <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
                                       {initials}
                                     </div>
@@ -763,7 +806,7 @@ const Tasks: React.FC = () => {
                     </div>
                   </div>
                   <div className="card-body">
-                    <div className="recipient">To: {task.RecEName}</div>
+                    <div className="recipient">To: {formatEmpName(task.RecEName)}</div>
                     <div className="desc">{task.TDesc}</div>
                   </div>
                   <div className="card-footer-flex">
@@ -912,13 +955,27 @@ const Tasks: React.FC = () => {
                           <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Transfer Task</h4>
                           <IonItem lines="full" style={{ '--padding-start': '0' }}>
                             <IonLabel position="stacked">Transfer To</IonLabel>
-                            <IonSelect value={transferTargetEmp} onIonChange={e => setTransferTargetEmp(e.detail.value!)}>
-                              {employees.map((emp, i) => (
-                                <IonSelectOption key={i} value={`${emp[0]}-${emp[1]}`}>
-                                  {emp[0]} - {emp[1]}
-                                </IonSelectOption>
-                              ))}
-                            </IonSelect>
+                         <IonSelect
+                          value={transferTargetEmp}
+                          onIonChange={e => setTransferTargetEmp(e.detail.value!)}
+                         >
+                        {employees.map((emp, i) => {
+                        const empId = String(emp[0]);
+
+                          let empName = String(emp[1]);
+
+                  // ✅ Remove duplicate ID if exists
+                  if (empName.startsWith(empId + "-")) {
+                  empName = empName.replace(empId + "-", "").trim();
+                  }
+
+    return (
+      <IonSelectOption key={i} value={`${empId}-${empName}`}>
+        {empId} - {empName}
+      </IonSelectOption>
+    );
+  })}
+</IonSelect>
                           </IonItem>
                           <IonItem lines="full" style={{ '--padding-start': '0' }}>
                             <IonLabel position="stacked">Transfer Remarks</IonLabel>
