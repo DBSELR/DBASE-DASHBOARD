@@ -1,400 +1,351 @@
-.container {
-    max-width: 1400px;
-    margin: 2rem auto;
-    padding: 2rem;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4rem;
-    animation: fadeIn 1s ease-out;
-}
-
-.text-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 1.5rem;
-}
-
-.text-content h1 {
-    font-size: 4rem;
-    line-height: 1.1;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: slideInLeft 1s ease-out;
-    margin: 0;
-}
-
-.text-content p {
-    font-size: 1.5rem;
-    color: var(--text-secondary);
-    animation: slideInLeft 1s ease-out;
-    margin: 0;
-}
-
-.camera-module {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-    animation: slideInRight 1s ease-out;
-}
-
-.video-container {
-    width: 500px;
-    height: 500px;
-    border-radius: 50%;
-    background: var(--surface-color);
-    overflow: hidden;
-    position: relative;
-    box-shadow:
-        0 0 60px rgba(99, 102, 241, 0.3),
-        inset 0 0 40px rgba(99, 102, 241, 0.2);
-    animation: pulseCircle 2s ease-in-out infinite;
-    transform: translateZ(0); /* hardware accel */
-}
-
-@keyframes pulseCircle {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 60px rgba(99, 102, 241, 0.3);
-    }
-    50% {
-        transform: scale(1.05);
-        box-shadow: 0 0 80px rgba(99, 102, 241, 0.5);
-    }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 60px rgba(99, 102, 241, 0.3);
-    }
-}
-
-.video-element-exact {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scale(1.1);
-    opacity: 1; /* override ionic defaults if any */
-}
-
-.scan-line {
-    position: absolute;
-    width: 100%;
-    height: 4px;
-    background: linear-gradient(90deg, transparent, #6366f1, transparent);
-    animation: scan 2s linear infinite, rotate 10s linear infinite;
-    z-index: 10;
-}
-
-@keyframes scan {
-    0% { top: -4px; }
-    100% { top: 100%; }
-}
-
-@keyframes rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.register-btn {
-    padding: 1rem 2.5rem;
-    background: var(--primary-gradient);
-    color: white;
-    text-decoration: none;
-    border-radius: 12px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    border: none;
-    cursor: pointer;
-    display: inline-block;
-    font-size: 1.125rem;
-}
-
-.register-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
-}
-
-.credits-popup {
-    position: fixed;
-    bottom: 2rem;
-    left: 2rem;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px);
-    padding: 1.5rem;
-    border-radius: 16px;
-    animation: slideInUp 1s ease-out;
-}
-
-.credits-content h3 {
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-    font-size: 1.25rem;
-}
-
-.credits-content p {
-    color: var(--text-secondary);
-    font-size: 1rem;
-    line-height: 1.6;
-    margin: 0;
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-@keyframes slideInLeft {
-    from { opacity: 0; transform: translateX(-50px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-@keyframes slideInRight {
-    from { opacity: 0; transform: translateX(50px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-@keyframes slideInUp {
-    from { opacity: 0; transform: translateY(50px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 1200px) {
-    .container {
-        grid-template-columns: 1fr;
-        text-align: center;
-    }
-    .text-content {
-        align-items: center;
-    }
-    .video-container {
-        width: 400px;
-        height: 400px;
-    }
-}
-
-@media (max-width: 600px) {
-    .video-container {
-        width: 300px;
-        height: 300px;
-    }
-    .text-content h1 {
-        font-size: 2.5rem;
-    }
-}
+/* =========================================
+   PAGE
+========================================= */
 
 .attendance-page {
-  --background: #f4f7fb;
+  --background: #f3f6fb;
   font-family: "Inter", sans-serif;
 }
 
-/* =========================
+/* =========================================
    HEADER
-========================= */
+========================================= */
 
 .attendance-header {
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  padding: 18px 20px 26px;
-  color: white;
-  border-bottom-left-radius: 24px;
-  border-bottom-right-radius: 24px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0ea5e9,
+      #2563eb
+    );
+
+  padding:
+    env(safe-area-inset-top)
+    12px
+    16px
+    14px;
+
+  min-height: 74px;
+
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
 
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
 
-  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.2);
+  gap: 12px;
+
+  box-shadow:
+    0 4px 14px rgba(37,99,235,.18);
+
+  z-index: 10;
 }
 
 .back-icon {
   font-size: 24px;
-  margin-top: 6px;
+  color: #fff;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .attendance-header h1 {
+
   margin: 0;
-  font-size: 32px;
+
+  color: white;
+
+  font-size: 20px;
+
   font-weight: 800;
-  letter-spacing: 1px;
+
+  letter-spacing: .4px;
+
+  line-height: 1;
 }
 
 .attendance-header p {
-  margin-top: 6px;
-  font-size: 16px;
-  opacity: 0.95;
+
+  margin-top: 3px;
+
+  font-size: 12px;
+
+  opacity: .92;
+
+  color: white;
 }
 
-/* =========================
+/* =========================================
    MAIN
-========================= */
+========================================= */
 
 .scanner-wrapper {
-  padding: 34px 22px;
+
+  padding:
+    14px
+    16px
+    100px;
+
   display: flex;
+
   flex-direction: column;
+
   align-items: center;
+
+  gap: 10px;
 }
 
-/* =========================
-   CAMERA
-========================= */
+/* =========================================
+   CAMERA FRAME
+========================================= */
 
 .scanner-frame {
-  width: 300px;
-  height: 380px;
 
-  border-radius: 32px;
+  width: 92vw;
+
+  max-width: 320px;
+
+  height: 420px;
+
+  border-radius: 26px;
 
   overflow: hidden;
+
   position: relative;
 
-  background: white;
+  background: #000;
 
   box-shadow:
-    0 15px 50px rgba(0, 0, 0, 0.08),
-    0 4px 15px rgba(0, 0, 0, 0.04);
+    0 10px 30px rgba(0,0,0,.18);
 
-  border: 1px solid #e5e7eb;
+  border:
+    2px solid rgba(255,255,255,.08);
 }
+
+/* =========================================
+   VIDEO
+========================================= */
 
 .scanner-video {
+
   width: 100%;
   height: 100%;
+
   object-fit: cover;
+
+  transform: scaleX(-1);
+
+  filter:
+    contrast(1.05)
+    brightness(1.02);
+
+  background: #000;
 }
 
-/* =========================
-   FACE FRAME
-========================= */
+/* =========================================
+   FACE OVERLAY
+========================================= */
 
 .face-overlay {
+
   position: absolute;
   inset: 0;
+
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
+/* =========================================
+   CORNERS
+========================================= */
+
 .corner {
+
   position: absolute;
-  width: 55px;
-  height: 55px;
-  border-color: white;
+
+  width: 60px;
+  height: 60px;
+
+  border-color: rgba(255,255,255,.95);
   border-style: solid;
 }
 
 .top-left {
-  top: 40px;
-  left: 40px;
+  top: 18%;
+  left: 16%;
   border-width: 5px 0 0 5px;
-  border-radius: 16px 0 0 0;
+  border-radius: 18px 0 0 0;
 }
 
 .top-right {
-  top: 40px;
-  right: 40px;
+  top: 18%;
+  right: 16%;
   border-width: 5px 5px 0 0;
-  border-radius: 0 16px 0 0;
+  border-radius: 0 18px 0 0;
 }
 
 .bottom-left {
-  bottom: 40px;
-  left: 40px;
+  bottom: 18%;
+  left: 16%;
   border-width: 0 0 5px 5px;
-  border-radius: 0 0 0 16px;
+  border-radius: 0 0 0 18px;
 }
 
 .bottom-right {
-  bottom: 40px;
-  right: 40px;
+  bottom: 18%;
+  right: 16%;
   border-width: 0 5px 5px 0;
-  border-radius: 0 0 16px 0;
+  border-radius: 0 0 18px 0;
 }
 
-/* =========================
+/* =========================================
    SCAN LINE
-========================= */
+========================================= */
 
 .scan-line {
+
   position: absolute;
-  width: 80%;
-  height: 4px;
 
-  background: linear-gradient(
-    to right,
-    transparent,
-    #38bdf8,
-    transparent
-  );
+  width: 72%;
+  height: 3px;
 
-  animation: scanMove 2s infinite ease-in-out;
+  border-radius: 50px;
 
-  box-shadow: 0 0 20px #38bdf8;
+  background:
+    linear-gradient(
+      to right,
+      transparent,
+      #38bdf8,
+      transparent
+    );
+
+  box-shadow:
+    0 0 12px #38bdf8;
+
+  animation:
+    scanMove 2s ease-in-out infinite;
 }
 
 @keyframes scanMove {
+
   0% {
-    top: 25%;
+    top: 30%;
   }
 
   50% {
-    top: 70%;
+    top: 65%;
   }
 
   100% {
-    top: 25%;
+    top: 30%;
   }
 }
 
-/* =========================
-   BUTTON
-========================= */
+/* =========================================
+   BUTTONS
+========================================= */
 
 .scan-button {
-  margin-top: 30px;
 
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  width: 100%;
 
-  color: white;
+  max-width: 300px;
+
+  height: 48px;
+
+  margin-top: 8px;
 
   border: none;
 
-  border-radius: 18px;
+  border-radius: 14px;
 
-  padding: 16px 34px;
+  background:
+    linear-gradient(
+      135deg,
+      #0ea5e9,
+      #2563eb
+    );
 
-  font-size: 22px;
+  color: white;
+
+  font-size: 16px;
+
   font-weight: 700;
 
-  letter-spacing: 1px;
+  letter-spacing: .4px;
 
   box-shadow:
-    0 10px 25px rgba(37, 99, 235, 0.25);
+    0 6px 18px rgba(37,99,235,.2);
 
-  transition: 0.3s ease;
+  transition: .2s ease;
 }
 
 .scan-button:active {
-  transform: scale(0.97);
+  transform: scale(.98);
 }
 
-/* =========================
-   STATUS
-========================= */
+.switch-btn {
+
+  background:
+    linear-gradient(
+      135deg,
+      #7c3aed,
+      #2563eb
+    );
+}
+
+/* =========================================
+   STATUS CARD
+========================================= */
 
 .scan-status {
-  margin-top: 18px;
 
-  font-size: 18px;
-  font-weight: 600;
+  position: fixed;
+
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  bottom: 125px;
+
+  width: calc(100% - 32px);
+
+  max-width: 340px;
+
+  padding: 12px 16px;
+
+  border-radius: 16px;
+
+  background:
+    rgba(255,255,255,.96);
+
+  backdrop-filter: blur(12px);
 
   text-align: center;
-}
 
-/* =========================
-   LOADER
-========================= */
+  font-size: 14px;
+
+  font-weight: 700;
+
+  line-height: 1.4;
+
+  box-shadow:
+    0 8px 24px rgba(0,0,0,.12);
+
+  z-index: 999;
+
+  white-space: pre-line;
+}
+ion-fab {
+  bottom: 90px !important;
+}
+/* =========================================
+   CAMERA LOADER
+========================================= */
 
 .camera-loader {
+
   position: absolute;
   inset: 0;
 
@@ -402,5 +353,81 @@
   justify-content: center;
   align-items: center;
 
-  background: rgba(255, 255, 255, 0.8);
+  background:
+    rgba(255,255,255,.75);
+
+  backdrop-filter: blur(3px);
+}
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (min-width: 768px) {
+
+  .attendance-header {
+
+    min-height: 110px;
+
+    padding:
+      env(safe-area-inset-top)
+      24px
+      24px;
+  }
+
+  .attendance-header h1 {
+    font-size: 32px;
+  }
+
+  .attendance-header p {
+    font-size: 16px;
+  }
+
+  .scanner-frame {
+    max-width: 400px;
+  }
+
+  .scan-button {
+    max-width: 380px;
+  }
+
+  .scan-status {
+    max-width: 400px;
+  }
+}
+
+/* =========================================
+   SMALL MOBILE
+========================================= */
+
+@media (max-width: 480px) {
+
+  .scanner-frame {
+
+    width: 92vw;
+
+    height: 380px;
+  }
+
+  .attendance-header h1 {
+
+    font-size: 18px;
+  }
+
+  .scan-button {
+
+    height: 46px;
+
+    font-size: 15px;
+  }
+
+ .scan-status {
+
+    bottom: 135px;
+  }
+
+  .scanner-wrapper {
+
+    padding-bottom: 170px;
+  }
 }

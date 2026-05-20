@@ -425,13 +425,14 @@ attendance marked successfully`
     <IonPage>
 
       <IonContent
-        fullscreen
-        className="attendance-page"
-      >
+  fullscreen
+  className="attendance-page"
+  scrollY={true}
+>
 
         {/* HEADER */}
 
-        <div className="attendance-header">
+        {/* <div className="attendance-header">
 
           <IonIcon
             icon={arrowBackOutline}
@@ -450,7 +451,7 @@ attendance marked successfully`
               AI Face Verification System
             </p>
           </div>
-        </div>
+        </div> */}
 
         {/* CAMERA CARD */}
 
@@ -501,28 +502,15 @@ attendance marked successfully`
 
           {/* BUTTON */}
 
-          <button className="scan-button">
+         <button className="scan-button">
+  {processing ? "SCANNING..." : "AI SCANNER ACTIVE"}
+</button>
 
-            {
-              processing
-              ?
-              "SCANNING..."
-              :
-              "AI SCANNER ACTIVE"
-            }
-
-          </button>
-
-          <button
-  className="scan-button"
-  style={{
-    marginTop: "12px",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)"
-  }}
+<button
+  className="scan-button switch-btn"
   onClick={() => {
 
-  setCameraReady(false);
+    setCameraReady(false);
 
     setCameraMode((prev) =>
       prev === "user"

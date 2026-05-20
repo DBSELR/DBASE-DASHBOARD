@@ -407,11 +407,15 @@ const interval =
 
   return (
     <IonPage>
-      <IonContent fullscreen className="attendance-page">
+      <IonContent
+  fullscreen
+  className="attendance-page"
+  scrollY={true}
+>
 
         {/* HEADER */}
 
-        <div className="attendance-header">
+        {/* <div className="attendance-header">
           <IonIcon
             icon={arrowBackOutline}
             className="back-icon"
@@ -422,7 +426,7 @@ const interval =
             <h1>ATTENDANCE</h1>
             <p>Scan your face to verify</p>
           </div>
-        </div>
+        </div> */}
 
         {/* CAMERA CARD */}
 
@@ -463,16 +467,11 @@ const interval =
           {/* BUTTON */}
 
           <button className="scan-button">
-            {isProcessing ? "SCANNING..." : "START SCAN"}
-          </button>
+  {isProcessing ? "SCANNING..." : "AI SCANNER ACTIVE"}
+</button>
 
-          <button
-  className="scan-button"
-  style={{
-    marginTop: "12px",
-    background:
-      "linear-gradient(135deg,#2563eb,#7c3aed)"
-  }}
+<button
+  className="scan-button switch-btn"
   onClick={() => {
 
     setIsCameraReady(false);
