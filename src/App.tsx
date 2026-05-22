@@ -55,6 +55,9 @@ import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
 import AIAttendanceReports from "./pages/AIAttendance/AIAttendanceReports";
 import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
 import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceScanner";
+import DaywiseAttendanceDashboard from "./pages/DaywiseAttendanceDashboard";
+import getCurrentPosition from "./pages/getCurrentPosition";
+import OMRJsonImport from "./pages/OMRJsonImport";
 
 setupIonicReact();
 
@@ -132,6 +135,9 @@ const App: React.FC = () => {
                   <Route exact path="/ai-attendance-reports" component={AIAttendanceReports} />
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
                   <Route exact path="/security-attendance" component={SecurityAttendanceScanner} />
+                  <Route exact path="/daywise-attendance" component={DaywiseAttendanceDashboard} />
+                  <Route exact path="/test-location" component={getCurrentPosition} />
+                  <Route exact path="/omr-json-import" component={OMRJsonImport} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>

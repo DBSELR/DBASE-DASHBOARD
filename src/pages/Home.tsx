@@ -135,6 +135,14 @@ const Home: React.FC = () => {
     { id: "scanner", label: "Scanner", icon: <Scan size={32} color="#ffffff" />, path: "/camera", colorClass: "home-card-scanner", isLucide: true },
     { id: "ai-attendance", label: "AI Attendance", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-scanner", colorClass: "home-card-ai-attendance", isLucide: true },
     { id: "view-reports", label: "View Reports", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-reports", colorClass: "home-card-view-reports", isLucide: true },
+    {
+  id: "daywise-attendance",
+  label: "Attendance Logs",
+  icon: <UserCheck size={32} color="#ffffff" />,
+  path: "/daywise-attendance",
+  colorClass: "home-card-ai-attendance",
+  isLucide: true
+},
   ];
 
   return (

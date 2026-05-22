@@ -964,7 +964,12 @@ const OnDuties: React.FC = () => {
   };
 
   const saveOnDuty = async () => {
-    if (!institution || !dutiesDesc || !transportMode || !location || !empCode || !dutyFromDate || !dutyToDate || !vehicleNo) {
+    if (!institution || !dutiesDesc || !transportMode || !location || !empCode || !dutyFromDate || !dutyToDate 
+      || (
+      transportMode !== "PublicTransport" &&
+      !vehicleNo
+    )
+  ) {
       notify("Please fill all required fields", "warning");
       return;
     }
