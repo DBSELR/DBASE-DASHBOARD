@@ -58,6 +58,9 @@ import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceSc
 import DaywiseAttendanceDashboard from "./pages/DaywiseAttendanceDashboard";
 import getCurrentPosition from "./pages/getCurrentPosition";
 import OMRJsonImport from "./pages/OMRJsonImport";
+import AnswerKeyImport from "./pages/AnswerKeyImport";
+
+AnswerKeyImport
 
 setupIonicReact();
 
@@ -138,6 +141,7 @@ const App: React.FC = () => {
                   <Route exact path="/daywise-attendance" component={DaywiseAttendanceDashboard} />
                   <Route exact path="/test-location" component={getCurrentPosition} />
                   <Route exact path="/omr-json-import" component={OMRJsonImport} />
+                  <Route exact path="/answer-key-import" component={AnswerKeyImport} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>
