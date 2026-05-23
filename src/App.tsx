@@ -59,6 +59,9 @@ import DaywiseAttendanceDashboard from "./pages/DaywiseAttendanceDashboard";
 import getCurrentPosition from "./pages/getCurrentPosition";
 import OMRJsonImport from "./pages/OMRJsonImport";
 import AnswerKeyImport from "./pages/AnswerKeyImport";
+import MeetingMaster from "./pages/MeetingMaster";
+import MeetingDashboard from "./pages/MeetingDashboard";
+import MeetingList from "./pages/MeetingList";
 
 AnswerKeyImport
 
@@ -142,6 +145,9 @@ const App: React.FC = () => {
                   <Route exact path="/test-location" component={getCurrentPosition} />
                   <Route exact path="/omr-json-import" component={OMRJsonImport} />
                   <Route exact path="/answer-key-import" component={AnswerKeyImport} />
+                  <Route exact path="/meeting-master" component={MeetingMaster} />
+                  <Route exact path="/meeting-dashboard" component={MeetingDashboard} />
+                  <Route exact path="/meeting-list" component={MeetingList} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>
