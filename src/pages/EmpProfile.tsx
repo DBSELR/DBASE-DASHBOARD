@@ -32,6 +32,7 @@ import {
   Loader2,
   ChevronRight,
   ArrowLeft,
+  Save,
 } from "lucide-react";
 import { API_BASE } from "../config";
 import { apiService } from "../utils/apiService";
@@ -81,6 +82,7 @@ const EmpProfile: React.FC = () => {
     designation: "",
     department: "",
     email: "",
+    email2: "",
 
     // ✅ ADD THESE (no other changes)
     leave: 0,
@@ -177,6 +179,7 @@ const EmpProfile: React.FC = () => {
     _Blood: "",
     _Mobile: "",
     _Email: "",
+    _Email2: "",
     _user: "Employee",
     _UserGroup: "Employee",
     _Allowed_CL: "12",
@@ -460,6 +463,7 @@ const EmpProfile: React.FC = () => {
       _Blood: row[5] !== null && row[5] !== undefined ? String(row[5]) : "",
       _Mobile: row[6] !== null && row[6] !== undefined ? String(row[6]) : "",
       _Email: row[8] !== null && row[8] !== undefined ? String(row[8]) : "",
+      _Email2: rowAny._Email2 ?? rowAny.Email2 ?? rowAny.email2 ?? "",
       _Dept: row[30] !== null && row[30] !== undefined ? String(row[30]) : "",
       _user: getValue(9, ["_user", "_User", "user", "User", "userGroup", "UserGroup"], "Employee"),
       _Allowed_MY:
@@ -571,6 +575,7 @@ const EmpProfile: React.FC = () => {
         bloodGroup: details._Blood,
         contactNumber: details._Mobile,
         email: details._Email,
+        email2: details._Email2,
         salaryAccountNo: details._AccountNo,
         ifscCode: details._IFSCCode,
         grossSalary: details._GrossSal,
@@ -1057,6 +1062,7 @@ const EmpProfile: React.FC = () => {
       _Blood: "",
       _Mobile: "",
       _Email: "",
+      _Email2: "",
       _user: "Employee",
       _UserGroup: "Employee",
       _Allowed_CL: "12",
@@ -1598,6 +1604,12 @@ const EmpProfile: React.FC = () => {
             />
             <InfoItem
               color="var(--ion-color-primary)"
+              icon={Mail}
+              label="Secondary Email"
+              value={userData.email2}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
               icon={Users}
               label="Reports To"
               value={userData.ReportTO}
@@ -1673,9 +1685,16 @@ const EmpProfile: React.FC = () => {
         </div>
 
         <div className="ep-card">
-          <h3 className="ep-card-title">
-            <Clock color="var(--ion-color-primary)" size={20} /> Attendance & Access
-          </h3>
+          <div className="ep-card-header">
+            <h3 className="ep-card-title">
+              <Clock color="var(--ion-color-primary)" size={20} />Leaves & Attendance Access
+            </h3>
+            {isManagementView && (
+              <button className="ep-edit-icon-btn" onClick={openEditModal}>
+                <Palette color="var(--ion-color-primary)" size={16} /> Edit
+              </button>
+            )}
+          </div>
 
           <div className="ep-info-grid">
 
@@ -1715,6 +1734,18 @@ const EmpProfile: React.FC = () => {
               value={userData.hourDA}
             />
 
+            {/* Leave */}
+            <InfoItem
+              icon={TrendingUp}
+              label="Allowed CL"
+              value={formData._Allowed_CL}
+            />
+
+            <InfoItem
+              icon={TrendingUp}
+              label="Allowed SL"
+              value={formData._Allowed_SL}
+            />
           </div>
         </div>
         {/* Salary Details */}
@@ -1793,112 +1824,7 @@ const EmpProfile: React.FC = () => {
             />
           </div>
         </div>
-        {/* Leave & Attendance Management */}
-        <div className="ep-card">
-          <h3 className="ep-card-title">
-            🧾 Leave & Attendance Management
-          </h3>
 
-          <div className="ep-form-grid">
-
-            {/* Leave */}
-            <div className="ep-input-group">
-              <label>Allowed CL</label>
-              <input
-                type="number"
-                name="_Allowed_CL"
-                value={formData._Allowed_CL}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="ep-input-group">
-              <label>Allowed SL</label>
-              <input
-                type="number"
-                name="_Allowed_SL"
-                value={formData._Allowed_SL}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            {/* Attendance */}
-            <div className="ep-input-group">
-              <label>P Time</label>
-              <input
-                type="time"
-                name="_P_Time"
-                value={formData._P_Time}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="ep-input-group">
-              <label>Check-In</label>
-              <input
-                type="time"
-                name="_CheckIn"
-                value={formData._CheckIn}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            {/* Reporting */}
-            <div className="ep-input-group">
-              <label>Request To</label>
-              <select
-                name="_RequestTo"
-                value={formData._RequestTo}
-                onChange={handleInputChange}
-                className="ep-select"
-              >
-                <option value="">Select</option>
-                {designations.filter(d => d.active).map((d) => (
-                  <option key={d.id} value={d.name}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Status */}
-            <div className="ep-input-group">
-              <label>Active</label>
-              <select
-                name="_IsActive"
-                value={formData._IsActive}
-                onChange={handleInputChange}
-                className="ep-select"
-              >
-                <option value="Y">Yes</option>
-                <option value="N">No</option>
-              </select>
-            </div>
-
-            <div className="ep-input-group">
-              <label>Policies</label>
-              <div
-                className="ep-select"
-                onClick={() => history.push("/policies")}
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <span>View HR Policies</span>
-                <ChevronRight size={18} />
-              </div>
-            </div>
-
-            {/* User Group */}
-            <div className="ep-input-group">
-              <label>User Group</label>
-              <input
-                name="_UserGroup"
-                value={formData._UserGroup}
-                onChange={handleInputChange}
-              />
-            </div>
-
-          </div>
-        </div>
       </main>
 
       {/* Employee Selection Search Modal */}
@@ -2207,6 +2133,17 @@ const EmpProfile: React.FC = () => {
                       value={formData._Email}
                       onChange={handleInputChange}
                       required
+                    />
+                  </div>
+
+                  {/* Secondary Email */}
+                  <div className="ep-input-group">
+                    <label>Secondary E-Mail</label>
+                    <input
+                      type="email"
+                      name="_Email2"
+                      value={formData._Email2}
+                      onChange={handleInputChange}
                     />
                   </div>
 

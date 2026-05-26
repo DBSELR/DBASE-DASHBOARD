@@ -358,7 +358,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ion-color-primary);
+  color: #ffffff;
   flex-shrink: 0;
 }
 
