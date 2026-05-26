@@ -3,7 +3,9 @@ import axios from "axios";
 import { API_BASE } from "../config";
 import {
   IonToast,
-  IonIcon
+  IonIcon,
+  IonSelect,
+  IonSelectOption
 } from "@ionic/react";
 
 import {
@@ -52,16 +54,32 @@ function MeetingMaster() {
     meetingDate: "",
     weekName: "",
     meetingType: "",
-    participants: "",
+    participants: [] as string[],
     frequencyType: "",
     projectName: "",
-    meetingOwner: "",
+    meetingOwner: [] as string[],
     meetingStatus: "Pending",
     remarks: "",
     createdBy: "Admin"
   };
 
   const [form, setForm] = useState(initialForm);
+  const [employees, setEmployees] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}Employee/Load_Employees`);
+        if (response.data && Array.isArray(response.data)) {
+          const filteredEmployees = response.data.filter((emp: any) => emp[0] !== "0" && emp[1] !== "All Employees");
+          setEmployees(filteredEmployees);
+        }
+      } catch (error) {
+        console.error("Failed to load employees", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   const [toast, setToast] = useState({
     open: false,
@@ -125,6 +143,8 @@ function MeetingMaster() {
 
       const payload = {
         ...form,
+        participants: Array.isArray(form.participants) ? form.participants.join(',') : form.participants,
+        meetingOwner: Array.isArray(form.meetingOwner) ? form.meetingOwner.join(',') : form.meetingOwner,
         meetingDate:
           form.frequencyType === "Every Day"
             ? null
@@ -339,10 +359,6 @@ function MeetingMaster() {
 
             <div className="input-icon">
 
-              {/* <IonIcon
-                icon={businessOutline}
-              /> */}
-
               <input
                 type="text"
                 name="meetingType"
@@ -364,17 +380,20 @@ function MeetingMaster() {
 
             <div className="input-icon">
 
-              {/* <IonIcon
-                icon={peopleOutline}
-              /> */}
-
-              <input
-                type="text"
-                name="participants"
-                placeholder="Participants"
+              <IonSelect
+                multiple={true}
+                interface="popover"
+                placeholder="Select Participants"
                 value={form.participants}
-                onChange={handleChange}
-              />
+                onIonChange={(e) => setForm({ ...form, participants: e.detail.value })}
+                className="custom-select-ui"
+              >
+                {employees.map((emp) => (
+                  <IonSelectOption key={`part-${emp[0]}`} value={emp[0]}>
+                    {emp[1]}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
 
             </div>
 
@@ -387,13 +406,20 @@ function MeetingMaster() {
               Meeting Owner
             </label>
 
-            <input
-              type="text"
-              name="meetingOwner"
-              placeholder="Meeting Owner"
+            <IonSelect
+              multiple={true}
+              interface="popover"
+              placeholder="Select Meeting Owner"
               value={form.meetingOwner}
-              onChange={handleChange}
-            />
+              onIonChange={(e) => setForm({ ...form, meetingOwner: e.detail.value })}
+              className="custom-select-ui"
+            >
+              {employees.map((emp) => (
+                <IonSelectOption key={`owner-${emp[0]}`} value={emp[0]}>
+                  {emp[1]}
+                </IonSelectOption>
+              ))}
+            </IonSelect>
 
           </div>
 

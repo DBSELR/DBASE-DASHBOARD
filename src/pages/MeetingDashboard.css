@@ -1,0 +1,222 @@
+/* Meeting Dashboard – Stock-style screen scrolling */
+
+.meeting-container {
+    --meeting-primary: var(--ion-color-primary);
+    --meeting-bg: #e7ecf0;
+    --meeting-panel: #ffffff;
+    --meeting-border: #d7dee8;
+    --meeting-border-strong: #c7d2e0;
+    --meeting-text: #000000;
+
+    min-height: 10vh;
+    max-height: 10vh;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 0 14px 24px;
+
+    background-color: var(--meeting-bg);
+    color: var(--meeting-text);
+}
+
+/* ---------- HEADER ---------- */
+
+.meeting-top-header {
+    padding: 16px 20px;
+    margin: 0;
+
+    border-radius: 25px 25px 0 0;
+
+    background: linear-gradient(135deg,
+            var(--ion-color-primary),
+            color-mix(in srgb, var(--ion-color-primary) 70%, #6d7fbe 30%));
+
+    color: #fff;
+
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* ---------- STICKY FILTER BAR ---------- */
+
+.meeting-sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    padding: 10px 0 8px;
+
+    background: linear-gradient(180deg,
+            var(--meeting-bg) 0%,
+            var(--meeting-bg) 85%,
+            rgba(231, 236, 240, 0.9) 100%);
+}
+
+/* ---------- FILTER TABS ---------- */
+
+.meeting-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    padding: 10px;
+
+    background: #f5f5f5;
+    border-radius: 15px;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.meeting-tab {
+    padding: 6px 16px;
+    border-radius: 999px;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    background: transparent;
+    color: #64748b;
+
+    border: none;
+    cursor: pointer;
+
+    transition: 0.25s ease;
+}
+
+.meeting-tab:hover {
+    background: color-mix(in srgb, var(--ion-color-primary) 10%, #fff 90%);
+    color: var(--ion-color-primary);
+}
+
+.meeting-tab.active {
+    background: linear-gradient(135deg,
+            var(--ion-color-primary),
+            color-mix(in srgb, var(--ion-color-primary) 70%, #6d7fbe 30%));
+
+    color: #fff;
+
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* ---------- PANEL ---------- */
+
+.meeting-panel {
+    margin-top: 10px;
+    padding: 14px;
+
+    border: 1px solid var(--meeting-border);
+    border-radius: 20px;
+
+    background: var(--meeting-panel);
+
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ---------- TABLE WRAPPER (IMPORTANT SCROLL FIX) ---------- */
+
+.meeting-table-wrapper {
+    overflow-x: auto;
+    overflow-y: auto;
+
+    max-height: 40vh;
+    /* 👈 KEY: controls screen scroll like stock */
+    min-height: 220px;
+
+    width: 100%;
+
+    border: 1px solid var(--meeting-border-strong);
+    border-radius: 15px;
+
+    background: var(--meeting-panel);
+
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+
+    scrollbar-width: thin;
+}
+
+/* scrollbar */
+.meeting-table-wrapper::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.meeting-table-wrapper::-webkit-scrollbar-track {
+    background: #f4f7f9;
+    border-radius: 999px;
+}
+
+.meeting-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--ion-color-primary);
+    border-radius: 999px;
+}
+
+/* ---------- TABLE ---------- */
+
+.meeting-table {
+    width: 100%;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* HEADER STICKY */
+.meeting-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
+    padding: 10px;
+
+    background: #f0f0f0;
+    border-right: 1px solid var(--meeting-border);
+    border-bottom: 1px solid var(--meeting-border-strong);
+
+    font-size: 12px;
+    font-weight: 800;
+
+    white-space: nowrap;
+}
+
+/* BODY */
+.meeting-table tbody td {
+    padding: 8px 10px;
+
+    border-right: 1px solid var(--meeting-border);
+    border-bottom: 1px solid var(--meeting-border);
+
+    font-size: 12px;
+    font-weight: 600;
+
+    background: #fff;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meeting-table tbody tr:nth-child(odd) td {
+    background: #f4f7f9;
+}
+
+.meeting-table tbody tr:hover td {
+    background: color-mix(in srgb,
+            var(--ion-color-primary) 12%,
+            #fff 88%);
+}
+
+/* ---------- RESPONSIVE ---------- */
+
+@media (max-width: 768px) {
+    .meeting-container {
+        padding: 10px;
+    }
+
+    .meeting-table-wrapper {
+        max-height: none;
+        /* mobile full scroll */
+    }
+
+    .meeting-tab {
+        width: 100%;
+    }
+}

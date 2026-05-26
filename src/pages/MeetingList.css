@@ -1,0 +1,183 @@
+/* MeetingList – auto-adopts the app theme via CSS variables */
+
+.custom-dropdown-container {
+  position: relative;
+  width: 100%;
+  max-width: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.premium-filter-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  border: 0.2px solid rgba(0, 0, 0, 0.28);
+  border-radius: 20px;
+  height: 72px;
+  padding: 16px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2002;
+  box-sizing: border-box;
+}
+
+.premium-filter-trigger:hover {
+  transform: translateY(-2px);
+  background: #fff;
+}
+
+.trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trigger-icon-box {
+  width: 36px;
+  height: 36px;
+  background: var(--ion-color-primary, #f97316);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ion-color-primary-contrast, #fff);
+  font-size: 18px;
+}
+
+.trigger-text-sec {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.trigger-sub {
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.trigger-main {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ion-color-primary, #f97316);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trigger-icon-arrow {
+  color: var(--ion-color-primary, #f97316);
+  font-size: 16px;
+}
+
+.hidden-select-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  z-index: 10;
+  cursor: pointer;
+}
+
+/* ── Meeting Grid ── */
+
+.meeting-table-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+
+  /* increased height */
+  max-height: calc(90vh - 220px);
+  min-height: 520px;
+
+  width: 100%;
+
+  border: 1px solid var(--ion-color-light-shade, #c7d2e0);
+  border-radius: 15px;
+  background-color: var(--ion-background-color, #ffffff);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--ion-color-primary, #6d7fbe) var(--ion-color-light, #f4f7f9);
+}
+
+.meeting-table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.meeting-table-wrapper::-webkit-scrollbar-track {
+  background: var(--ion-color-light, #f4f7f9);
+  border-radius: 999px;
+}
+
+.meeting-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--ion-color-primary, #6d7fbe);
+  border: 2px solid var(--ion-color-light, #f4f7f9);
+  border-radius: 999px;
+}
+
+.meeting-table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.meeting-table thead th,
+.meeting-table tbody td {
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.meeting-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  border-right: 1px solid var(--ion-color-light-shade, #d7dee8);
+  border-bottom: 1px solid var(--ion-color-light-shade, #c7d2e0);
+  background-color: var(--ion-color-light, #f0f0f0);
+  color: var(--ion-color-dark, #000000);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.meeting-table thead th:last-child,
+.meeting-table tbody td:last-child {
+  border-right: none;
+}
+
+.meeting-table tbody td {
+  padding: 6px 10px;
+  border-right: 1px solid var(--ion-color-light-shade, #d7dee8);
+  border-bottom: 1px solid var(--ion-color-light-shade, #d7dee8);
+  background-color: var(--ion-background-color, #ffffff);
+  color: var(--ion-color-dark, #000000);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meeting-table tbody tr:nth-child(odd) td {
+  background-color: var(--ion-color-light, #f4f7f9);
+}
+
+.meeting-table tbody tr:hover td {
+  background-color: color-mix(in srgb, var(--ion-color-primary, #a0c4ff) 12%, #ffffff 88%);
+}
