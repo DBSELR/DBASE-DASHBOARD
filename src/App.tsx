@@ -62,6 +62,7 @@ import AnswerKeyImport from "./pages/AnswerKeyImport";
 import MeetingMaster from "./pages/MeetingMaster";
 import MeetingDashboard from "./pages/MeetingDashboard";
 import MeetingList from "./pages/MeetingList";
+import TaskNotificationPopup from "./components/TaskNotificationPopup";
 
 AnswerKeyImport
 
@@ -157,6 +158,7 @@ const App: React.FC = () => {
       </IonReactRouter>
 
       {user && <SpeedDialComponent />}
+      {user && <TaskNotificationPopup />}
     </IonApp>
   );
 };
