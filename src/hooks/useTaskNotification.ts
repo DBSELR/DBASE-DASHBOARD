@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { hubConnection, startHub } from "../services/signalRService";
-import { registerWebPush } from "../services/webPushService";
+import { registerWebPush } from "../services/firebase";
 import { API_BASE } from "../config";
 import { HubConnectionState } from "@microsoft/signalr";
 

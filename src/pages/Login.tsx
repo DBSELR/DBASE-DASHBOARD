@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { IonPage, IonContent } from "@ionic/react";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
+import { registerWebPush } from "../services/firebase";
 import "./Login.css";
 
 const Login: React.FC = () => {
@@ -59,10 +60,18 @@ const Login: React.FC = () => {
       const data = await response.json();
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        window.location.href = "/home";
-      } else {
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(data.user));
+
+  // Register Firebase Push Notification
+  await registerWebPush(
+    data.user?.EmpCode ||
+    data.user?.empCode ||
+    uname
+  );
+
+  window.location.href = "/home";
+} else {
         showToast("Login failed! Please try again.");
         setLoading(false);
       }
