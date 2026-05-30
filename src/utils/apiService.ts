@@ -71,6 +71,16 @@ export const apiService = {
         return apiService.post("/Tickets/Save_Task", taskData);
     },
 
+    sendTaskPushNotification: async (payload: any) => {
+        console.log("API: Send Task Push Notification", payload);
+        return apiService.post("/Notifications/Send", payload);
+    },
+
+    markTaskAsRead: async (tid: string, empCode: string) => {
+        console.log("API: Mark Task As Read", { tid, empCode });
+        return apiService.post("/Notifications/MarkTaskAsRead", { TID: Number(tid), EmpCode: empCode });
+    },
+
     loadSentTasks: async (empCode: string) => {
         console.log("API 3: Load Sent Tasks", empCode);
         return apiService.get(`/Tickets/Load_Sent_Task?SenECode=${empCode}`);
