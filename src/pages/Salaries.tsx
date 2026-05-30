@@ -341,26 +341,48 @@ const Salaries: React.FC = () => {
   // ==========================
   // API 5: INSERT EMP TABLE (SEQUENTIAL)
   // ==========================
+
   const InsertETable = async (data = dt_emp_Active) => {
-    try {
-      setLoading(true);
-      await DelETable();
-      for (const item of data) {
-        if (item.isSelected) {
-          await delay(50); // Angular parity
-          const payload = {
-            _Ecode: item.EmpCode,
-            _Ename: item.EmpName.replace(item.EmpCode + "-", ""),
-          };
-          await axios.post(`${API_BASE}Salaries/Insert_ETable`, payload);
-        }
-      }
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+
+    const selectedEmployees = data
+      .filter((x: any) => x.isSelected)
+      .map((item: any) => ({
+        EmpCode: item.EmpCode,
+        EmpName: item.EmpName.replace(item.EmpCode + "-", ""),
+      }));
+
+    await axios.post(
+      `${API_BASE}Salaries/Insert_ETable`,
+      selectedEmployees
+    );
+  } catch (err) {
+    console.log(err);
+  } finally {
+    setLoading(false);
+  }
+};
+  // const InsertETable = async (data = dt_emp_Active) => {
+  //   try {
+  //     setLoading(true);
+  //     await DelETable();
+  //     for (const item of data) {
+  //       if (item.isSelected) {
+  //         await delay(50); // Angular parity
+  //         const payload = {
+  //           _Ecode: item.EmpCode,
+  //           _Ename: item.EmpName.replace(item.EmpCode + "-", ""),
+  //         };
+  //         await axios.post(`${API_BASE}Salaries/Insert_ETable`, payload);
+  //       }
+  //     }
+  //   } catch (err) {
+  //     console.log(err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // ==========================
   // API 6: INSERT HOLIDAY TABLE (SEQUENTIAL)
