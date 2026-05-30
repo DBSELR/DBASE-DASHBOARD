@@ -190,76 +190,11 @@ ion-grid {
   color: #ffffff !important;
 }
 
-/* Menu List Styling */
+/* Menu List Styling — real styles live in Menu.css */
 .scrollable-list {
   padding: 10px 0;
 }
 
-ion-content::part(scroll) {
-  overflow: scroll !important;
-  scrollbar-width: none !important;
-}
-
-/* Menu Items */
-ion-item {
-  --background: transparent;
-  --color: var(--ion-text-color);
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 20px;
-  margin: 4px 8px;
-  transition: all 0.3s ease-in-out;
-}
-
-/* Hover Effect - Lighter Tint of Selected Theme Color */
-ion-item:hover {
-  background-color: color-mix(in srgb,
-      var(--ion-color-primary) 20%,
-      white);
-  /* Light Tint */
-  color: var(--ion-color-primary);
-  transform: scale(1.05);
-}
-
-/* Dark Mode - Hover Effect */
-.dark ion-item:hover {
-  background-color: color-mix(in srgb,
-      var(--ion-color-primary) 30%,
-      black);
-  /* Translucent Tint */
-  color: white;
-}
-
-/* Icons */
-.menu-icons {
-  font-size: 22px;
-  color: var(--ion-color-primary);
-  margin-right: 8px;
-}
-
-/* Logout Button Styling */
-/* ion-item:last-child {
-  color: var(--ion-color-danger);
-} */
-
-/* Logout Button Hover */
-/* ion-item:last-child:hover {
-  background-color: color-mix(in srgb,
-      var(--ion-color-danger) 20%,
-      white);
-  color: white;
-} */
-
-/* Scrollable List */
-.scrollable-list {
-  max-height: calc(100vh - 150px);
-  overflow-y: auto;
-  padding: 10px 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--ion-color-primary) transparent;
-  transition: all 0.3s ease-in-out;
-  margin-bottom: 16px;
-}
 
 /* Custom Scrollbar for Webkit Browsers */
 .scrollable-list::-webkit-scrollbar {
@@ -375,109 +310,95 @@ ion-item:nth-child(19) {
 /* ========== FLOATING TAB BAR start ========== */
 .floating-tab-bar {
   position: fixed;
-  bottom: 15px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--ion-color-primary,
-      var(--theme-color, #0077b6));
-  /* Dynamic Theme Color */
-  border-radius: 50px;
-  box-shadow: 0 4px 10px var(--theme-shadow);
-  padding: 10px 15px;
+  background: var(--ion-color-primary, #0077b6);
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  padding: 0 16px;
+  height: 48px;
   display: none;
   z-index: 1000;
   width: 90%;
+  max-width: 380px;
 }
 
-/* Tab Bar Container */
 .tab-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
   align-items: center;
   width: 100%;
-  max-width: 350px;
-  margin: auto;
+  height: 100%;
 }
 
 /* Tab Item */
 .tab-item {
-  background: transparent;
-  border: none;
-  color: var(--ion-color-light, #ffffff);
-  font-size: 14px;
-  text-align: center;
-  flex: 1;
-  cursor: pointer;
-  padding: 5px;
-  transition: color 0.3s ease-in-out;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 !important;
+  transition: all 0.3s ease !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  -webkit-appearance: none !important;
+  line-height: 1 !important;
 }
 
 .tab-item ion-icon {
-  font-size: 22px;
-  margin-bottom: 3px;
-  transition: transform 0.3s ease-in-out, color 0.3s ease-in-out;
-  color: var(--ion-color-light, #ffffff);
+  font-size: 22px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  transition: all 0.3s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
 }
 
-/* Active & Hover Effect - Uses Selected Theme Color */
-.tab-item.active,
-.tab-item:hover {
-  color: var(--theme-accent, var(--theme-color, #f4a261)) !important;
+.tab-item.active {
+  color: #ffffff !important;
 }
 
-/* Active & Hover Effect - Icon */
-.tab-item.active ion-icon,
-.tab-item:hover ion-icon {
-  transform: scale(1.1);
-  color: var(--theme-accent, var(--theme-color, #f15a24)) !important;
+.tab-item.active ion-icon {
+  font-size: 24px !important;
+  color: #ffffff !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) !important;
 }
 
-.tab-item.active ion-icon,
-.tab-item:hover ion-icon {
-  transform: scale(1.1);
-  color: var(--ion-color-secondary, var(--theme-accent, #f15a24));
+.tab-item:hover:not(.active) ion-icon {
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* Logout Button */
-.tab-item.logout {
-  color: var(--ion-color-danger, #ff3b30);
-}
-
-/* Show Floating Tab Bar Only on Small Screens */
 @media (max-width: 768px) {
   .floating-tab-bar {
     display: flex;
+    align-items: center;
   }
 }
 
-/* Dark Mode Support */
 body.dark .floating-tab-bar {
-  background: var(--ion-color-primary);
-  box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 10px var(--theme-shadow);
+  background: var(--ion-color-primary, #1e1e1e);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-body.dark .tab-item {
-  color: #bbbbbb;
-}
-
+body.dark .tab-item,
 body.dark .tab-item ion-icon {
-  color: #bbbbbb;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-/* Active & Hover Effect - Dark Mode */
-/* Dark Mode */
 body.dark .tab-item.active,
-body.dark .tab-item:hover {
-  color: var(--theme-accent, var(--theme-color, #ffcc00)) !important;
-}
-
-body.dark .tab-item.active ion-icon,
-body.dark .tab-item:hover ion-icon {
-  color: var(--theme-accent, var(--theme-color, #ffcc00)) !important;
+body.dark .tab-item.active ion-icon {
+  color: #ffffff;
 }
 
 /* ========== FLOATING TAB BAR end ========== */

@@ -210,77 +210,94 @@
 .wr-reports-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
+/* Report Card - Redesigned */
 .wr-report-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 16px;
-  border: 1px solid #00000022;
-  transition: transform 0.2s;
+  background: var(--glass-bg, rgba(255,255,255,0.08));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 18px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-left: 5px solid #e2e8f0;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
 .wr-report-card:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 .wr-report-card.pending-card {
-  border-left: 4px solid #f1a30c;
-  background: rgba(241, 163, 12, 0.05);
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.04);
 }
 
 .wr-report-card.accept-card {
-  border-left: 4px solid #28a745;
-  background: rgba(40, 167, 69, 0.05);
+  border-left-color: #10b981;
+  background: rgba(16, 185, 129, 0.04);
 }
 
 .wr-report-card.reject-card {
-  border-left: 4px solid #dc3545;
-  background: rgba(220, 53, 69, 0.05);
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.04);
 }
 
+/* Card Header Row */
 .wr-report-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  padding: 12px 14px 8px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .wr-status-container {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wr-report-date-badge {
+  background: rgba(var(--ion-color-primary-rgb, 241, 90, 36), 0.12);
+  color: var(--ion-color-primary);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 .wr-status-pill {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   line-height: 1;
-}
-
-.wr-report-date-badge {
-  background: rgba(var(--ion-color-primary-rgb, 241, 90, 36), 0.1);
-  color: var(--ion-color-primary);
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
 .wr-report-location-badge {
   font-size: 11px;
-  color: #999;
-  font-weight: 500;
+  color: #94a3b8;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  white-space: nowrap;
 }
 
+/* Card Content */
 .wr-report-content {
+  padding: 12px 14px 14px 14px;
   color: var(--ion-text-color);
 }
 
@@ -288,39 +305,56 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  gap: 8px;
 }
 
 .wr-report-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ion-color-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Edit Button - Fixed: icon is now white on colored bg */
 .wr-edit-btn {
   background: var(--ion-color-primary);
-  color: var(--ion-color-primary);
+  color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 6px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   display: flex;
   align-items: center;
-  justify-content: center; 
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .wr-edit-btn:hover {
-  background: #f1a30c;
-  color: var(--ion-color-primary);
+  background: #f59e0b;
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.wr-edit-btn:active {
+  transform: scale(0.95);
 }
 
 .wr-report-text {
-  font-size: 14px;
-  line-height: 1.5;
-  opacity: 0.9;
+  font-size: 13px;
+  line-height: 1.6;
+  opacity: 0.85;
   white-space: pre-wrap;
   word-break: break-word;
+  color: var(--ion-text-color);
 }
 
 /* Empty State */
@@ -452,17 +486,58 @@
 /* Mobile Tweaks */
 @media (max-width: 480px) {
   .wr-container {
-    padding: 12px;
-    margin-bottom: 150px;
+    padding: 10px;
+    margin-bottom: 100px;
+    padding-bottom: 100px;
   }
 
-  .wr-view-section{
-    margin-bottom: 150px;
+  .wr-view-section {
+    margin-bottom: 100px;
   }
 
   .wr-card {
-    padding: 16px;
-    border-radius: 20px;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .wr-report-header {
+    padding: 10px 12px 8px 12px;
+    gap: 6px;
+  }
+
+  .wr-report-content {
+    padding: 10px 12px 12px 12px;
+  }
+
+  .wr-report-title {
+    font-size: 14px;
+  }
+
+  .wr-report-text {
+    font-size: 13px;
+  }
+
+  .wr-report-date-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .wr-section-title {
+    font-size: 17px;
+    margin-bottom: 14px;
+  }
+
+  .wr-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .wr-integrated-header {
+    margin-bottom: 16px;
+  }
+
+  .wr-page-title {
+    font-size: 20px;
   }
 }
 
@@ -740,13 +815,21 @@
 
 @media (max-width: 480px) {
   .workrp-wh {
-    display: grid;
-    grid-template-columns: 1, 1fr;
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .premium-filter-trigger {
+    height: 64px !important;
+  }
+
+  .trigger-main {
+    font-size: 13px;
+    max-width: 160px;
   }
 
   .wr-select-custom {
     font-size: 12px;
-    text-wrap: wrap;
   }
 }

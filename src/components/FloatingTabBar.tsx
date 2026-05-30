@@ -44,10 +44,9 @@ const FloatingTabBar: React.FC = () => {
         </button>
 
         <button
-          className={`tab-item ${
-            activeTab === "/adminrequests" ? "active" : ""
-          }`}
-          onClick={() => handleTabClick("/leaverequest")}
+          className={`tab-item ${activeTab === "/requests" ? "active" : ""
+            }`}
+          onClick={() => handleTabClick("/requests")}
         >
           <IonIcon icon={calendar} />
         </button>

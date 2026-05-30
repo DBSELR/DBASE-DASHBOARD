@@ -15,7 +15,7 @@ import {
 } from "@ionic/react";
 import axios from "axios";
 import { API_BASE } from "../config";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 
 // Import Ionicons dynamically
@@ -46,6 +46,7 @@ import FloatingTabBar from "./FloatingTabBar";
 
 const Menu: React.FC = () => {
   const history = useHistory();
+  const location = useLocation();
   const [userData, setUserData] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -174,78 +175,81 @@ const Menu: React.FC = () => {
   return (
     <>
       <IonMenu contentId="main" menuId="main-menu" type="overlay" className="menu-background">
-        <IonContent className="menu-background">
-          {/* Professional & Trendy User Details Header */}
-          <div className="modern-menu-header premium-trendy-bg">
-            <div className="profile-photo-wrapper">
-              {(() => {
-                const picSrc = userProfile?.ProfileImage || userProfile?.Img || userData.profilePic || dummyProfilePic;
-                console.log("[Menu] Rendering profile image with src:", picSrc);
-                return (
-                  <img
-                    className="profile-photo"
-                    src={picSrc}
-                    alt="Profile"
-                    onLoad={() => console.log("[Menu] Profile image loaded successfully:", picSrc)}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (!target.src.includes(dummyProfilePic)) {
-                        console.warn("[Menu] Image failed to load, falling back to dummy:", target.src);
-                        target.src = dummyProfilePic;
-                      }
-                    }}
-                  />
-                );
-              })()}
+        <IonContent className="menu-background" scrollY={false}>
+          <div className="menu-inner-wrapper">
+
+            {/* ── Profile Card (static, never scrolls) ── */}
+            <div className="modern-menu-header premium-trendy-bg">
+              <div className="profile-photo-wrapper">
+                {(() => {
+                  const picSrc = userProfile?.ProfileImage || userProfile?.Img || userData.profilePic || dummyProfilePic;
+                  return (
+                    <img
+                      className="profile-photo"
+                      src={picSrc}
+                      alt="Profile"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.includes(dummyProfilePic)) {
+                          target.src = dummyProfilePic;
+                        }
+                      }}
+                    />
+                  );
+                })()}
+              </div>
+
+              <div className="user-info-container">
+                <h2 className="user-welcome">{userProfile?.EmpName || userData.empName || "User"}</h2>
+                <p className="user-designation">{userProfile?.Designation || userData.designation || "Employee"}</p>
+                <div className="user-badge">{userData.userType} • {userData.empCode}</div>
+              </div>
             </div>
 
-            <div className="user-info-container">
-              <h2 className="user-welcome">{userProfile?.EmpName || userData.empName || "User"}</h2>
-              <p className="user-designation">{userProfile?.Designation || userData.designation || "Employee"}</p>
-              <div className="user-badge">{userData.userType} • {userData.empCode}</div>
-            </div>
+            {/* ── Scrollable Menu List ── */}
+            <IonList ref={menuListRef} className="scrollable-list">
+              <IonMenuToggle autoHide={false}>
+                {menuItems.length > 0 ? (
+                  menuItems.map((menuItem, index) => (
+                    <IonItem
+                      key={index}
+                      button
+                      lines="none"
+                      onClick={() => history.push(menuItem[4])}
+                      className={location.pathname === menuItem[4] ? "item-active" : ""}
+                      style={{ "--item-index": index + 1 } as React.CSSProperties}
+                    >
+                      <div className="menu-item-row">
+                        <div className="menu-icon-chip">
+                          <IonIcon icon={getIcon(menuItem[2])} />
+                        </div>
+                        <span className="menu-item-label">{menuItem[1]}</span>
+                      </div>
+                    </IonItem>
+                  ))
+                ) : (
+                  <p className="ion-padding">No menu items found.</p>
+                )}
+
+                {/* Logout Button */}
+                <IonItem
+                  button
+                  lines="none"
+                  onClick={handleLogout}
+                  className="logout-item"
+                  style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
+                >
+                  <div className="menu-item-row">
+                    <div className="menu-icon-chip">
+                      <IonIcon icon={logOut} />
+                    </div>
+                    <span className="menu-item-label">Logout</span>
+                  </div>
+                </IonItem>
+              </IonMenuToggle>
+            </IonList>
+
           </div>
-
-          {/* Dynamic Menu List */}
-          <IonList ref={menuListRef} className="scrollable-list">
-            <IonMenuToggle autoHide={false}>
-              {menuItems.length > 0 ? (
-                menuItems.map((menuItem, index) => (
-                  <IonItem
-                    key={index}
-                    button
-                    onClick={() => history.push(menuItem[4])}
-                    className={history.location.pathname === menuItem[4] ? "item-active" : ""}
-                    style={{ "--item-index": index + 1 } as React.CSSProperties}
-                  >
-                    <IonIcon className="menu-icons" slot="start" icon={getIcon(menuItem[2])} />
-                    <IonLabel>{menuItem[1]}</IonLabel>
-                  </IonItem>
-                ))
-              ) : (
-                <p className="ion-padding">No menu items found.</p>
-              )}
-
-              {/* Logout Button */}
-              <IonItem
-                button
-                onClick={handleLogout}
-                className="logout-item"
-                style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
-              >
-                <IonIcon className="menu-icons" slot="start" icon={logOut} />
-                <IonLabel>Logout</IonLabel>
-              </IonItem>
-
-              {/* chatbox Button */}
-              {/* <IonItem button onClick={() => handleTabClick("/office-chat")}>
-                <IonIcon className="menu-icons" slot="start" icon={chatbox} />
-                <IonLabel>Chat</IonLabel>
-              </IonItem> */}
-
-
-            </IonMenuToggle>
-          </IonList>
         </IonContent>
       </IonMenu>
 
