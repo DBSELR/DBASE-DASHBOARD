@@ -8,9 +8,7 @@ import {
 
 import { API_BASE } from "../config";
 
-/* =========================
-   🔥 FIREBASE CONFIG (NEW)
-========================= */
+/* Firebase Config */
 const firebaseConfig = {
   apiKey: "AIzaSyAxbahDANKCJWylY9gHrNXfYM3olBnxKEE",
   authDomain: "bbs-notifications-2d51c.firebaseapp.com",
@@ -21,113 +19,107 @@ const firebaseConfig = {
   measurementId: "G-Y9VWEH2W7H",
 };
 
-/* =========================
-   🔑 VAPID KEY (NEW)
-========================= */
 const VAPID_KEY =
   "BD7X_0fm0eL8JFSg3dFrk8m4SCfST3FUcK7L6RlT8tQshFlOmt0tGPHBBIqJ0pNRAYWqIbcA2I7b-N24995C7KU";
 
-/* =========================
-   INIT FIREBASE APP (SAFE)
-========================= */
 const app =
-  getApps().length === 0
-    ? initializeApp(firebaseConfig)
-    : getApps()[0];
+  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-/* =========================
-   REGISTER PUSH NOTIFICATIONS
-========================= */
-export const registerWebPush = async (
-  empCode: string
-): Promise<string | null> => {
+export const registerWebPush = async (p0: any): Promise<string | null> => {
   try {
     const supported = await isSupported();
+    if (!supported) return null;
 
-    if (!supported) {
-      console.warn("[FCM] Not supported in this browser");
-      return null;
-    }
-
-    if (!("serviceWorker" in navigator)) {
-      console.warn("[FCM] Service Worker not supported");
-      return null;
-    }
+    if (!("serviceWorker" in navigator)) return null;
 
     const permission = await Notification.requestPermission();
+    if (permission !== "granted") return null;
 
-    if (permission !== "granted") {
-      console.warn("[FCM] Permission denied");
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+
+    let empCode = null;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      empCode = payload?.empCode;
+    } catch {
       return null;
     }
 
-    /* =========================
-       REGISTER SERVICE WORKER
-    ========================= */
+    if (!empCode) return null;
+
     const swRegistration = await navigator.serviceWorker.register(
       "/firebase-messaging-sw.js"
     );
 
-    console.log("[FCM] Service Worker Registered");
-
     const messaging = getMessaging(app);
 
-    /* =========================
-       GET FCM TOKEN
-    ========================= */
-    const currentToken = await getToken(messaging, {
+    const fcmToken = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swRegistration,
     });
 
-    if (!currentToken) {
-      console.warn("[FCM] Token not generated");
-      return null;
-    }
+    if (!fcmToken) return null;
 
-    console.log("[FCM] TOKEN:", currentToken);
+    console.log("[FCM] Token:", fcmToken);
 
     /* =========================
        SAVE TOKEN TO BACKEND
     ========================= */
-    const deviceInfo = navigator.userAgent;
-    await fetch(`${API_BASE}Notifications/SavePushToken`, {
+    await fetch(`${API_BASE}/Notifications/SavePushToken`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         EmpCode: empCode,
-        FCMToken: currentToken,
-        DeviceInfo: deviceInfo
+        FCMToken: fcmToken,
+        DeviceInfo: navigator.userAgent,
       }),
     });
 
-    console.log("[FCM] Token saved to backend");
-
     /* =========================
-       FOREGROUND NOTIFICATIONS
-       (IMPORTANT FIXED FOR MOBILE)
+       🔥 ADDED: TEST SEND PUSH
     ========================= */
+    await fetch(`${API_BASE}/Notifications/SendPush`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        empCode: empCode,
+        title: "Login Successful",
+        body: "You are now connected to notifications",
+        url: "/",
+      }),
+    });
+
+    /* Foreground messages */
     onMessage(messaging, (payload) => {
-      console.log("[FCM] Foreground Message:", payload);
+      console.log("[FCM] Foreground:", payload);
 
       const title =
-        payload.notification?.title || "Office Dashboard";
+        payload.notification?.title ||
+        payload.data?.title ||
+        "Notification";
+
+      const body =
+        payload.notification?.body ||
+        payload.data?.body ||
+        "";
 
       if (Notification.permission === "granted") {
-        swRegistration.showNotification(title, {
-          body:
-            payload.notification?.body ||
-            "You have a new notification",
+        new Notification(title, {
+          body,
           icon: "/logo192.png",
           data: payload.data,
         });
       }
     });
 
-    return currentToken;
+    return fcmToken;
   } catch (error) {
     console.error("[FCM] Error:", error);
     return null;
