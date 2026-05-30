@@ -63,6 +63,12 @@ import MeetingMaster from "./pages/MeetingMaster";
 import MeetingDashboard from "./pages/MeetingDashboard";
 import MeetingList from "./pages/MeetingList";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
+import PenaltyMaster from "./pages/PenaltyMaster";
+import PenaltyAssignment from "./pages/PenaltyAssignment";
+import PenaltyDashboard from "./pages/PenaltyDashboard";
+
+
+
 
 AnswerKeyImport
 
@@ -149,6 +155,9 @@ const App: React.FC = () => {
                   <Route exact path="/meeting-master" component={MeetingMaster} />
                   <Route exact path="/meeting-dashboard" component={MeetingDashboard} />
                   <Route exact path="/meeting-list" component={MeetingList} />
+                  <Route exact path="/penalty-master" component={PenaltyMaster} />
+                  <Route exact path="/penalty-assignment" component={PenaltyAssignment} />
+                  <Route exact path="/penalty-dashboard" component={PenaltyDashboard} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>
