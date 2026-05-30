@@ -123,13 +123,31 @@ const NotificationCard: React.FC<SingleCardProps> = ({ notification, onDismiss }
 };
 
 const TaskNotificationPopup: React.FC = () => {
-  const { pendingNotifications, dismissNotification } = useTaskNotification();
+const { pendingNotifications, dismissNotification } = useTaskNotification();
+const isToday = (dateStr: string) => {
+  if (!dateStr) return false;
 
-  if (pendingNotifications.length === 0) return null;
+  const d = new Date(dateStr);
+
+  if (isNaN(d.getTime())) return false;
+
+  const today = new Date();
+
+  return (
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  );
+};
+const todayNotifications = pendingNotifications.filter((n) =>
+  isToday(n.CreatedDate)
+);
+
+  if (todayNotifications.length === 0) return null;
 
   return (
     <div className="tn-wrapper">
-      {pendingNotifications.map((notif) => (
+      {todayNotifications.map((notif) => (
         <NotificationCard
           key={`${notif.NotificationId}-${notif.TID}`}
           notification={notif}
