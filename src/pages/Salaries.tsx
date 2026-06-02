@@ -494,29 +494,42 @@ const Salaries: React.FC = () => {
   // ==========================
   // API 10: UPDATE ADJUSTMENT
   // ==========================
-  const UpdateAdjustment = async (
-    Ecode: any,
-    AddDays: any,
-    Remark: any,
-    AdvDed: any
-  ) => {
-    try {
-      if (!SalMY) return;
-      const tmpMY = moment(SalMY).format("MMM-YYYY");
-      const payload = {
-        _SalMY: tmpMY,
-        _Ecode: Ecode,
-        _AddDays: AddDays || 0,
-        _Remark: Remark || "",
-        _AdvDed: AdvDed || 0,
-      };
+ const UpdateAdjustment = async (
+  Ecode: any,
+  AddDays: any,
+  Remark: any,
+  AdvDed: any
+) => {
+  try {
+    const tmpMY = moment(SalMY).format("MMM-YYYY");
 
-      await axios.post(`${API_BASE}Salaries/UpdateSalAdjust`, payload);
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    const payload = {
+      _SalMY: tmpMY,
+      _Ecode: String(Ecode ?? ""),
+      _AddDays: String(AddDays ?? ""),
+      _Remark: String(Remark ?? ""),
+      _AdvDed: String(AdvDed ?? "")
+    };
 
+    console.log("Sending Payload:", payload);
+
+    const res = await axios.post(
+      `${API_BASE}Salaries/UpdateSalAdjust`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("Update Success", res.data);
+  } catch (err: any) {
+    console.error("Response Data:", err?.response?.data);
+    console.error("Status:", err?.response?.status);
+    console.error("Error:", err);
+  }
+};
   // ==========================
   // Selection Logic
   // ==========================
@@ -800,14 +813,20 @@ const Salaries: React.FC = () => {
                             className="adjustment-input"
                             placeholder="Add Days"
                             value={x.Add_Days || ""}
-                            onChange={(e: any) => {
-                              const updated = [...dt_SalAdjust];
-                              updated[i].Add_Days = e.target.value;
-                              setDt_SalAdjust(updated);
-                            }}
-                            onBlur={() =>
-                              UpdateAdjustment(x.Empcode, x.Add_Days, x.Remarks, x.Advance_Ded)
-                            }
+                          onChange={(e: any) => {
+  const value = e.target.value;
+
+  const updated = [...dt_SalAdjust];
+  updated[i].Add_Days = value;
+  setDt_SalAdjust(updated);
+
+  UpdateAdjustment(
+    x.Empcode,
+    value,
+    updated[i].Remarks,
+    updated[i].Advance_Ded
+  );
+}}
                           />
                         </IonCol>
                         <IonCol size="2">
@@ -816,14 +835,20 @@ const Salaries: React.FC = () => {
                             className="adjustment-input"
                             placeholder="Remarks"
                             value={x.Remarks || ""}
-                            onChange={(e: any) => {
-                              const updated = [...dt_SalAdjust];
-                              updated[i].Remarks = e.target.value;
-                              setDt_SalAdjust(updated);
-                            }}
-                            onBlur={() =>
-                              UpdateAdjustment(x.Empcode, x.Add_Days, x.Remarks, x.Advance_Ded)
-                            }
+                          onChange={(e: any) => {
+  const value = e.target.value;
+
+  const updated = [...dt_SalAdjust];
+  updated[i].Remarks = value;
+  setDt_SalAdjust(updated);
+
+  UpdateAdjustment(
+    x.Empcode,
+    updated[i].Add_Days,
+    value,
+    updated[i].Advance_Ded
+  );
+}}
                           />
                         </IonCol>
                         <IonCol size="2">
@@ -841,14 +866,20 @@ const Salaries: React.FC = () => {
                             className="adjustment-input"
                             placeholder="Adv. Repay"
                             value={x.Advance_Ded || ""}
-                            onChange={(e: any) => {
-                              const updated = [...dt_SalAdjust];
-                              updated[i].Advance_Ded = e.target.value;
-                              setDt_SalAdjust(updated);
-                            }}
-                            onBlur={() =>
-                              UpdateAdjustment(x.Empcode, x.Add_Days, x.Remarks, x.Advance_Ded)
-                            }
+                          onChange={(e: any) => {
+  const value = e.target.value;
+
+  const updated = [...dt_SalAdjust];
+  updated[i].Advance_Ded = value;
+  setDt_SalAdjust(updated);
+
+  UpdateAdjustment(
+    x.Empcode,
+    updated[i].Add_Days,
+    updated[i].Remarks,
+    value
+  );
+}}
                           />
                         </IonCol>
                       </IonRow>
