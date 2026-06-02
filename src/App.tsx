@@ -67,7 +67,7 @@ import PenaltyMaster from "./pages/PenaltyMaster";
 import PenaltyAssignment from "./pages/PenaltyAssignment";
 import PenaltyDashboard from "./pages/PenaltyDashboard";
 
-
+import EmployeePenalties from "./pages/EmployeePenalties";
 
 
 AnswerKeyImport
@@ -158,6 +158,7 @@ const App: React.FC = () => {
                   <Route exact path="/penalty-master" component={PenaltyMaster} />
                   <Route exact path="/penalty-assignment" component={PenaltyAssignment} />
                   <Route exact path="/penalty-dashboard" component={PenaltyDashboard} />
+                  <Route exact path="/employee-penalties" component={EmployeePenalties} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>

@@ -592,3 +592,7 @@
     font-size: 0.75rem;
   }
 }
+
+ .home-card-penalties .home-card-icon-wrapper {
+    background: linear-gradient(135deg,#ef4444,#dc2626);
+}
