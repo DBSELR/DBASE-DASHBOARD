@@ -26,6 +26,12 @@ const Reports: React.FC = () => {
       try {
         const parsed = JSON.parse(user);
         setUserData(parsed);
+        if (
+  parsed.designation !== "Director" &&
+  parsed.designation !== "In-Charge F&A"
+) {
+  setReportType("Salary Generation Details");
+}
         LOG("User loaded:", parsed);
       } catch (e) {
         console.error("[Reports] Failed to parse user from localStorage:", e);
@@ -34,6 +40,7 @@ const Reports: React.FC = () => {
       console.warn("[Reports] No user found in localStorage");
     }
     GROUP_END();
+    
   }, []);
 
   /* ------------- cleanup ------------- */
@@ -160,6 +167,26 @@ const Reports: React.FC = () => {
     }
   };
 
+  const userDesig = userData?.designation;
+
+const reportOptions =
+  userDesig === "Director" ||
+  userDesig === "In-Charge F&A"
+    ? [
+        "Employee List",
+        "Salary Statement",
+        "Salary Generation Details",
+        "Salary Generation Abstract",
+        "Work Report",
+        "Timings & Leaves",
+        "stock",
+        "Vouchers",
+        "Employee Check-In/s"
+      ]
+    : [
+        "Salary Generation Details"
+      ];
+
   return (
     <div className="rpt-main-container">
       <header className="rpt-header rpt-fade-in stagger-1 premium-trendy-bg">
@@ -184,21 +211,23 @@ const Reports: React.FC = () => {
           <div className="rpt-input-group">
             <label className="rpt-label">Select Report</label>
             <select
-              className="rpt-select"
-              value={reportType || ""}
-              onChange={(e) => setReportType(e.target.value)}
-            >
-              <option value="" disabled>--- Choose Report ---</option>
-              <option value="Employee List">Employee List</option>
-              <option value="Salary Statement">Salary Statement</option>
-              <option value="Salary Generation Details">Salary Generation Details</option>
-              <option value="Salary Generation Abstract">Salary Generation Abstract</option>
-              <option value="Work Report">Work Report</option>
-              <option value="Timings & Leaves">Timings & Leaves</option>
-              <option value="stock">Stock</option>
-              <option value="Vouchers">Vouchers</option>
-              <option value="Employee Check-In/s">Employee Check-In/s</option>
-            </select>
+  className="rpt-select"
+  value={reportType || ""}
+  onChange={(e) => setReportType(e.target.value)}
+>
+  <option value="" disabled>
+    --- Choose Report ---
+  </option>
+
+  {reportOptions.map((report) => (
+    <option
+      key={report}
+      value={report}
+    >
+      {report}
+    </option>
+  ))}
+</select>
           </div>
 
           {/* From Date */}
