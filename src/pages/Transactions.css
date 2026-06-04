@@ -296,6 +296,14 @@
     align-items: center;
 }
 
+.txn-remark-meta {
+    color: #64748b; /* slate-500 */
+    font-weight: 600;
+    font-size: 12px;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
 .amt-status {
     font-size: 10px;
     text-transform: uppercase;
@@ -841,4 +849,10 @@
     .verification-btn {
         min-width: 180px;
     }
+}
+.txn-remark-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
 }
