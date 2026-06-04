@@ -77,18 +77,22 @@
 }
 
 /* ===================================
-   SUMMARY CARDS
+   SUMMARY KPI CARDS
 =================================== */
 
 .summary-card {
 
     display: grid;
 
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(220px, 1fr)
+        );
 
-    gap: 14px;
+    gap: 16px;
 
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
 .summary-box {
@@ -99,18 +103,31 @@
 
     border-radius: 14px;
 
-    min-height: 90px;
+    padding: 20px;
 
-    padding: 18px 22px;
-
-    box-shadow:
-        0 4px 12px rgba(0,0,0,.08);
+    min-height: 120px;
 
     display: flex;
 
     flex-direction: column;
 
     justify-content: center;
+
+    box-shadow:
+        0 4px 12px
+        rgba(0,0,0,.08);
+
+    transition: all .3s ease;
+}
+
+.summary-box:hover {
+
+    transform:
+        translateY(-4px);
+
+    box-shadow:
+        0 8px 18px
+        rgba(0,0,0,.12);
 }
 
 .summary-box::before {
@@ -119,9 +136,9 @@
 
     position: absolute;
 
-    width: 80px;
+    width: 90px;
 
-    height: 80px;
+    height: 90px;
 
     top: -20px;
 
@@ -129,12 +146,18 @@
 
     border-radius: 50%;
 
-    background: rgba(255,255,255,.15);
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .15
+        );
 }
 
 .summary-box span {
 
-    color: #ffffff;
+    color: #fff;
 
     font-size: 15px;
 
@@ -145,33 +168,75 @@
 
 .summary-box h1 {
 
-    margin: 6px 0 0;
+    margin-top: 8px;
 
-    color: #ffffff;
+    color: #fff;
 
-    font-size: 34px;
+    font-size: 36px;
 
     font-weight: 700;
 
     z-index: 1;
 }
 
+/* GREEN */
+
+.green-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #16a34a,
+            #22c55e
+        );
+}
+
+/* YELLOW */
+
 .yellow-box {
 
-    background: linear-gradient(
-        135deg,
-        #f59e0b,
-        #fbbf24
-    );
+    background:
+        linear-gradient(
+            135deg,
+            #d97706,
+            #f59e0b
+        );
 }
+
+/* ORANGE */
+
+.orange-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #ea580c,
+            #fb923c
+        );
+}
+
+/* RED */
 
 .red-box {
 
-    background: linear-gradient(
-        135deg,
-        #dc2626,
-        #ef4444
-    );
+    background:
+        linear-gradient(
+            135deg,
+            #dc2626,
+            #ef4444
+        );
+}
+
+/* PERFORMANCE SCORE */
+
+.score-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #3b82f6
+        );
 }
 
 /* ===================================
@@ -288,6 +353,45 @@
 }
 
 /* ===================================
+   ESCALATION STATUS CARD
+=================================== */
+
+.escalation-card {
+
+    padding: 30px;
+
+    border-radius: 12px;
+
+    text-align: center;
+
+    font-size: 24px;
+
+    font-weight: 700;
+
+    color: #fff;
+}
+
+.escalation-card.green {
+
+    background: #16a34a;
+}
+
+.escalation-card.yellow {
+
+    background: #d97706;
+}
+
+.escalation-card.orange {
+
+    background: #ea580c;
+}
+
+.escalation-card.red {
+
+    background: #dc2626;
+}
+
+/* ===================================
    ESCALATION BADGES
 =================================== */
 
@@ -389,47 +493,40 @@
     background: #f1f5f9;
 }
 
-/* ===================================
-   MOBILE
-=================================== */
-
 @media (max-width: 768px) {
 
     .employee-penalty {
-
         padding: 10px;
     }
 
     .employee-header h1 {
-
-        font-size: 24px;
+        font-size: 22px;
     }
 
     .summary-card {
-
         grid-template-columns: 1fr;
     }
 
     .summary-box {
-
-        min-height: 80px;
+        min-height: 90px;
     }
 
     .summary-box h1 {
-
         font-size: 28px;
     }
 
     .dashboard-section {
-
         padding: 14px;
     }
 
     .penalty-table th,
     .penalty-table td {
-
         padding: 10px;
-
         font-size: 12px;
+    }
+
+    .escalation-card {
+        font-size: 18px;
+        padding: 20px;
     }
 }

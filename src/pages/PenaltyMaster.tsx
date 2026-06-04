@@ -157,6 +157,7 @@ function PenaltyMaster() {
               <option>MyZen Compliance</option>
               <option>Data Breach / Fraud</option>
               <option>Disobedience / Quarrel</option>
+              <option>Appreciation / Recognition</option>
 
             </select>
 
@@ -182,7 +183,13 @@ function PenaltyMaster() {
               <option>Per Instance</option>
               <option>Per 2 Instances</option>
               <option>Per 3 Instances</option>
-
+              <option>Weekly</option>
+              <option>Monthly</option>
+              <option>Quarterly</option>
+              <option>Yearly</option>
+              <option>Project Based</option>
+              <option>Event Based</option>
+              <option>One Time</option>
             </select>
 
           </div>
@@ -203,7 +210,8 @@ function PenaltyMaster() {
 
               <option>Yellow Slip</option>
               <option>Red Slip</option>
-
+              <option>Green Slip</option>
+               <option>Orange Slip</option>
             </select>
 
           </div>

@@ -1,0 +1,151 @@
+.meeting-page {
+    width: 100%;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+.meeting-card {
+    width: 100%;
+    max-width: 100%;
+    background: #fff;
+    border-radius: 15px;
+    padding: 25px;
+    box-sizing: border-box;
+    margin-bottom: 50px;
+}
+
+.meeting-header {
+    margin-bottom: 25px;
+}
+
+.meeting-header h2 {
+    color: #ff8c00;
+    font-size: 36px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.meeting-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 100%;
+}
+
+.field-box {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.field-box label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.field-box input,
+.field-box select,
+.field-box textarea,
+.field-box ion-select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.field-box input,
+.field-box select,
+.field-box textarea {
+    padding: 5px;
+    border: 1px solid #dcdcdc;
+    border-radius: 10px;
+    font-size: 15px;
+}
+
+.field-box textarea {
+    resize: vertical;
+    min-height: 30px;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.meeting-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.meeting-table th {
+    background: #f3f3f3;
+    text-align: left;
+    padding: 12px;
+}
+
+.meeting-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.save-btn {
+    margin-top: 25px;
+    width: 100%;
+    height: 52px;
+    border: none;
+    border-radius: 10px;
+    background: #ff8c00;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.save-btn:hover {
+    opacity: 0.9;
+}
+
+input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #dcdcdc;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.proof-preview {
+    margin-top: 10px;
+}
+
+.proof-preview img {
+    max-width: 300px;
+    max-height: 250px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+
+    .meeting-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .meeting-header h2 {
+        font-size: 26px;
+    }
+
+    .save-btn {
+        width: 100%;
+    }
+}

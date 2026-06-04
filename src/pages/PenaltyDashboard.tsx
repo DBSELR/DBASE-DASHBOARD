@@ -11,8 +11,10 @@ import {
 } from "ionicons/icons";
 
 import "./PenaltyDashboard.css";
+import { useHistory } from "react-router-dom";
 
 function PenaltyDashboard() {
+  const history = useHistory();
 
   const [dashboard, setDashboard] = useState<any>({
     summary: [],
@@ -87,75 +89,114 @@ function PenaltyDashboard() {
 
       <div className="dashboard-header">
 
-        <h1>Employee Penalty Dashboard</h1>
+  <h1>Employee Penalty Dashboard</h1>
 
-      </div>
+  <button
+    className="penalty-list-btn"
+    onClick={() => history.push("/penalty-list")}
+  >
+    View Penalty List
+  </button>
 
-      {/* KPI CARDS */}
+</div>
 
-      <div className="dashboard-cards">
+     {/* KPI CARDS */}
 
-        <div className="dashboard-card yellow">
+<div className="dashboard-cards">
 
-          <IonIcon
-            icon={warningOutline}
-            className="card-icon"
-          />
+  {/* Green */}
 
-          <h4>Total Yellow Slips</h4>
+  <div className="dashboard-card green">
 
-          <h1>{summary.TotalYellowSlips}</h1>
+    <IonIcon
+      icon={statsChartOutline}
+      className="card-icon"
+    />
 
-        </div>
+    <h4>Total Green Slips</h4>
 
-        <div className="dashboard-card red">
+    <h1>{summary.TotalGreenSlips || 0}</h1>
 
-          <IonIcon
-            icon={alertCircleOutline}
-            className="card-icon"
-          />
+  </div>
 
-          <h4>Total Red Slips</h4>
+  {/* Yellow */}
 
-          <h1>{summary.TotalRedSlips}</h1>
+  <div className="dashboard-card yellow">
 
-        </div>
+    <IonIcon
+      icon={warningOutline}
+      className="card-icon"
+    />
 
-        <div className="dashboard-card blue">
+    <h4>Total Yellow Slips</h4>
 
-          <IonIcon
-            icon={peopleOutline}
-            className="card-icon"
-          />
+    <h1>{summary.TotalYellowSlips || 0}</h1>
 
-          <h4>Total Employees</h4>
+  </div>
 
-          <h1>{summary.TotalEmployees}</h1>
+  {/* Orange */}
 
-        </div>
+  <div className="dashboard-card orange">
 
-        <div className="dashboard-card green">
+    <IonIcon
+      icon={alertCircleOutline}
+      className="card-icon"
+    />
 
-          <IonIcon
-            icon={statsChartOutline}
-            className="card-icon"
-          />
+    <h4>Total Orange Slips</h4>
 
-          <h4>Total Violations</h4>
+    <h1>{summary.TotalOrangeSlips || 0}</h1>
 
-         <h1>
-{
-  dashboard.topViolations.reduce(
-      (sum:any,x:any) => sum + Number(x.TotalCount),
-      0
-  )
-}
-</h1>
+  </div>
 
-        </div>
+  {/* Red */}
 
-      </div>
+  <div className="dashboard-card red">
 
+    <IonIcon
+      icon={alertCircleOutline}
+      className="card-icon"
+    />
+
+    <h4>Total Red Slips</h4>
+
+    <h1>{summary.TotalRedSlips || 0}</h1>
+
+  </div>
+
+  {/* Employees */}
+
+  <div className="dashboard-card blue">
+
+    <IonIcon
+      icon={peopleOutline}
+      className="card-icon"
+    />
+
+    <h4>Total Employees</h4>
+
+    <h1>{summary.TotalEmployees || 0}</h1>
+
+  </div>
+
+  {/* Overall Score */}
+
+  <div className="dashboard-card purple">
+
+    <IonIcon
+      icon={statsChartOutline}
+      className="card-icon"
+    />
+
+    <h4>Organization Score</h4>
+
+    <h1>
+      {summary.TotalScore || 0}
+    </h1>
+
+  </div>
+
+</div>
       {/* TOP VIOLATIONS */}
 
       <div className="dashboard-section">

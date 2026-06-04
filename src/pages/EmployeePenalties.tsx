@@ -129,35 +129,40 @@ function EmployeePenalties() {
 
             </div>
 
-            {/* SUMMARY */}
+           {/* SUMMARY */}
 
-            <div className="summary-card">
+<div className="summary-card">
+
+    <div className="summary-box green-box">
+        <span>Green Slips</span>
+        <h1>{emp.TotalGreenSlips || 0}</h1>
+    </div>
 
     <div className="summary-box yellow-box">
+        <span>Yellow Slips</span>
+        <h1>{emp.TotalYellowSlips || 0}</h1>
+    </div>
 
-                    <span>
-                        Yellow Slips
-                    </span>
+    <div className="summary-box orange-box">
+        <span>Orange Slips</span>
+        <h1>{emp.TotalOrangeSlips || 0}</h1>
+    </div>
 
-                    <h1>
-                        {emp.TotalYellowSlips || 0}
-                    </h1>
+    <div className="summary-box red-box">
+        <span>Red Slips</span>
+        <h1>{emp.TotalRedSlips || 0}</h1>
+    </div>
 
-                </div>
+    <div className="summary-box score-box">
+        <span>Performance Score</span>
+        <h1>
+            {Number(
+                emp.TotalPerformanceScore || 0
+            ).toFixed(2)}
+        </h1>
+    </div>
 
-                <div className="summary-box red-box">
-
-                    <span>
-                        Red Slips
-                    </span>
-
-                    <h1>
-                        {emp.TotalRedSlips || 0}
-                    </h1>
-
-                </div>
-
-            </div>
+</div>
 
             {/* VIOLATIONS */}
 
@@ -261,36 +266,36 @@ function EmployeePenalties() {
 
             {/* ESCALATION */}
 
-            <div className="dashboard-section">
+<div className="dashboard-section">
 
-                <h2>
-                    Escalation Status
-                </h2>
+    <h2>
+        Current Escalation Status
+    </h2>
 
-                <div
-                    className={
-                        esc.EscalationStatus ===
-                            "Disciplinary Review"
-                            ? "escalation red"
+    <div
+        className={
+            esc.EscalationStatus ===
+            "Disciplinary Review"
+                ? "escalation-card red"
 
-                            : esc.EscalationStatus ===
-                                "Manager Escalation"
-                                ? "escalation orange"
+                : esc.EscalationStatus ===
+                  "Manager Escalation"
+                ? "escalation-card orange"
 
-                                : esc.EscalationStatus ===
-                                    "HR Warning"
-                                    ? "escalation yellow"
+                : esc.EscalationStatus ===
+                  "HR Warning"
+                ? "escalation-card yellow"
 
-                                    : "escalation green"
-                    }
-                >
-                    {
-                        esc.EscalationStatus ||
-                        "Normal"
-                    }
-                </div>
+                : "escalation-card green"
+        }
+    >
+        {
+            esc.EscalationStatus ||
+            "Normal"
+        }
+    </div>
 
-            </div>
+</div>
 
         </div>
     );
