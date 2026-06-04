@@ -1240,7 +1240,7 @@ const Transactions: React.FC = () => {
                     const isCredit = t.bclass === "Credit";
                     const cdesc = t.CDescription || "";
                     const salOrAdv = t.SALorAdv || "";
-                    const remark = t.Remarks || "";
+                    const remark = "";
                     const isGeneric = cdesc.trim() === "" || cdesc.toLowerCase().includes("money transfer");
                     const displayTitle = (isGeneric && (salOrAdv || remark))
                       ? [salOrAdv, remark].filter(Boolean).join(" ")
@@ -1264,18 +1264,14 @@ const Transactions: React.FC = () => {
                           <div className="txn-footer">
   <div className="txn-meta">
     <span>{t.Date}</span>
-    <span> • {t.Remarks}  </span>
+   
     {t.SALorAdv && <span> • {t.SALorAdv}</span>}
-  </div>
-
-{t.Remarks && (
-  <div className="txn-remark-meta">
-    Remarks:{" "}
-    {typeof t.Remarks === "string" && t.Remarks.length > 30
-      ? t.Remarks.substring(0, 30) + "..."
+    {t.Remarks && <span>  • {typeof t.Remarks === "string" 
+      ? t.Remarks 
       : t.Remarks}
+  
+    </span>}
   </div>
-)}
 
   <div className="amt-status">
     {isCredit ? "Received" : "Paid"}
