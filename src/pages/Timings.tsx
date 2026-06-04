@@ -67,7 +67,7 @@ const Timings: React.FC = () => {
 
   const lineCanvasRef = useRef<HTMLCanvasElement>(null);
   const doubleBarCanvasRef = useRef<HTMLCanvasElement>(null);
-  const lineChartInstanceRef = useRef<Chart | null>(null);
+  const lineChartInstanceRef = useRef<Chart | null>(null);  
   const doubleBarChartInstanceRef = useRef<Chart | null>(null);
 
   const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;

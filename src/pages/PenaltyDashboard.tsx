@@ -16,12 +16,13 @@ import { useHistory } from "react-router-dom";
 function PenaltyDashboard() {
   const history = useHistory();
 
-  const [dashboard, setDashboard] = useState<any>({
-    summary: [],
-    topViolations: [],
-    scoreCard: [],
-    escalations: []
-  });
+  const [dashboard,setDashboard]=useState<any>({
+ summary:[],
+ topViolations:[],
+ scoreCard:[],
+ escalations:[],
+ worstPerformers:[]
+});
 
   const [loading, setLoading] = useState(true);
 
@@ -50,7 +51,8 @@ function PenaltyDashboard() {
         summary: response.data.summary || [],
         topViolations: response.data.topViolations || [],
         scoreCard: response.data.scoreCard || [],
-        escalations: response.data.escalations || []
+        escalations: response.data.escalations || [],
+        worstPerformers: response.data.worstPerformers || []
       });
 
     }
@@ -188,11 +190,14 @@ function PenaltyDashboard() {
       className="card-icon"
     />
 
-    <h4>Organization Score</h4>
+    <h4>Average Performance Score</h4>
 
     <h1>
-      {summary.TotalScore || 0}
-    </h1>
+{
+Number(summary.AverageScore || 0)
+.toFixed(2)
+}
+</h1>
 
   </div>
 
@@ -280,73 +285,62 @@ function PenaltyDashboard() {
 
           <table className="dashboard-table">
 
-            <thead>
+           <thead>
+<tr>
+  <th>Employee Code</th>
+  <th>Employee Name</th>
+  <th>Green</th>
+  <th>Yellow</th>
+  <th>Orange</th>
+  <th>Red</th>
+  <th>Score</th>
+  <th>Scale</th>
+</tr>
+</thead>
 
-              <tr>
+<tbody>
 
-                <th>Employee Code</th>
-                <th>Employee Name</th>
-                <th>Yellow Slips</th>
-                <th>Red Slips</th>
+{
+dashboard.scoreCard.map((item:any,index:number)=>(
 
-              </tr>
+<tr key={index}>
+  <td>{item.EMPCODE}</td>
+  <td>{item.EMPNAME}</td>
 
-            </thead>
+  <td>
+    <span className="green-badge">
+      {item.GreenSlips}
+    </span>
+  </td>
 
-            <tbody>
+  <td>
+    <span className="yellow-badge">
+      {item.YellowSlips}
+    </span>
+  </td>
 
-              {
-                dashboard.scoreCard.length > 0 ?
+  <td>
+    <span className="orange-badge">
+      {item.OrangeSlips}
+    </span>
+  </td>
 
-                  dashboard.scoreCard.map(
-                    (item: any, index: number) => (
+  <td>
+    <span className="red-badge">
+      {item.RedSlips}
+    </span>
+  </td>
 
-                      <tr key={index}>
+  <td>{item.PerformanceScore}</td>
 
-                        <td>{item.EMPCODE}</td>
+  <td>{item.PerformanceScale}</td>
 
-                        <td>{item.EMPNAME}</td>
+</tr>
 
-                        <td>
+))
+}
 
-                          <span className="yellow-badge">
-
-                            {item.YellowSlips}
-
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                          <span className="red-badge">
-
-                            {item.RedSlips}
-
-                          </span>
-
-                        </td>
-
-                      </tr>
-
-                    )
-                  )
-
-                  :
-
-                  <tr>
-
-                    <td
-                      colSpan={4}
-                      className="no-data"
-                    >
-                      No Employee Data Found
-                    </td>
-
-                  </tr>
-              }
-
-            </tbody>
+</tbody>
 
           </table>
 
@@ -368,10 +362,15 @@ function PenaltyDashboard() {
 
               <tr>
 
-                <th>Employee</th>
-                <th>Yellow Slips</th>
-                <th>Red Slips</th>
-                <th>Status</th>
+               <th>Emp Code</th>
+<th>Employee Name</th>
+<th>Green</th>
+<th>Yellow</th>
+<th>Orange</th>
+<th>Red</th>
+<th>Score</th>
+<th>Scale</th>
+<th>Status</th>
 
               </tr>
 
@@ -387,11 +386,17 @@ function PenaltyDashboard() {
 
                       <tr key={index}>
 
-                        <td>{item.EMPNAME}</td>
+                       <td>{item.EMPCODE}</td>
+<td>{item.EMPNAME}</td>
 
-                        <td>{item.YellowSlips}</td>
+<td>{item.GreenSlips}</td>
+<td>{item.YellowSlips}</td>
+<td>{item.OrangeSlips}</td>
+<td>{item.RedSlips}</td>
 
-                        <td>{item.RedSlips}</td>
+<td>{item.PerformanceScore}</td>
+
+<td>{item.PerformanceScale}</td>
 
                         <td>
 
@@ -435,11 +440,60 @@ function PenaltyDashboard() {
           </table>
 
         </div>
+
+        <div className="dashboard-section">
+
+<h2>Top 10 Worst Performers</h2>
+
+<div className="table-container">
+
+<table className="dashboard-table">
+
+<thead>
+<tr>
+<th>EmpCode</th>
+<th>Name</th>
+<th>Green</th>
+<th>Yellow</th>
+<th>Orange</th>
+<th>Red</th>
+<th>Score</th>
+</tr>
+</thead>
+
+<tbody>
+
+{
+dashboard.worstPerformers.map(
+(item:any,index:number)=>(
+
+<tr key={index}>
+<td>{item.EMPCODE}</td>
+<td>{item.EMPNAME}</td>
+<td>{item.GreenSlips}</td>
+<td>{item.YellowSlips}</td>
+<td>{item.OrangeSlips}</td>
+<td>{item.RedSlips}</td>
+<td>{item.PerformanceScore}</td>
+</tr>
+
+))
+}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
 <div className="fab-container">
         {/* Your orange action button element goes here */}
         <button className="your-orange-btn-class">+</button> 
       </div>
     </div>
+
+    
       </div>
 
    

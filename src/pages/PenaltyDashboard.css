@@ -16,29 +16,19 @@ ion-app {
    DASHBOARD CONTAINER
 ========================================== */
 
-.penalty-dashboard {
-    max-width: 1450px;
+.penalty-dashboard{
 
-    margin: 0 auto;
+width:100%;
 
-    padding: 16px;
+max-width:100%;
 
-    min-height: 100vh;
+padding:20px;
 
-    background: #eef2f7;
+background:#f1f5f9;
 
-    overflow-y: auto;
+min-height:100vh;
 
-    overflow-x: hidden;
-
-    font-family:
-        "Segoe UI",
-        Tahoma,
-        Geneva,
-        Verdana,
-        sans-serif;
-
-    scrollbar-width: thin;
+overflow-x:auto;
 }
 
 /* ==========================================
@@ -96,36 +86,25 @@ ion-app {
    KPI CARDS
 ========================================== */
 
-.dashboard-cards {
-    display: grid;
-
-    grid-template-columns:
-        repeat(auto-fit,minmax(250px,1fr));
-
-    gap: 14px;
-
-    margin-bottom: 18px;
+.dashboard-cards{
+display:grid;
+grid-template-columns:
+repeat(auto-fit,minmax(220px,1fr));
+gap:16px;
 }
 
-.dashboard-card {
-    border-radius: 14px;
+.dashboard-card{
 
-    min-height: 110px;
+min-height:130px;
 
-    padding: 18px;
+padding:20px;
 
-    color: white;
+border-radius:16px;
 
-    display: flex;
+box-shadow:
+0 6px 20px rgba(0,0,0,.08);
 
-    flex-direction: column;
-
-    justify-content: center;
-
-    box-shadow:
-        0 4px 12px rgba(0,0,0,.08);
-
-    transition: .2s ease;
+transition:.3s;
 }
 
 .dashboard-card:hover {
@@ -177,23 +156,38 @@ ion-app {
     background: #22c55e;
 }
 
+.orange-badge{
+background:#ffedd5;
+color:#c2410c;
+padding:5px 10px;
+border-radius:20px;
+font-weight:600;
+}
+
+.green-badge{
+background:#dcfce7;
+color:#166534;
+padding:5px 10px;
+border-radius:20px;
+font-weight:600;
+}
+
 /* ==========================================
    SECTIONS
 ========================================== */
 
-.dashboard-section {
-    background: #ffffff;
+.dashboard-section{
 
-    border-radius: 14px;
+background:#fff;
 
-    padding: 18px;
+padding:22px;
 
-    margin-bottom: 18px;
+margin-bottom:24px;
 
-    border: 1px solid #dbe3ee;
+border-radius:16px;
 
-    box-shadow:
-        0 2px 8px rgba(0,0,0,.04);
+box-shadow:
+0 4px 16px rgba(0,0,0,.05);
 }
 
 .dashboard-section h2 {
@@ -211,49 +205,39 @@ ion-app {
    TABLE CONTAINER
 ========================================== */
 
-.table-container {
-    width: 100%;
+.table-container{
 
-    overflow-x: auto;
+width:100%;
 
-    border-radius: 12px;
+overflow-x:auto;
 
-    border: 1px solid #dbe3ee;
+overflow-y:auto;
+
+max-height:600px;
+
+border-radius:12px;
 }
 
 /* ==========================================
    TABLE
 ========================================== */
 
-.dashboard-table {
-    width: 100%;
+.dashboard-table{
 
-    border-collapse: collapse;
+min-width:1200px;
 
-    background: white;
+width:100%;
 }
 
-.dashboard-table thead th {
-    position: sticky;
+.dashboard-table thead th{
 
-    top: 0;
+position:sticky;
 
-    background: #f8fafc;
+top:0;
 
-    color: #475569;
+z-index:2;
 
-    padding: 12px;
-
-    font-size: 13px;
-
-    font-weight: 700;
-
-    text-transform: uppercase;
-
-    border-bottom:
-        1px solid #dbe3ee;
-
-    white-space: nowrap;
+background:#f8fafc;
 }
 
 .dashboard-table td {
