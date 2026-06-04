@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import "./WorkReportDashboard.css";
-
-const API_BASE = "http://localhost:25918/api/";
+import { API_BASE } from "../config";
 
 type WorkReport = {
   WorkId?: string | number;
