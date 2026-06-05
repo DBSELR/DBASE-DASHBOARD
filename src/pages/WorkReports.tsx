@@ -41,6 +41,7 @@ import { IonIcon } from "@ionic/react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import "./WorkReports.css";
+import { useHistory } from "react-router-dom";
 
 const generateMonthList = () => {
   const months: string[] = [];
@@ -93,12 +94,13 @@ const WorkReports: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingReportId, setEditingReportId] = useState<number | null>(null);
   const [editingReportContent, setEditingReportContent] = useState<string>("");
-
+   const history = useHistory();
   // Searchable Dropdown States
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [empSearchTerm, setEmpSearchTerm] = useState("");
   const triggerRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [showTeamReports, setShowTeamReports] = useState(false);
 
   useEffect(() => {
     if (isEmployeeDropdownOpen && triggerRef.current) {
@@ -125,6 +127,7 @@ const WorkReports: React.FC = () => {
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      await loadTeamReportAccess();
       try {
         const clientsRes = await axios.get(
           `${baseUrl}/Workreport/Load_Clients?College`,
@@ -213,6 +216,33 @@ if (user?.empCode) {
 
     fetchInitialData();
   }, []);
+
+  const loadTeamReportAccess = async () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    const res = await axios.get(
+      `${baseUrl}/Sources/Load_GETRAS`,
+      {
+        headers: getAuthHeaders()
+      }
+    );
+
+    const allowedDesignations = res.data.map(
+      (x: any) => x.name?.trim().toLowerCase()
+    );
+
+    const userDesignation =
+      user?.designation?.trim().toLowerCase();
+
+    setShowTeamReports(
+      allowedDesignations.includes(userDesignation)
+    );
+  } catch (err) {
+    console.error("Error loading designation access", err);
+    setShowTeamReports(false);
+  }
+};
 
   const getCurrentMonthYear = (): string => {
     const now = new Date();
@@ -475,7 +505,16 @@ const canViewAllEmployees =
             /> */}
             <div className="wr-page-title">Work Reports</div>
           </div>
-
+ {/* {showTeamReports && (
+    <button
+      className="team-report-btn"
+      onClick={() =>
+        history.push("/workreport-dashboard")
+      }
+    >
+      Team Work Reports
+    </button>
+  )} */}
           {/* Custom Segments - Visible only on Mobile via CSS */}
           <div className="wr-segment-container">
             <div
@@ -577,10 +616,21 @@ const canViewAllEmployees =
             <div className={`wr-main-section ${activeSection === "reports" ? "wr-show" : "wr-hide-on-mobile"}`}>
               <div className="wr-view-section">
                 <div className="wr-card" style={{ marginBottom: '24px' }}>
-                  <div className="wr-section-title">
-                    <Search size={22} />
-                    Work History
-                  </div>
+                  <div className="wr-history-header">
+  <div className="wr-section-title">
+    <Search size={22} />
+    Work History
+  </div>
+
+  {showTeamReports && (
+    <button
+      className="team-report-btn"
+      onClick={() => history.push("/workreport-dashboard")}
+    >
+      Team Work Reports
+    </button>
+  )}
+</div>
 
                   <div className="workrp-wh" >
                     {canViewAllEmployees && (
