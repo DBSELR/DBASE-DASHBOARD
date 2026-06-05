@@ -57,6 +57,7 @@ const generateMonthList = () => {
   return months;
 };
 
+
 const WorkReports: React.FC = () => {
   const [activeSection, setActiveSection] = useState<"submit" | "reports">(
     "submit"
@@ -76,6 +77,12 @@ const WorkReports: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [months, setMonths] = useState<string[]>([]);
   const [reportList, setReportList] = useState<any[]>([]);
+
+  const _user = JSON.parse(localStorage.getItem("user") || "{}");
+  const canViewAllEmployees =
+    _user?.designation === "HR" ||
+    _user?.designation === "Director" ||
+    _user?.designation === "In-Charge F&A";
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -134,28 +141,71 @@ const WorkReports: React.FC = () => {
       }
 
       try {
-        const empRes = await axios.get(
-          `${baseUrl}/Employee/Load_Employees?SearchEmp`,
-          { headers: getAuthHeaders() }
-        );
+      const user = JSON.parse(
+  localStorage.getItem("user") || "{}"
+);
 
-        const formatted = empRes.data.map((e: string[]) => ({
-          empCode: e[0],
-          name: e[1],
-        }));
-        setEmployees(formatted);
+const designation =
+  user?.designation || "";
 
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        if (user?.empCode) {
-          const defaultEmpCode = user.empCode;
-          const defaultMonth = getCurrentMonthYear();
+const isAdminUser =
+  designation === "HR" ||
+  designation === "Director" ||
+  designation === "In-Charge F&A";
 
-          setSelectedEmployee(defaultEmpCode);
-          setSelectedMonth(defaultMonth);
+if (isAdminUser) {
 
-          await fetchMonths(defaultEmpCode);
-          await fetchReports(defaultEmpCode, defaultMonth);
-        }
+  const empRes = await axios.get(
+    `${baseUrl}/Employee/Load_Employees?SearchEmp`,
+    {
+      headers: getAuthHeaders()
+    }
+  );
+
+  const formatted = empRes.data.map(
+    (e: string[]) => ({
+      empCode: e[0],
+      name: e[1]
+    })
+  );
+
+  setEmployees(formatted);
+
+} else {
+
+  setEmployees([
+    {
+      empCode: user.empCode,
+      name: `${user.empCode} - ${user.empName}`
+    }
+  ]);
+}
+
+if (user?.empCode) {
+
+  const defaultEmpCode =
+    user.empCode;
+
+  const defaultMonth =
+    getCurrentMonthYear();
+
+  setSelectedEmployee(
+    defaultEmpCode
+  );
+
+  setSelectedMonth(
+    defaultMonth
+  );
+
+  await fetchMonths(
+    defaultEmpCode
+  );
+
+  await fetchReports(
+    defaultEmpCode,
+    defaultMonth
+  );
+}
       } catch (err) {
         console.error("Error loading employees", err);
       }
@@ -321,7 +371,15 @@ const WorkReports: React.FC = () => {
       return;
     }
 
-    const userData = JSON.parse(localStorage.getItem("user") || "{}");
+   const userData =
+  JSON.parse(
+    localStorage.getItem("user") || "{}"
+  );
+
+const canViewAllEmployees =
+  userData?.designation === "HR" ||
+  userData?.designation === "Director" ||
+  userData?.designation === "In-Charge F&A";
     const empCode = userData?.empCode;
 
     if (!empCode) {
@@ -401,6 +459,8 @@ const WorkReports: React.FC = () => {
     "Aug-2024", "Sep-2024", "Oct-2024", "Nov-2024", "Dec-2024",
     "Jan-2025", "Feb-2025", "Mar-2025", "Apr-2025",
   ];
+
+  
 
   return (
     <IonPage>
@@ -523,6 +583,7 @@ const WorkReports: React.FC = () => {
                   </div>
 
                   <div className="workrp-wh" >
+                    {canViewAllEmployees && (
                     <div className="wr-input-group" style={{ marginBottom: 0 }}>
                       <div className="custom-dropdown-container" ref={triggerRef}>
                         <div
@@ -618,7 +679,7 @@ const WorkReports: React.FC = () => {
                         )}
                       </div>
                     </div>
-
+)}
                     <div className="wr-input-group" style={{ marginBottom: 0 }}>
                       <div className="custom-dropdown-container">
                         <div className="premium-filter-trigger">

@@ -1,0 +1,475 @@
+/* ==========================================
+   GLOBAL SCROLL FIX
+========================================== */
+
+html,
+body,
+#root,
+ion-app {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+
+/* ==========================================
+   DASHBOARD CONTAINER
+========================================== */
+
+.penalty-dashboard{
+
+width:100%;
+
+max-width:100%;
+
+padding:20px;
+
+background:#f1f5f9;
+
+min-height:100vh;
+
+overflow-x:auto;
+}
+
+/* ==========================================
+   SCROLLBAR
+========================================== */
+
+.penalty-dashboard::-webkit-scrollbar {
+    width: 10px;
+}
+
+.penalty-dashboard::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+}
+
+.penalty-dashboard::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 999px;
+}
+
+.penalty-dashboard::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.dashboard-header {
+    background: #ffffff;
+
+    border-radius: 14px;
+
+    padding: 18px 24px;
+
+    margin-bottom: 16px;
+
+    border: 1px solid #dbe3ee;
+
+    box-shadow:
+        0 2px 8px rgba(0,0,0,.05);
+}
+
+.dashboard-header h1 {
+    margin: 0;
+
+    color: #0f172a;
+
+    font-size: 26px;
+
+    font-weight: 700;
+}
+
+/* ==========================================
+   KPI CARDS
+========================================== */
+
+.dashboard-cards{
+display:grid;
+grid-template-columns:
+repeat(auto-fit,minmax(220px,1fr));
+gap:16px;
+}
+
+.dashboard-card{
+
+min-height:130px;
+
+padding:20px;
+
+border-radius:16px;
+
+box-shadow:
+0 6px 20px rgba(0,0,0,.08);
+
+transition:.3s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+}
+
+.card-icon {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.dashboard-card h4 {
+    margin: 0;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+
+    letter-spacing: .5px;
+}
+
+.dashboard-card h1 {
+    margin-top: 8px;
+    margin-bottom: 0;
+
+    font-size: 34px;
+    font-weight: 700;
+}
+
+/* ==========================================
+   CARD COLORS
+========================================== */
+
+.yellow {
+    background: #f59e0b;
+}
+
+.red {
+    background: #ef4444;
+}
+
+.blue {
+    background: #3b82f6;
+}
+
+.green {
+    background: #22c55e;
+}
+
+.orange-badge{
+background:#ffedd5;
+color:#c2410c;
+padding:5px 10px;
+border-radius:20px;
+font-weight:600;
+}
+
+.green-badge{
+background:#dcfce7;
+color:#166534;
+padding:5px 10px;
+border-radius:20px;
+font-weight:600;
+}
+
+/* ==========================================
+   SECTIONS
+========================================== */
+
+.dashboard-section{
+
+background:#fff;
+
+padding:22px;
+
+margin-bottom:24px;
+
+border-radius:16px;
+
+box-shadow:
+0 4px 16px rgba(0,0,0,.05);
+}
+
+.dashboard-section h2 {
+    margin-top: 0;
+    margin-bottom: 14px;
+
+    color: #0f172a;
+
+    font-size: 22px;
+
+    font-weight: 700;
+}
+
+/* ==========================================
+   TABLE CONTAINER
+========================================== */
+
+.table-container{
+
+width:100%;
+
+overflow-x:auto;
+
+overflow-y:auto;
+
+max-height:600px;
+
+border-radius:12px;
+}
+
+/* ==========================================
+   TABLE
+========================================== */
+
+.dashboard-table{
+
+min-width:1200px;
+
+width:100%;
+}
+
+.dashboard-table thead th{
+
+position:sticky;
+
+top:0;
+
+z-index:2;
+
+background:#f8fafc;
+}
+
+.dashboard-table td {
+    padding: 11px 12px;
+
+    font-size: 13px;
+
+    color: #334155;
+
+    border-bottom:
+        1px solid #edf2f7;
+}
+
+.dashboard-table tbody tr:nth-child(even) {
+    background: #fafcff;
+}
+
+.dashboard-table tbody tr:hover {
+    background: #eef6ff;
+}
+
+/* ==========================================
+   BADGES
+========================================== */
+
+.count-badge,
+.yellow-badge,
+.red-badge,
+.badge-green,
+.badge-yellow,
+.badge-orange,
+.badge-red {
+    display: inline-block;
+
+    padding: 5px 10px;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+}
+
+.count-badge {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.yellow-badge {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.red-badge {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.badge-green {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-yellow {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-orange {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.badge-red {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ==========================================
+   EMPTY DATA
+========================================== */
+
+.no-data {
+    text-align: center;
+
+    padding: 25px;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+}
+
+/* ==========================================
+   LOADING
+========================================== */
+
+.loading-box {
+    height: 80vh;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    font-size: 18px;
+
+    font-weight: 600;
+
+    color: #475569;
+}
+
+/* ==========================================
+   FAB BUTTON
+========================================== */
+
+.fab-container {
+    position: fixed;
+
+    bottom: 20px;
+
+    right: 20px;
+
+    z-index: 999;
+}
+
+.your-orange-btn-class {
+    width: 58px;
+
+    height: 58px;
+
+    border: none;
+
+    border-radius: 50%;
+
+    background: #f59e0b;
+
+    color: white;
+
+    font-size: 30px;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 8px 20px rgba(0,0,0,.25);
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 992px) {
+
+    .dashboard-cards {
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+}
+
+@media (max-width: 768px) {
+
+    .penalty-dashboard {
+        padding: 10px;
+    }
+
+    .dashboard-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-header h1 {
+        font-size: 22px;
+    }
+
+    .dashboard-card {
+        min-height: 90px;
+    }
+
+    .dashboard-card h1 {
+        font-size: 28px;
+    }
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.penalty-list-btn {
+    background: #f97316;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.penalty-list-btn:hover {
+    background: #ea580c;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(249,115,22,.25);
+}
+
+@media (max-width:768px) {
+
+    .dashboard-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .penalty-list-btn {
+        width: 100%;
+    }
+}
+
+.dashboard-card.orange {
+  background: linear-gradient(
+    135deg,
+    #fb923c,
+    #f97316
+  );
+}
+
+.dashboard-card.purple {
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #9333ea
+  );
+}

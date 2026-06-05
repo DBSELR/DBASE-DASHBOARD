@@ -1,0 +1,532 @@
+/* ===================================
+   PAGE CONTAINER
+=================================== */
+
+.employee-penalty {
+
+    background: #eef2f7;
+
+    min-height: 100vh;
+
+    width: 100%;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 16px;
+
+    box-sizing: border-box;
+
+    font-family: "Segoe UI", sans-serif;
+}
+
+/* ===================================
+   HEADER
+=================================== */
+
+.employee-header {
+
+    background: #ffffff;
+
+    border-radius: 10px;
+
+    /* padding: 18px 24px; */
+
+    margin-bottom: 16px;
+
+    border: 1px solid #066bf8;
+
+    box-shadow:
+        0 2px 10px rgba(0,0,0,.05);
+}
+
+.employee-header h1 {
+
+    margin: 0;
+
+    color: #0f172a;
+
+    font-size: 20px;
+
+    font-weight: 700;
+
+    letter-spacing: -.5px;
+}
+
+.employee-info {
+
+    margin-top: 8px;
+}
+
+.employee-info h2 {
+
+    margin: 0;
+
+    color: #1e293b;
+
+    font-size: 18px;
+
+    font-weight: 600;
+}
+
+.employee-info span {
+
+    color: #64748b;
+
+    font-size: 13px;
+}
+
+/* ===================================
+   SUMMARY KPI CARDS
+=================================== */
+
+.summary-card {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(220px, 1fr)
+        );
+
+    gap: 16px;
+
+    margin-bottom: 20px;
+}
+
+.summary-box {
+
+    position: relative;
+
+    overflow: hidden;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    min-height: 120px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    box-shadow:
+        0 4px 12px
+        rgba(0,0,0,.08);
+
+    transition: all .3s ease;
+}
+
+.summary-box:hover {
+
+    transform:
+        translateY(-4px);
+
+    box-shadow:
+        0 8px 18px
+        rgba(0,0,0,.12);
+}
+
+.summary-box::before {
+
+    content: "";
+
+    position: absolute;
+
+    width: 90px;
+
+    height: 90px;
+
+    top: -20px;
+
+    right: -20px;
+
+    border-radius: 50%;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .15
+        );
+}
+
+.summary-box span {
+
+    color: #fff;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+    z-index: 1;
+}
+
+.summary-box h1 {
+
+    margin-top: 8px;
+
+    color: #fff;
+
+    font-size: 36px;
+
+    font-weight: 700;
+
+    z-index: 1;
+}
+
+/* GREEN */
+
+.green-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #16a34a,
+            #22c55e
+        );
+}
+
+/* YELLOW */
+
+.yellow-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #d97706,
+            #f59e0b
+        );
+}
+
+/* ORANGE */
+
+.orange-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #ea580c,
+            #fb923c
+        );
+}
+
+/* RED */
+
+.red-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #dc2626,
+            #ef4444
+        );
+}
+
+/* PERFORMANCE SCORE */
+
+.score-box {
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #3b82f6
+        );
+}
+
+/* ===================================
+   SECTION CARD
+=================================== */
+
+.dashboard-section {
+
+    background: #ffffff;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    margin-bottom: 16px;
+
+    border: 1px solid #dbe3ee;
+
+    box-shadow:
+        0 2px 10px rgba(0,0,0,.05);
+}
+
+.dashboard-section h2 {
+
+    margin: 0 0 16px;
+
+    color: #0f172a;
+
+    font-size: 20px;
+
+    font-weight: 700;
+}
+
+/* ===================================
+   TABLE CONTAINER
+=================================== */
+
+.table-container {
+
+    width: 100%;
+
+    overflow-x: auto;
+
+    border: 1px solid #dbe3ee;
+
+    border-radius: 12px;
+}
+
+/* ===================================
+   TABLE
+=================================== */
+
+.penalty-table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    background: #ffffff;
+}
+
+.penalty-table thead {
+
+    background: #f8fafc;
+}
+
+.penalty-table thead th {
+
+    position: sticky;
+
+    top: 0;
+
+    z-index: 2;
+
+    padding: 14px;
+
+    text-align: center;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    color: #334155;
+
+    border-bottom: 2px solid #dbe3ee;
+}
+
+.penalty-table tbody td {
+
+    padding: 14px;
+
+    text-align: center;
+
+    font-size: 14px;
+
+    color: #334155;
+
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.penalty-table tbody tr:nth-child(even) {
+
+    background: #f8fafc;
+}
+
+.penalty-table tbody tr:hover {
+
+    background: #eef6ff;
+}
+
+.penalty-table td:first-child {
+
+    text-align: left;
+}
+
+/* ===================================
+   ESCALATION STATUS CARD
+=================================== */
+
+.escalation-card {
+
+    padding: 30px;
+
+    border-radius: 12px;
+
+    text-align: center;
+
+    font-size: 24px;
+
+    font-weight: 700;
+
+    color: #fff;
+}
+
+.escalation-card.green {
+
+    background: #16a34a;
+}
+
+.escalation-card.yellow {
+
+    background: #d97706;
+}
+
+.escalation-card.orange {
+
+    background: #ea580c;
+}
+
+.escalation-card.red {
+
+    background: #dc2626;
+}
+
+/* ===================================
+   ESCALATION BADGES
+=================================== */
+
+.escalation {
+
+    display: inline-block;
+
+    padding: 10px 20px;
+
+    border-radius: 999px;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+.escalation.green {
+
+    background: #dcfce7;
+
+    color: #166534;
+}
+
+.escalation.yellow {
+
+    background: #fef3c7;
+
+    color: #92400e;
+}
+
+.escalation.orange {
+
+    background: #ffedd5;
+
+    color: #9a3412;
+}
+
+.escalation.red {
+
+    background: #fee2e2;
+
+    color: #991b1b;
+}
+
+/* ===================================
+   NO DATA
+=================================== */
+
+.no-data {
+
+    text-align: center;
+
+    padding: 24px;
+
+    color: #64748b;
+
+    font-size: 14px;
+}
+
+/* ===================================
+   LOADING
+=================================== */
+
+.loading-box {
+
+    height: 100vh;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    font-size: 18px;
+
+    font-weight: 600;
+
+    color: #475569;
+}
+
+/* ===================================
+   SCROLLBAR
+=================================== */
+
+.employee-penalty::-webkit-scrollbar {
+
+    width: 10px;
+}
+
+.employee-penalty::-webkit-scrollbar-thumb {
+
+    background: #cbd5e1;
+
+    border-radius: 20px;
+}
+
+.employee-penalty::-webkit-scrollbar-track {
+
+    background: #f1f5f9;
+}
+
+@media (max-width: 768px) {
+
+    .employee-penalty {
+        padding: 10px;
+    }
+
+    .employee-header h1 {
+        font-size: 22px;
+    }
+
+    .summary-card {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-box {
+        min-height: 90px;
+    }
+
+    .summary-box h1 {
+        font-size: 28px;
+    }
+
+    .dashboard-section {
+        padding: 14px;
+    }
+
+    .penalty-table th,
+    .penalty-table td {
+        padding: 10px;
+        font-size: 12px;
+    }
+
+    .escalation-card {
+        font-size: 18px;
+        padding: 20px;
+    }
+}

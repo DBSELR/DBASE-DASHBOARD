@@ -3,6 +3,7 @@ import { IonPage, IonContent } from "@ionic/react";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
 import { registerWebPush } from "../services/firebase";
+import Stock from "./Stock";
 import "./Login.css";
 
 const Login: React.FC = () => {
@@ -60,18 +61,19 @@ const Login: React.FC = () => {
       const data = await response.json();
 
       if (data.token) {
-  localStorage.setItem("token", data.token);
-  localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("EmpCode", String(data.user?.EmpCode || data.user?.empCode));
 
-  // Register Firebase Push Notification
-  await registerWebPush(
-    data.user?.EmpCode ||
-    data.user?.empCode ||
-    uname
-  );
+        // Register Firebase Push Notification
+        await registerWebPush(
+          data.user?.EmpCode ||
+          data.user?.empCode ||
+          uname
+        );
 
-  window.location.href = "/home";
-} else {
+        window.location.href = "/home";
+      } else {
         showToast("Login failed! Please try again.");
         setLoading(false);
       }

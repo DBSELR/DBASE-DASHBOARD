@@ -62,6 +62,7 @@ type Transaction = {
   CDescription: string;
   Amount: number;
   bclass?: string;
+  Remarks?: string;
 };
 type Voucher = {
   VID: string;
@@ -70,6 +71,7 @@ type Voucher = {
   VDescription: string;
   amount: number;
   isVerified: "Y" | "N" | "U";
+  Remarks?: string;
   fname: string; // image 1 (voucher)
   fpath: string; // image 2 (bill)
 };
@@ -186,6 +188,62 @@ const fmtFromYYYYMMDD = (yyyymmdd: string) => {
 };
 
 const normalizeTransactions = (rows: any[]): Transaction[] => {
+  const isLikelyPaymentMode = (s: string) => {
+    if (!s) return false;
+    const t = s.trim().toLowerCase();
+    if (!t) return false;
+    const known = [
+      "by cash",
+      "credit card",
+      "phonepay",
+      "google pay",
+      "paytm",
+      "bank transfer",
+      "by cheque",
+      "cheque",
+    ];
+    if (known.includes(t)) return true;
+    if (/^by\s+/i.test(s)) return true;
+    if (/\b(cash|card|bank|upi|pay|cheque)\b/i.test(s) && t.split(/\s+/).length <= 3) return true;
+    return false;
+  };
+
+  const looksLikeEmpCode = (s: string) => {
+    if (!s) return false;
+    const t = s.trim();
+    // Purely numeric short tokens likely employee codes (e.g. "1509")
+    if (/^\d{3,6}$/.test(t)) return true;
+    // Patterns like "1509 - NAME" also indicate codes
+    if (/^\d{3,6}\s*-/.test(t)) return true;
+    return false;
+  };
+
+  const looksLikeNumericId = (s: string) => {
+    if (!s) return false;
+    const t = s.trim();
+    // Long numeric-only tokens (7+ digits) are likely IDs/timestamps, not remarks
+    if (/^\d{7,}$/.test(t)) return true;
+    return false;
+  };
+
+  const isLikelyRemark = (s: string, cdesc: string, saloradv?: string) => {
+    if (!s) return false;
+    const t = s.trim();
+    if (!t) return false;
+    if (t === cdesc) return false;
+    if (saloradv && t.toLowerCase() === saloradv.toLowerCase()) return false;
+    if (looksLikeEmpCode(t)) return false;
+    if (looksLikeNumericId(t)) return false;
+    if (isLikelyPaymentMode(t)) return false;
+    // length heuristic
+    if (t.length < 3) return false;
+    // keyword heuristic for transfers/remarks
+    if (/\b(transferr|transferred|amount|through|to|payment|mode|phonepay|paytm|bank|transfer|sent|received)\b/i.test(t)) return true;
+    // otherwise accept if contains letters and not just punctuation/numbers
+    if (/[a-zA-Z]/.test(t)) return true;
+    return false;
+  };
+
   const out = rows.map((r) => {
     if (!Array.isArray(r)) {
       const o = r as any;
@@ -195,8 +253,12 @@ const normalizeTransactions = (rows: any[]): Transaction[] => {
         CDescription: str(o.CDescription),
         Amount: Number(o.Amount ?? 0),
         bclass: o.bclass ? String(o.bclass) : undefined,
-      };
+        Remarks: str(
+          o.Remarks ?? o.Remark ?? o.remarks ?? o.remark ?? o.RemarksText ?? o.RemarkText ?? ""
+        ),
+      } as Transaction;
     }
+
     // Expected: [ID, Ref, From, To, Amount, Date, Status, Remarks, PaymentMode, Category]
     const a = r as any[];
     let date = str(a[5]);
@@ -206,13 +268,70 @@ const normalizeTransactions = (rows: any[]): Transaction[] => {
       date = fmtFromYYYYMMDD(str(a[1]).slice(0, 8));
     }
 
+    let cdesc = str(a[7] || a[3] || a[2] || "");
+    const saloradv = str(a[9] || a[8] || "");
+    const amount = Number(a[4] || 0);
+    const bclass = a[6] ? String(a[6]) : undefined;
+
+    const candidates = [
+      str(a[7]),
+      str(a[8]),
+      str(a[3]),
+      str(a[2]),
+      str(a[1]),
+      str(a[9]),
+      str(a[10]),
+    ].filter(Boolean);
+
+    // Prefer candidate that looks like a remark (keyword match)
+    let remarks: string | undefined;
+    for (const c of candidates) {
+      if (isLikelyRemark(c, cdesc, saloradv)) {
+        remarks = c;
+        break;
+      }
+    }
+
+    // Fallback: longest non-numeric/non-payment candidate
+    if (!remarks) {
+      let best = "";
+      for (const c of candidates) {
+        if (c === cdesc) continue;
+        if (saloradv && c.toLowerCase() === saloradv.toLowerCase()) continue;
+        if (isLikelyPaymentMode(c)) continue;
+        if (looksLikeEmpCode(c)) continue;
+        if (looksLikeNumericId(c)) continue;
+        // skip pure-numeric candidates
+        if (/^\d+$/.test(c)) continue;
+        if (c.length > best.length) best = c;
+      }
+      if (best) remarks = best;
+    }
+
+    // If the server-provided description is generic (e.g. "Money Transfer")
+    // and the detected remarks look like a fuller description (contains
+    // words like 'transferred' or includes the head), promote it to CDescription
+    if ((cdesc.trim() === "" || /money transfer/i.test(cdesc)) && remarks) {
+      const r = remarks.trim();
+      const rLower = r.toLowerCase();
+      const looksLikeFullDesc =
+        r.length > 15 &&
+        (/(transferred|amount transferred|transferred to|through|amount)/i.test(rLower) ||
+          (saloradv && rLower.includes(saloradv.toLowerCase())));
+      if (looksLikeFullDesc) {
+        cdesc = r;
+        remarks = undefined;
+      }
+    }
+
     return {
       Date: date,
-      SALorAdv: str(a[9] || a[8] || ""),
-      CDescription: str(a[7]),
-      Amount: Number(a[4] || 0),
-      bclass: a[6] ? String(a[6]) : undefined,
-    };
+      SALorAdv: saloradv,
+      CDescription: cdesc,
+      Amount: amount,
+      bclass: bclass,
+      Remarks: remarks || undefined,
+    } as Transaction;
   });
   console.log("[normalize] transactions:", out);
   return out;
@@ -369,6 +488,7 @@ const Transactions: React.FC = () => {
 
   const voucherFileInputRef = useRef<HTMLInputElement>(null);
   const billFileInputRef = useRef<HTMLInputElement>(null);
+  const [remarks, setRemarks] = useState<string>("");
 
   /* -------- toast helper -------- */
   const presentToast = (msg: string, ok = true) => {
@@ -563,24 +683,24 @@ const Transactions: React.FC = () => {
 
   const checkAmount = (val: string) => {
     console.log("[Transactions] checkAmount validation:", val, { handCash, advanceCash, UserDesig, paymentType });
-    if (!(UserDesig === "Director" || UserDesig === "In-Charge F&A")) {
-      if (paymentType === "Advance Repayment" || paymentType === "Advance") {
-        if (Number(advanceCash) < Number(val)) {
-          console.warn("[Transactions] validation failed: amount > advanceCash");
-          presentToast(
-            `Maximum Advance Transfer/Repayment amount is ${advanceCash}/-`,
-            false
-          );
-          setAmount("");
-          return;
-        }
-      } else {
-        if (Number(handCash) < Number(val)) {
-          console.warn("[Transactions] validation failed: amount > handCash");
-          presentToast(`Maximum transfer amount is ${handCash}/-`, false);
-          setAmount("");
-          return;
-        }
+    // Admin/designated users are not restricted
+    if (UserDesig === "Director" || UserDesig === "In-Charge F&A") return;
+
+    const num = Number(val);
+    if (isNaN(num) || num <= 0) return;
+
+    // Only enforce limits when server provided a positive balance
+    if (paymentType === "Advance Repayment" || paymentType === "Advance") {
+      if (Number(advanceCash) > 0 && num > Number(advanceCash)) {
+        console.warn("[Transactions] validation failed: amount > advanceCash");
+        presentToast(`Maximum Advance Transfer/Repayment amount is ${advanceCash}/-`, false);
+        return;
+      }
+    } else {
+      if (Number(handCash) > 0 && num > Number(handCash)) {
+        console.warn("[Transactions] validation failed: amount > handCash");
+        presentToast(`Maximum transfer amount is ${handCash}/-`, false);
+        return;
       }
     }
   };
@@ -616,6 +736,7 @@ const Transactions: React.FC = () => {
     setPaymentType("");
     setTransferMode("");
     setAmount("");
+    setRemarks("");
     setAdvRepayFrom("");
     fetchCurrentCash();
   };
@@ -638,9 +759,10 @@ const Transactions: React.FC = () => {
         _transferTo: transferToCode,
         _Amt: amount,
         _remarks:
-          paymentType === "--"
-            ? `Amount transferred to ${transferToCode}, through ${transferMode}`
-            : `${paymentType} Amount transferred to ${transferToCode}, through ${transferMode}`,
+  remarks?.trim() ||
+  (paymentType === "--"
+    ? `Amount transferred to ${transferToCode}, through ${transferMode}`
+    : `${paymentType} Amount transferred to ${transferToCode}, through ${transferMode}`),
         _transferType: transferMode,
         _paymentType:
           paymentType === "--" || paymentType === "" ? "Credit" : paymentType,
@@ -978,11 +1100,12 @@ const Transactions: React.FC = () => {
                     placeholder="0.00"
                     type="number"
                     value={amount}
-                    disabled={!transferTo}
                     onIonChange={(e) => {
                       const v = e.detail.value || "";
                       setAmount(v);
-                      if (v) checkAmount(v);
+                    }}
+                    onIonBlur={() => {
+                      if (amount) checkAmount(amount);
                     }}
                   />
                 </div>
@@ -1004,6 +1127,16 @@ const Transactions: React.FC = () => {
                     <IonSelectOption value="Bank Transfer">Bank Transfer</IonSelectOption>
                   </IonSelect>
                 </div>
+                <div className="input-group">
+  <div className="input-label">Remarks</div>
+  <IonInput
+    className="modern-input"
+    placeholder="Enter remarks"
+    value={remarks}
+    onIonChange={(e) => setRemarks(e.detail.value || "")}
+  />
+</div>
+
               </div>
 
               <div className="button-row">
@@ -1105,6 +1238,15 @@ const Transactions: React.FC = () => {
                 ) : (
                   transactions.map((t, idx) => {
                     const isCredit = t.bclass === "Credit";
+                    const cdesc = t.CDescription || "";
+                    const salOrAdv = t.SALorAdv || "";
+                    const remark = "";
+                    const isGeneric = cdesc.trim() === "" || cdesc.toLowerCase().includes("money transfer");
+                    const displayTitle = (isGeneric && (salOrAdv || remark))
+                      ? [salOrAdv, remark].filter(Boolean).join(" ")
+                      : `${cdesc}${remark ? " " + remark : ""}`.trim();
+                    const remarkShownInTitle = isGeneric && !!remark;
+
                     return (
                       <div key={idx} className="txn-card">
                         <div className={`txn-icon ${isCredit ? 'icon--credit' : 'icon--debit'}`}>
@@ -1112,7 +1254,7 @@ const Transactions: React.FC = () => {
                         </div>
                         <div className="txn-info">
                           <div className="txn-header">
-                            <div className="txn-title">{t.CDescription}</div>
+                            <div className="txn-title">{displayTitle}</div>
                             <div className="txn-amount">
                               <div className="amt-value" style={{ color: isCredit ? '#10b981' : '#ef4444' }}>
                                 {isCredit ? '+' : '-'} ₹{t.Amount}
@@ -1120,13 +1262,21 @@ const Transactions: React.FC = () => {
                             </div>
                           </div>
                           <div className="txn-footer">
-                            <div className="txn-meta">
-                              <span>{t.Date}</span>
-                              {t.SALorAdv && <span>• {t.SALorAdv}</span>}
-                            </div>
-                            <div className="amt-status">{isCredit ? 'Received' : 'Paid'}</div>
-                          </div>
-                        </div>
+  <div className="txn-meta">
+    <span>{t.Date}</span>
+   
+    {t.SALorAdv && <span> • {t.SALorAdv}</span>}
+    {t.Remarks && <span>  • {typeof t.Remarks === "string" 
+      ? t.Remarks 
+      : t.Remarks}
+  
+    </span>}
+  </div>
+
+  <div className="amt-status">
+    {isCredit ? "Received" : "Paid"}
+  </div>
+</div></div>
                       </div>
                     );
                   })
@@ -1321,6 +1471,7 @@ const Transactions: React.FC = () => {
                         <div className="txn-meta">
                           <span>{v.Date}</span>
                           <span>• {v.VDescription || "No Description"}</span>
+                          <span>• {v.Remarks || "No Remarks"}</span>
                         </div>
                         <div className={`amt-status status--${v.isVerified}`}>
                           {v.isVerified === "Y" ? 'Verified' : v.isVerified === "U" ? 'Updated' : 'Pending'}

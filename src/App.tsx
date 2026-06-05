@@ -64,6 +64,16 @@ import MeetingDashboard from "./pages/MeetingDashboard";
 import MeetingList from "./pages/MeetingList";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
 
+import PenaltyMaster from "./pages/PenaltyMaster";
+import PenaltyAssignment from "./pages/PenaltyAssignment";
+import PenaltyDashboard from "./pages/PenaltyDashboard";
+
+import EmployeePenalties from "./pages/EmployeePenalties";
+import PenaltyList from "./pages/PenaltyList";
+
+import WorkReportDashboard from "./pages/WorkReportDashboard";
+
+
 AnswerKeyImport
 
 setupIonicReact();
@@ -149,6 +159,14 @@ const App: React.FC = () => {
                   <Route exact path="/meeting-master" component={MeetingMaster} />
                   <Route exact path="/meeting-dashboard" component={MeetingDashboard} />
                   <Route exact path="/meeting-list" component={MeetingList} />
+                  <Route exact path="/penalty-master" component={PenaltyMaster} />
+                  <Route exact path="/penalty-assignment" component={PenaltyAssignment} />
+                  <Route exact path="/penalty-dashboard" component={PenaltyDashboard} />
+                  <Route exact path="/employee-penalties" component={EmployeePenalties} />
+                  <Route exact path="/penalty-list" component={PenaltyList} />
+
+                  <Route exact path="/workreport-dashboard" component={WorkReportDashboard} />
+
                   <Redirect from="*" to="/home" />
                 </Switch>
               </IonRouterOutlet>

@@ -3,7 +3,9 @@ import {
   MapPin,
   X,
   Scan,
-  UserCheck
+  UserCheck,
+  ShieldAlert,
+  BadgeAlert
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
 import axios from "axios";
@@ -19,6 +21,8 @@ declare global {
     }
   }
 }
+import { FileWarning } from "lucide-react";
+
 
 const Home: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -143,9 +147,17 @@ const Home: React.FC = () => {
   colorClass: "home-card-ai-attendance",
   isLucide: true
 },
+{
+  id: "my-penalties",
+  label: "My Penalties",
+  icon: <BadgeAlert size={34} color="#ffffff" />,
+  path: "/employee-penalties",
+  colorClass: "home-card-penalties",
+  isLucide: true
+},
   ];
 
-  return (
+  return (  
     <div className="home-container">
       {/* Premium Header */}
       <header className="home-header">
