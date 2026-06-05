@@ -102,103 +102,74 @@ function PenaltyDashboard() {
 
 </div>
 
-     {/* KPI CARDS */}
+{/* KPI CARDS */}
 
 <div className="dashboard-cards">
 
   {/* Green */}
-
   <div className="dashboard-card green">
-
-    <IonIcon
-      icon={statsChartOutline}
-      className="card-icon"
-    />
-
-    <h4>Total Green Slips</h4>
-
-    <h1>{summary.TotalGreenSlips || 0}</h1>
-
+    <div className="card-content">
+      <h4>Total Green Slips</h4>
+      <h1>{summary.TotalGreenSlips || 0}</h1>
+    </div>
+    <div className="card-icon-box">
+      <IonIcon icon={statsChartOutline} />
+    </div>
   </div>
 
   {/* Yellow */}
-
   <div className="dashboard-card yellow">
-
-    <IonIcon
-      icon={warningOutline}
-      className="card-icon"
-    />
-
-    <h4>Total Yellow Slips</h4>
-
-    <h1>{summary.TotalYellowSlips || 0}</h1>
-
+    <div className="card-content">
+      <h4>Total Yellow Slips</h4>
+      <h1>{summary.TotalYellowSlips || 0}</h1>
+    </div>
+    <div className="card-icon-box">
+      <IonIcon icon={warningOutline} />
+    </div>
   </div>
 
   {/* Orange */}
-
   <div className="dashboard-card orange">
-
-    <IonIcon
-      icon={alertCircleOutline}
-      className="card-icon"
-    />
-
-    <h4>Total Orange Slips</h4>
-
-    <h1>{summary.TotalOrangeSlips || 0}</h1>
-
+    <div className="card-content">
+      <h4>Total Orange Slips</h4>
+      <h1>{summary.TotalOrangeSlips || 0}</h1>
+    </div>
+    <div className="card-icon-box">
+      <IonIcon icon={alertCircleOutline} />
+    </div>
   </div>
 
   {/* Red */}
-
   <div className="dashboard-card red">
-
-    <IonIcon
-      icon={alertCircleOutline}
-      className="card-icon"
-    />
-
-    <h4>Total Red Slips</h4>
-
-    <h1>{summary.TotalRedSlips || 0}</h1>
-
+    <div className="card-content">
+      <h4>Total Red Slips</h4>
+      <h1>{summary.TotalRedSlips || 0}</h1>
+    </div>
+    <div className="card-icon-box">
+      <IonIcon icon={alertCircleOutline} />
+    </div>
   </div>
 
   {/* Employees */}
-
   <div className="dashboard-card blue">
-
-    <IonIcon
-      icon={peopleOutline}
-      className="card-icon"
-    />
-
-    <h4>Total Employees</h4>
-
-    <h1>{summary.TotalEmployees || 0}</h1>
-
+    <div className="card-content">
+      <h4>Total Employees</h4>
+      <h1>{summary.TotalEmployees || 0}</h1>
+    </div>
+    <div className="card-icon-box">
+      <IonIcon icon={peopleOutline} />
+    </div>
   </div>
 
   {/* Overall Score */}
-
   <div className="dashboard-card purple">
-
-    <IonIcon
-      icon={statsChartOutline}
-      className="card-icon"
-    />
-
-    <h4>Average Performance Score</h4>
-
-    <h1>
-{
-Number(summary.AverageScore || 0)
-.toFixed(2)
-}
-</h1>
-
+    <div className="card-content">
+      <h4>Average Score</h4>
+      <h1>{Number(summary.AverageScore || 0).toFixed(2)}</h1>
+    </div>
+    <div className="card-icon-box">
+      <IonIcon icon={statsChartOutline} />
+    </div>
   </div>
 
 </div>

@@ -186,306 +186,113 @@ function PenaltyList() {
 
         </div>
 
-        <div
-          className="table-wrapper"
-        >
+        {/* ── RESPONSIVE PENALTY LIST ── */}
+        <div className="pl-list-container">
+          {filteredEmployees.length === 0 ? (
+            <div className="pl-empty-state">No penalties found</div>
+          ) : (
+            filteredEmployees.map((emp) => (
+              <div key={emp.EMPCODE} className={`pl-emp-card ${expandedEmp === emp.EMPCODE ? 'expanded' : ''}`}>
+                
+                {/* ── Summary Row ── */}
+                <div 
+                  className="pl-summary-row" 
+                  onClick={() => toggleEmployee(emp.EMPCODE)}
+                >
+                  <div className="pl-emp-info">
+                    <div className="pl-avatar">
+                      {emp.EMPNAME?.charAt(0) || "E"}
+                    </div>
+                    <div className="pl-emp-text">
+                      <div className="pl-emp-name">{emp.EMPNAME}</div>
+                      <div className="pl-emp-code">{emp.EMPCODE}</div>
+                    </div>
+                  </div>
 
-          <table
-            className="summary-table"
-          >
+                  <div className="pl-stats-group">
+                    <div className="pl-stat-pill yellow">
+                      <span className="pl-stat-num">{emp.YellowSlips || 0}</span>
+                      <span className="pl-stat-label">Yellow</span>
+                    </div>
+                    <div className="pl-stat-pill red">
+                      <span className="pl-stat-num">{emp.RedSlips || 0}</span>
+                      <span className="pl-stat-label">Red</span>
+                    </div>
+                  </div>
 
-            <thead>
+                  <div className="pl-status-group">
+                    <span className={`pl-escalation-badge ${
+                      emp.EscalationStatus === "Normal" ? "safe" : 
+                      emp.EscalationStatus === "HR Warning" ? "warning" : "danger"
+                    }`}>
+                      {emp.EscalationStatus}
+                    </span>
+                    <IonIcon 
+                      icon={expandedEmp === emp.EMPCODE ? chevronDownOutline : chevronForwardOutline} 
+                      className="pl-expand-icon"
+                    />
+                  </div>
+                </div>
 
-              <tr>
+                {/* ── Expanded Details ── */}
+                {expandedEmp === emp.EMPCODE && (
+                  <div className="pl-details-section">
+                    <div className="pl-details-header">
+                      <span>Penalty History</span>
+                    </div>
 
-                <th></th>
+                    <div className="pl-details-grid">
+                      {!details[emp.EMPCODE] || details[emp.EMPCODE].length === 0 ? (
+                        <div className="pl-empty-details">Loading details...</div>
+                      ) : (
+                        details[emp.EMPCODE].map((d: any) => (
+                          <div key={d.Id} className="pl-detail-card">
+                            <div className="pl-detail-top">
+                              <span className="pl-detail-date">
+                                {new Date(d.PenaltyDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                              <span className={`pl-detail-status ${d.Status?.toLowerCase()}`}>
+                                {d.Status}
+                              </span>
+                            </div>
 
-                <th>
-                  Employee Code
-                </th>
+                            <div className="pl-detail-body">
+                              <div className="pl-detail-item">
+                                <label>Type</label>
+                                <span>{d.SlipType} <span className="pl-count-badge">x{d.SlipCount}</span></span>
+                              </div>
+                              <div className="pl-detail-item">
+                                <label>Time</label>
+                                <span>{d.ViolationTime ? new Date(d.ViolationTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "-"}</span>
+                              </div>
+                              <div className="pl-detail-item pl-full">
+                                <label>Remarks</label>
+                                <p>{d.Remarks || "No remarks provided"}</p>
+                              </div>
+                            </div>
 
-                <th>
-                  Employee Name
-                </th>
-
-                <th>
-                  Yellow Slips
-                </th>
-
-                <th>
-                  Red Slips
-                </th>
-
-                <th>
-                  Escalation
-                </th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              {
-                filteredEmployees.map(
-                  (emp) => (
-
-                    <React.Fragment
-                      key={
-                        emp.EMPCODE
-                      }
-                    >
-
-                      <tr
-                        className="employee-row"
-                        onClick={() =>
-                          toggleEmployee(
-                            emp.EMPCODE
-                          )
-                        }
-                      >
-
-                        <td>
-
-                          <IonIcon
-                            icon={
-                              expandedEmp ===
-                                emp.EMPCODE
-                                ?
-                                chevronDownOutline
-                                :
-                                chevronForwardOutline
-                            }
-                          />
-
-                        </td>
-
-                        <td>
-                          {emp.EMPCODE}
-                        </td>
-
-                        <td>
-                          {emp.EMPNAME}
-                        </td>
-
-                        <td>
-
-                          <span
-                            className="yellow-badge"
-                          >
-                            {
-                              emp.YellowSlips
-                            }
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                          <span
-                            className="red-badge"
-                          >
-                            {
-                              emp.RedSlips
-                            }
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                         <span
-  className={
-    emp.EscalationStatus === "Normal"
-      ? "normal-status"
-      : emp.EscalationStatus === "HR Warning"
-      ? "warning-status"
-      : "warning-status"
-  }
->
-
-                            {
-                              emp.EscalationStatus
-                            }
-
-                          </span>
-
-                        </td>
-
-                      </tr>
-
-                      {
-                        expandedEmp ===
-                          emp.EMPCODE && (
-
-                            <tr>
-
-                              <td
-                                colSpan={6}
-                              >
-
-                                <div
-                                  className="detail-container"
+                            {d.ProofFilePath && (
+                              <div className="pl-detail-footer">
+                                <a
+                                  href={getProofUrl(d.ProofFilePath)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="pl-proof-btn"
                                 >
-
-                                  <table
-                                    className="detail-table"
-                                  >
-
-                                    <thead>
-
-                                      <tr>
-
-                                        <th>
-                                          Penalty Date
-                                        </th>
-
-                                        <th>
-                                          Violation Time
-                                        </th>
-
-                                        <th>
-                                          Slip Type
-                                        </th>
-
-                                        <th>
-                                          Count
-                                        </th>
-
-                                        <th>
-                                          Remarks
-                                        </th>
-
-                                        <th>
-                                          Status
-                                        </th>
-
-                                        <th>
-                                          Proof
-                                        </th>
-
-                                      </tr>
-
-                                    </thead>
-
-                                    <tbody>
-
-                                      {
-                                        details[
-                                          emp.EMPCODE
-                                        ]?.map(
-                                          (
-                                            d: any
-                                          ) => (
-
-                                            <tr
-                                              key={
-                                                d.Id
-                                              }
-                                            >
-
-                                              <td>
-                                                {
-                                                  new Date(
-                                                    d.PenaltyDate
-                                                  )
-                                                    .toLocaleDateString()
-                                                }
-                                              </td>
-
-                                              <td>
-
-                                                {
-                                                  d.ViolationTime
-                                                    ?
-                                                    new Date(
-                                                      d.ViolationTime
-                                                    )
-                                                      .toLocaleString()
-                                                    :
-                                                    "-"
-                                                }
-
-                                              </td>
-
-                                              <td>
-                                                {
-                                                  d.SlipType
-                                                }
-                                              </td>
-
-                                              <td>
-                                                {
-                                                  d.SlipCount
-                                                }
-                                              </td>
-
-                                              <td>
-                                                {
-                                                  d.Remarks
-                                                }
-                                              </td>
-
-                                              <td>
-                                                {
-                                                  d.Status
-                                                }
-                                              </td>
-
-                                              <td>
-
-                                                {
-                                                  d.ProofFilePath
-                                                    ?
-
-                                                    <a
-                                                      href={getProofUrl(
-                                                        d.ProofFilePath
-                                                      )}
-                                                      target="_blank"
-                                                      rel="noreferrer"
-                                                      className="view-proof-btn"
-                                                    >
-                                                      <IonIcon icon={documentTextOutline} />
-                                                      View Proof
-                                                    </a>
-
-                                                    :
-
-                                                    "-"
-                                                }
-
-                                              </td>
-
-                                            </tr>
-
-                                          )
-                                        )
-                                      }
-
-                                    </tbody>
-
-                                  </table>
-
-                                </div>
-
-                              </td>
-
-                            </tr>
-
-                          )
-                      }
-
-                    </React.Fragment>
-
-                  )
-                )
-              }
-
-            </tbody>
-
-          </table>
-
+                                  <IonIcon icon={documentTextOutline} />
+                                  View Evidence
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
 
       </div>

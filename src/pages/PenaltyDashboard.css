@@ -1,5 +1,5 @@
 .penalty-dashboard {
-  padding: 30px;
+  padding: 20px;
   background: #f8fafc;
   height: 100%;
   min-height: 100vh;
@@ -12,14 +12,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 15px;
 }
 
 .dashboard-header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.5px;
@@ -47,80 +47,90 @@
 /* KPI Cards */
 .dashboard-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 24px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .dashboard-card {
   background: #ffffff;
-  padding: 25px;
-  border-radius: 20px;
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
+  padding: 16px 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px -5px rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
   border: 1px solid #e2e8f0;
 }
 
 .dashboard-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 30px -10px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -5px rgba(0,0,0,0.08);
 }
 
-.dashboard-card .card-icon {
-  font-size: 32px;
-  margin-bottom: 15px;
-  display: inline-block;
-  padding: 12px;
-  border-radius: 14px;
+.card-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard-card h4 {
-  margin: 0;
-  font-size: 14px;
+  margin: 0 0 4px 0;
+  font-size: 12px;
   font-weight: 600;
   color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .dashboard-card h1 {
-  margin: 10px 0 0;
-  font-size: 36px;
+  margin: 0;
+  font-size: 26px;
   font-weight: 800;
 }
 
+.card-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+
 /* Card Themes */
-.dashboard-card.green .card-icon { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.dashboard-card.green .card-icon-box { color: #10b981; background: rgba(16, 185, 129, 0.1); }
 .dashboard-card.green h1 { color: #047857; }
 
-.dashboard-card.yellow .card-icon { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+.dashboard-card.yellow .card-icon-box { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
 .dashboard-card.yellow h1 { color: #b45309; }
 
-.dashboard-card.orange .card-icon { color: #f97316; background: rgba(249, 115, 22, 0.1); }
+.dashboard-card.orange .card-icon-box { color: #f97316; background: rgba(249, 115, 22, 0.1); }
 .dashboard-card.orange h1 { color: #c2410c; }
 
-.dashboard-card.red .card-icon { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.dashboard-card.red .card-icon-box { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 .dashboard-card.red h1 { color: #b91c1c; }
 
-.dashboard-card.blue .card-icon { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+.dashboard-card.blue .card-icon-box { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
 .dashboard-card.blue h1 { color: #1d4ed8; }
 
-.dashboard-card.purple .card-icon { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+.dashboard-card.purple .card-icon-box { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
 .dashboard-card.purple h1 { color: #5b21b6; }
 
 /* Dashboard Sections */
 .dashboard-section {
   background: #ffffff;
-  border-radius: 20px;
-  padding: 30px;
-  box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05);
-  margin-bottom: 40px;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px -5px rgba(0,0,0,0.03);
+  margin-bottom: 24px;
   border: 1px solid #e2e8f0;
 }
 
 .dashboard-section h2 {
-  margin: 0 0 25px;
-  font-size: 20px;
+  margin: 0 0 16px;
+  font-size: 16px;
   font-weight: 800;
   color: #0f172a;
 }
@@ -136,9 +146,9 @@
 
 .dashboard-table th {
   background: #f8fafc;
-  padding: 16px;
+  padding: 12px 16px;
   text-align: left;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #475569;
   text-transform: uppercase;
@@ -147,8 +157,8 @@
 }
 
 .dashboard-table td {
-  padding: 16px;
-  font-size: 14px;
+  padding: 12px 16px;
+  font-size: 13px;
   color: #1e293b;
   border-bottom: 1px solid #f1f5f9;
 }

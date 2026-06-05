@@ -1,532 +1,325 @@
-/* ===================================
-   PAGE CONTAINER
-=================================== */
+/* ══════════════════════════════════════════════════════
+   EmployeePenalties.css — Ultra Premium & Mobile First
+══════════════════════════════════════════════════════ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── PAGE BASE ── */
 .employee-penalty {
-
-    background: #eef2f7;
-
-    min-height: 100vh;
-
-    width: 100%;
-
-    overflow-y: auto;
-    overflow-x: hidden;
-
-    padding: 16px;
-
-    box-sizing: border-box;
-
-    font-family: "Segoe UI", sans-serif;
+  padding: 16px 16px 100px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-/* ===================================
-   HEADER
-=================================== */
-
+/* ── HEADER ── */
 .employee-header {
-
-    background: #ffffff;
-
-    border-radius: 10px;
-
-    /* padding: 18px 24px; */
-
-    margin-bottom: 16px;
-
-    border: 1px solid #066bf8;
-
-    box-shadow:
-        0 2px 10px rgba(0,0,0,.05);
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 16px;
 }
 
 .employee-header h1 {
-
-    margin: 0;
-
-    color: #0f172a;
-
-    font-size: 20px;
-
-    font-weight: 700;
-
-    letter-spacing: -.5px;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
 }
 
-.employee-info {
-
-    margin-top: 8px;
+/* ══════════════════════════════════════════════
+   BENTO SUMMARY GRID
+══════════════════════════════════════════════ */
+.ep-summary-bento {
+  width: 100%;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.employee-info h2 {
-
-    margin: 0;
-
-    color: #1e293b;
-
-    font-size: 18px;
-
-    font-weight: 600;
+.ep-bento-box {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
 }
 
-.employee-info span {
-
-    color: #64748b;
-
-    font-size: 13px;
+.ep-bento-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
-/* ===================================
-   SUMMARY KPI CARDS
-=================================== */
-
-.summary-card {
-
-    display: grid;
-
-    grid-template-columns:
-        repeat(
-            auto-fit,
-            minmax(220px, 1fr)
-        );
-
-    gap: 16px;
-
-    margin-bottom: 20px;
+.ep-bento-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.85);
+  z-index: 2;
 }
 
-.summary-box {
-
-    position: relative;
-
-    overflow: hidden;
-
-    border-radius: 14px;
-
-    padding: 20px;
-
-    min-height: 120px;
-
-    display: flex;
-
-    flex-direction: column;
-
-    justify-content: center;
-
-    box-shadow:
-        0 4px 12px
-        rgba(0,0,0,.08);
-
-    transition: all .3s ease;
+.ep-bento-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-top: 4px;
+  color: #ffffff;
+  z-index: 2;
 }
 
-.summary-box:hover {
-
-    transform:
-        translateY(-4px);
-
-    box-shadow:
-        0 8px 18px
-        rgba(0,0,0,.12);
+/* Background Gradients & Effects */
+.ep-bento-box::before {
+  content: "";
+  position: absolute;
+  top: -20px; right: -20px;
+  width: 90px; height: 90px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
-.summary-box::before {
+.ep-bento-box.green { background: linear-gradient(135deg, #10b981, #059669); }
+.ep-bento-box.yellow { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.ep-bento-box.orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+.ep-bento-box.red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.ep-bento-box.score { background: linear-gradient(135deg, #3b82f6, #2563eb); }
 
-    content: "";
+/* Make score span across columns on desktop to anchor the grid */
+.ep-bento-box.score {
+  grid-column: span 4;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.ep-bento-box.score .ep-bento-value { margin-top: 0; font-size: 32px; }
 
-    position: absolute;
-
-    width: 90px;
-
-    height: 90px;
-
-    top: -20px;
-
-    right: -20px;
-
-    border-radius: 50%;
-
-    background:
-        rgba(
-            255,
-            255,
-            255,
-            .15
-        );
+/* ══════════════════════════════════════════════
+   SECTION WRAPPERS
+══════════════════════════════════════════════ */
+.dashboard-section,
+.ep-escalation-section {
+  width: 100%;
+  max-width: 900px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
 }
 
-.summary-box span {
-
-    color: #fff;
-
-    font-size: 15px;
-
-    font-weight: 600;
-
-    z-index: 1;
+.dashboard-section h2,
+.ep-escalation-section h2 {
+  margin: 0 0 14px 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.summary-box h1 {
-
-    margin-top: 8px;
-
-    color: #fff;
-
-    font-size: 36px;
-
-    font-weight: 700;
-
-    z-index: 1;
+/* ══════════════════════════════════════════════
+   VIOLATION HISTORY CARDS (Replaces Table)
+══════════════════════════════════════════════ */
+.ep-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* GREEN */
-
-.green-box {
-
-    background:
-        linear-gradient(
-            135deg,
-            #16a34a,
-            #22c55e
-        );
+.ep-empty-state {
+  text-align: center;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  color: #64748b;
+  font-weight: 600;
+  border: 1px dashed #cbd5e1;
 }
 
-/* YELLOW */
-
-.yellow-box {
-
-    background:
-        linear-gradient(
-            135deg,
-            #d97706,
-            #f59e0b
-        );
+.ep-history-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  transition: all 0.2s ease;
 }
 
-/* ORANGE */
-
-.orange-box {
-
-    background:
-        linear-gradient(
-            135deg,
-            #ea580c,
-            #fb923c
-        );
+.ep-history-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
-/* RED */
-
-.red-box {
-
-    background:
-        linear-gradient(
-            135deg,
-            #dc2626,
-            #ef4444
-        );
+.ep-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e2e8f0;
 }
 
-/* PERFORMANCE SCORE */
-
-.score-box {
-
-    background:
-        linear-gradient(
-            135deg,
-            #2563eb,
-            #3b82f6
-        );
+.ep-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
 }
 
-/* ===================================
-   SECTION CARD
-=================================== */
-
-.dashboard-section {
-
-    background: #ffffff;
-
-    border-radius: 14px;
-
-    padding: 20px;
-
-    margin-bottom: 16px;
-
-    border: 1px solid #dbe3ee;
-
-    box-shadow:
-        0 2px 10px rgba(0,0,0,.05);
+.ep-slip-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
-.dashboard-section h2 {
+.ep-slip-badge.green { background: rgba(16, 185, 129, 0.15); color: #047857; }
+.ep-slip-badge.yellow { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+.ep-slip-badge.orange { background: rgba(249, 115, 22, 0.15); color: #c2410c; }
+.ep-slip-badge.red { background: rgba(239, 68, 68, 0.15); color: #b91c1c; }
 
-    margin: 0 0 16px;
-
-    color: #0f172a;
-
-    font-size: 20px;
-
-    font-weight: 700;
+.ep-card-body {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
 }
 
-/* ===================================
-   TABLE CONTAINER
-=================================== */
-
-.table-container {
-
-    width: 100%;
-
-    overflow-x: auto;
-
-    border: 1px solid #dbe3ee;
-
-    border-radius: 12px;
+.ep-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* ===================================
-   TABLE
-=================================== */
-
-.penalty-table {
-
-    width: 100%;
-
-    border-collapse: collapse;
-
-    background: #ffffff;
+.ep-info-row label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
 }
 
-.penalty-table thead {
-
-    background: #f8fafc;
+.ep-info-row span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.penalty-table thead th {
-
-    position: sticky;
-
-    top: 0;
-
-    z-index: 2;
-
-    padding: 14px;
-
-    text-align: center;
-
-    font-size: 13px;
-
-    font-weight: 700;
-
-    color: #334155;
-
-    border-bottom: 2px solid #dbe3ee;
+.ep-card-footer {
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 6px;
 }
 
-.penalty-table tbody td {
-
-    padding: 14px;
-
-    text-align: center;
-
-    font-size: 14px;
-
-    color: #334155;
-
-    border-bottom: 1px solid #e2e8f0;
+.ep-card-footer p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  line-height: 1.4;
 }
 
-.penalty-table tbody tr:nth-child(even) {
-
-    background: #f8fafc;
+/* ══════════════════════════════════════════════
+   ESCALATION STATUS PILL
+══════════════════════════════════════════════ */
+.ep-escalation-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
-.penalty-table tbody tr:hover {
-
-    background: #eef6ff;
+.ep-escalation-pill span {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
 }
 
-.penalty-table td:first-child {
-
-    text-align: left;
+.ep-esc-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid currentColor;
+  position: relative;
 }
 
-/* ===================================
-   ESCALATION STATUS CARD
-=================================== */
-
-.escalation-card {
-
-    padding: 30px;
-
-    border-radius: 12px;
-
-    text-align: center;
-
-    font-size: 24px;
-
-    font-weight: 700;
-
-    color: #fff;
+/* Glowing pulse on the ring */
+.ep-esc-ring::after {
+  content: '';
+  position: absolute;
+  top: -6px; left: -6px; right: -6px; bottom: -6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.2;
+  animation: pulse 2s infinite ease-in-out;
 }
 
-.escalation-card.green {
-
-    background: #16a34a;
+@keyframes pulse {
+  0% { transform: scale(0.8); opacity: 0.4; }
+  100% { transform: scale(1.5); opacity: 0; }
 }
 
-.escalation-card.yellow {
+.ep-escalation-pill.safe { border-color: rgba(16, 185, 129, 0.3); color: #059669; }
+.ep-escalation-pill.warning { border-color: rgba(245, 158, 11, 0.3); color: #d97706; }
+.ep-escalation-pill.orange { border-color: rgba(249, 115, 22, 0.3); color: #ea580c; }
+.ep-escalation-pill.danger { border-color: rgba(239, 68, 68, 0.3); color: #dc2626; }
 
-    background: #d97706;
-}
-
-.escalation-card.orange {
-
-    background: #ea580c;
-}
-
-.escalation-card.red {
-
-    background: #dc2626;
-}
-
-/* ===================================
-   ESCALATION BADGES
-=================================== */
-
-.escalation {
-
-    display: inline-block;
-
-    padding: 10px 20px;
-
-    border-radius: 999px;
-
-    font-size: 14px;
-
-    font-weight: 700;
-}
-
-.escalation.green {
-
-    background: #dcfce7;
-
-    color: #166534;
-}
-
-.escalation.yellow {
-
-    background: #fef3c7;
-
-    color: #92400e;
-}
-
-.escalation.orange {
-
-    background: #ffedd5;
-
-    color: #9a3412;
-}
-
-.escalation.red {
-
-    background: #fee2e2;
-
-    color: #991b1b;
-}
-
-/* ===================================
-   NO DATA
-=================================== */
-
-.no-data {
-
-    text-align: center;
-
-    padding: 24px;
-
-    color: #64748b;
-
-    font-size: 14px;
-}
-
-/* ===================================
-   LOADING
-=================================== */
-
-.loading-box {
-
-    height: 100vh;
-
-    display: flex;
-
-    justify-content: center;
-
-    align-items: center;
-
-    font-size: 18px;
-
-    font-weight: 600;
-
-    color: #475569;
-}
-
-/* ===================================
-   SCROLLBAR
-=================================== */
-
-.employee-penalty::-webkit-scrollbar {
-
-    width: 10px;
-}
-
-.employee-penalty::-webkit-scrollbar-thumb {
-
-    background: #cbd5e1;
-
-    border-radius: 20px;
-}
-
-.employee-penalty::-webkit-scrollbar-track {
-
-    background: #f1f5f9;
-}
-
+/* ══════════════════════════════════════════════
+   MOBILE RESPONSIVENESS
+══════════════════════════════════════════════ */
 @media (max-width: 768px) {
+  .employee-penalty {
+    padding: 12px 10px 100px;
+  }
 
-    .employee-penalty {
-        padding: 10px;
-    }
+  .ep-summary-bento {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 
-    .employee-header h1 {
-        font-size: 22px;
-    }
+  /* Score box still spans full width but stacks vertically on mobile */
+  .ep-bento-box.score {
+    grid-column: span 2;
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-    .summary-card {
-        grid-template-columns: 1fr;
-    }
+  .ep-bento-box.score .ep-bento-value {
+    margin-top: 6px;
+  }
 
-    .summary-box {
-        min-height: 90px;
-    }
+  .dashboard-section,
+  .ep-escalation-section {
+    padding: 12px;
+    border-radius: 14px;
+  }
 
-    .summary-box h1 {
-        font-size: 28px;
-    }
+  .ep-escalation-pill {
+    padding: 14px 16px;
+  }
 
-    .dashboard-section {
-        padding: 14px;
-    }
+  .ep-escalation-pill span {
+    font-size: 15px;
+  }
 
-    .penalty-table th,
-    .penalty-table td {
-        padding: 10px;
-        font-size: 12px;
-    }
-
-    .escalation-card {
-        font-size: 18px;
-        padding: 20px;
-    }
+  .ep-card-body {
+    flex-direction: column;
+    gap: 8px;
+  }
 }

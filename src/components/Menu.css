@@ -199,13 +199,14 @@ ion-menu.menu-background::part(container) {
 
 /* ── Text Label ── */
 .menu-item-label {
+  font-family: 'Poppins', sans-serif;
   font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .scrollable-list ion-item.item-active .menu-item-label {
-  font-weight: 600;
+  font-weight: 800;
   color: #ffffff;
 }
 

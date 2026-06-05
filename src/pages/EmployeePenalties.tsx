@@ -131,37 +131,30 @@ function EmployeePenalties() {
 
            {/* SUMMARY */}
 
-<div className="summary-card">
-
-    <div className="summary-box green-box">
-        <span>Green Slips</span>
-        <h1>{emp.TotalGreenSlips || 0}</h1>
+{/* ── BENTO SUMMARY GRID ── */}
+<div className="ep-summary-bento">
+    <div className="ep-bento-box green">
+        <div className="ep-bento-label">Green Slips</div>
+        <div className="ep-bento-value">{emp.TotalGreenSlips || 0}</div>
     </div>
-
-    <div className="summary-box yellow-box">
-        <span>Yellow Slips</span>
-        <h1>{emp.TotalYellowSlips || 0}</h1>
+    <div className="ep-bento-box yellow">
+        <div className="ep-bento-label">Yellow Slips</div>
+        <div className="ep-bento-value">{emp.TotalYellowSlips || 0}</div>
     </div>
-
-    <div className="summary-box orange-box">
-        <span>Orange Slips</span>
-        <h1>{emp.TotalOrangeSlips || 0}</h1>
+    <div className="ep-bento-box orange">
+        <div className="ep-bento-label">Orange Slips</div>
+        <div className="ep-bento-value">{emp.TotalOrangeSlips || 0}</div>
     </div>
-
-    <div className="summary-box red-box">
-        <span>Red Slips</span>
-        <h1>{emp.TotalRedSlips || 0}</h1>
+    <div className="ep-bento-box red">
+        <div className="ep-bento-label">Red Slips</div>
+        <div className="ep-bento-value">{emp.TotalRedSlips || 0}</div>
     </div>
-
-    <div className="summary-box score-box">
-        <span>Performance Score</span>
-        <h1>
-            {Number(
-                emp.TotalPerformanceScore || 0
-            ).toFixed(2)}
-        </h1>
+    <div className="ep-bento-box score">
+        <div className="ep-bento-label">Performance Score</div>
+        <div className="ep-bento-value">
+            {Number(emp.TotalPerformanceScore || 0).toFixed(2)}
+        </div>
     </div>
-
 </div>
 
             {/* VIOLATIONS */}
@@ -172,129 +165,55 @@ function EmployeePenalties() {
                     Violation History
                 </h2>
 
-                <div className="table-container">
-
-                    <table className="penalty-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th>
-                                    Penalty
-                                </th>
-
-                                <th>
-                                    Slip Type
-                                </th>
-
-                                <th>
-                                    Count
-                                </th>
-
-                                <th>
-                                    Remarks
-                                </th>
-
-                                <th>
-                                    Date
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody>
-
-                            {
-                                data.violations.length > 0 ?
-
-                                    data.violations.map(
-                                        (
-                                            item: any,
-                                            index: number
-                                        ) => (
-
-                                            <tr key={index}>
-
-                                                <td>
-                                                    {item.PenaltyType}
-                                                </td>
-
-                                                <td>
-                                                    {item.SlipType}
-                                                </td>
-
-                                                <td>
-                                                    {item.SlipCount}
-                                                </td>
-
-                                                <td>
-                                                    {item.Remarks}
-                                                </td>
-
-                                                <td>
-                                                    {item.AppliedDate}
-                                                </td>
-
-                                            </tr>
-
-                                        )
-                                    )
-
-                                    :
-
-                                    <tr>
-
-                                        <td
-                                            colSpan={5}
-                                            className="no-data"
-                                        >
-                                            No Penalties Found
-                                        </td>
-
-                                    </tr>
-                            }
-
-                        </tbody>
-
-                    </table>
-
+                <div className="ep-history-list">
+                    {data.violations.length > 0 ? (
+                        data.violations.map((item: any, index: number) => (
+                            <div key={index} className="ep-history-card">
+                                <div className="ep-card-header">
+                                    <span className="ep-date">{item.AppliedDate}</span>
+                                    <span className={`ep-slip-badge ${item.SlipType?.toLowerCase()}`}>
+                                        {item.SlipType}
+                                    </span>
+                                </div>
+                                <div className="ep-card-body">
+                                    <div className="ep-info-row">
+                                        <label>Penalty</label>
+                                        <span>{item.PenaltyType}</span>
+                                    </div>
+                                    <div className="ep-info-row">
+                                        <label>Count</label>
+                                        <span>x{item.SlipCount}</span>
+                                    </div>
+                                </div>
+                                {item.Remarks && (
+                                    <div className="ep-card-footer">
+                                        <p>{item.Remarks}</p>
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="ep-empty-state">
+                            No Penalties Found
+                        </div>
+                    )}
                 </div>
 
             </div>
 
             {/* ESCALATION */}
 
-<div className="dashboard-section">
-
-    <h2>
-        Current Escalation Status
-    </h2>
-
-    <div
-        className={
-            esc.EscalationStatus ===
-            "Disciplinary Review"
-                ? "escalation-card red"
-
-                : esc.EscalationStatus ===
-                  "Manager Escalation"
-                ? "escalation-card orange"
-
-                : esc.EscalationStatus ===
-                  "HR Warning"
-                ? "escalation-card yellow"
-
-                : "escalation-card green"
-        }
-    >
-        {
-            esc.EscalationStatus ||
-            "Normal"
-        }
+<div className="ep-escalation-section">
+    <h2>Current Escalation Status</h2>
+    <div className={`ep-escalation-pill ${
+        esc.EscalationStatus === "Disciplinary Review" ? "danger"
+        : esc.EscalationStatus === "Manager Escalation" ? "orange"
+        : esc.EscalationStatus === "HR Warning" ? "warning"
+        : "safe"
+    }`}>
+        <div className="ep-esc-ring"></div>
+        <span>{esc.EscalationStatus || "Normal"}</span>
     </div>
-
 </div>
 
         </div>
