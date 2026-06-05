@@ -441,7 +441,14 @@ dashboard.scoreCard.map((item:any,index:number)=>(
 
         </div>
 
-        <div className="dashboard-section">
+        
+<div className="fab-container">
+        {/* Your orange action button element goes here */}
+        {/* <button className="your-orange-btn-class">+</button>  */}
+      </div>
+    </div>
+
+    <div className="dashboard-section">
 
 <h2>Top 10 Worst Performers</h2>
 
@@ -487,11 +494,6 @@ dashboard.worstPerformers.map(
 </div>
 
 </div>
-<div className="fab-container">
-        {/* Your orange action button element goes here */}
-        <button className="your-orange-btn-class">+</button> 
-      </div>
-    </div>
 
     
       </div>

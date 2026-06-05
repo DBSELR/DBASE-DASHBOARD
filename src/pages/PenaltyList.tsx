@@ -13,7 +13,8 @@ import {
 
 import {
   chevronDownOutline,
-  chevronForwardOutline
+  chevronForwardOutline,
+  documentTextOutline
 } from "ionicons/icons";
 
 import "./PenaltyList.css";
@@ -443,7 +444,9 @@ function PenaltyList() {
                                                       )}
                                                       target="_blank"
                                                       rel="noreferrer"
+                                                      className="view-proof-btn"
                                                     >
+                                                      <IonIcon icon={documentTextOutline} />
                                                       View Proof
                                                     </a>
 

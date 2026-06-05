@@ -11,7 +11,8 @@ import {
 import {
   warningOutline,
   peopleOutline,
-  saveOutline
+  saveOutline,
+  documentTextOutline
 } from "ionicons/icons";
 
 import "./PenaltyAssignment.css";
@@ -325,50 +326,28 @@ const [form, setForm] = useState({
   />
 
   {/* Image Preview */}
-
   {
     proofFile &&
     proofFile.type.startsWith("image/") &&
     (
-      <div
-        style={{
-          marginTop: "10px"
-        }}
-      >
+      <div className="file-preview-container">
         <img
-          src={URL.createObjectURL(
-            proofFile
-          )}
+          src={URL.createObjectURL(proofFile)}
           alt="Proof"
-          style={{
-            width: "200px",
-            maxHeight: "200px",
-            objectFit: "contain",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            padding: "5px"
-          }}
+          className="file-preview-image"
         />
       </div>
     )
   }
 
   {/* PDF Preview */}
-
   {
     proofFile &&
     proofFile.type === "application/pdf" &&
     (
-      <div
-        style={{
-          marginTop: "10px",
-          color: "#1976d2",
-          fontWeight: "bold"
-        }}
-      >
-        Selected PDF:
-        {" "}
-        {proofFile.name}
+      <div className="pdf-preview-box">
+        <IonIcon icon={documentTextOutline} />
+        Selected PDF: {proofFile.name}
       </div>
     )
   }
@@ -394,40 +373,29 @@ const [form, setForm] = useState({
               }
             />
 
-          </div>
 
-          <button
-  className="save-btn"
-  onClick={applyPenalty}
->
-  <IonIcon icon={saveOutline} />
-  Apply Penalty
-</button>
+
+          </div>
 
         </div>
 
-        {/* Selected Employees */}
+        <button
+          className="save-btn"
+          onClick={applyPenalty}
+        >
+          <IonIcon icon={saveOutline} />
+          Apply Penalty
+        </button>
 
-       <div
-  style={{
-    marginTop: "20px",
-    maxHeight: "250px",
-    overflowY: "auto",
-    border: "1px solid #ddd",
-    borderRadius: "10px"
-  }}
->
+        {/* Selected Employees */}
+        <div className="selected-employees-box">
           <h4>
             Selected Employees
           </h4>
-
-          <table
-            className="meeting-table"
-          >
-
-            <thead>
-
-              <tr>
+          <div style={{ maxHeight: "250px", overflowY: "auto" }}>
+            <table className="meeting-table">
+              <thead>
+                <tr>
 
                 <th>
                   Employee Code
@@ -454,9 +422,8 @@ const [form, setForm] = useState({
               )}
 
             </tbody>
-
-          </table>
-
+            </table>
+          </div>
         </div>
 
        {/* <div

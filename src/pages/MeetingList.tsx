@@ -3,7 +3,7 @@ import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { IonIcon, IonSelect, IonSelectOption } from "@ionic/react";
-import { calendarOutline, layersOutline } from "ionicons/icons";
+import { calendarOutline, layersOutline, documentTextOutline } from "ionicons/icons";
 import "./MeetingList.css";
 
 const generateMonthList = () => {
@@ -267,7 +267,8 @@ function MeetingList({ }: MeetingListProps) {
         display: "flex",
         flexDirection: "column",
         boxSizing: "border-box",
-        overflow: "hidden"
+        overflowY: "auto",
+        minHeight: "100vh"
       }}
     >
       {/* Header */}
@@ -425,12 +426,9 @@ function MeetingList({ }: MeetingListProps) {
                             href={getFileUrl(mAttachment)}
                             target="_blank"
                             rel="noreferrer"
-                            style={{
-                              color: "var(--ion-color-primary, #3b82f6)",
-                              textDecoration: "underline",
-                              fontWeight: "500",
-                            }}
+                            className="view-file-btn"
                           >
+                            <IonIcon icon={documentTextOutline} />
                             View File
                           </a>
                         </div>

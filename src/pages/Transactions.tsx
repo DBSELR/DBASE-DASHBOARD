@@ -759,10 +759,10 @@ const Transactions: React.FC = () => {
         _transferTo: transferToCode,
         _Amt: amount,
         _remarks:
-  remarks?.trim() ||
-  (paymentType === "--"
-    ? `Amount transferred to ${transferToCode}, through ${transferMode}`
-    : `${paymentType} Amount transferred to ${transferToCode}, through ${transferMode}`),
+          remarks?.trim() ||
+          (paymentType === "--"
+            ? `Amount transferred to ${transferToCode}, through ${transferMode}`
+            : `${paymentType} Amount transferred to ${transferToCode}, through ${transferMode}`),
         _transferType: transferMode,
         _paymentType:
           paymentType === "--" || paymentType === "" ? "Credit" : paymentType,
@@ -1016,14 +1016,14 @@ const Transactions: React.FC = () => {
         {/* --- Custom Native-Like Tabs --- */}
         <div className="custom-tabs">
           <div
-            className={`tab-item ${activeTab === "transfer" ? "active" : ""}`}
+            className={`txn-tab-item ${activeTab === "transfer" ? "active" : ""}`}
             onClick={() => setActiveTab("transfer")}
           >
             Transfer
           </div>
 
           <div
-            className={`tab-item ${activeTab === "voucher" ? "active" : ""}`}
+            className={`txn-tab-item ${activeTab === "voucher" ? "active" : ""}`}
             onClick={() => setActiveTab("voucher")}
           >
             Voucher
@@ -1031,7 +1031,7 @@ const Transactions: React.FC = () => {
 
           {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
             <div
-              className={`tab-item ${activeTab === "advances" ? "active" : ""}`}
+              className={`txn-tab-item ${activeTab === "advances" ? "active" : ""}`}
               onClick={() => setActiveTab("advances")}
             >
               Advances
@@ -1128,14 +1128,14 @@ const Transactions: React.FC = () => {
                   </IonSelect>
                 </div>
                 <div className="input-group">
-  <div className="input-label">Remarks</div>
-  <IonInput
-    className="modern-input"
-    placeholder="Enter remarks"
-    value={remarks}
-    onIonChange={(e) => setRemarks(e.detail.value || "")}
-  />
-</div>
+                  <div className="input-label">Remarks</div>
+                  <IonInput
+                    className="modern-input"
+                    placeholder="Enter remarks"
+                    value={remarks}
+                    onIonChange={(e) => setRemarks(e.detail.value || "")}
+                  />
+                </div>
 
               </div>
 
@@ -1262,21 +1262,21 @@ const Transactions: React.FC = () => {
                             </div>
                           </div>
                           <div className="txn-footer">
-  <div className="txn-meta">
-    <span>{t.Date}</span>
-   
-    {t.SALorAdv && <span> • {t.SALorAdv}</span>}
-    {t.Remarks && <span>  • {typeof t.Remarks === "string" 
-      ? t.Remarks 
-      : t.Remarks}
-  
-    </span>}
-  </div>
+                            <div className="txn-meta">
+                              <span>{t.Date}</span>
 
-  <div className="amt-status">
-    {isCredit ? "Received" : "Paid"}
-  </div>
-</div></div>
+                              {t.SALorAdv && <span> • {t.SALorAdv}</span>}
+                              {t.Remarks && <span>  • {typeof t.Remarks === "string"
+                                ? t.Remarks
+                                : t.Remarks}
+
+                              </span>}
+                            </div>
+
+                            <div className="amt-status">
+                              {isCredit ? "Received" : "Paid"}
+                            </div>
+                          </div></div>
                       </div>
                     );
                   })

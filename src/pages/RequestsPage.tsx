@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { IonPage, IonContent, IonIcon } from "@ionic/react";
-import { 
-  calendarOutline, 
-  timeOutline, 
-  cubeOutline, 
-  locationOutline, 
+import {
+  calendarOutline,
+  timeOutline,
+  cubeOutline,
+  locationOutline,
   alarmOutline,
   personOutline,
-  peopleOutline 
+  peopleOutline
 } from "ionicons/icons";
 import RequestContainer from "../components/requests/RequestContainer";
 import { apiService } from "../utils/apiService";
@@ -15,11 +15,11 @@ import "./RequestsPage.css";
 import "../components/requests/RequestList.css";
 
 const TYPES = [
-  { value: "leave",      label: "Leave",      icon: calendarOutline },
+  { value: "leave", label: "Leave", icon: calendarOutline },
   { value: "permission", label: "Permission", icon: timeOutline },
-  { value: "equipment",  label: "Equipment",  icon: cubeOutline },
-  { value: "onduty",     label: "On Duty",     icon: locationOutline },
-  { value: "overtime",   label: "Overtime",    icon: alarmOutline },
+  { value: "equipment", label: "Equipment", icon: cubeOutline },
+  { value: "onduty", label: "On Duty", icon: locationOutline },
+  { value: "overtime", label: "Overtime", icon: alarmOutline },
 ];
 
 const RequestsPage: React.FC = () => {
@@ -49,6 +49,12 @@ const RequestsPage: React.FC = () => {
   return (
     <IonPage>
       <IonContent className="page-content">
+
+        {/* ── Premium Header ── */}
+        <div className="req-page-header-wrap">
+          <div className="req-page-subtitle">HR Portal</div>
+          <div className="req-page-title">My Requests</div>
+        </div>
 
         {/* ── Type Tabs ── */}
         <div className="req-type-tabs">

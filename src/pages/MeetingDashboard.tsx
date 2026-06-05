@@ -3,7 +3,7 @@ import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { IonIcon, IonSelect, IonSelectOption } from "@ionic/react";
-import { calendarOutline, layersOutline, businessOutline } from "ionicons/icons";
+import { calendarOutline, layersOutline, businessOutline, documentTextOutline } from "ionicons/icons";
 import "./MeetingList.css";
 import "./MeetingDashboard.css";
 
@@ -122,7 +122,7 @@ function MeetingDashboard() {
   }, [dashboard, selectedCard]);
 
   return (
-    <div style={{ padding: 20, background: "var(--ion-color-light, #f1f5f9)", minHeight: "100vh" }}>
+    <div className="meeting-dashboard-page" style={{ padding: 20, background: "var(--ion-color-light, #f1f5f9)", minHeight: "100vh", height: "100%", overflowY: "auto" }}>
       <h1 style={{ color: "var(--ion-color-primary, #0f172a)", marginBottom: 20 }}>Meeting Dashboard</h1>
 
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '20px' }}>
@@ -277,12 +277,9 @@ function MeetingDashboard() {
                               href={getFileUrl(mAttachment)}
                               target="_blank"
                               rel="noreferrer"
-                              style={{
-                                color: "var(--ion-color-primary, #447230)",
-                                textDecoration: "underline",
-                                fontWeight: "500",
-                              }}
+                              className="view-file-btn"
                             >
+                              <IonIcon icon={documentTextOutline} />
                               View File
                             </a>
                           ) : (

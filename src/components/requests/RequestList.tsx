@@ -1168,7 +1168,8 @@ const loadTeamPermissionDashboard = async () => {
         finalData
          .map((item) => {
           return (
-            <div key={`${item.lid}-${item.empcode}`} className="lr-history-card themed-bg">
+            <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card themed-bg status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
+              <div className="lr-card-inner">
               <div className="lr-card-header-row">
                 <div className="lr-card-main">
                   {/* <div className="lr-card-title">
@@ -1528,6 +1529,7 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
 
     </div>
 )}
+              </div>{/* end lr-card-inner */}
             </div>
           );
         })}
