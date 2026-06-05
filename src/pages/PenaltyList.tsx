@@ -259,7 +259,7 @@ function PenaltyList() {
                             <div className="pl-detail-body">
                               <div className="pl-detail-item">
                                 <label>Type</label>
-                                <span>{d.SlipType} <span className="pl-count-badge">x{d.SlipCount}</span></span>
+                                <span>{d.SlipType} <span className="pl-count-badge">{d.SlipCount}</span></span>
                               </div>
                               <div className="pl-detail-item">
                                 <label>Time</label>

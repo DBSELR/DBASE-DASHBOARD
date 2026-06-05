@@ -16,8 +16,11 @@ import {
 } from "ionicons/icons";
 
 import "./PenaltyAssignment.css";
+import "./PenaltyDashboard.css";
+import { useHistory } from "react-router-dom";
 
 function PenaltyAssignment() {
+  const history = useHistory();
 
   const [employees, setEmployees] = useState<any[]>([]);
   const [penalties, setPenalties] = useState<any[]>([]);
@@ -177,15 +180,21 @@ const [form, setForm] = useState({
 
       <div className="meeting-card">
 
-        <div className="meeting-header">
+        <div className="dashboard-header">
 
-          <h2>
+          <h1>
 
-            <IonIcon icon={warningOutline} />
+            {/* <IonIcon icon={warningOutline} /> */}
 
             Penalty Assignment
 
-          </h2>
+          </h1>
+           <button
+    className="penalty-list-btn"
+    onClick={() => history.push("/violation-approval")}
+  >
+    View Pending Violations
+  </button>
 
         </div>
 

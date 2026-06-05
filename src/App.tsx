@@ -72,7 +72,8 @@ import EmployeePenalties from "./pages/EmployeePenalties";
 import PenaltyList from "./pages/PenaltyList";
 
 import WorkReportDashboard from "./pages/WorkReportDashboard";
-
+import ViolationReport from "./pages/ViolationReport";
+import ViolationApproval from "./pages/ViolationApproval";
 
 AnswerKeyImport
 
@@ -166,6 +167,8 @@ const App: React.FC = () => {
                   <Route exact path="/penalty-list" component={PenaltyList} />
 
                   <Route exact path="/workreport-dashboard" component={WorkReportDashboard} />
+                  <Route exact path="/violation-report" component={ViolationReport} />
+                  <Route exact path="/violation-approval" component={ViolationApproval} />
 
                   <Redirect from="*" to="/home" />
                 </Switch>

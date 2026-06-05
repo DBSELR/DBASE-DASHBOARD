@@ -3,9 +3,11 @@ import axios from "axios";
 import { API_BASE } from "../config";
 
 import "./EmployeePenalties.css";
+import "./PenaltyDashboard.css";
+import { useHistory } from "react-router-dom";
 
 function EmployeePenalties() {
-
+const history = useHistory();
     const [userData, setUserData] =
         useState<any>(null);
 
@@ -115,10 +117,15 @@ function EmployeePenalties() {
 
         <div className="employee-penalty">
 
-            <div className="employee-header">
+            <div className="dashboard-header">
 
                 <h1>My Penalties</h1>
-
+<button
+    className="penalty-list-btn"
+    onClick={() => history.push("/violation-report")}
+  >
+    Transfer Slip
+  </button>
                {/* <div className="employee-info">
 
     <h2>{emp.EMPNAME}</h2>
@@ -182,7 +189,7 @@ function EmployeePenalties() {
                                     </div>
                                     <div className="ep-info-row">
                                         <label>Count</label>
-                                        <span>x{item.SlipCount}</span>
+                                        <span>{item.SlipCount}</span>
                                     </div>
                                 </div>
                                 {item.Remarks && (
