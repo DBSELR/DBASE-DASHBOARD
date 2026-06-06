@@ -54,6 +54,7 @@ import {
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
 import { apiService } from "../utils/apiService";
+import { API_BASE } from "../config";
 import "./Tasks.css";
 
 const Tasks: React.FC = () => {
@@ -171,10 +172,12 @@ const getCleanName = (value: string) => {
     const userJson = localStorage.getItem("user");
     if (userJson) {
       const user = JSON.parse(userJson);
-      setCurrentEmpCode(user.empCode);
-      setCurrentEmpName(user.empName);
+      const empCode = user.empCode || user.EmpCode;
+      const empName = user.empName || user.EmpName;
+      setCurrentEmpCode(empCode);
+      setCurrentEmpName(empName);
       console.log("Logged In User:", user);
-      fetchInitialData(user.empCode);
+      fetchInitialData(empCode);
     }
   }, []);
 
@@ -280,6 +283,37 @@ const getCleanName = (value: string) => {
       console.log("Submitting Task Data:", taskData);
       await apiService.saveTask(taskData);
       setToastMessage("Task assigned successfully");
+
+      // --- SEND PUSH NOTIFICATION ---
+      try {
+        const assignedEmpCode = assignTo.split("-")[0].trim();
+        if (assignedEmpCode) {
+          fetch(`${API_BASE}Notifications/SendPush`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
+            },
+            body: JSON.stringify({
+              EmpCode: assignedEmpCode,
+              Title: "New Task Assigned",
+              Body: `A new task has been assigned to you by ${currentEmpName}.`,
+              Url: "/tasks"
+            })
+          })
+          .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            console.log("Push API Result:", data);
+            if (!res.ok) {
+              alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
+            }
+          })
+          .catch(e => console.error("Push Error:", e));
+        }
+      } catch (e) {
+        console.error("Push Catch:", e);
+      }
+      // ------------------------------
 
       // API 13: Send SMS
       try {
@@ -389,6 +423,37 @@ const getCleanName = (value: string) => {
       }
 
       setToastMessage("Task transferred");
+      
+      // --- SEND PUSH NOTIFICATION ---
+      try {
+        const transferredEmpCode = transferTargetEmp.split("-")[0].trim();
+        if (transferredEmpCode) {
+          fetch(`${API_BASE}Notifications/SendPush`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
+            },
+            body: JSON.stringify({
+              EmpCode: transferredEmpCode,
+              Title: "Task Transferred",
+              Body: `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`,
+              Url: "/tasks"
+            })
+          })
+          .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            console.log("Push API Result:", data);
+            if (!res.ok) {
+              alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
+            }
+          })
+          .catch(e => console.error("Push Error:", e));
+        }
+      } catch (e) {
+        console.error("Push Catch:", e);
+      }
+      // ------------------------------
       setTransferTargetEmp("");
       setUpdateStatusInfo("");
       setDetailModalOpen(false);

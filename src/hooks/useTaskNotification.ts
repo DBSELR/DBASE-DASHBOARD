@@ -56,7 +56,7 @@ export const useTaskNotification = () => {
   const getUserEmpCode = (): string | null => {
     try {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
-      return u?.empCode ? String(u.empCode) : null;
+      return (u?.empCode || u?.EmpCode) ? String(u.empCode || u.EmpCode) : null;
     } catch { return null; }
   };
 
