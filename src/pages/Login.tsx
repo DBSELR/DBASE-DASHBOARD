@@ -3,13 +3,11 @@ import { IonPage, IonContent } from "@ionic/react";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
 import { registerWebPush } from "../services/firebase";
-import Stock from "./Stock";
+
 import "./Login.css";
 
 const Login: React.FC = () => {
   const [step, setStep] = useState(1);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -19,7 +17,6 @@ const Login: React.FC = () => {
   const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Stage 1: Splash Screen duration
     const timer = setTimeout(() => setStep(2), 2500);
     return () => clearTimeout(timer);
   }, []);
@@ -34,6 +31,7 @@ const Login: React.FC = () => {
     setStep(3);
   };
 
+  // 🔥 LOGIN FUNCTION (FIXED)
   const handleLogin = async () => {
     const uname = usernameRef.current?.value || "";
     const pwd = passwordRef.current?.value || "";
@@ -44,13 +42,18 @@ const Login: React.FC = () => {
     }
 
     setLoading(true);
+
     try {
+      console.log("🔥 LOGIN CLICKED");
+
       const response = await fetch(
         `${API_BASE}Login/UserLogin?Username=${uname}&Password=${pwd}`,
         {
           method: "GET",
         }
       );
+
+      console.log("📡 API CALLED");
 
       if (!response.ok) {
         showToast("Invalid username or password!");
@@ -60,19 +63,28 @@ const Login: React.FC = () => {
 
       const data = await response.json();
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("EmpCode", String(data.user?.EmpCode || data.user?.empCode));
+     if (data.token) {
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(data.user));
 
-        // Register Firebase Push Notification
-        await registerWebPush(
-          data.user?.EmpCode ||
-          data.user?.empCode ||
-          uname
-        );
+  const empCode =
+    data.user?.EmpCode || data.user?.empCode || uname;
 
-        window.location.href = "/home";
+  console.log("👤 EmpCode:", empCode);
+
+  try {
+    console.log("🚀 Calling registerWebPush");
+
+    const token = await registerWebPush(empCode);
+
+    console.log("✅ FCM Token Generated:", token);
+  } catch (err) {
+    console.error("❌ registerWebPush failed:", err);
+  }
+
+  window.location.href = "/home";
+
+
       } else {
         showToast("Login failed! Please try again.");
         setLoading(false);
@@ -88,89 +100,88 @@ const Login: React.FC = () => {
     <IonPage>
       <IonContent className="db-login-page-container" scrollY={true}>
         <div className="db-login-page">
-          {/* Custom Validation Toast */}
+
+          {/* Toast */}
           <div className={`db-validation-toast ${toastActive ? "active" : ""}`}>
             <span className="db-toast-icon">⚠️</span>
             <span className="db-toast-msg">{errorMsg}</span>
           </div>
 
-          {/* Background Animated Elements */}
+          {/* Background */}
           <div className="db-login-bg-shapes">
             <div className="db-shape db-shape-1"></div>
             <div className="db-shape db-shape-2"></div>
           </div>
 
-          {/* Step Handlers for Keyboard */}
           {step === 2 && <EnterKeyHandler onEnter={handleGetStarted} />}
           {step === 3 && <EnterKeyHandler onEnter={handleLogin} />}
 
-          {/* STEP 1: SPLASH SCREEN */}
+          {/* Splash */}
           {step === 1 && (
             <div className="db-splash-screen">
-              <img src="./images/dbase.png" alt="Logo" className="db-animated-logo-large" />
+              <img src="./images/dbase.png" className="db-animated-logo-large" />
             </div>
           )}
 
-          {/* STEP 2: WELCOME SCREEN */}
+          {/* Welcome */}
           {step === 2 && (
             <div className="db-welcome-screen">
-              <img src="./images/dbase.png" alt="Logo" className="db-animated-logo-large" />
+              <img src="./images/dbase.png" className="db-animated-logo-large" />
               <h1 className="db-welcome-title">WELCOME</h1>
-              <p className="db-welcome-subtitle">Your gateway to a smarter workflow. Experience the power of data.</p>
               <button className="db-get-started-btn" onClick={handleGetStarted}>
                 Get Started
               </button>
             </div>
           )}
 
-          {/* STEP 3: LOGIN FORM */}
+          {/* Login */}
           {step === 3 && (
             <div className="db-login-screen">
-              <div className="db-login-header">
-                <img src="./images/dbs-logo-short.png" alt="Logo" />
-              </div>
+              <form
+                className="db-login-card"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleLogin();
+                }}
+              >
+                {/* Username */}
+                            <div className="db-input-group">
+              <label className="db-input-label">Username</label>
 
-              <form className="db-login-card" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
-                {/* <h2 className="db-login-title">Sign In</h2>
-                <p className="db-login-subtitle">Secure access to your dashboard</p> */}
+              <input
+                type="text"
+                ref={usernameRef}
+                className="db-input-field"
+                placeholder="Username"
+              />
+            </div>
 
-                <div className="db-input-group">
-                  <label className="db-input-label">Username</label>
-                  <div className="db-input-wrapper">
-                    <input
-                      type="text"
-                      ref={usernameRef}
-                      className="db-input-field"
-                      placeholder="Username"
-                      autoComplete="username"
-                    />
-                  </div>
-                </div>
+                {/* Password */}
+<div className="db-input-group">
+  <label className="db-input-label">Password</label>
 
-                <div className="db-input-group">
-                  <label className="db-input-label">Password</label>
-                  <div className="db-input-wrapper">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      ref={passwordRef}
-                      className="db-input-field"
-                      placeholder="Password"
-                      autoComplete="current-password"
-                    />
-                    <button
-                      className="db-password-toggle"
-                      onClick={() => setShowPassword(!showPassword)}
-                      type="button"
-                    >
-                      {showPassword ? "👁️" : "🙈"}
-                    </button>
-                  </div>
-                </div>
+  <div className="db-input-wrapper">
+    <input
+      type={showPassword ? "text" : "password"}
+      ref={passwordRef}
+      className="db-input-field"
+      placeholder="Password"
+    />
 
+    <button
+      type="button"
+      className="db-password-toggle"
+      onClick={() => setShowPassword(!showPassword)}
+    >
+      {showPassword ? "👁️" : "🙈"}
+    </button>
+  </div>
+</div>
+
+                {/* IMPORTANT FIX: ONLY SUBMIT BUTTON */}
                 <button
                   type="submit"
                   className="db-login-button"
-                  onClick={handleLogin}
                   disabled={loading}
                 >
                   {loading ? "Authenticating..." : "Login"}

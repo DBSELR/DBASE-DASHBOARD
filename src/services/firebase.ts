@@ -8,7 +8,6 @@ import {
 
 import { API_BASE } from "../config";
 
-/* Firebase Config */
 const firebaseConfig = {
   apiKey: "AIzaSyAxbahDANKCJWylY9gHrNXfYM3olBnxKEE",
   authDomain: "bbs-notifications-2d51c.firebaseapp.com",
@@ -25,32 +24,55 @@ const VAPID_KEY =
 const app =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-export const registerWebPush = async (p0: any): Promise<string | null> => {
+let listenerRegistered = false;
+
+export const registerWebPush = async (
+  empCodeFromLogin: string
+): Promise<string | null> => {
   try {
+    console.log("🚀 [FCM] registerWebPush called");
+
     const supported = await isSupported();
-    if (!supported) return null;
+    console.log("✅ [FCM] Supported:", supported);
 
-    if (!("serviceWorker" in navigator)) return null;
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return null;
-
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-
-    let empCode = null;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      empCode = payload?.empCode;
-    } catch {
+    if (!supported) {
+      console.log("❌ [FCM] Firebase Messaging not supported");
       return null;
     }
 
-    if (!empCode) return null;
+    if (!("serviceWorker" in navigator)) {
+      console.log("❌ [FCM] Service Worker not supported");
+      return null;
+    }
+
+    if (!("Notification" in window)) {
+      console.log("❌ [FCM] Notification API not supported");
+      return null;
+    }
+
+    const permission = await Notification.requestPermission();
+    console.log("✅ [FCM] Notification Permission:", permission);
+
+    if (permission !== "granted") {
+      console.log("❌ [FCM] Notification permission denied");
+      return null;
+    }
+
+    const empCode = empCodeFromLogin?.toString().trim();
+
+    console.log("👤 [FCM] EmpCode:", empCode);
+
+    if (!empCode) {
+      console.log("❌ [FCM] EmpCode missing");
+      return null;
+    }
 
     const swRegistration = await navigator.serviceWorker.register(
-      "/firebase-messaging-sw.js"
+      "/firebase-messaging-sw.js",
+      { scope: "/" }
     );
+
+    console.log("✅ [FCM] Service Worker Registered");
 
     const messaging = getMessaging(app);
 
@@ -59,18 +81,26 @@ export const registerWebPush = async (p0: any): Promise<string | null> => {
       serviceWorkerRegistration: swRegistration,
     });
 
-    if (!fcmToken) return null;
+    if (!fcmToken) {
+      console.log("❌ [FCM] Token not generated");
+      return null;
+    }
 
-    console.log("[FCM] Token:", fcmToken);
+    console.log("✅ [FCM] Token Generated:", fcmToken);
 
-    /* =========================
-       SAVE TOKEN TO BACKEND
-    ========================= */
-    await fetch(`${API_BASE}/Notifications/SavePushToken`, {
+    const jwtToken = localStorage.getItem("token");
+
+    console.log("🔐 [FCM] JWT Present:", !!jwtToken);
+
+    const saveUrl = `${API_BASE}Notifications/SavePushToken`;
+
+    console.log("📡 [FCM] Calling:", saveUrl);
+
+    const saveRes = await fetch(saveUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${jwtToken}`,
       },
       body: JSON.stringify({
         EmpCode: empCode,
@@ -79,49 +109,50 @@ export const registerWebPush = async (p0: any): Promise<string | null> => {
       }),
     });
 
-    /* =========================
-       🔥 ADDED: TEST SEND PUSH
-    ========================= */
-    await fetch(`${API_BASE}/Notifications/SendPush`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        empCode: empCode,
-        title: "Login Successful",
-        body: "You are now connected to notifications",
-        url: "/",
-      }),
-    });
+    console.log("📡 [FCM] Save Status:", saveRes.status);
 
-    /* Foreground messages */
-    onMessage(messaging, (payload) => {
-      console.log("[FCM] Foreground:", payload);
+    const responseText = await saveRes.text();
 
-      const title =
-        payload.notification?.title ||
-        payload.data?.title ||
-        "Notification";
+    console.log("📡 [FCM] Save Response:", responseText);
 
-      const body =
-        payload.notification?.body ||
-        payload.data?.body ||
-        "";
+    if (!saveRes.ok) {
+      console.log("❌ [FCM] SavePushToken failed");
+      return null;
+    }
 
-      if (Notification.permission === "granted") {
-        new Notification(title, {
-          body,
-          icon: "/logo192.png",
-          data: payload.data,
-        });
-      }
-    });
+    if (!listenerRegistered) {
+      listenerRegistered = true;
+
+      onMessage(messaging, (payload) => {
+        console.log("📩 [FCM] Foreground Message:", payload);
+
+        const title =
+          payload.notification?.title ||
+          payload.data?.title ||
+          "Notification";
+
+        const body =
+          payload.notification?.body ||
+          payload.data?.body ||
+          "";
+
+        if (Notification.permission === "granted") {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(title, {
+              body,
+              icon: "/logo192.png",
+              data: payload.data,
+            });
+          });
+        }
+      });
+    }
+
+    console.log("🎉 [FCM] Registration Complete");
 
     return fcmToken;
   } catch (error) {
-    console.error("[FCM] Error:", error);
+    console.error("❌ [FCM] Error:", error);
     return null;
   }
 };
