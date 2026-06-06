@@ -308,6 +308,24 @@ const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string 
 }, []);
 
 useEffect(() => {
+    const refreshList = () => {
+      loadData();
+    };
+
+    window.addEventListener(
+      "leaveRequestAdded",
+      refreshList
+    );
+
+    return () => {
+      window.removeEventListener(
+        "leaveRequestAdded",
+        refreshList
+      );
+    };
+  }, []);
+
+useEffect(() => {
   if (isSearchModalOpen && triggerRef.current) {
     const rect = triggerRef.current.getBoundingClientRect();
 

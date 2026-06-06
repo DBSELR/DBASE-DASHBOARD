@@ -74,6 +74,9 @@ import PenaltyList from "./pages/PenaltyList";
 import WorkReportDashboard from "./pages/WorkReportDashboard";
 import ViolationReport from "./pages/ViolationReport";
 import ViolationApproval from "./pages/ViolationApproval";
+import ChangePassword from "./pages/ChangePassword";
+
+
 
 AnswerKeyImport
 
@@ -169,6 +172,7 @@ const App: React.FC = () => {
                   <Route exact path="/workreport-dashboard" component={WorkReportDashboard} />
                   <Route exact path="/violation-report" component={ViolationReport} />
                   <Route exact path="/violation-approval" component={ViolationApproval} />
+                  <Route exact path="/change-password" component={ChangePassword} />
 
                   <Redirect from="*" to="/home" />
                 </Switch>

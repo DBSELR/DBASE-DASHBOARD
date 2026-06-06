@@ -42,6 +42,7 @@ const [leaveCategory, setLeaveCategory] = useState("");
   const [confirmLOP, setConfirmLOP] = useState(false);
   const [lopMessage, setLopMessage] = useState("");
   const [singleDateMode, setSingleDateMode] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setRequestType(defaultType === "permission" ? "Permission" : "Leave");
@@ -299,6 +300,7 @@ const [leaveCategory, setLeaveCategory] = useState("");
   //   };
 
   const onSubmit = async () => {
+     if (loading) return; // Prevent double click
     const empCode = getUser()?.empCode;
 
     if (!startDate) return showToast("Select date");
@@ -361,33 +363,92 @@ if (
     submitToServer(finalCategory);
   };
 
-  const submitToServer = async (category: string) => {
-    const empCode = getUser()?.empCode;
+  // const submitToServer = async (category: string) => {
+  //   const empCode = getUser()?.empCode;
 
-    const payload = {
-      _fromdate: fmtDMY(startDate),
-      _todate:
-  singleDateMode
-    ? fmtDMY(startDate)
-    : fmtDMY(endDate),
+  //   const payload = {
+  //     _fromdate: fmtDMY(startDate),
+  //     _todate:
+  // singleDateMode
+  //   ? fmtDMY(startDate)
+  //   : fmtDMY(endDate),
 
-      _remarks: remarks,
-      _PermTime: requestType === "Permission" ? permTime : "",
-      _requesttype: requestType,
-      _empcode: empCode,
-      _leaveMode: requestType === "Permission" ? "Permission" : leaveMode,
-      _leaveCategory: requestType === "Permission" ? "Permission" : category,
-    };
+  //     _remarks: remarks,
+  //     _PermTime: requestType === "Permission" ? permTime : "",
+  //     _requesttype: requestType,
+  //     _empcode: empCode,
+  //     _leaveMode: requestType === "Permission" ? "Permission" : leaveMode,
+  //     _leaveCategory: requestType === "Permission" ? "Permission" : category,
+  //   };
 
-    try {
-      await axios.post(`${API_BASE}Leave/saveleaverequest`, payload);
-      showToast("Submitted Successfully");
-      clearForm();
-      loadExistingLeaves();
-    } catch (err: any) {
-      showToast(err?.response?.data || "Error");
-    }
+  //   try {
+  //     await axios.post(`${API_BASE}Leave/saveleaverequest`, payload);
+  //     showToast("Submitted Successfully");
+  //     clearForm();
+  //     loadExistingLeaves();
+  //   } catch (err: any) {
+  //     showToast(err?.response?.data || "Error");
+  //   }
+  // };
+ 
+ const submitToServer = async (category: string) => {
+  if (loading) return;
+
+  setLoading(true);
+
+  const empCode = getUser()?.empCode;
+
+  const payload = {
+    _fromdate: fmtDMY(startDate),
+    _todate: singleDateMode
+      ? fmtDMY(startDate)
+      : fmtDMY(endDate),
+
+    _remarks: remarks,
+    _PermTime: requestType === "Permission" ? permTime : "",
+    _requesttype: requestType,
+    _empcode: empCode,
+    _leaveMode:
+      requestType === "Permission"
+        ? "Permission"
+        : leaveMode,
+
+    _leaveCategory:
+      requestType === "Permission"
+        ? "Permission"
+        : category,
   };
+
+ try {
+  await axios.post(
+    `${API_BASE}Leave/saveleaverequest`,
+    payload
+  );
+
+  window.dispatchEvent(
+    new Event("refreshRequests")
+  );
+
+  window.dispatchEvent(
+    new CustomEvent("leaveRequestAdded")
+  );
+
+  showToast("Submitted Successfully");
+
+  clearForm();
+
+  loadExistingLeaves();
+}
+catch (err: any) {
+  showToast(
+    err?.response?.data ||
+    err?.response?.data?.message ||
+    "Error submitting request"
+  );
+} finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
   if (requestType === "Permission") {
     setSingleDateMode(true);
@@ -580,10 +641,27 @@ if (
         </div>
       )}
 
-      {/* ── Submit ── */}
-      <button className="lr-gradient-btn" onClick={onSubmit}>
-        Submit Request
-      </button>
+     <button
+  className="lr-gradient-btn"
+  onClick={onSubmit}
+  disabled={loading}
+  style={{
+    opacity: loading ? 0.7 : 1,
+    cursor: loading ? "not-allowed" : "pointer"
+  }}
+>
+  {loading ? (
+    <>
+      <span
+        className="spinner-border spinner-border-sm"
+        style={{ marginRight: "8px" }}
+      />
+      Submitting...
+    </>
+  ) : (
+    "Submit Request"
+  )}
+</button>
 
       {/* ✅ START DATE MODAL */}
       <IonModal isOpen={startModal} className="pwt-date-modal">
@@ -591,7 +669,7 @@ if (
           <h3>Select Date</h3>
           <IonDatetime
             presentation="date"
-            onIonChange={(e) => {
+            onIonChange={(e) => { 
               const v = e.detail.value as string;
               setStartDate(v.split("T")[0]);
               setStartModal(false);
@@ -683,7 +761,20 @@ if (
         duration={2000}
         onDidDismiss={() => setToastOpen(false)}
       />
+   {loading && (
+  <div className="leave-loader-overlay">
+    <div className="leave-loader-box">
+      <div className="leave-spinner"></div>
+      <div className="leave-loader-text">
+        Submitting Leave Request...
+      </div>
     </div>
+  </div>
+)}
+   
+    </div>
+
+    
   );
 };
 

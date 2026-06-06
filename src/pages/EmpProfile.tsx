@@ -1449,6 +1449,28 @@ const EmpProfile: React.FC = () => {
               <Camera size={14} color="#ffffff" />
               Face Enrollement
             </button>
+
+            <button
+  className="ep-status-pill active"
+  style={{
+    cursor: "pointer",
+    border: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    background: "#ef4444",
+    color: "#ffffff",
+    padding: "6px 16px",
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: "600"
+  }}
+  onClick={() => {
+    history.push("/change-password");
+  }}
+>
+  🔒 Change Password
+</button>
           </div>
 
           <div className="ep-header-actions">
