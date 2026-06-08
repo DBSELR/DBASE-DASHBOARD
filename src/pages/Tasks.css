@@ -630,14 +630,15 @@ textarea.ntv-form-input {
 }
 
 /* Premium Task Cards */
-.task-list-container {
+.tasks-grid-container {
     display: grid;
+    grid-template-columns: 1fr;
     gap: 16px;
     margin-top: 16px;
     padding-bottom: 80px;
 }
 
-.premium-task-card {
+.tasks-premium-card {
     background: var(--glass-bg);
     backdrop-filter: var(--surface-blur);
     border-radius: 24px;
@@ -664,7 +665,7 @@ textarea.ntv-form-input {
     }
 }
 
-.premium-task-card:hover {
+.tasks-premium-card:hover {
     transform: translateY(-6px);
     border-color: var(--ion-color-primary);
     box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
@@ -1288,8 +1289,9 @@ textarea.ntv-form-input {
 
 /* Desktop Optimizations */
 @media screen and (min-width: 768px) {
-    .task-list-container {
+    .tasks-grid-container {
         grid-template-columns: repeat(2, 1fr);
+
     }
 
     .tdm-modal-overlay {
@@ -1308,7 +1310,7 @@ textarea.ntv-form-input {
 }
 
 @media screen and (min-width: 1200px) {
-    .task-list-container {
+    .tasks-grid-container {
         grid-template-columns: repeat(3, 1fr);
     }
 }

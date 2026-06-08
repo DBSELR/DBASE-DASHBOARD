@@ -108,13 +108,13 @@ const Tasks: React.FC = () => {
   // Filtering for Searchable Dropdown
   const filteredEmployees = employees.filter((emp) => {
     const term = empSearchTerm.toLowerCase();
-   const id = String(emp[0]).toLowerCase();
+    const id = String(emp[0]).toLowerCase();
 
-let name = String(emp[1]);
-if (name.startsWith(emp[0] + "-")) {
-  name = name.replace(emp[0] + "-", "").trim();
-}
-name = name.toLowerCase();
+    let name = String(emp[1]);
+    if (name.startsWith(emp[0] + "-")) {
+      name = name.replace(emp[0] + "-", "").trim();
+    }
+    name = name.toLowerCase();
     return name.includes(term) || id.includes(term);
   });
 
@@ -131,17 +131,17 @@ name = name.toLowerCase();
     return `${day}-${month}-${year} ${strTime}`;
   };
   const formatEmpName = (value: string) => {
-  if (!value) return "";
+    if (!value) return "";
 
-  const parts = value.split("-");
+    const parts = value.split("-");
 
-  // remove duplicate ID if repeated
-  if (parts.length > 2 && parts[0] === parts[1]) {
-    parts.splice(1, 1);
-  }
+    // remove duplicate ID if repeated
+    if (parts.length > 2 && parts[0] === parts[1]) {
+      parts.splice(1, 1);
+    }
 
-  return parts.join("-").trim();
-};
+    return parts.join("-").trim();
+  };
   const formatDateOnly = (dateStr: string) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -151,13 +151,13 @@ name = name.toLowerCase();
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   };
-const getCleanName = (value: string) => {
-  if (!value) return "Unknown";
+  const getCleanName = (value: string) => {
+    if (!value) return "Unknown";
 
-  // remove ID prefix like "1520-"
-  const parts = value.split("-");
-  return parts.length > 1 ? parts.slice(1).join("-").trim() : value;
-};
+    // remove ID prefix like "1520-"
+    const parts = value.split("-");
+    return parts.length > 1 ? parts.slice(1).join("-").trim() : value;
+  };
   const formatToISODate = (date: Date | string) => {
     if (!date) return "";
     const d = new Date(date);
@@ -301,14 +301,14 @@ const getCleanName = (value: string) => {
               Url: "/tasks"
             })
           })
-          .then(async res => {
-            const data = await res.json().catch(() => ({}));
-            console.log("Push API Result:", data);
-            if (!res.ok) {
-              alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
-            }
-          })
-          .catch(e => console.error("Push Error:", e));
+            .then(async res => {
+              const data = await res.json().catch(() => ({}));
+              console.log("Push API Result:", data);
+              if (!res.ok) {
+                alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
+              }
+            })
+            .catch(e => console.error("Push Error:", e));
         }
       } catch (e) {
         console.error("Push Catch:", e);
@@ -423,7 +423,7 @@ const getCleanName = (value: string) => {
       }
 
       setToastMessage("Task transferred");
-      
+
       // --- SEND PUSH NOTIFICATION ---
       try {
         const transferredEmpCode = transferTargetEmp.split("-")[0].trim();
@@ -441,14 +441,14 @@ const getCleanName = (value: string) => {
               Url: "/tasks"
             })
           })
-          .then(async res => {
-            const data = await res.json().catch(() => ({}));
-            console.log("Push API Result:", data);
-            if (!res.ok) {
-              alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
-            }
-          })
-          .catch(e => console.error("Push Error:", e));
+            .then(async res => {
+              const data = await res.json().catch(() => ({}));
+              console.log("Push API Result:", data);
+              if (!res.ok) {
+                alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
+              }
+            })
+            .catch(e => console.error("Push Error:", e));
         }
       } catch (e) {
         console.error("Push Catch:", e);
@@ -592,10 +592,10 @@ const getCleanName = (value: string) => {
               </div>
             </div>
 
-            <div className="task-list-container">
+            <div className="tasks-grid-container">
               {getFilteredTasks(receivedTasks).map((task: any, index: number) => (
                 <div
-                  className="premium-task-card"
+                  className="tasks-premium-card"
                   key={index}
                   onClick={() => handleViewTask(task)}
                   style={{ animationDelay: `${index * 0.1}s` }}
@@ -619,7 +619,7 @@ const getCleanName = (value: string) => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="card-body">
                     <div className="recipient">
                       <IonIcon icon={person} style={{ fontSize: '14px', marginRight: '4px' }} />
@@ -700,42 +700,42 @@ const getCleanName = (value: string) => {
                                 // Based on user feedback: emp[0] is ID, emp[1] is Name
                                 const empId = String(emp[0]);
 
-                          // Remove duplicate ID if present in name
-                          let empName = String(emp[1]);
+                                // Remove duplicate ID if present in name
+                                let empName = String(emp[1]);
 
-                          if (empName.startsWith(empId + "-")) {
-                          empName = empName.replace(empId + "-", "").trim();
-                          }
+                                if (empName.startsWith(empId + "-")) {
+                                  empName = empName.replace(empId + "-", "").trim();
+                                }
                                 const isSelected = assignTo === `${empId}-${empName}`;
 
                                 // Clean initials logic (stripping numeric prefixes if any)
-                               const cleanName = empName.includes("-")
-                                ? empName.split("-").slice(1).join("-").trim()
-                                 : empName;
+                                const cleanName = empName.includes("-")
+                                  ? empName.split("-").slice(1).join("-").trim()
+                                  : empName;
 
-                                
+
                                 const initials = (cleanName.charAt(0) || "?").toUpperCase();
 
                                 return (
                                   <div
                                     key={index}
-    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-    onMouseDown={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
+                                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
 
-      let name = String(empName);
+                                      let name = String(empName);
 
-      // ✅ MUST FIX: remove duplicate ID if exists
-      if (name.startsWith(empId + "-")) {
-        name = name.replace(empId + "-", "").trim();
-      }
+                                      // ✅ MUST FIX: remove duplicate ID if exists
+                                      if (name.startsWith(empId + "-")) {
+                                        name = name.replace(empId + "-", "").trim();
+                                      }
 
-      setAssignTo(`${empId}-${name}`); // ✅ clean value
-      setIsEmployeeDropdownOpen(false);
-      setEmpSearchTerm("");
-    }}
-                                                                      >
+                                      setAssignTo(`${empId}-${name}`); // ✅ clean value
+                                      setIsEmployeeDropdownOpen(false);
+                                      setEmpSearchTerm("");
+                                    }}
+                                  >
                                     <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
                                       {initials}
                                     </div>
@@ -848,10 +848,10 @@ const getCleanName = (value: string) => {
               </div>
             </div>
 
-            <div className="task-list-container">
+            <div className="tasks-grid-container">
               {getFilteredTasks(sentTasks).map((task: any, index: number) => (
                 <div
-                  className="premium-task-card"
+                  className="tasks-premium-card"
                   key={index}
                   onClick={() => handleViewTask(task)}
                   style={{ animationDelay: `${index * 0.1}s` }}
@@ -1020,27 +1020,27 @@ const getCleanName = (value: string) => {
                           <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Transfer Task</h4>
                           <IonItem lines="full" style={{ '--padding-start': '0' }}>
                             <IonLabel position="stacked">Transfer To</IonLabel>
-                         <IonSelect
-                          value={transferTargetEmp}
-                          onIonChange={e => setTransferTargetEmp(e.detail.value!)}
-                         >
-                        {employees.map((emp, i) => {
-                        const empId = String(emp[0]);
+                            <IonSelect
+                              value={transferTargetEmp}
+                              onIonChange={e => setTransferTargetEmp(e.detail.value!)}
+                            >
+                              {employees.map((emp, i) => {
+                                const empId = String(emp[0]);
 
-                          let empName = String(emp[1]);
+                                let empName = String(emp[1]);
 
-                  // ✅ Remove duplicate ID if exists
-                  if (empName.startsWith(empId + "-")) {
-                  empName = empName.replace(empId + "-", "").trim();
-                  }
+                                // ✅ Remove duplicate ID if exists
+                                if (empName.startsWith(empId + "-")) {
+                                  empName = empName.replace(empId + "-", "").trim();
+                                }
 
-    return (
-      <IonSelectOption key={i} value={`${empId}-${empName}`}>
-        {empId} - {empName}
-      </IonSelectOption>
-    );
-  })}
-</IonSelect>
+                                return (
+                                  <IonSelectOption key={i} value={`${empId}-${empName}`}>
+                                    {empId} - {empName}
+                                  </IonSelectOption>
+                                );
+                              })}
+                            </IonSelect>
                           </IonItem>
                           <IonItem lines="full" style={{ '--padding-start': '0' }}>
                             <IonLabel position="stacked">Transfer Remarks</IonLabel>
