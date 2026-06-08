@@ -503,13 +503,13 @@ const Salaries: React.FC = () => {
   try {
     const tmpMY = moment(SalMY).format("MMM-YYYY");
 
-    const payload = {
-      _SalMY: tmpMY,
-      _Ecode: String(Ecode ?? ""),
-      _AddDays: String(AddDays ?? ""),
-      _Remark: String(Remark ?? ""),
-      _AdvDed: String(AdvDed ?? "")
-    };
+   const payload = {
+  _SalMY: tmpMY,
+  _Ecode: String(Ecode ?? ""),
+  _AddDays: AddDays === "" ? null : AddDays,
+  _Remark: Remark ?? "",
+  _AdvDed: AdvDed === "" ? null : AdvDed
+};
 
     console.log("Sending Payload:", payload);
 
