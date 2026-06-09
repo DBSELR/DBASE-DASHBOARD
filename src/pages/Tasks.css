@@ -408,7 +408,7 @@ textarea.ntv-form-input {
 }
 
 .ntv-form-input::placeholder {
-    color: rgba(255, 255, 255, 0.7) !important;
+    color: rgba(0, 0, 0, 0.7) !important;
     opacity: 1;
 }
 
@@ -636,6 +636,7 @@ textarea.ntv-form-input {
     gap: 16px;
     margin-top: 16px;
     padding-bottom: 80px;
+    
 }
 
 .tasks-premium-card {
@@ -650,7 +651,8 @@ textarea.ntv-form-input {
     transition: var(--transition-smooth);
     animation: cardEntrance 0.6s cubic-bezier(0.23, 1, 0.32, 1) backwards;
     overflow: hidden;
-    height: auto !important;
+    height: 100% !important;
+    
 }
 
 @keyframes cardEntrance {

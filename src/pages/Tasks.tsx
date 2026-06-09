@@ -647,11 +647,7 @@ const Tasks: React.FC = () => {
         {selectedTab === "assign" && (
           <div className="ntv-form-wrapper ion-padding">
             <div className="ntv-form-card">
-              <div className="ntv-form-header">
-                <div className="ntv-form-icon-box">
-                  <IonIcon icon={add} />
-                </div>
-                <h2 className="ntv-form-title">Assign New Task</h2>
+              <div className="ntv-form-header">  
               </div>
 
               <div className="ntv-form-body">
@@ -769,7 +765,7 @@ const Tasks: React.FC = () => {
                       <textarea
                         className="ntv-form-input"
                         style={{
-                          height: '100px',
+                          height: '25px',
                           resize: 'none',
                           fontFamily: 'inherit'
                         }}
