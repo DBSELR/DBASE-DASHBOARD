@@ -670,23 +670,38 @@ const Sources: React.FC = () => {
   };
 
   const saveDesignation = async () => {
-    if (!Designation.trim()) return showToast("Please Enter The Designation Value...!", "danger");
-    try {
-      const r = await axios.post(
-        `${API_BASE}Sources/Save_Designation`,
-        form({ _Designation_ID: tempDisgId, _Designation: Designation.trim() }),
-        { headers: { "Content-Type": "application/x-www-form-urlencoded", ...authHeaders() } }
-      );
-      if (Number(r.data) > 0) {
-        showToast("Record Successfully Submitted...!");
-        setDesignation("");
-        setTempDisgId(0);
-        loadDesignations();
-      } else showToast("Record Not Inserted...!", "danger");
-    } catch (e) {
-      showToast("Error While Sending...!", "danger");
-    }
-  };
+  if (!Designation.trim()) {
+    return showToast("Please Enter The Designation Value...!", "danger");
+  }
+
+  try {
+    const payload = {
+      _Designation_ID: tempDisgId,
+      _Designation: Designation.trim()
+    };
+
+    const r = await axios.post(
+      `${API_BASE}Sources/Save_Designation`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders()
+        }
+      }
+    );
+
+    showToast("Record Successfully Submitted...!");
+
+    setDesignation("");
+    setTempDisgId(0);
+    loadDesignations();
+  }
+  catch (e:any) {
+    console.log(e.response?.data);
+    showToast("Error While Sending...!", "danger");
+  }
+};
 
   // 3. Holidays Management
   const [expanded, setExpanded] = useState(false);
