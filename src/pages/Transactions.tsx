@@ -31,7 +31,6 @@ import {
 import { arrowForward, close, calendar, person, documentText, eyeOutline, checkmarkCircle } from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
-import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import type { RefresherEventDetail } from "@ionic/core";
 import { API_BASE } from "../config";
 import "./Transactions.css";
@@ -489,6 +488,145 @@ const Transactions: React.FC = () => {
   const voucherFileInputRef = useRef<HTMLInputElement>(null);
   const billFileInputRef = useRef<HTMLInputElement>(null);
   const [remarks, setRemarks] = useState<string>("");
+  const videoRef = useRef<HTMLVideoElement>(null);
+ const [menuOpen, setMenuOpen] = useState(false);
+const streamRef = useRef<MediaStream | null>(null);
+
+// ✅ Upload file input
+const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+const [cameraOpen, setCameraOpen] = useState(false);
+const [cameraType, setCameraType] = useState<"user" | "environment">(
+  "environment"
+);
+
+const [captureFor, setCaptureFor] = useState<"voucher" | "bill">("voucher");
+
+const triggerUpload = () => {
+  fileInputRef.current?.click();
+};
+
+const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const base64 = String(reader.result);
+
+    if (captureFor === "voucher") {
+      setPhotoVoucher(base64);
+    } else {
+      setPhotoBill(base64);
+    }
+  };
+
+  reader.readAsDataURL(file);
+  e.target.value = "";
+};
+
+
+
+const openCamera = async (
+  type: "voucher" | "bill",
+  facing: "user" | "environment" = "environment"
+) => {
+  try {
+    setCaptureFor(type);
+    setCameraType(facing);
+    setCameraOpen(true);
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: facing,
+      },
+    });
+
+    streamRef.current = stream;
+
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    }, 100);
+  } catch (err) {
+    console.error(err);
+    presentToast("Unable to access camera", false);
+  }
+};
+const switchCamera = async () => {
+  try {
+    const newType =
+      cameraType === "environment" ? "user" : "environment";
+
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: newType,
+      },
+    });
+
+    streamRef.current = stream;
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+
+    setCameraType(newType);
+  } catch (err) {
+    console.error(err);
+  }
+};
+const capturePhoto = () => {
+  if (!videoRef.current) return;
+
+  const canvas = document.createElement("canvas");
+
+  canvas.width = videoRef.current.videoWidth;
+  canvas.height = videoRef.current.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return;
+
+  ctx.drawImage(
+    videoRef.current,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  const imageData = canvas.toDataURL("image/jpeg", 0.9);
+
+  if (captureFor === "voucher") {
+    setPhotoVoucher(imageData);
+  } else {
+    setPhotoBill(imageData);
+  }
+
+  closeCamera();
+};
+const closeCamera = () => {
+  streamRef.current?.getTracks().forEach((track) => track.stop());
+
+  streamRef.current = null;
+
+  setCameraOpen(false);
+};
+const triggerVoucherUpload = () => {
+  if (voucherFileInputRef.current) {
+    (voucherFileInputRef.current as HTMLInputElement).click();
+  }
+};
+
+const triggerBillUpload = () => {
+  if (billFileInputRef.current) {
+    (billFileInputRef.current as HTMLInputElement).click();
+  }
+};
 
   /* -------- toast helper -------- */
   const presentToast = (msg: string, ok = true) => {
@@ -798,23 +936,23 @@ const Transactions: React.FC = () => {
   };
 
   /* -------- Voucher logic -------- */
-  const takePhoto = async (which: "voucher" | "bill") => {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 100,
-        allowEditing: false,
-        resultType: CameraResultType.Base64,
-        source: CameraSource.Camera,
-      });
-      const base64Image = `data:image/jpeg;base64,${image.base64String}`;
-      if (which === "voucher") setPhotoVoucher(base64Image);
-      else setPhotoBill(base64Image);
-      console.log("[camera] captured:", which);
-    } catch (e) {
-      console.error("Camera error:", e);
-      presentToast("Failed to take photo.", false);
-    }
-  };
+  // const takePhoto = async (which: "voucher" | "bill") => {
+  //   try {
+  //     const image = await Camera.getPhoto({
+  //       quality: 100,
+  //       allowEditing: false,
+  //       resultType: CameraResultType.Base64,
+  //       source: CameraSource.Camera,
+  //     });
+  //     const base64Image = `data:image/jpeg;base64,${image.base64String}`;
+  //     if (which === "voucher") setPhotoVoucher(base64Image);
+  //     else setPhotoBill(base64Image);
+  //     console.log("[camera] captured:", which);
+  //   } catch (e) {
+  //     console.error("Camera error:", e);
+  //     presentToast("Failed to take photo.", false);
+  //   }
+  // };
 
   const fileToBase64Url = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -1355,7 +1493,10 @@ const Transactions: React.FC = () => {
               </div>
 
               <div className="image-pickers" style={{ marginTop: '20px' }}>
-                <div className="picker-card" onClick={() => takePhoto("voucher")}>
+                <div
+  className="picker-card"
+  onClick={() => openCamera("voucher", "environment")}
+>
                   {photoVoucher ? (
                     <img src={photoVoucher} alt="Voucher" className="picker-preview" />
                   ) : (
@@ -1373,7 +1514,10 @@ const Transactions: React.FC = () => {
                   />
                 </div>
 
-                <div className="picker-card" onClick={() => takePhoto("bill")}>
+                <div
+  className="picker-card"
+  onClick={() => openCamera("bill", "environment")}
+>
                   {photoBill ? (
                     <img src={photoBill} alt="Bill" className="picker-preview" />
                   ) : (
@@ -1640,7 +1784,54 @@ const Transactions: React.FC = () => {
             </IonButton>
           </div>
         </IonModal>
+         <IonModal
+  isOpen={cameraOpen}
+  onDidDismiss={closeCamera}
+>
+<IonContent fullscreen className="camera-content">
+  <div className="camera-wrapper">
 
+    {/* 3 DOTS BUTTON */}
+    <div
+      className="camera-menu-btn"
+      onClick={() => setMenuOpen(!menuOpen)}
+    >
+      ⋮
+    </div>
+
+    {/* MENU */}
+    {menuOpen && (
+      <div className="camera-menu">
+        <button onClick={capturePhoto}>Capture</button>
+        <button onClick={switchCamera}>Switch</button>
+        <button onClick={triggerUpload}>Browse</button>
+        <button className="danger" onClick={closeCamera}>
+          Close
+        </button>
+      </div>
+    )}
+
+    {/* VIDEO */}
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      className="camera-video"
+    />
+
+    {/* hidden file input */}
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      style={{ display: "none" }}
+      onChange={handleFileUpload}
+    />
+
+  </div>
+</IonContent>
+</IonModal>
         {/* DA/TA employee selection */}
         <IonModal
           isOpen={openDA_TA_Modal}
