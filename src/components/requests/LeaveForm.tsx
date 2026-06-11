@@ -33,6 +33,7 @@ const [leaveCategory, setLeaveCategory] = useState("");
 
   const [startModal, setStartModal] = useState(false);
   const [endModal, setEndModal] = useState(false);
+  
 
   // 🔥 NEW STATES
   const [balance, setBalance] = useState<any>(null);
@@ -664,41 +665,64 @@ catch (err: any) {
 </button>
 
       {/* ✅ START DATE MODAL */}
-      <IonModal isOpen={startModal} className="pwt-date-modal">
-        <div className="pwt-modal-content">
-          <h3>Select Date</h3>
-          <IonDatetime
-            presentation="date"
-            onIonChange={(e) => { 
-              const v = e.detail.value as string;
-              setStartDate(v.split("T")[0]);
-              setStartModal(false);
-            }}
-          />
-          <IonButton expand="block" onClick={() => setStartModal(false)}>
-            Close
-          </IonButton>
-        </div>
-      </IonModal>
+<IonModal
+  isOpen={startModal}
+  className="small-datetime-modal"
+  onDidDismiss={() => setStartModal(false)}
+>
+  <div className="datetime-card">
+  <IonDatetime
+  presentation="date"
+  preferWheel={true}
+  showDefaultButtons={true}
+  doneText="Done"
+  cancelText="Cancel"
+  value={startDate || undefined}
+  min={new Date().toISOString().split("T")[0]} // today onwards
+  max={`${new Date().getFullYear()}-12-31`}     // only current year
+  onIonChange={(e) => {
+    const value = e.detail.value;
+    if (value) {
+      const selected = String(value).split("T")[0];
+
+      setStartDate(selected);
+
+      // IMPORTANT: reset end date if invalid
+      setEndDate("");
+    }
+  }}
+/>
+  </div>
+</IonModal>
+    
+ 
 
       {/* ✅ END DATE MODAL */}
-      <IonModal isOpen={endModal} className="pwt-date-modal">
-        <div className="pwt-modal-content">
-          <h3>Select End Date</h3>
-          <IonDatetime
-            presentation="date"
-            onIonChange={(e) => {
-              const v = e.detail.value as string;
-              setEndDate(v.split("T")[0]);
-              setEndModal(false);
-            }}
-          />
-          <IonButton expand="block" onClick={() => setEndModal(false)}>
-            Close
-          </IonButton>
-        </div>
-      </IonModal>
-
+  <IonModal
+  isOpen={endModal}
+  className="small-datetime-modal"
+  onDidDismiss={() => setEndModal(false)}
+>
+  <div className="datetime-card">
+   <IonDatetime
+  presentation="date"
+  preferWheel={true}
+  showDefaultButtons={true}
+  doneText="Done"
+  cancelText="Cancel"
+  value={endDate || undefined}
+  min={startDate || new Date().toISOString().split("T")[0]} // must be >= start
+  max={`${new Date().getFullYear()}-12-31`}                 // only current year
+  onIonChange={(e) => {
+    const value = e.detail.value;
+    if (value) {
+      const selected = String(value).split("T")[0];
+      setEndDate(selected);
+    }
+  }}
+/>  
+  </div>
+</IonModal>
       {/* ✅ LOP CONFIRMATION MODAL */}
       <IonModal isOpen={confirmLOP}>
         <div style={{ padding: 20 }}>

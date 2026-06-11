@@ -1364,3 +1364,77 @@
     transform: rotate(360deg);
   }
 }
+/* Modal */
+.pwt-date-modal {
+  --width: 540px;
+  --height: 390px;
+  --border-radius: 36px;
+  --background: #f8f8f8;
+}
+
+.pwt-date-modal::part(content) {
+  border-radius: 36px;
+  background: #f8f8f8;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Datetime Wheel */
+.pwt-date-modal ion-datetime {
+  width: 100%;
+  height: 310px;
+  --background: transparent;
+  color: #5f8161;
+}
+
+/* Close Button */
+.pwt-date-modal ion-button {
+  position: absolute;
+  bottom: 24px;
+  right: 34px;
+
+  --background: transparent;
+  --background-hover: transparent;
+  --background-focused: transparent;
+  --background-activated: transparent;
+  --border-color: transparent;
+  --box-shadow: none;
+
+  color: #5f8161;
+  font-size: 18px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.pwt-date-modal ion-button::part(native) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.small-datetime-modal {
+  --width: 360px;   /* slightly increased width */
+  --height: auto;
+  --border-radius: 25px;  /* requested */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.small-datetime-modal::part(content) {
+  border-radius: 25px;
+  background: white;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+  overflow: hidden; /* important for smooth rounded corners */
+}
+
+.datetime-card {
+  padding: 12px;
+}
+
+/* keep datetime compact and clean */
+ion-datetime {
+  --background: transparent;
+  --wheel-highlight-background: rgba(0, 0, 0, 0.05);
+  font-size: 14px;
+}

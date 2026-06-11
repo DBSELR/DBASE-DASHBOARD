@@ -227,12 +227,7 @@ const OnDuties: React.FC = () => {
     userDesig.includes("Manager");
 
   const [dateModalType, setDateModalType] = useState<"from" | "to" | null>(null);
-  const [dutyFromDate, setDutyFromDate] = useState<string>(
-    new Date().toISOString()
-  );
-  const [dutyToDate, setDutyToDate] = useState<string>(
-    new Date().toISOString()
-  );
+
 
   const [institution, setInstitution] = useState<string>("");
   const [dutiesDesc, setDutiesDesc] = useState<string>("");
@@ -255,6 +250,19 @@ const OnDuties: React.FC = () => {
   const [selectedDutyRow, setSelectedDutyRow] = useState<DutyRow | null>(null);
   const [selectedDutyId, setSelectedDutyId] = useState<string>("");
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
+
+const today = new Date().toISOString().split("T")[0];
+const [dutyFromDate, setDutyFromDate] = useState<string>(today);
+
+const maxDateObj = new Date(dutyFromDate || today);
+maxDateObj.setDate(maxDateObj.getDate() + 6);
+const maxDate = maxDateObj.toISOString().split("T")[0];
+
+const [dutyToDate, setDutyToDate] = useState<string | null>(null);
+  
+
+const [fromModal, setFromModal] = useState(false);
+const [toModal, setToModal] = useState(false);
   const notify = (msg: string, color: string = "primary") =>
     setToast({ msg, color });
 
@@ -1291,53 +1299,105 @@ const OnDuties: React.FC = () => {
                     />
                   </div>
                 </IonModal>
-                <IonCol size="12" sizeMd="4">
-                  <div
-                    className="compact-duty-card"
-                    onClick={() => setDateModalType("from")}
-                  >
-                    <label className="compact-duty-label">Camp From Date</label>
+<IonCol size="12" sizeMd="4">
+  <div
+    className="compact-duty-card"
+    onClick={() => setFromModal(true)}
+  >
+    <label className="compact-duty-label">Camp From Date</label>
 
-                    <div className="compact-duty-date">
-                      <IonIcon icon={calendarOutline} />
-                      <span
-                        className={
-                          dutyFromDate
-                            ? "compact-duty-value"
-                            : "compact-duty-placeholder"
-                        }
-                      >
-                        {dutyFromDate
-                          ? moment(dutyFromDate).format("DD-MM-YYYY")
-                          : "Pick From Date"}
-                      </span>
-                    </div>
-                  </div>
-                </IonCol>
+    <div className="compact-duty-date">
+      <span
+        className={
+          dutyFromDate
+            ? "compact-duty-value"
+            : "compact-duty-placeholder"
+        }
+      >
+        {dutyFromDate
+          ? moment(dutyFromDate).format("DD-MM-YYYY")
+          : "Pick From Date"}
+      </span>
+    </div>
+  </div>
 
-                <IonCol size="12" sizeMd="4">
-                  <div
-                    className="compact-duty-card"
-                    onClick={() => setDateModalType("to")}
-                  >
-                    <label className="compact-duty-label">Camp To Date</label>
+  {/* MODAL */}
+  <IonModal
+    isOpen={fromModal}
+    className="native-date-modal"
+    onDidDismiss={() => setFromModal(false)}
+  >
+<IonDatetime
+  presentation="date"
+  preferWheel={true}
+  showDefaultButtons={true}
+  doneText="Done"
+  cancelText="Cancel"
+  value={dutyFromDate}
+  min={today}   // only block past
+  max={today}
+  onIonChange={(e) => {
+    const value = e.detail.value as string;
+    if (value) {
+      setDutyFromDate(value.split("T")[0]);
+      setDutyToDate(null);
+      setFromModal(false);
+    }
+  }}
+/>
+  </IonModal>
+</IonCol>
 
-                    <div className="compact-duty-date">
-                      <IonIcon icon={calendarOutline} />
-                      <span
-                        className={
-                          dutyToDate
-                            ? "compact-duty-value"
-                            : "compact-duty-placeholder"
-                        }
-                      >
-                        {dutyToDate
-                          ? moment(dutyToDate).format("DD-MM-YYYY")
-                          : "Pick To Date"}
-                      </span>
-                    </div>
-                  </div>
-                </IonCol>
+  {/* ================= TO DATE ================= */}
+ <IonCol size="12" sizeMd="4">
+  <div
+    className="compact-duty-card"
+    onClick={() => setToModal(true)}
+  >
+    <label className="compact-duty-label">Camp To Date</label>
+
+    <div className="compact-duty-date">
+      <span
+        className={
+          dutyToDate
+            ? "compact-duty-value"
+            : "compact-duty-placeholder"
+        }
+      >
+        {dutyToDate
+          ? moment(dutyToDate).format("DD-MM-YYYY")
+          : "Pick To Date"}
+      </span>
+    </div>
+  </div>
+
+  {/* MODAL */}
+  <IonModal
+    isOpen={toModal}
+    className="native-date-modal"
+    onDidDismiss={() => setToModal(false)}
+  >
+<IonDatetime
+  presentation="date"
+  preferWheel={true}
+  showDefaultButtons={true}
+  doneText="Done"
+  cancelText="Cancel"
+  value={dutyToDate || undefined}
+
+  min={dutyFromDate || today}
+  max={maxDate}
+
+  onIonChange={(e) => {
+    const value = e.detail.value as string;
+    if (value) {
+      setDutyToDate(value.split("T")[0]);
+      setToModal(false);
+    }
+  }}
+/>
+  </IonModal>
+</IonCol>
               </IonRow>
 
               <IonRow className="compact-duty-row">

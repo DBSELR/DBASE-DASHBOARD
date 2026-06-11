@@ -108,6 +108,19 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
   const [otList, setOTList] = useState<OTrow[]>([]);
   const [otEditingId, setOTEditingId] = useState<string>("");
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
+  const currentYear = new Date().getFullYear();
+const today = new Date();
+
+// ✅ max = today (no future allowed)
+const maxOtDate = today.toISOString().split("T")[0];
+
+// ✅ min = last 7 days (including today)
+const minDateObj = new Date();
+minDateObj.setDate(today.getDate() - 6);
+const minOtDate = minDateObj.toISOString().split("T")[0];
+
+// ✅ default selected date = today
+
 
   const notify = (msg: string, color: string = "primary") =>
     setToast({ msg, color });
@@ -198,6 +211,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
     const mins = minutesBetween(otFrom, otTo);
     setOTActualMin(mins);
     setOTFinalMin(mins);
+    setOTDate(maxOtDate);
   }, [otFrom, otTo]);
 
   const loadClients = async (search: string = "") => {
@@ -216,8 +230,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
       setClients([]);
     }
   };
-  const minOtDate = moment().format("YYYY-MM-DD");
-  const maxOtDate = moment().add(7, "days").format("YYYY-MM-DD");
+
   const loadOT = async () => {
     try {
       const res = await api.get(
@@ -396,18 +409,22 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               className="native-date-modal"
             >
               <IonContent>
-                <IonDatetime
-                  presentation="date"
-                  preferWheel={true}
-                  showDefaultButtons={true}
-                  value={otDate}
-                  min={minOtDate}
-                  max={maxOtDate}
-                  onIonChange={(e) => {
-                    setOTDate(String(e.detail.value || ""));
-                  }}
-                  onIonCancel={() => setDateModalOpen(false)}
-                />
+           <IonDatetime
+  presentation="date"
+  preferWheel={true}
+  showDefaultButtons={true}
+  doneText="Done"
+  cancelText="Cancel"
+  value={otDate}
+  min={minOtDate}
+  max={maxOtDate}
+  onIonChange={(e) => {
+    const value = e.detail.value as string;
+    if (value) {
+      setOTDate(value.split("T")[0]);
+    }
+  }}
+/>
               </IonContent>
             </IonModal>
             <IonGrid className="ion-no-padding compact-grid">
@@ -428,7 +445,30 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                       </span>
                     </div>
                   </div>
+                  
+<IonModal
+  isOpen={dateModalOpen}
+  onDidDismiss={() => setDateModalOpen(false)}
+  className="native-date-modal"
+>
+  <IonDatetime
+    presentation="date"
+    preferWheel={true}
+    showDefaultButtons={true}
+    doneText="Done"
+    cancelText="Cancel"
+    value={otDate || undefined}
+    min={minOtDate}
+    max={maxOtDate}
+    onIonChange={(e) => {
+      const value = e.detail.value as string;
 
+      if (value) {
+        setOTDate(value.split("T")[0]);
+      }
+    }}
+  />
+</IonModal>
 
                 </IonCol>
 
