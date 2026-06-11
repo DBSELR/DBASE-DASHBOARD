@@ -907,118 +907,77 @@
 /* ===== VIDEO ===== */
 .camera-video {
   width: 100%;
-  height: 75vh;
-
+  height: auto;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;
-
   border-radius: 22px;
+  background-color: #000;
 }
 
 /* ===== 3 DOT BUTTON ===== */
 .camera-menu-btn {
   position: absolute;
-
   top: 14px;
   right: 14px;
-
   width: 34px;
   height: 34px;
-
   border-radius: 12px;
-
   background: rgba(32, 32, 32, .78);
-
   color: white;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   font-size: 18px;
   font-weight: 500;
-
   cursor: pointer;
-
   backdrop-filter: blur(18px);
-
   border: 1px solid rgba(255,255,255,.08);
-
   z-index: 20;
-
   transition: .25s;
 }
 
 .camera-menu-btn:hover {
   transform: scale(1.03);
-
-  background:
-    rgba(55,55,55,.92);
+  background: rgba(55,55,55,.92);
 }
 
 /* ===== MENU ===== */
 .camera-menu {
   position: absolute;
-
   top: 56px;
   right: 14px;
-
   width: 180px;
-
-  background:
-    rgba(40,40,40,.96);
-
+  background: rgba(40,40,40,.96);
   border-radius: 16px;
-
   padding: 6px;
-
   display: flex;
   flex-direction: column;
-
-  border:
-    1px solid rgba(255,255,255,.08);
-
-  backdrop-filter:
-    blur(20px);
-
-  box-shadow:
-    0 14px 30px rgba(0,0,0,.35);
-
-  animation:
-    teamsMenu .18s ease;
-
+  border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 14px 30px rgba(0,0,0,.35);
+  animation: teamsMenu .18s ease;
   z-index: 50;
 }
 
 /* ===== MENU ITEMS ===== */
 .camera-menu button {
   background: transparent;
-
   border: none;
-
   color: #b3acac;
-
   padding: 12px 14px;
-
   text-align: left;
-
   border-radius: 12px;
-
   font-size: 14px;
-
   cursor: pointer;
-
   transition: .18s;
-
   display: flex;
   align-items: center;
-
   min-height: 44px;
 }
 
 .camera-menu button:hover {
-  background:
-    rgba(255,255,255,.08);
+  background: rgba(255,255,255,.08);
 }
 
 .camera-menu .danger {
@@ -1026,29 +985,43 @@
 }
 
 .camera-menu .danger:hover {
-  background:
-    rgba(255,77,77,.12);
+  background: rgba(255,77,77,.12);
 }
 
 /* ===== OPEN EFFECT ===== */
 @keyframes teamsMenu {
   from {
     opacity: 0;
-    transform:
-      translateY(-8px)
-      scale(.96);
+    transform: translateY(-8px) scale(.96);
   }
-
   to {
     opacity: 1;
-    transform:
-      translateY(0)
-      scale(1);
+    transform: translateY(0) scale(1);
   }
 }
-.camera-content{
-    width: 50%;
-    height: 50%;
-    background-color: #000;
-    
+
+.camera-modal {
+  --background: transparent;
+  --box-shadow: none;
+  --border-radius: 0px;
+}
+.camera-modal::part(content) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.camera-content {
+  --background: transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
 } 
+
+.camera-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 800px; /* Maximum size for larger screens, will scale on mobile */
+  margin: auto;
+}

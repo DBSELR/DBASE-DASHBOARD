@@ -1787,6 +1787,7 @@ const triggerBillUpload = () => {
          <IonModal
   isOpen={cameraOpen}
   onDidDismiss={closeCamera}
+  className="camera-modal"
 >
 <IonContent fullscreen className="camera-content">
   <div className="camera-wrapper">
