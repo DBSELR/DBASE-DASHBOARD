@@ -912,7 +912,7 @@
   object-fit: cover;
   display: block;
   border-radius: 22px;
-  background-color: #000;
+  background-color: #0d0d0d;
 }
 
 /* ===== 3 DOT BUTTON ===== */
@@ -1022,6 +1022,96 @@
 .camera-wrapper {
   position: relative;
   width: 100%;
-  max-width: 800px; /* Maximum size for larger screens, will scale on mobile */
+  max-width: 550px;
   margin: auto;
+  
+  border-radius: 26px;
+  overflow: hidden;
+ 
+  --background: whitesmoke; /* white background */
+  border-radius: 25px; /* optional rounded corners */
+  padding: 2px; /* optional spacing */
+  animation: teamsMenu .18s ease;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+/* MENU */
+.camera-menus {
+  position: absolute;
+  bottom: 10px;              /* move down */
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  gap: 10px;
+
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(14px);
+
+  padding: 8px 10px;
+  border-radius: 999px;
+
+  z-index: 999;
+}
+
+/* SMALL PREMIUM BUTTON */
+.camera-menus button {
+  min-width: 80px;
+  height: 34px;
+
+  border: none;
+  border-radius: 18px;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  color: #fff;
+  background: rgba(35,35,35,.78);
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: .2s;
+}
+
+/* Hover */
+.camera-menus button:hover {
+  transform: translateY(-2px);
+  background: rgba(10, 10, 10, 0.9);
+}
+
+/* Capture Highlight */
+.camera-menus button:first-child {
+  background: #2e8660;
+  color: #f9f8f8;
+}
+
+/* Close */
+.camera-menus .danger{
+  background: #bb3a3a;
+  
+  
+}
+.camera-menus .danger:hover{
+transform: translateY(-2px);
+  background: rgba(123, 12, 12, 0.9);
+}
+
+/* Mobile */
+@media (max-width:768px) {
+  .camera-menus {
+    bottom: 10px;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .camera-menus button {
+    min-width: 52px;
+    height: 30px;
+    font-size: 10px;
+  }
 }

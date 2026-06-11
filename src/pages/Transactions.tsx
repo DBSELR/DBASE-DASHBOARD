@@ -1793,15 +1793,15 @@ const triggerBillUpload = () => {
   <div className="camera-wrapper">
 
     {/* 3 DOTS BUTTON */}
-    <div
+    {/* <div
       className="camera-menu-btn"
       onClick={() => setMenuOpen(!menuOpen)}
     >
       ⋮
-    </div>
+    </div> */}
 
-    {/* MENU */}
-    {menuOpen && (
+    {/* MENU */}  
+    {/* {menuOpen && (
       <div className="camera-menu">
         <button onClick={capturePhoto}>Capture</button>
         <button onClick={switchCamera}>Switch</button>
@@ -1810,7 +1810,15 @@ const triggerBillUpload = () => {
           Close
         </button>
       </div>
-    )}
+    )} */}
+    <div className="camera-menus">
+      <button onClick={capturePhoto}>Capture</button>
+      <button onClick={switchCamera}>Switch</button>
+        <button onClick={triggerUpload}>Browse</button>
+        <button className="danger" onClick={closeCamera}>
+          Close
+        </button>
+    </div>
 
     {/* VIDEO */}
     <video
