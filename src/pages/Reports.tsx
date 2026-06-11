@@ -140,33 +140,128 @@ const Reports: React.FC = () => {
     setPdfUrl("");
   };
 
+  // const handleFormat = async () => {
+  //   try {
+  //     const monthYearSend = moment(monthYear).format("MM-YYYY");
+  //     const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
+  //     const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+
+  //     const fullPath = API_BASE.endsWith('/') && path.startsWith('/')
+  //       ? API_BASE + path.slice(1)
+  //       : API_BASE + path;
+
+  //     const res = await fetch(fullPath, {
+  //       method: "GET",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //     });
+
+  //     if (!res.ok) throw new Error("Format export failed.");
+
+  //     const blob = await res.blob();
+  //     const url = URL.createObjectURL(blob);
+  //     window.open(url);
+  //   } catch (error: any) {
+  //     alert("Error exporting format: " + error.message);
+  //   }
+  // };
+
   const handleFormat = async () => {
-    try {
-      const monthYearSend = moment(monthYear).format("MM-YYYY");
-      const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
-      const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+  try {
+    const monthYearSend = moment(monthYear).format("MM-YYYY");
+    const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
 
-      const fullPath = API_BASE.endsWith('/') && path.startsWith('/')
-        ? API_BASE + path.slice(1)
-        : API_BASE + path;
+    const token = (localStorage.getItem("token") || "").replace(/"/g, "");
 
-      const res = await fetch(fullPath, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
+      ? API_BASE + path.slice(1)
+      : API_BASE + path;
 
-      if (!res.ok) throw new Error("Format export failed.");
+    const res = await fetch(fullPath, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url);
-    } catch (error: any) {
-      alert("Error exporting format: " + error.message);
+    if (!res.ok) throw new Error("HDFC export failed.");
+
+    const blob = await res.blob();
+
+    const disposition = res.headers.get("content-disposition");
+
+    let fileName = `HDFCFORMAT-${monthYearSend}.txt`;
+
+    if (disposition) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) {
+        fileName = match[1];
+      }
     }
-  };
 
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    alert("Error exporting HDFC format: " + error.message);
+  }
+};
+
+const handleNonHDFCFormat = async () => {
+  try {
+    const monthYearSend = moment(monthYear).format("MM-YYYY");
+    const path = `Reports/Load_NonHDFCTextExport?MY=${monthYearSend}`;
+
+    const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+
+    const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
+      ? API_BASE + path.slice(1)
+      : API_BASE + path;
+
+    const res = await fetch(fullPath, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error("Non HDFC export failed.");
+
+    const blob = await res.blob();
+
+    const disposition = res.headers.get("content-disposition");
+
+    let fileName = `NONHDFCFORMAT-${monthYearSend}.txt`;
+
+    if (disposition) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) {
+        fileName = match[1];
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    alert("Error exporting Non HDFC format: " + error.message);
+  }
+};
   const userDesig = userData?.designation;
 
 const reportOptions =
@@ -278,17 +373,40 @@ const reportOptions =
         </div>
 
         {/* Action Buttons */}
-        <div className="rpt-actions rpt-fade-in stagger-3">
-          <button className="rpt-btn rpt-btn-primary premium-trendy-bg" onClick={handlePrint}>
-            <span style={{ color: '#fff' }}>Print Report</span>
-          </button>
-          <button className="rpt-btn rpt-btn-secondary" onClick={handleClear}>
-            <span>Clear Fields</span>
-          </button>
-          <button className="rpt-btn rpt-btn-tertiary" onClick={handleFormat}>
-            <span>Export Format</span>
-          </button>
-        </div>
+       <div className="rpt-actions rpt-fade-in stagger-3">
+  <button
+    className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
+    onClick={handlePrint}
+  >
+    <span style={{ color: "#fff" }}>Print Report</span>
+  </button>
+
+  <button
+    className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
+    onClick={handleClear}
+  >
+    <span style={{ color: "#fff" }}>Clear</span>
+  </button>
+
+  {(userDesig === "Director" ||
+    userDesig === "In-Charge F&A") && (
+    <>
+      <button
+        className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
+        onClick={handleFormat}
+      >
+        <span style={{ color: "#fff" }}>HDFC Format</span>
+      </button>
+
+      <button
+        className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
+        onClick={handleNonHDFCFormat}
+      >
+        <span style={{ color: "#fff" }}>Non HDFC Format</span>
+      </button>
+    </>
+  )}
+</div>
       </div>
 
       {/* PDF View Section */}

@@ -494,26 +494,60 @@ const Salaries: React.FC = () => {
   // ==========================
   // API 10: UPDATE ADJUSTMENT
   // ==========================
- const UpdateAdjustment = async (
-  Ecode: any,
-  AddDays: any,
-  Remark: any,
-  AdvDed: any
+//  const UpdateAdjustment = async (
+//   Ecode: any,
+//   AddDays: any,
+//   Remark: any,
+//   AdvDed: any
+// ) => {
+//   try {
+//     const tmpMY = moment(SalMY).format("MMM-YYYY");
+
+//    const payload = {
+//   _SalMY: tmpMY,
+//   _Ecode: String(Ecode ?? ""),
+//   _AddDays: AddDays === "" ? null : AddDays,
+//   _Remark: Remark ?? "",
+//   _AdvDed: AdvDed === "" ? null : AdvDed
+// };
+
+//     console.log("Sending Payload:", payload);
+
+//     const res = await axios.post(
+//       `${API_BASE}Salaries/UpdateSalAdjust`,
+//       payload,
+//       {
+//         headers: {
+//           "Content-Type": "application/json"
+//         }
+//       }
+//     );
+
+//     console.log("Update Success", res.data);
+//   } catch (err: any) {
+//     console.error("Response Data:", err?.response?.data);
+//     console.error("Status:", err?.response?.status);
+//     console.error("Error:", err);
+//   }
+// };
+
+const UpdateAdjustmentField = async (
+  Ecode: string,
+  FieldName: string,
+  Value: any
 ) => {
   try {
-    const tmpMY = moment(SalMY).format("MMM-YYYY");
 
-   const payload = {
-  _SalMY: tmpMY,
-  _Ecode: String(Ecode ?? ""),
-  _AddDays: AddDays === "" ? null : AddDays,
-  _Remark: Remark ?? "",
-  _AdvDed: AdvDed === "" ? null : AdvDed
-};
+    const payload = {
+      _SalMY: moment(SalMY).format("MMM-YYYY"),
+      _Ecode: Ecode,
+      _FieldName: FieldName,
+      _Value: Value
+    };
 
-    console.log("Sending Payload:", payload);
+    console.log("Sending", payload);
 
-    const res = await axios.post(
+    await axios.post(
       `${API_BASE}Salaries/UpdateSalAdjust`,
       payload,
       {
@@ -522,12 +556,9 @@ const Salaries: React.FC = () => {
         }
       }
     );
-
-    console.log("Update Success", res.data);
-  } catch (err: any) {
-    console.error("Response Data:", err?.response?.data);
-    console.error("Status:", err?.response?.status);
-    console.error("Error:", err);
+  }
+  catch (err) {
+    console.log(err);
   }
 };
   // ==========================
@@ -813,18 +844,17 @@ const Salaries: React.FC = () => {
                             className="adjustment-input"
                             placeholder="Add Days"
                             value={x.Add_Days || ""}
-                          onChange={(e: any) => {
+                          onChange={(e) => {
   const value = e.target.value;
 
   const updated = [...dt_SalAdjust];
   updated[i].Add_Days = value;
   setDt_SalAdjust(updated);
 
-  UpdateAdjustment(
+  UpdateAdjustmentField(
     x.Empcode,
-    value,
-    updated[i].Remarks,
-    updated[i].Advance_Ded
+    "Add_Days",
+    value
   );
 }}
                           />
@@ -835,18 +865,17 @@ const Salaries: React.FC = () => {
                             className="adjustment-input"
                             placeholder="Remarks"
                             value={x.Remarks || ""}
-                          onChange={(e: any) => {
+                          onChange={(e) => {
   const value = e.target.value;
 
   const updated = [...dt_SalAdjust];
   updated[i].Remarks = value;
   setDt_SalAdjust(updated);
 
-  UpdateAdjustment(
+  UpdateAdjustmentField(
     x.Empcode,
-    updated[i].Add_Days,
-    value,
-    updated[i].Advance_Ded
+    "Remarks",
+    value
   );
 }}
                           />
@@ -866,17 +895,16 @@ const Salaries: React.FC = () => {
                             className="adjustment-input"
                             placeholder="Adv. Repay"
                             value={x.Advance_Ded || ""}
-                          onChange={(e: any) => {
+                          onChange={(e) => {
   const value = e.target.value;
 
   const updated = [...dt_SalAdjust];
   updated[i].Advance_Ded = value;
   setDt_SalAdjust(updated);
 
-  UpdateAdjustment(
+  UpdateAdjustmentField(
     x.Empcode,
-    updated[i].Add_Days,
-    updated[i].Remarks,
+    "Advance_Ded",
     value
   );
 }}
