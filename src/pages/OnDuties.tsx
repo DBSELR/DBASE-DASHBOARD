@@ -1334,8 +1334,9 @@ const [toModal, setToModal] = useState(false);
   doneText="Done"
   cancelText="Cancel"
   value={dutyFromDate}
-  min={today}   // only block past
-  max={today}
+  min={dutyFromDate || today}
+  max={maxDate}
+
   onIonChange={(e) => {
     const value = e.detail.value as string;
     if (value) {
@@ -1384,9 +1385,10 @@ const [toModal, setToModal] = useState(false);
   doneText="Done"
   cancelText="Cancel"
   value={dutyToDate || undefined}
-
-  min={dutyFromDate || today}
-  max={maxDate}
+  // min={dutyFromDate || today}
+  // max={maxDate}
+  min={dutyFromDate || new Date().toISOString().split("T")[0]} // must be >= start
+  max={`${new Date().getFullYear()}-12-31`} 
 
   onIonChange={(e) => {
     const value = e.detail.value as string;
