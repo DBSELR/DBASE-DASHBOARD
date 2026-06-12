@@ -28,6 +28,7 @@ const Reports: React.FC = () => {
         setUserData(parsed);
         if (
   parsed.designation !== "Director" &&
+  parsed.designation !== "HR" &&
   parsed.designation !== "In-Charge F&A"
 ) {
   setReportType("Salary Generation Details");
@@ -56,7 +57,7 @@ const Reports: React.FC = () => {
     const formattedFrom = moment(fromDate).format("MM-DD-YYYY");
     const formattedTo = moment(toDate).format("MM-DD-YYYY");
     const monthYearSend = moment(monthYear).format("MM-YYYY");
-    const Empcode = userDesig === "Director" || userDesig === "In-Charge F&A" ? "" : empCode;
+    const Empcode = userDesig === "Director" || userDesig === "HR" || userDesig === "In-Charge F&A" ? "" : empCode;
 
     GROUP("build api url");
     LOG("Report Type Selected:", reportType);
@@ -266,6 +267,7 @@ const handleNonHDFCFormat = async () => {
 
 const reportOptions =
   userDesig === "Director" ||
+  userDesig === "HR" ||
   userDesig === "In-Charge F&A"
     ? [
         "Employee List",
@@ -388,7 +390,7 @@ const reportOptions =
     <span style={{ color: "#fff" }}>Clear</span>
   </button>
 
-  {(userDesig === "Director" ||
+  {(userDesig === "Director" || userDesig === "HR" ||
     userDesig === "In-Charge F&A") && (
     <>
       <button
