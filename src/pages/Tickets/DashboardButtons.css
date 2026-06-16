@@ -8,9 +8,11 @@
 /* Status Chips Container - Premium Horizontal Scroll */
 .dbase-chips-wrapper {
     margin: 12px -16px 24px -16px;
-    padding: 12px 16px 30px 16px; /* Extra bottom padding for tooltip clearance */
+    padding: 12px 16px 30px 16px;
+    /* Extra bottom padding for tooltip clearance */
     overflow-x: auto;
-    overflow-y: visible; /* CRITICAL: Allows tooltips to show without clipping */
+    overflow-y: visible;
+    /* CRITICAL: Allows tooltips to show without clipping */
     display: flex;
     gap: 12px;
     scrollbar-width: none;
@@ -123,15 +125,40 @@
     transform: translateX(-50%) translateY(0);
 }
 
-/* Active Gradient Overrides */
-.status-p.active { background: linear-gradient(135deg, #ffab00, #ff8c00); }
-.status-a.active { background: linear-gradient(135deg, #36b37e, #27855d); }
-.status-o.active { background: linear-gradient(135deg, #00b8d9, #008da6); }
-.status-h.active { background: linear-gradient(135deg, #ff5630, #d32f2f); }
-.status-c.active { background: linear-gradient(135deg, #9747ff, #7b1fa2); }
-.status-e.active { background: linear-gradient(135deg, #ff896b, #f4511e); }
-.status-u.active { background: linear-gradient(135deg, #4c9aff, #1976d2); }
-.status-w.active { background: linear-gradient(135deg, #6b778c, #454f5d); }
+
+
+
+.status-p.active {
+    background: linear-gradient(135deg, #ffab00, #ff8c00);
+}
+
+.status-a.active {
+    background: linear-gradient(135deg, #36b37e, #27855d);
+}
+
+.status-o.active {
+    background: linear-gradient(135deg, #00b8d9, #008da6);
+}
+
+.status-h.active {
+    background: linear-gradient(135deg, #ff5630, #d32f2f);
+}
+
+.status-c.active {
+    background: linear-gradient(135deg, #9747ff, #7b1fa2);
+}
+
+.status-e.active {
+    background: linear-gradient(135deg, #ff896b, #f4511e);
+}
+
+.status-u.active {
+    background: linear-gradient(135deg, #4c9aff, #1976d2);
+}
+
+.status-w.active {
+    background: linear-gradient(135deg, #6b778c, #454f5d);
+}
 
 /* Task Section List */
 .dbase-section-header {
@@ -159,7 +186,7 @@
     border-radius: 20px;
     padding: 18px;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     position: relative;
     overflow: hidden;
     transition: transform 0.2s;
@@ -183,11 +210,25 @@
     height: 100%;
 }
 
-.dbase-ticket-card.p-border::before { background: #ffab00; }
-.dbase-ticket-card.a-border::before { background: #36b37e; }
-.dbase-ticket-card.o-border::before { background: #00b8d9; }
-.dbase-ticket-card.h-border::before { background: #ff5630; }
-.dbase-ticket-card.c-border::before { background: #9747ff; }
+.dbase-ticket-card.p-border::before {
+    background: #ffab00;
+}
+
+.dbase-ticket-card.a-border::before {
+    background: #36b37e;
+}
+
+.dbase-ticket-card.o-border::before {
+    background: #00b8d9;
+}
+
+.dbase-ticket-card.h-border::before {
+    background: #ff5630;
+}
+
+.dbase-ticket-card.c-border::before {
+    background: #9747ff;
+}
 
 .dbase-card-top {
     display: flex;
@@ -212,11 +253,30 @@
     letter-spacing: 0.5px;
 }
 
-.dbase-tag-p { background: rgba(255, 171, 0, 0.1); color: #ffab00; }
-.dbase-tag-a { background: rgba(54, 179, 126, 0.1); color: #36b37e; }
-.dbase-tag-o { background: rgba(0, 184, 217, 0.1); color: #00b8d9; }
-.dbase-tag-h { background: rgba(255, 86, 48, 0.1); color: #ff5630; }
-.dbase-tag-c { background: rgba(151, 71, 255, 0.1); color: #9747ff; }
+.dbase-tag-p {
+    background: rgba(255, 171, 0, 0.1);
+    color: #ffab00;
+}
+
+.dbase-tag-a {
+    background: rgba(54, 179, 126, 0.1);
+    color: #36b37e;
+}
+
+.dbase-tag-o {
+    background: rgba(0, 184, 217, 0.1);
+    color: #00b8d9;
+}
+
+.dbase-tag-h {
+    background: rgba(255, 86, 48, 0.1);
+    color: #ff5630;
+}
+
+.dbase-tag-c {
+    background: rgba(151, 71, 255, 0.1);
+    color: #9747ff;
+}
 
 .dbase-card-remarks {
     font-size: 14px;
@@ -230,7 +290,7 @@
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    border-top: 1px solid rgba(0,0,0,0.05);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
     padding-top: 14px;
 }
 
@@ -281,8 +341,8 @@
     width: 100%;
     padding: 16px;
     border-radius: 18px;
-    border: 1px solid rgba(0,0,0,0.1);
-    background: rgba(0,0,0,0.02);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.02);
     font-family: inherit;
     font-size: 14px;
     resize: none;
@@ -291,8 +351,8 @@
 }
 
 .dark .dbase-custom-textarea {
-    border-color: rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.02);
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .dbase-custom-textarea:focus {
@@ -311,4 +371,76 @@
     .dbase-ticket-list {
         grid-template-columns: repeat(3, 1fr);
     }
+}
+
+.work-report-modal {
+    --width: 300px;
+    --height: auto;
+    --border-radius: 20px;
+    --max-width: 95vw;
+    --max-height: 90vh;
+}
+
+.work-report-modal::part(content) {
+    width: 500px;
+    max-width: 95vw;
+    height: auto;
+    overflow: hidden;
+    padding: 0;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .work-report-modal {
+        --width: 95vw;
+    }
+
+    .work-report-modal::part(content) {
+        width: 95vw;
+    }
+}
+
+.service-select-wrapper {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.25s ease;
+    background: #fff;
+}
+
+.service-select-wrapper:hover {
+    border-color: #5e8b5a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(94, 139, 90, 0.15);
+}
+
+.service-select-wrapper:focus-within {
+    border-color: #5e8b5a;
+    box-shadow: 0 0 0 3px rgba(94, 139, 90, 0.15);
+    transform: translateY(-2px);
+}
+
+.service-select {
+    width: 100%;
+    height: 52px;
+    padding: 0 16px;
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    cursor: pointer;
+    outline: none;
+    color: #2f4f3f;
+    transition: all 0.25s ease;
+}
+
+.service-select:hover {
+    padding-left: 20px;
+}
+
+.service-select:focus {
+    padding-left: 22px;
+}
+
+.submit-report-btn {
+    --background-hover: var(--background);
 }

@@ -96,7 +96,7 @@ export default function DashboardButtons(props: Props) {
 
     try {
       let mainCounts = { P: 0, A: 0, O: 0, H: 0, C: 0, R: 0 };
-      
+
       if (isAdmin) {
         const q = new URLSearchParams({ ClientId: clientId, PT: projectId, Date: dFrom, ToDate: dTo });
         const res = await fetch(`${apiBase}Tickets/Load_TicketsCount?${q.toString()}`, { headers: getHeaders(true) });
@@ -108,25 +108,25 @@ export default function DashboardButtons(props: Props) {
           };
         }
       } else {
-         // Use LOADEMPTASKSLIST for employees to get accurate counts (ignoring date filter for consistency with AssignedTickets)
-         const res = await fetch(`${apiBase}Tickets/LOADEMPTASKSLIST?empcode=${empCode}&CLIENTID=0&PROJECTID=0`, { headers: getHeaders(true) });
-         const json = await handleResponse(res, "COUNTS_EMP_LIST");
-         if (Array.isArray(json)) {
-           json.forEach((r: any) => {
-             const s = String(r[12] || 'O').toUpperCase();
-             if (s === 'P') mainCounts.P++;
-             else if (s === 'A' || s === 'S') mainCounts.A++;
-             else if (s === 'O') mainCounts.O++;
-             else if (s === 'H') mainCounts.H++;
-             else if (s === 'C') mainCounts.C++;
-             else if (s === 'R') mainCounts.R++;
-           });
-         }
+        // Use LOADEMPTASKSLIST for employees to get accurate counts (ignoring date filter for consistency with AssignedTickets)
+        const res = await fetch(`${apiBase}Tickets/LOADEMPTASKSLIST?empcode=${empCode}&CLIENTID=0&PROJECTID=0`, { headers: getHeaders(true) });
+        const json = await handleResponse(res, "COUNTS_EMP_LIST");
+        if (Array.isArray(json)) {
+          json.forEach((r: any) => {
+            const s = String(r[12] || 'O').toUpperCase();
+            if (s === 'P') mainCounts.P++;
+            else if (s === 'A' || s === 'S') mainCounts.A++;
+            else if (s === 'O') mainCounts.O++;
+            else if (s === 'H') mainCounts.H++;
+            else if (s === 'C') mainCounts.C++;
+            else if (s === 'R') mainCounts.R++;
+          });
+        }
       }
 
       const resW = await fetch(`${apiBase}Tickets/EMPLOYEE_WORKREPORT_TICKETS_COUNT?EMPCODE=${empCode}`, { headers: getHeaders(true) });
       const jsonW = await handleResponse(resW, "COUNT_W");
-      
+
       const resU = await fetch(`${apiBase}Tickets/EMPLOYEE_UNDERTAKEN_TICKETS_COUNT`, { headers: getHeaders(true) });
       const jsonU = await handleResponse(resU, "COUNT_U");
 
@@ -182,7 +182,7 @@ export default function DashboardButtons(props: Props) {
         TDate: r[21] || r[8] || r.TDATE,
         Employee: r[16] || r.EMPLOYEE,
         TicketPriority: r[13] || r[11] || r.TICKETPRIORITY || "Normal",
-        AID: r[9] || r.AID 
+        AID: r[9] || r.AID
       }));
 
       setData(mapped);
@@ -220,7 +220,7 @@ export default function DashboardButtons(props: Props) {
 
     try {
       const res = await fetch(`${apiBase}Tickets/SAVE_ALREADY_ASSIGNEDTICKETS`, {
-        method: "POST", 
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(payload)
       });
@@ -228,14 +228,14 @@ export default function DashboardButtons(props: Props) {
 
       if (ok >= 1) {
         showToast("Ticket marked as Undertaken", "success");
-        await refreshCounts(); 
+        await refreshCounts();
         await loadData(status);
       } else {
         showToast("Update failed", "error");
       }
-    } catch (err) { 
+    } catch (err) {
       console.error("[DashboardButtons] handleUndertake ERROR:", err);
-      showToast("Failed to undertake", "error"); 
+      showToast("Failed to undertake", "error");
     }
   }
 
@@ -249,15 +249,15 @@ export default function DashboardButtons(props: Props) {
       const res = await fetch(`${apiBase}Tickets/Check_WorkReport_TicketWise?ticketID=${ticket.TICKETID}&EMPLOYEEID=${empCode}`, { headers: getHeaders(true) });
       const raw = await handleResponse(res, "CHECK_W");
       const hasReport = (raw?.[0]?.cnt >= 1) || (raw?.[0]?.[0] >= 1);
-      
+
       if (hasReport) {
         showToast("Ticket already available in work report", "warning");
       } else {
         setWorkModal({ open: true, ticket });
         setWorkDesc("");
       }
-    } catch { 
-      setWorkModal({ open: true, ticket }); 
+    } catch {
+      setWorkModal({ open: true, ticket });
     }
   }
 
@@ -294,13 +294,13 @@ export default function DashboardButtons(props: Props) {
     try {
       console.log("[DashboardButtons] saveWorkReport: Fetching...");
       const res = await fetch(url, {
-        method: "POST", 
+        method: "POST",
         headers: headers,
         body: JSON.stringify(payload)
       });
-      
+
       console.log("[DashboardButtons] saveWorkReport HTTP STATUS:", res.status, res.statusText);
-      
+
       const resText = await res.text();
       console.log("[DashboardButtons] saveWorkReport RAW RESPONSE:", resText);
 
@@ -309,15 +309,15 @@ export default function DashboardButtons(props: Props) {
         showToast("Work report saved", "success");
         setWorkModal({ open: false, ticket: null });
         setWorkDesc("");
-        await refreshCounts(); 
+        await refreshCounts();
         await loadData(status);
       } else {
         console.error("[DashboardButtons] saveWorkReport: Server returned non-OK status", res.status);
         showToast(resText || "Failed to save report", "error");
       }
-    } catch (err) { 
+    } catch (err) {
       console.error("[DashboardButtons] saveWorkReport FATAL ERROR:", err);
-      showToast("Failed to save report", "error"); 
+      showToast("Failed to save report", "error");
     } finally {
       console.log("[DashboardButtons] saveWorkReport: END");
       console.log("--------------------------------------------------");
@@ -339,8 +339,8 @@ export default function DashboardButtons(props: Props) {
             onClick={() => onChip(x.s as any, x.s === 'W' ? x.l : `${x.l} Task(s)`)}
           >
             <div className="dbase-chip-inner">
-               <span className="dbase-chip-abbr">{x.s}</span>
-               <span className="dbase-chip-count">{counts[x.s as keyof typeof counts] || 0}</span>
+              <span className="dbase-chip-abbr">{x.s}</span>
+              <span className="dbase-chip-count">{counts[x.s as keyof typeof counts] || 0}</span>
             </div>
             <div className="dbase-chip-tooltip">{x.l}</div>
           </div>
@@ -369,7 +369,7 @@ export default function DashboardButtons(props: Props) {
                     {status === 'U' ? 'Under Taken' : (status === 'W' ? 'Report' : getStatusLabel(status))}
                   </span>
                 </div>
-                
+
                 {r.Subject && <div className="dbase-card-subject" style={{ fontWeight: 600, fontSize: "15px", marginBottom: "6px" }}>{r.Subject}</div>}
 
                 <div className="dbase-card-remarks">{r.Remarks}</div>
@@ -418,11 +418,18 @@ export default function DashboardButtons(props: Props) {
       <IonModal
         isOpen={workModal.open}
         onDidDismiss={() => setWorkModal({ open: false, ticket: null })}
-        className="pwt-date-modal"
+        className="work-report-modal"
       >
-        <div className="pwt-modal-content">
-          <h3 className="pwt-modal-title">Ticket Work Report</h3>
-          
+        <div
+          style={{
+            padding: "24px",
+            background: "var(--ion-background-color, #f9f7f7ff)",
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <h3 style={{ fontSize: '18px', fontWeight: 700, marginTop: 0, marginBottom: '20px', textAlign: 'center', color: 'var(--ion-text-color)' }}>Ticket Work Report</h3>
+
           <div style={{ marginBottom: "16px", textAlign: 'left' }}>
             <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "var(--ion-color-medium)" }}>Ticket</p>
             <p style={{ margin: 0, fontWeight: 700 }}>#{workModal.ticket?.TICKETID} - {workModal.ticket?.Client}</p>
@@ -431,15 +438,22 @@ export default function DashboardButtons(props: Props) {
           <div style={{ marginBottom: "16px", textAlign: 'left' }}>
             <label className="dbase-form-label">Service Type</label>
             <div style={{ border: "1px solid rgba(0,0,0,0.1)", borderRadius: "12px", padding: "4px 12px" }}>
-              <IonSelect
-                interface="popover"
+              <select
                 value={serviceType}
-                onIonChange={e => setServiceType(e.detail.value)}
-                style={{ "--padding-start": "0" }}
+                onChange={(e) => setServiceType(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "48px",
+                  border: "none",
+                  background: "white",
+                  fontSize: "16px",
+                  outline: "none",
+                  cursor: "pointer"
+                }}
               >
-                <IonSelectOption value="In-House">In-House</IonSelectOption>
-                <IonSelectOption value="On-Site">On-Site</IonSelectOption>
-              </IonSelect>
+                <option value="In-House">In-House</option>
+                <option value="On-Site">On-Site</option>
+              </select>
             </div>
           </div>
 
@@ -451,30 +465,31 @@ export default function DashboardButtons(props: Props) {
               value={workDesc}
               onChange={e => setWorkDesc(e.target.value)}
               placeholder="What have you done today?"
-              style={{ width: '100%', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', padding: '12px' }}
+              style={{ width: '100%', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', padding: '12px', boxSizing: 'border-box' }}
             />
           </div>
 
-          <IonButton 
-            expand="block" 
-            mode="ios"
-            onClick={saveWorkReport}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Send size={18} />
+          <div style={{ display: "flex", gap: "12px" }}>
+            <IonButton
+              className="submit-report-btn"
+              mode="ios"
+              expand="block"
+              style={{ flex: 1 }}
+              onClick={saveWorkReport}
+            >
               Submit Report
-            </span>
-          </IonButton>
-          
-          <IonButton 
-            expand="block" 
-            mode="ios" 
-            fill="outline"
-            onClick={() => setWorkModal({ open: false, ticket: null })}
-            style={{ marginTop: '8px' }}
-          >
-            Cancel
-          </IonButton>
+            </IonButton>
+
+            <IonButton
+              mode="ios"
+              fill="outline"
+              expand="block"
+              style={{ flex: 1 }}
+              onClick={() => setWorkModal({ open: false, ticket: null })}
+            >
+              Cancel
+            </IonButton>
+          </div>
         </div>
       </IonModal>
 
