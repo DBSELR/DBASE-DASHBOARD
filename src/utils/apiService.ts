@@ -132,7 +132,11 @@ export const apiService = {
     },
 
     sendMessage: async (mobile: string, message: string) => {
-        const phone = mobile || "9640143677"; // Default number from Transactions.tsx if empty
+        if (!mobile || mobile.trim() === "") {
+            console.warn("⚠️ [SMS] Skipped: No mobile number provided. Employee lookup may have failed.");
+            return null;
+        }
+        const phone = mobile.trim();
         console.log("API 13: Send SMS", { phone, message });
         return apiService.get(`/Sources/sendMessage?phoneNo=${phone}&message=${encodeURIComponent(message)}`);
     },

@@ -63,6 +63,7 @@ import MeetingMaster from "./pages/MeetingMaster";
 import MeetingDashboard from "./pages/MeetingDashboard";
 import MeetingList from "./pages/MeetingList";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
+import { registerNativePush } from "./services/pushNotification";
 
 import PenaltyMaster from "./pages/PenaltyMaster";
 import PenaltyAssignment from "./pages/PenaltyAssignment";
@@ -90,6 +91,25 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadThemeSettings();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const userJson = localStorage.getItem("user");
+      if (userJson) {
+        const u = JSON.parse(userJson);
+        const empCode = u?.empCode || u?.EmpCode;
+        if (empCode) {
+          registerNativePush(String(empCode));
+        } else {
+          registerNativePush("anonymous");
+        }
+      } else {
+        registerNativePush("anonymous");
+      }
+    } catch (err) {
+      console.error("[Push Startup] Error:", err);
+    }
   }, []);
 
   useEffect(() => {

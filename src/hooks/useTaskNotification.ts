@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { hubConnection, startHub } from "../services/signalRService";
-import { registerWebPush } from "../services/firebase";
+import { registerNativePush } from "../services/pushNotification";
 import { API_BASE } from "../config";
 import { HubConnectionState } from "@microsoft/signalr";
 
@@ -50,8 +50,23 @@ const fetchPendingTasks = async (empCode: string): Promise<TaskNotification[]> =
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export const useTaskNotification = () => {
   const [pendingNotifications, setPendingNotifications] = useState<TaskNotification[]>([]);
-  // Only track which were dismissed THIS session so we don't re-show them mid-session
-  const sessionDismissed = useRef<Set<string>>(new Set());
+
+  const getDismissedFromStorage = (): Set<string> => {
+    try {
+      const saved = localStorage.getItem("dismissed_task_ids");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+
+  const saveDismissedToStorage = (set: Set<string>) => {
+    try {
+      localStorage.setItem("dismissed_task_ids", JSON.stringify(Array.from(set)));
+    } catch (e) {
+      console.warn("Could not save dismissed tasks to localStorage", e);
+    }
+  };
 
   const getUserEmpCode = (): string | null => {
     try {
@@ -65,8 +80,9 @@ export const useTaskNotification = () => {
     if (!empCode) return;
     try {
       const tasks = await fetchPendingTasks(empCode);
-      // Filter out tasks dismissed this session
-      const fresh = tasks.filter((t) => !sessionDismissed.current.has(t.TID));
+      const dismissed = getDismissedFromStorage();
+      // Filter out tasks dismissed
+      const fresh = tasks.filter((t) => !dismissed.has(t.TID));
       setPendingNotifications(fresh);
     } catch (err) {
       console.error("[Notifications] fetchPendingTasks error:", err);
@@ -81,15 +97,15 @@ export const useTaskNotification = () => {
     console.log("[WebPush DEBUG] empCode resolved:", empCode);
 
     if (!empCode) {
-      console.warn("[WebPush DEBUG] empCode is null — registerWebPush will NOT run. Check your localStorage key name.");
+      console.warn("[Push DEBUG] empCode is null — registerNativePush will NOT run. Check your localStorage key name.");
       return;
     }
 
     // Show pending tasks on login
     loadPending();
 
-    console.log("[WebPush DEBUG] Calling registerWebPush for:", empCode);
-    registerWebPush(empCode);
+    console.log("[Push DEBUG] Calling registerNativePush for:", empCode);
+    registerNativePush(empCode);
 
     // Also connect SignalR for real-time new task pushes
     startHub().then(() => {
@@ -101,7 +117,8 @@ export const useTaskNotification = () => {
     // Listen for newly assigned tasks pushed in real-time
     const handler = (payload: any) => {
       const tid = String(payload.tID ?? payload.TID ?? Date.now());
-      if (sessionDismissed.current.has(tid)) return;
+      const dismissed = getDismissedFromStorage();
+      if (dismissed.has(tid)) return;
 
       const notif: TaskNotification = {
         NotificationId: Number(payload.tID ?? payload.TID ?? Date.now()),
@@ -125,7 +142,17 @@ export const useTaskNotification = () => {
 
   // Dismiss hides for this session only — task reappears next login if still open
   const dismissNotification = useCallback((_notificationId: number, tid: string) => {
-    sessionDismissed.current.add(tid);
+    const dismissed = getDismissedFromStorage();
+    dismissed.add(tid);
+    
+    // Limit store to last 50 tasks to prevent infinite storage growth
+    if (dismissed.size > 50) {
+      const arr = Array.from(dismissed);
+      saveDismissedToStorage(new Set(arr.slice(arr.length - 50)));
+    } else {
+      saveDismissedToStorage(dismissed);
+    }
+
     setPendingNotifications((prev) => prev.filter((n) => n.TID !== tid));
 
     // Also mark as read in the DB so the APP_Notifications table stays clean
@@ -139,15 +166,18 @@ export const useTaskNotification = () => {
 
   const dismissAll = useCallback(() => {
     const empCode = getUserEmpCode();
+    const dismissed = getDismissedFromStorage();
+
     setPendingNotifications((prev) => {
       prev.forEach((n) => {
-        sessionDismissed.current.add(n.TID);
+        dismissed.add(n.TID);
         if (empCode && n.TID) {
           import("../utils/apiService").then(({ apiService }) => {
             apiService.markTaskAsRead(n.TID, empCode).catch(() => { });
           });
         }
       });
+      saveDismissedToStorage(dismissed);
       return [];
     });
   }, []);

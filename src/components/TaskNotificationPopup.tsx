@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useHistory } from "react-router-dom";
 import { useTaskNotification, TaskNotification } from "../hooks/useTaskNotification";
 import "./TaskNotificationPopup.css";
 
@@ -32,7 +31,6 @@ const getCleanSenderName = (raw: string) => {
   return parts.length > 1 ? parts.slice(1).join("-").trim() : raw;
 };
 
-// Derive display description: prefer TDesc, fall back to Message
 const getDesc = (n: TaskNotification) =>
   n.TDesc?.trim() || n.Message?.trim() || "A new task has been assigned to you.";
 
@@ -42,11 +40,13 @@ interface SingleCardProps {
 }
 
 const NotificationCard: React.FC<SingleCardProps> = ({ notification, onDismiss }) => {
-  const history = useHistory();
   const [dismissing, setDismissing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const dismiss = () => {
+  const dismiss = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation(); // Avoid triggering card click (goToTasks)
+    }
     if (dismissing) return;
     setDismissing(true);
     setTimeout(() => onDismiss(notification.NotificationId, notification.TID), 340);
@@ -56,11 +56,11 @@ const NotificationCard: React.FC<SingleCardProps> = ({ notification, onDismiss }
     dismiss();
     setTimeout(() => {
       window.location.href = "/tasks";
-    }, 450); // Wait for the animation and API call to complete
+    }, 400); // Wait for the transition to complete
   };
 
   useEffect(() => {
-    timerRef.current = setTimeout(dismiss, AUTO_DISMISS_MS);
+    timerRef.current = setTimeout(() => dismiss(), AUTO_DISMISS_MS);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
 
@@ -71,77 +71,75 @@ const NotificationCard: React.FC<SingleCardProps> = ({ notification, onDismiss }
     <div
       className={`tn-card ${dismissing ? "tn-dismissing" : ""}`}
       style={{ "--tn-accent": accent } as React.CSSProperties}
+      onClick={goToTasks}
     >
       {/* Auto-dismiss progress bar */}
       <div className="tn-progress" style={{ background: accent }} />
 
-      {/* Header */}
-      <div className="tn-header">
-        <div className="tn-header-left">
-          <div className="tn-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-          </div>
-          <div>
-            <div className="tn-title">📋 New Task Assigned!</div>
-            <div className="tn-subtitle">
-              From: {getCleanSenderName(notification.SenderName)}
-            </div>
-          </div>
+      <div className="tn-content-row">
+        {/* Left Column - App Icon */}
+        <div className="tn-app-icon-wrapper">
+          <img src="/images/dbase.png" alt="App Icon" className="tn-app-icon" />
         </div>
-        <button className="tn-close-btn" onClick={dismiss} title="Dismiss">✕</button>
-      </div>
 
-      {/* Body */}
-      <div className="tn-body">
-        <div className="tn-desc">
-          {desc.length > 100 ? desc.substring(0, 100) + "..." : desc}
+        {/* Middle Column - Notification text details */}
+        <div className="tn-text-wrapper">
+          <div className="tn-title-row">
+            <h4 className="tn-card-title">New Task Assigned</h4>
+          </div>
+          <div className="tn-card-source">
+            From: {getCleanSenderName(notification.SenderName)}
+          </div>
+          <div className="tn-card-body">
+            {desc.length > 80 ? desc.substring(0, 80) + "..." : desc}
+          </div>
+          <div className="tn-meta-row">
+            <span className={`tn-priority-badge ${priorityClass(notification.TPriority)}`}>
+              {notification.TPriority || "Low"}
+            </span>
+            {notification.TDueDate && (
+              <span className="tn-date">Due: {formatDate(notification.TDueDate)}</span>
+            )}
+          </div>
         </div>
-        <div className="tn-meta">
-          <span className={`tn-priority ${priorityClass(notification.TPriority)}`}>
-            {notification.TPriority || "Normal"}
-          </span>
-          {notification.TDueDate && (
-            <span className="tn-date">📅 Due: {formatDate(notification.TDueDate)}</span>
-          )}
-          {notification.CreatedDate && (
-            <span className="tn-date">🕐 {formatDate(notification.CreatedDate)}</span>
-          )}
-        </div>
-      </div>
 
-      {/* Actions */}
-      <div className="tn-actions">
-        <button className="tn-btn-view" onClick={goToTasks}>View Task</button>
-        <button className="tn-btn-dismiss" onClick={dismiss}>Dismiss</button>
+        {/* Right Column - Close Button and priority dot indicator */}
+        <div className="tn-right-wrapper">
+          <button
+            className="tn-card-close-btn"
+            onClick={(e) => dismiss(e)}
+            title="Dismiss"
+          >
+            ✕
+          </button>
+          <div
+            className="tn-card-priority-indicator"
+            style={{ background: accent }}
+          />
+        </div>
       </div>
     </div>
   );
 };
 
 const TaskNotificationPopup: React.FC = () => {
-const { pendingNotifications, dismissNotification } = useTaskNotification();
-const isToday = (dateStr: string) => {
-  if (!dateStr) return false;
+  const { pendingNotifications, dismissNotification } = useTaskNotification();
 
-  const d = new Date(dateStr);
+  const isToday = (dateStr: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    const today = new Date();
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate()
+    );
+  };
 
-  if (isNaN(d.getTime())) return false;
-
-  const today = new Date();
-
-  return (
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
+  const todayNotifications = pendingNotifications.filter((n) =>
+    isToday(n.CreatedDate)
   );
-};
-const todayNotifications = pendingNotifications.filter((n) =>
-  isToday(n.CreatedDate)
-);
 
   if (todayNotifications.length === 0) return null;
 

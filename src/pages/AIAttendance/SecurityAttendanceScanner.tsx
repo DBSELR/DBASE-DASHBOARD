@@ -18,8 +18,34 @@ import {
 import { useHistory } from "react-router";
 
 import { API_BASE } from "../../config";
+import { Geolocation } from "@capacitor/geolocation";
+import { Capacitor } from "@capacitor/core";
+import {
+  BleClient,
+  ScanResult
+} from "@capacitor-community/bluetooth-le";
 
 import "./SecurityAttendanceScanner.css";
+
+const speakText = (text: string) => {
+  if (
+    typeof window !== "undefined" &&
+    "speechSynthesis" in window &&
+    "SpeechSynthesisUtterance" in window
+  ) {
+    try {
+      const SpeechUtterance = (window as any).SpeechSynthesisUtterance;
+      const utterance = new SpeechUtterance(text);
+      utterance.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.warn("SpeechSynthesis error:", error);
+    }
+  } else {
+    console.warn("SpeechSynthesis not supported on this platform/browser.");
+  }
+};
 
 const SecurityAttendanceScanner: React.FC = () => {
 
@@ -36,6 +62,17 @@ const SecurityAttendanceScanner: React.FC = () => {
 
   const [scanSuccess,setScanSuccess] =
     useState(false);
+
+  // =========================================
+  // LOCATION & BLUETOOTH STATES
+  // =========================================
+  const [latitude, setLatitude] = useState<number>(0);
+  const [longitude, setLongitude] = useState<number>(0);
+  const [locationReady, setLocationReady] = useState(false);
+  const [bleVerified, setBleVerified] = useState(false);
+  const [bleDeviceId, setBleDeviceId] = useState("");
+  const [bleDeviceName, setBleDeviceName] = useState("");
+  const [isBleScanning, setIsBleScanning] = useState(false);
 
   const [message,setMessage] =
     useState(
@@ -150,12 +187,259 @@ const SecurityAttendanceScanner: React.FC = () => {
  }, [cameraMode]);
 
   // =========================================
+  // BLE & LOCATION INITIALIZATION
+  // =========================================
+
+  useEffect(() => {
+    let timer: any;
+
+    const init = async () => {
+      console.log("🚀 [SecurityAttendanceScanner] Component mounted - Initializing...");
+      
+      if (!Capacitor.isNativePlatform()) {
+        console.log("🖥️ [BLE] Running on Web - Skipping Bluetooth LE initialization and periodic scan");
+        return;
+      }
+      
+      try {
+        console.log("📱 [BleClient] Initializing Bluetooth...");
+        await BleClient.initialize();
+        console.log("✅ [BleClient] Bluetooth initialized successfully");
+        
+        // Request BLE permissions on Android 12+
+        console.log("🔐 [BLE] Requesting Bluetooth permissions...");
+        try {
+          await BleClient.requestLEScan(
+            { allowDuplicates: false },
+            (result) => {
+              console.log("[BLE] Permission granted - initial scan callback");
+            }
+          );
+          await BleClient.stopLEScan();
+          console.log("✅ [BLE] Bluetooth permissions granted");
+        } catch (permErr) {
+          console.warn("⚠️ [BLE] Permission request returned error (this may be normal):", permErr);
+        }
+        
+        console.log("🔍 [BLE] Starting initial EasyReach verification...");
+        await verifyEasyReach();
+        
+        timer = setInterval(() => {
+          console.log("⏰ [BLE] Running periodic EasyReach verification (every 10s)");
+          verifyEasyReach();
+        }, 10000);
+        
+        console.log("✅ [Init] All initialization complete");
+      } catch (err) {
+        console.error("❌ [Init] Initialization failed:", err);
+      }
+    };
+
+    init();
+
+    return () => {
+      if (timer) {
+        console.log("🛑 [Cleanup] Clearing BLE verification interval");
+        clearInterval(timer);
+      }
+    };
+  }, []);
+
+  //--------------------------------------------------
+  // GET LOCATION
+  //--------------------------------------------------
+  useEffect(() => {
+    const loadLocation = async () => {
+      try {
+        console.log("📍 [Location] Requesting geolocation permissions...");
+        const permission = await Geolocation.requestPermissions();
+        console.log("📍 [Location] Permission response:", permission);
+
+        if (permission.location === "granted") {
+          console.log("✅ [Location] Permission granted - fetching position via Capacitor...");
+          const position = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 15000,
+          });
+
+          console.log("✅ [Location] Capacitor position obtained:", {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+
+          setLatitude(position.coords.latitude);
+          setLongitude(position.coords.longitude);
+          setLocationReady(true);
+          return;
+        } else {
+          console.warn("⚠️ [Location] Capacitor geolocation permission denied");
+        }
+
+        // Fallback to browser geolocation
+        console.log("[Location] Falling back to Browser Geolocation API...");
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log("[Location] Browser geolocation obtained:", {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+              });
+              setLatitude(position.coords.latitude);
+              setLongitude(position.coords.longitude);
+              setLocationReady(true);
+            },
+            (error) => {
+              console.error("[Location] Browser geolocation error:", error);
+              setMessage("Location access denied");
+              setStatusColor("#ef4444");
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 0,
+            }
+          );
+        } else {
+          setMessage("Geolocation not supported");
+          setStatusColor("#ef4444");
+        }
+      } catch (err) {
+        console.error("[Location] Error in loadLocation:", err);
+        // Fallback again
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              setLatitude(position.coords.latitude);
+              setLongitude(position.coords.longitude);
+              setLocationReady(true);
+            },
+            () => {
+              setMessage("Unable to fetch location");
+              setStatusColor("#ef4444");
+            }
+          );
+        }
+      }
+    };
+
+    loadLocation();
+  }, []);
+
+  //--------------------------------------------------
+  // GPS watch / tracking
+  //--------------------------------------------------
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (error) => {
+        console.error("[GPS] Geolocation error:", error);
+        setMessage("Please enable location access");
+        setStatusColor("#ef4444");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }, []);
+
+  const verifyEasyReach = async () => {
+    console.log("[BLE] Starting EasyReach device verification");
+    
+    if (!Capacitor.isNativePlatform()) {
+      console.debug("[BLE] Skipping BLE verification on Web");
+      return;
+    }
+    
+    if (isBleScanning) {
+      console.debug("[BLE] Scan already in progress, skipping");
+      return;
+    }
+    setIsBleScanning(true);
+
+    try {
+      let found = false;
+      console.log("[BLE] Initiating LE scan");
+
+      await BleClient.requestLEScan(
+        {},
+        async (result: ScanResult) => {
+          try {
+            const name = (result.device.name || "").trim().toUpperCase();
+            const mac = (result.device.deviceId || "")
+              .replace(/:/g, "")
+              .replace(/-/g, "")
+              .trim()
+              .toUpperCase();
+
+            console.log("[BLE] Device found", {
+              name: name,
+              mac: mac,
+              originalId: result.device.deviceId
+            });
+
+            if (name === "ER2650001F" && mac === "EA2658F0001F") {
+              found = true;
+              setBleVerified(true);
+              setBleDeviceName(name);
+              setBleDeviceId(result.device.deviceId);
+
+              setMessage(`EasyReach Verified\n${name}`);
+              setStatusColor("#22c55e");
+
+              console.log("[BLE] Stopping LE scan (device found)");
+              await BleClient.stopLEScan();
+              return;
+            }
+          } catch (e) {
+            console.error("[BLE] Error during scan callback", e);
+          }
+        }
+      );
+
+      setTimeout(async () => {
+        try {
+          await BleClient.stopLEScan();
+        } catch (err) {
+          console.warn("[BLE] Error stopping scan", err);
+        }
+        setIsBleScanning(false);
+
+        if (!found) {
+          setBleVerified(false);
+          setMessage("EasyReach device not found");
+          setStatusColor("#ef4444");
+        }
+      }, 8000);
+    } catch (err) {
+      console.error("[BLE] Fatal error in verifyEasyReach", err);
+      setIsBleScanning(false);
+      setBleVerified(false);
+      setMessage("Bluetooth scan failed");
+      setStatusColor("#ef4444");
+    }
+  };
+
+  // =========================================
   // AUTO FACE SCAN
   // =========================================
 
   useEffect(()=>{
 
     const autoScan = async ()=>{
+
+      if (!locationReady) {
+        console.warn("[Scan] Waiting for GPS before sending attendance request");
+        setMessage("Waiting for GPS...");
+        setStatusColor("#ef4444");
+        return;
+      }
 
       if(
         processing ||
@@ -221,17 +505,53 @@ ctx?.restore();
 
               headers:{
                 "Content-Type":
-                  "application/json"
+                  "application/json",
+                "x-api-key":
+                  "dbase-ai-master-key-2026",
               },
 
               body:JSON.stringify({
-                image:image
+                image:image,
+                latitude:latitude,
+                longitude:longitude,
+                bluetoothConnected:bleVerified,
+                bluetoothDeviceName:bleDeviceName,
+                bluetoothDeviceId:bleDeviceId
               })
             }
           );
 
         const data =
           await response.json();
+
+        // =====================================
+        // INVALID LOCATION
+        // =====================================
+
+        if(data.invalidLocation)
+        {
+          setStatusColor(
+            "#ef4444"
+          );
+
+          setMessage(
+            "⛔ You are not in office location"
+          );
+
+          speakText("You are not in office location");
+
+          setTimeout(()=>{
+            setMessage(
+              "Start to detect employee face"
+            );
+
+            setStatusColor(
+              "#6b7280"
+            );
+          },4000);
+
+          return;
+        }
 
         // =====================================
         // INVALID TIME
@@ -247,16 +567,7 @@ ctx?.restore();
             `⛔ ${data.message}`
           );
 
-          const utter =
-            new SpeechSynthesisUtterance(
-              data.message
-            );
-
-          speechSynthesis.cancel();
-
-          speechSynthesis.speak(
-            utter
-          );
+          speakText(data.message);
 
           setTimeout(()=>{
 
@@ -290,17 +601,7 @@ ${data.empName}
 ${data.message}`
           );
 
-          const utter =
-            new SpeechSynthesisUtterance(
-              `${data.empName}
-attendance already marked`
-            );
-
-          speechSynthesis.cancel();
-
-          speechSynthesis.speak(
-            utter
-          );
+          speakText(`${data.empName}\nattendance already marked`);
 
           setTimeout(()=>{
 
@@ -336,19 +637,7 @@ attendance already marked`
 ${data.status}`
           );
 
-          const utter =
-            new SpeechSynthesisUtterance(
-              `${data.empName}
-attendance marked successfully`
-            );
-
-          utter.rate = 1;
-
-          speechSynthesis.cancel();
-
-          speechSynthesis.speak(
-            utter
-          );
+          speakText(`${data.empName}\nattendance marked successfully`);
 
           setTimeout(()=>{
 
@@ -418,7 +707,13 @@ attendance marked successfully`
   },[
     processing,
     cameraReady,
-    scanSuccess
+    scanSuccess,
+    locationReady,
+    bleVerified,
+    bleDeviceId,
+    bleDeviceName,
+    latitude,
+    longitude
   ]);
 
   return (

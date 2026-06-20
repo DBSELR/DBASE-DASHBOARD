@@ -25,24 +25,50 @@ try {
   messaging.onBackgroundMessage((payload) => {
     console.log("📩 Background Message", payload);
 
-    self.registration.showNotification(
-      payload.notification?.title || "Office Dashboard",
-      {
-        body:
-          payload.notification?.body ||
-          "You have received a new notification",
-        icon: "/logo192.png",
-        badge: "/logo192.png",
+    const title = payload.notification?.title || payload.data?.title || "New Task Assigned";
+    const body = payload.notification?.body || payload.data?.body || "You have a pending task assigned to you.";
+    const image = payload.notification?.image || payload.data?.image || null;
+
+    const notificationOptions = {
+      body: body,
+      icon: "/images/dbase.png",
+      badge: "/images/dbs-logo-short.png",
+      image: image,
+      vibrate: [200, 100, 200],
+      tag: "task-notification",
+      renotify: true,
+      data: {
+        url: payload.data?.url || "/tasks"
       }
-    );
+    };
+
+    self.registration.showNotification(title, notificationOptions);
   });
 
   self.addEventListener("notificationclick", (event) => {
     event.notification.close();
 
-    const targetUrl = event.notification?.data?.url || "/";
+    const targetUrl = event.notification?.data?.url || "/tasks";
 
-    event.waitUntil(clients.openWindow(targetUrl));
+    event.waitUntil(
+      clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(targetUrl) && "focus" in client) {
+            return client.focus();
+          }
+        }
+        if (clientList.length > 0) {
+          const firstClient = clientList[0];
+          if ("navigate" in firstClient) {
+            firstClient.focus();
+            return firstClient.navigate(targetUrl);
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      })
+    );
   });
 
 } catch (err) {

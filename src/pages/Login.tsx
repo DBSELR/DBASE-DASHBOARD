@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { IonPage, IonContent } from "@ionic/react";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
-import { registerWebPush } from "../services/firebase";
+import { registerNativePush } from "../services/pushNotification";
 
 import "./Login.css";
 
@@ -73,13 +73,10 @@ const Login: React.FC = () => {
   console.log("👤 EmpCode:", empCode);
 
   try {
-    console.log("🚀 Calling registerWebPush");
-
-    const token = await registerWebPush(empCode);
-
-    console.log("✅ FCM Token Generated:", token);
+    console.log("🚀 Calling registerNativePush");
+    await registerNativePush(empCode);
   } catch (err) {
-    console.error("❌ registerWebPush failed:", err);
+    console.error("❌ registerNativePush failed:", err);
   }
 
   window.location.href = "/home";
