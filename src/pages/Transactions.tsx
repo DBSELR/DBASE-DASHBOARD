@@ -1097,6 +1097,71 @@ const triggerBillUpload = () => {
     }
   };
 
+  /* -------- Export helpers (CSV for Excel) -------- */
+  const escapeCsv = (v: any) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v);
+    if (/[,"\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const downloadCsv = (filename: string, header: string[], rows: any[][]) => {
+    const lines = [header.join(",")].concat(rows.map((r) => r.join(",")));
+    const csv = lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportTransactions = () => {
+    const header = ["Date", "Head", "Category", "Amount", "Class", "Remarks"];
+    const rows = transactions.map((t) => [
+      escapeCsv(t.Date),
+      escapeCsv(t.SALorAdv),
+      escapeCsv(t.CDescription),
+      escapeCsv(t.Amount),
+      escapeCsv(t.bclass),
+      escapeCsv(t.Remarks),
+    ]);
+    downloadCsv(`transactions_${moment().format("YYYYMMDD_HHmmss")}.csv`, header, rows);
+  };
+
+  const exportVouchers = () => {
+    const header = ["VID", "Date", "Employee", "Description", "Amount", "Verified", "VoucherFile", "BillFile"];
+    const rows = vouchers.map((v) => [
+      escapeCsv(v.VID),
+      escapeCsv(v.Date),
+      escapeCsv(v.EmpID),
+      escapeCsv(v.VDescription),
+      escapeCsv(v.amount),
+      escapeCsv(v.isVerified),
+      escapeCsv(v.fname),
+      escapeCsv(v.fpath),
+    ]);
+    downloadCsv(`vouchers_${moment().format("YYYYMMDD_HHmmss")}.csv`, header, rows);
+  };
+
+  const exportAdvances = () => {
+    const header = ["Employee", "CashInHand", "Advance_Bal", "Advance", "Advance_Repaid", "Credits", "Debits", "Vouchers"];
+    const rows = advanceRows.map((a) => [
+      escapeCsv(a.EmpName),
+      escapeCsv(a.CashInHand),
+      escapeCsv(a.Advance_Bal),
+      escapeCsv(a.Advance),
+      escapeCsv(a.Advance_Repaid),
+      escapeCsv(a.Credits),
+      escapeCsv(a.Debits),
+      escapeCsv(a.Vouchers),
+    ]);
+    downloadCsv(`advances_${moment().format("YYYYMMDD_HHmmss")}.csv`, header, rows);
+  };
+
   /* -------- UI -------- */
   return (
     <IonPage>
@@ -1181,8 +1246,15 @@ const triggerBillUpload = () => {
         {activeTab === "transfer" && (
           <div className="tab-pad">
             <div className="section-card">
-              <div className="section-title">
-                <IonIcon icon={arrowForward} /> New Transfer
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="section-title">
+                  <IonIcon icon={arrowForward} /> New Transfer
+                </div>
+                <div>
+                  <IonButton size="small" fill="outline" onClick={exportTransactions}>
+                    Download Excel
+                  </IonButton>
+                </div>
               </div>
               <div className="form-grid">
                 <div className="input-group">
@@ -1428,8 +1500,15 @@ const triggerBillUpload = () => {
         {activeTab === "voucher" && (
           <div className="tab-pad">
             <div className="section-card">
-              <div className="section-title">
-                <IonIcon icon={arrowForward} /> New Voucher Request
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="section-title">
+                  <IonIcon icon={arrowForward} /> New Voucher Request
+                </div>
+                <div>
+                  <IonButton size="small" fill="outline" onClick={exportVouchers}>
+                    Download Excel
+                  </IonButton>
+                </div>
               </div>
               <div className="form-grid">
                 <div className="input-group">
@@ -1634,9 +1713,16 @@ const triggerBillUpload = () => {
           (UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
             <div className="tab-pad">
               <div className="section-card">
-                <div className="section-title">
-                  <IonIcon icon={arrowForward} /> Advances & Cash in Hands
-                </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="section-title">
+                      <IonIcon icon={arrowForward} /> Advances & Cash in Hands
+                    </div>
+                    <div>
+                      <IonButton size="small" fill="outline" onClick={exportAdvances}>
+                        Download Excel
+                      </IonButton>
+                    </div>
+                  </div>
                 <div className="advances-table-wrapper">
                   <table className="advances-table">
                     <thead>
