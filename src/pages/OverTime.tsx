@@ -109,17 +109,22 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
   const [otEditingId, setOTEditingId] = useState<string>("");
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
   const currentYear = new Date().getFullYear();
-const today = new Date();
+  const [unlockRange, setUnlockRange] = useState({
+    approved: false,
+    fromDate: "",
+    toDate: ""
+  });
+  const today = new Date();
 
-// ✅ max = today (no future allowed)
-const maxOtDate = today.toISOString().split("T")[0];
+  // ✅ max = today (no future allowed)
+  const maxOtDate = today.toISOString().split("T")[0];
 
-// ✅ min = last 7 days (including today)
-const minDateObj = new Date();
-minDateObj.setDate(today.getDate() - 6);
-const minOtDate = minDateObj.toISOString().split("T")[0];
+  // ✅ min = last 7 days (including today)
+  const minDateObj = new Date();
+  minDateObj.setDate(today.getDate() - 2);
+  const minOtDate = minDateObj.toISOString().split("T")[0];
 
-// ✅ default selected date = today
+  // ✅ default selected date = today
 
 
   const notify = (msg: string, color: string = "primary") =>
@@ -211,7 +216,7 @@ const minOtDate = minDateObj.toISOString().split("T")[0];
     const mins = minutesBetween(otFrom, otTo);
     setOTActualMin(mins);
     setOTFinalMin(mins);
-    setOTDate(maxOtDate);
+    //setOTDate(maxOtDate);
   }, [otFrom, otTo]);
 
   const loadClients = async (search: string = "") => {
@@ -262,10 +267,32 @@ const minOtDate = minDateObj.toISOString().split("T")[0];
     }
   };
 
+  const loadUnlockRequest = async () => {
+    if (!empCode) return;
+    try {
+      // Need to include headers for the GetApprovedUnlockRequest which requires [Authorize]
+      const token = localStorage.getItem("token")?.replace(/"/g, "");
+      const res = await api.get("Leave/Leave/GetApprovedUnlockRequest", {
+        params: { empCode, requestType: "OverTime" },
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.data && res.data.approved) {
+        setUnlockRange({
+          approved: true,
+          fromDate: res.data.fromDate,
+          toDate: res.data.toDate
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to load unlock request", e);
+    }
+  };
+
   useEffect(() => {
     if (userLoaded && empCode) {
       loadClients();
       loadOT();
+      loadUnlockRequest();
     }
   }, [userLoaded, empCode]);
 
@@ -409,22 +436,35 @@ const minOtDate = minDateObj.toISOString().split("T")[0];
               className="native-date-modal"
             >
               <IonContent>
-           <IonDatetime
-  presentation="date"
-  preferWheel={true}
-  showDefaultButtons={true}
-  doneText="Done"
-  cancelText="Cancel"
-  value={otDate}
-  min={minOtDate}
-  max={maxOtDate}
-  onIonChange={(e) => {
-    const value = e.detail.value as string;
-    if (value) {
-      setOTDate(value.split("T")[0]);
-    }
-  }}
-/>
+                <IonDatetime
+                  presentation="date"
+                  preferWheel={true}
+                  showDefaultButtons={true}
+                  doneText="Done"
+                  cancelText="Cancel"
+                  value={otDate || undefined}
+                  min={minOtDate}
+                  max={maxOtDate}
+                  isDateEnabled={(dateString) => {
+                    const date = dateString.split("T")[0];
+
+                    const todayStr = new Date().toISOString().split("T")[0];
+
+                    // ✅ always allow selected date
+                    if (date === otDate) return true;
+
+                    // ❌ default OT rule (last 7 days only)
+                    return date >= minOtDate && date <= todayStr;
+                  }}
+                  onIonChange={(e) => {
+                    const value = e.detail.value as string;
+
+                    if (value) {
+                      setOTDate(value.split("T")[0]);
+                      setDateModalOpen(false); // 👈 close modal after select
+                    }
+                  }}
+                />
               </IonContent>
             </IonModal>
             <IonGrid className="ion-no-padding compact-grid">
@@ -434,24 +474,21 @@ const minOtDate = minDateObj.toISOString().split("T")[0];
                     className="compact-input-card"
                     onClick={() => setDateModalOpen(true)}
                   >
-                    <label className="compact-label">OT Date</label>
-
+                    OT Date
                     <div className="compact-date-display">
                       <IonIcon icon={calendarOutline} className="compact-date-icon" />
                       <span className="compact-date-text">
-                        {otDate
-                          ? moment(otDate).format("DD-MM-YYYY")
-                          : "Pick OT Date"}
+                        {otDate ? moment(otDate).format("DD-MM-YYYY") : "Pick OT Date"}
                       </span>
                     </div>
                   </div>
-                  
-<IonModal
-  isOpen={dateModalOpen}
-  onDidDismiss={() => setDateModalOpen(false)}
-  className="native-date-modal"
->
-  <IonDatetime
+
+                  <IonModal
+                    isOpen={dateModalOpen}
+                    onDidDismiss={() => setDateModalOpen(false)}
+                    className="native-date-modal"
+                  >
+                    {/* <IonDatetime
     presentation="date"
     preferWheel={true}
     showDefaultButtons={true}
@@ -467,8 +504,47 @@ const minOtDate = minDateObj.toISOString().split("T")[0];
         setOTDate(value.split("T")[0]);
       }
     }}
-  />
-</IonModal>
+  /> */}
+                    <IonDatetime
+                      presentation="date"
+                      preferWheel={true}
+                      showDefaultButtons={true}
+                      doneText="Done"
+                      cancelText="Cancel"
+                      value={otDate || undefined}
+                      min={unlockRange.approved ? unlockRange.fromDate : minOtDate}
+                      max={maxOtDate}
+                      isDateEnabled={(dateString) => {
+                        const date = dateString.split("T")[0];
+
+                        const today = new Date();
+
+                        const weekAgo = new Date();
+                        weekAgo.setDate(today.getDate() - 2);
+
+                        const weekAgoStr = weekAgo.toISOString().split("T")[0];
+
+                        // Approved release date/range
+                        if (
+                          unlockRange.approved &&
+                          date >= unlockRange.fromDate &&
+                          date <= unlockRange.toDate
+                        ) {
+                          return true;
+                        }
+
+                        // Default OT range (last 7 days only)
+                        return date >= weekAgoStr;
+                      }}
+                      onIonChange={(e) => {
+                        const value = e.detail.value as string;
+
+                        if (value) {
+                          setOTDate(value.split("T")[0]);
+                        }
+                      }}
+                    />
+                  </IonModal>
 
                 </IonCol>
 

@@ -1718,8 +1718,18 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
 
   {permissionData.map((x: any, idx: number) => {
 
-    const usedPercent =
-      Number(x.usedPercent || 0);
+    // const usedPercent =
+    //   Number(x.usedPercent || 0);
+    const totalMinutes =
+  Number(x.totalAvailableMin || 0);
+
+const usedMinutes =
+  Number(x.usedMin || 0);
+
+const usedPercent =
+  totalMinutes > 0
+    ? (usedMinutes / totalMinutes) * 100
+    : 0;
 
     const rowClass =
       usedPercent >= 100

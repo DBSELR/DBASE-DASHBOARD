@@ -252,17 +252,45 @@ const OnDuties: React.FC = () => {
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
 
 const today = new Date().toISOString().split("T")[0];
+
+const [unlockRange, setUnlockRange] = useState({
+  approved: false,
+  fromDate: "",
+  toDate: ""
+});
+
+
+
 const [dutyFromDate, setDutyFromDate] = useState<string>(today);
+const [dutyToDate, setDutyToDate] = useState<string | null>(null);
+
 
 const maxDateObj = new Date(dutyFromDate || today);
 maxDateObj.setDate(maxDateObj.getDate() + 6);
 const maxDate = maxDateObj.toISOString().split("T")[0];
 
-const [dutyToDate, setDutyToDate] = useState<string | null>(null);
+
   
 
 const [fromModal, setFromModal] = useState(false);
 const [toModal, setToModal] = useState(false);
+const loadUnlockRange = async () => {
+  const res = await fetch(
+    `${API_BASE}Leave/Leave/GetApprovedUnlockRequest?empCode=${empCode}&requestType=On%20Duty`
+  );
+
+  const data = await res.json();
+
+  console.log("Unlock API Response:", data);
+
+  setUnlockRange(data);
+};
+useEffect(() => {
+  if (!empCode) return;
+
+  loadUnlockRange();
+}, [empCode]);
+
   const notify = (msg: string, color: string = "primary") =>
     setToast({ msg, color });
 
@@ -1333,16 +1361,38 @@ const [toModal, setToModal] = useState(false);
   showDefaultButtons={true}
   doneText="Done"
   cancelText="Cancel"
-  value={dutyFromDate}
-  min={dutyFromDate || today}
+  value={dutyFromDate || undefined}
+  min={unlockRange.approved ? unlockRange.fromDate : today}
   max={maxDate}
+  isDateEnabled={(dateString) => {
+    const date = dateString.split("T")[0];
 
+    // ✅ allow already selected date (THIS IS THE FIX)
+    if (date === dutyFromDate) {
+      return true;
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // Approved range
+    if (
+      unlockRange.approved &&
+      date >= unlockRange.fromDate &&
+      date <= unlockRange.toDate
+    ) {
+      return true;
+    }
+
+    // default rule
+    return date >= todayStr;
+  }}
   onIonChange={(e) => {
     const value = e.detail.value as string;
+
     if (value) {
-      setDutyFromDate(value.split("T")[0]);
-      setDutyToDate(null);
-      setFromModal(false);
+      const selected = value.split("T")[0];
+      setDutyFromDate(selected);
+      setDutyToDate("");
     }
   }}
 />
@@ -1385,16 +1435,21 @@ const [toModal, setToModal] = useState(false);
   doneText="Done"
   cancelText="Cancel"
   value={dutyToDate || undefined}
-  // min={dutyFromDate || today}
-  // max={maxDate}
-  min={dutyFromDate || new Date().toISOString().split("T")[0]} // must be >= start
-  max={`${new Date().getFullYear()}-12-31`} 
-
+  min={
+    dutyFromDate === unlockRange.fromDate
+      ? unlockRange.fromDate
+      : (dutyFromDate || today)
+  }
+  max={
+    dutyFromDate === unlockRange.fromDate
+      ? unlockRange.toDate
+      : maxDate
+  }
   onIonChange={(e) => {
     const value = e.detail.value as string;
+
     if (value) {
       setDutyToDate(value.split("T")[0]);
-      setToModal(false);
     }
   }}
 />
