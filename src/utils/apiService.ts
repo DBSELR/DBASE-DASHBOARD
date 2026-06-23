@@ -106,9 +106,13 @@ export const apiService = {
         return apiService.get(`/Tickets/Load_All_Task?TID=${tid}`);
     },
 
-    saveTaskStatus: async (statusData: any) => {
+    // saveTaskStatus: async (statusData: any) => {
+    //     console.log("API 8: Save Task Status", statusData);
+    //     return apiService.post("/Tickets/Save_Task_status", statusData);
+    // },
+     saveTaskStatus: async (statusData: any) => {
         console.log("API 8: Save Task Status", statusData);
-        return apiService.post("/Tickets/Save_Task_status", statusData);
+        return apiService.post("/Tickets/Save_Task_Status", statusData);
     },
 
     transferTask: async (transferData: any) => {

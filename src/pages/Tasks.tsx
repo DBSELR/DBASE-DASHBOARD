@@ -310,7 +310,14 @@ const Tasks: React.FC = () => {
 
       console.log("Submitting Task Data:", taskData);
       const saveResult = await apiService.saveTask(taskData);
-      console.log("🎉 Save Task API Response:", saveResult);
+      //console.log("🎉 Save Task API Response:", saveResult);
+      //const result = await saveTask(data);
+      //console.log("WhatsApp Debug:", saveResult.debug);
+
+      console.log("Save Task API Response:", saveResult);
+      console.log("WhatsApp Debug:", saveResult.debug);
+      console.log("WhatsApp Payload:", saveResult.debug.payload);
+      console.log("Meta Response:", saveResult.debug.metaResponse);
 
       const waStatus = saveResult?.whatsAppStatus || saveResult?.WhatsAppStatus;
       const waError = saveResult?.whatsAppError || saveResult?.WhatsAppError;
@@ -355,28 +362,7 @@ const Tasks: React.FC = () => {
       }
       // ------------------------------
 
-      // API 13: Send SMS
-      try {
-        let recipientMobile = "";
-        // emp[0]=EmpCode, emp[1]=EmpName (confirmed from dropdown rendering)
-        const assignedEmpCode = assignTo.split("-")[0].trim();
-        console.log("🔍 [SMS] Looking for EmpCode:", assignedEmpCode, "in", employees.length, "employees");
-        const targetEmp = employees.find(emp => String(emp[0] ?? "").trim() === assignedEmpCode);
-        if (targetEmp) {
-          // Try named keys first, then index positions for Mobile
-          recipientMobile = String(targetEmp.Mobile ?? targetEmp.mobile ?? targetEmp[6] ?? targetEmp[4] ?? "").trim();
-          console.log("✅ [SMS] Found employee. All fields:", JSON.stringify(targetEmp), "| Mobile used:", recipientMobile);
-        } else {
-          console.warn("❌ [SMS] Employee not found for EmpCode:", assignedEmpCode);
-          if (employees.length > 0) {
-            console.warn("🔎 [SMS] First employee full data:", JSON.stringify(employees[0]));
-          }
-        }
-        const msg = `New task assigned to you by ${currentEmpName}: ${description.substring(0, 30)}${description.length > 30 ? '...' : ''}`;
-        await apiService.sendMessage(recipientMobile, msg);
-      } catch (smsError) {
-        console.warn("SMS assignment notification failed:", smsError);
-      }
+      // SMS notification has been removed per user requirements (WhatsApp only)
       handleClear();
       fetchInitialData(currentEmpCode);
     } catch (error) {
@@ -432,12 +418,7 @@ const Tasks: React.FC = () => {
       };
       await apiService.saveTaskStatus(statusData);
 
-      try {
-        const msg = `Task #${activeTask.TID} status updated to ${updateStatus}: ${updateStatusInfo}`;
-        await apiService.sendMessage("", msg);
-      } catch (smsError) {
-        console.warn("SMS status update notification failed:", smsError);
-      }
+      // SMS notification has been removed per user requirements (WhatsApp only)
 
       setToastMessage("Status updated");
       setUpdateStatusInfo("");
@@ -470,26 +451,7 @@ const Tasks: React.FC = () => {
       };
       await apiService.transferTask(transferData);
 
-      try {
-        let transferRecipientMobile = "";
-        // emp[0]=EmpCode, emp[1]=EmpName (confirmed from dropdown rendering)
-        const assignedEmpCode = transferTargetEmp.split("-")[0].trim();
-        console.log("🔍 [SMS Transfer] Looking for EmpCode:", assignedEmpCode);
-        const targetEmp = employees.find(emp => String(emp[0] ?? "").trim() === assignedEmpCode);
-        if (targetEmp) {
-          transferRecipientMobile = String(targetEmp.Mobile ?? targetEmp.mobile ?? targetEmp[6] ?? targetEmp[4] ?? "").trim();
-          console.log("✅ [SMS Transfer] Found employee. All fields:", JSON.stringify(targetEmp), "| Mobile used:", transferRecipientMobile);
-        } else {
-          console.warn("❌ [SMS Transfer] Employee not found for EmpCode:", assignedEmpCode);
-          if (employees.length > 0) {
-            console.warn("🔎 [SMS Transfer] First employee full data:", JSON.stringify(employees[0]));
-          }
-        }
-        const msg = `Task #${activeTask.TID} transferred to ${transferTargetEmp} by ${currentEmpName}`;
-        await apiService.sendMessage(transferRecipientMobile, msg);
-      } catch (smsError) {
-        console.warn("SMS transfer notification failed:", smsError);
-      }
+      // SMS notification has been removed per user requirements (WhatsApp only)
 
       setToastMessage("Task transferred");
 
@@ -566,23 +528,7 @@ const Tasks: React.FC = () => {
       };
       await apiService.reopenTask(reopenData);
 
-      try {
-        let reopenRecipientMobile = "";
-        // emp[0]=EmpCode, emp[1]=EmpName (confirmed from dropdown rendering)
-        const assignedEmpCode = (task.RecEName || "").split("-")[0].trim();
-        console.log("🔍 [SMS Reopen] Looking for EmpCode:", assignedEmpCode);
-        const targetEmp = employees.find(emp => String(emp[0] ?? "").trim() === assignedEmpCode);
-        if (targetEmp) {
-          reopenRecipientMobile = String(targetEmp.Mobile ?? targetEmp.mobile ?? targetEmp[6] ?? targetEmp[4] ?? "").trim();
-          console.log("✅ [SMS Reopen] Found employee. All fields:", JSON.stringify(targetEmp), "| Mobile used:", reopenRecipientMobile);
-        } else {
-          console.warn("❌ [SMS Reopen] Employee not found for EmpCode:", assignedEmpCode);
-        }
-        const msg = `Task #${task.TID} has been reopened by ${currentEmpName}`;
-        await apiService.sendMessage(reopenRecipientMobile, msg);
-      } catch (smsError) {
-        console.warn("SMS reopen notification failed:", smsError);
-      }
+      // SMS notification has been removed per user requirements (WhatsApp only)
 
       setToastMessage("Task reopened");
       fetchInitialData(currentEmpCode);
