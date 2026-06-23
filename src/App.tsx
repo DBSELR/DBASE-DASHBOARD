@@ -76,7 +76,7 @@ import WorkReportDashboard from "./pages/WorkReportDashboard";
 import ViolationReport from "./pages/ViolationReport";
 import ViolationApproval from "./pages/ViolationApproval";
 import ChangePassword from "./pages/ChangePassword";
-
+import ApprovalDates from "./components/requests/ApprovalDates";
 
 
 AnswerKeyImport
@@ -144,6 +144,7 @@ const App: React.FC = () => {
               <Menu />
               <IonRouterOutlet id="main">
                 <Switch>
+                  
                   <Route exact path="/home" component={Home} />
                   <Route exact path="/eprofile" component={EmpProfile} />
                   <Route exact path="/timings" component={Timings} />
@@ -188,11 +189,11 @@ const App: React.FC = () => {
                   <Route exact path="/penalty-dashboard" component={PenaltyDashboard} />
                   <Route exact path="/employee-penalties" component={EmployeePenalties} />
                   <Route exact path="/penalty-list" component={PenaltyList} />
-
                   <Route exact path="/workreport-dashboard" component={WorkReportDashboard} />
                   <Route exact path="/violation-report" component={ViolationReport} />
                   <Route exact path="/violation-approval" component={ViolationApproval} />
                   <Route exact path="/change-password" component={ChangePassword} />
+                  <Route exact path="/Approval-Dates" component={ApprovalDates} />
 
                   <Redirect from="*" to="/home" />
                 </Switch>
