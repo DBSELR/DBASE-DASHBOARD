@@ -384,22 +384,7 @@ useEffect(() => {
     const empCode = getUser()?.empCode;
 
     //if (!startDate) return showToast("Select date");
-    if (unlockRange.approved) {
 
-  const selectedDate = moment(startDate);
-
-  const unlockFrom = moment(unlockRange.fromDate);
-  const unlockTo = moment(unlockRange.toDate);
-
-  if (
-    selectedDate.isBefore(unlockFrom) ||
-    selectedDate.isAfter(unlockTo)
-  ) {
-    return showToast(
-      `Allowed dates: ${unlockRange.fromDate} to ${unlockRange.toDate}`
-    );
-  }
-}
     if (!remarks) return showToast("Enter remarks");
     // ✅ Leave Type Validation
     if (requestType === "Leave" && !leaveMode) {
