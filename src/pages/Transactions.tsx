@@ -243,18 +243,33 @@ const normalizeTransactions = (rows: any[]): Transaction[] => {
     return false;
   };
 
+  const safeRemark = (v: any): string => {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "object") return "";
+    const s = String(v).trim();
+    return s === "[object Object]" ? "" : s;
+  };
+
+  const fmtDate = (d: any): string => {
+    const s = str(d);
+    if (!s) return "";
+    if (s.includes("T")) return moment(s).format("DD-MM-YYYY");
+    return s;
+  };
+
   const out = rows.map((r) => {
     if (!Array.isArray(r)) {
       const o = r as any;
+      const rawRemark = o.Remarks ?? o.Remark ?? o.remarks ?? o.remark ?? o.RemarksText ?? o.RemarkText ?? "";
+      // Derive credit/debit from field or fall back to description heuristic
+      const bclass: string | undefined = o.bclass ? String(o.bclass) : o.TType ? String(o.TType) : undefined;
       return {
-        Date: str(o.Date),
+        Date: fmtDate(o.Date),
         SALorAdv: str(o.SALorAdv),
         CDescription: str(o.CDescription),
         Amount: Number(o.Amount ?? 0),
-        bclass: o.bclass ? String(o.bclass) : undefined,
-        Remarks: str(
-          o.Remarks ?? o.Remark ?? o.remarks ?? o.remark ?? o.RemarksText ?? o.RemarkText ?? ""
-        ),
+        bclass,
+        Remarks: safeRemark(rawRemark),
       } as Transaction;
     }
 
@@ -405,6 +420,14 @@ const Transactions: React.FC = () => {
   const EmpCode = storedUser?.empCode || "1509";
   const EmpName = storedUser?.empName || "Unknown";
   const UserDesig = storedUser?.designation || "Employee";
+  // Generate fiscal years 2014-2015 … (currentYear+1)-(currentYear+2), auto-extending
+  const fiscalYears = useMemo(() => {
+    const cur = new Date().getFullYear();
+    const years: string[] = [];
+    for (let y = 2014; y <= cur + 1; y++) years.push(`${y}-${y + 1}`);
+    return years;
+  }, []);
+
   const EmpCodeName = `${EmpCode}-B RAMALINGESWARA RAO`.includes(EmpName)
     ? `${EmpCode}-${EmpName}`
     : `${EmpCode}-${EmpName}`;
@@ -423,6 +446,8 @@ const Transactions: React.FC = () => {
   >("transfer");
 
   const [loading, setLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const filterSearchRef = useRef(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const [toastColor, setToastColor] = useState<"success" | "danger">("success");
   const [showToast, setShowToast] = useState(false);
@@ -453,8 +478,9 @@ const Transactions: React.FC = () => {
   const [transCredDebt, setTransCredDebt] = useState<string>("All");
   const [selectedTxnType, setSelectedTxnType] = useState<string>("All");
 
-  const [startDate, setStartDate] = useState<string | undefined>();
-  const [endDate, setEndDate] = useState<string | undefined>();
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<string>("");
 
   // voucher form
   const [invoiceHeads, setInvoiceHeads] = useState<string>("");
@@ -474,9 +500,7 @@ const Transactions: React.FC = () => {
   const [disableRequist, setDisableRequist] = useState<boolean>(false);
 
   // Modals
-  const [openStartModal, setOpenStartModal] = useState(false);
-  const [openEndModal, setOpenEndModal] = useState(false);
-  const [openInvoiceDateModal, setOpenInvoiceDateModal] = useState(false);
+  const [openVoucherEmpModal_placeholder] = useState(false); // keep other modals untouched
   const [openVoucherEmpModal, setOpenVoucherEmpModal] = useState(false);
   const [openDA_TA_Modal, setOpenDA_TA_Modal] = useState(false);
 
@@ -643,6 +667,14 @@ const triggerBillUpload = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Turn off filter loader only after transactions have actually painted
+  useEffect(() => {
+    if (filterSearchRef.current) {
+      filterSearchRef.current = false;
+      setFilterLoading(false);
+    }
+  }, [transactions]);
+
   const loadAll = async () => {
     try {
       setLoading(true);
@@ -740,14 +772,49 @@ const triggerBillUpload = () => {
   };
 
 
-  const fetchTransactions = async (emp: string) => {
-    const start = startDate ? moment(startDate).format("YYYY-MM-DD") : "All";
-    const end = endDate ? moment(endDate).format("YYYY-MM-DD") : "All";
-    const url = `${baseUrl}/Transactions/Load_Transactions?EmpCode=${emp}&TransCredDebt=${transCredDebt}&TransactionType=${selectedTxnType}&TStartDt=${start}&TEndDt=${end}`;
+  const fetchTransactions = async (emp: string, overrides?: { start?: string; end?: string; year?: string; type?: string; head?: string }) => {
+    const start = (overrides?.start ?? startDate) || "All";
+    const end = (overrides?.end ?? endDate) || "All";
+    const year = (overrides?.year ?? selectedYear) || "All";
+    const type = overrides?.type ?? transCredDebt;
+    const head = overrides?.head ?? selectedTxnType;
+    const url = `${baseUrl}/Transactions/Load_Transactions?EmpCode=${emp}&TransCredDebt=${type}&TransactionType=${head}&TStartDt=${start}&TEndDt=${end}&FYear=${year}`;
     console.log(`[Transactions] fetchTransactions: GET ${url}`);
     const res = await axios.get(url, { headers: getAuthHeaders() });
     console.log("[Transactions] fetchTransactions raw response:", res.data);
-    const list = normalizeTransactions(res.data || []);
+    let list = normalizeTransactions(res.data || []);
+
+    // Client-side filtering — backend SP does not respect FYear/TStartDt/TEndDt
+    const effectiveYear  = overrides?.year  !== undefined ? overrides.year  : selectedYear;
+    const effectiveStart = overrides?.start !== undefined ? overrides.start : startDate;
+    const effectiveEnd   = overrides?.end   !== undefined ? overrides.end   : endDate;
+
+    if ((effectiveYear && effectiveYear !== "All") || effectiveStart || effectiveEnd) {
+      list = list.filter((t) => {
+        if (!t.Date) return true;
+        const d = moment(t.Date, "DD-MM-YYYY");
+        if (!d.isValid()) return true;
+
+        if (effectiveYear && effectiveYear !== "All") {
+          const fyStart = Number(effectiveYear.split("-")[0]);
+          const fyFrom = moment(`${fyStart}-04-01`, "YYYY-MM-DD");
+          const fyTo   = moment(`${fyStart + 1}-03-31`, "YYYY-MM-DD");
+          if (!d.isBetween(fyFrom, fyTo, "day", "[]")) return false;
+        }
+
+        if (effectiveStart) {
+          if (d.isBefore(moment(effectiveStart, "YYYY-MM-DD"), "day")) return false;
+        }
+
+        if (effectiveEnd) {
+          if (d.isAfter(moment(effectiveEnd, "YYYY-MM-DD"), "day")) return false;
+        }
+
+        return true;
+      });
+      console.log(`[filter] year=${effectiveYear} start=${effectiveStart} end=${effectiveEnd} → ${list.length} rows`);
+    }
+
     setTransactions(list);
   };
 
@@ -1172,7 +1239,7 @@ const triggerBillUpload = () => {
           <IonRefresherContent />
         </IonRefresher>
 
-        <IonLoading isOpen={loading} message="Loading..." />
+        <IonLoading isOpen={loading || filterLoading} message={filterLoading ? "Searching transactions…" : "Loading..."} />
 
         <IonToast
           isOpen={showToast}
@@ -1367,76 +1434,69 @@ const triggerBillUpload = () => {
                 {userProfile ? `${userProfile.EmpID} - ${userProfile.EmpName}` : EmpCodeName}
               </div>
 
-              <div className="form-grid" style={{ marginBottom: '24px' }}>
+              {/* ── Filter Bar ── */}
+              <div className="txn-filter-grid">
                 <div className="input-group">
-                  <div className="input-label">Type</div>
+                  <div className="input-label">Year</div>
                   <IonSelect
                     interface="popover"
                     className="modern-select"
-                    value={transCredDebt}
-                    onIonChange={async (e) => {
-                      setTransCredDebt(e.detail.value);
-                      await fetchTransactions(EmpCode);
+                    value={selectedYear}
+                    onIonChange={(e) => {
+                      const y = e.detail.value;
+                      setSelectedYear(y);
+                      fetchTransactions(EmpCode, { year: y });
                     }}
                   >
-                    <IonSelectOption value="All">All Transactions</IonSelectOption>
-                    <IonSelectOption value="Credit">Credits Only</IonSelectOption>
-                    <IonSelectOption value="Debit">Debits Only</IonSelectOption>
-                    <IonSelectOption value="Transfer">Transfers Only</IonSelectOption>
-                  </IonSelect>
-                </div>
-
-                <div className="input-group">
-                  <div className="input-label">Head</div>
-                  <IonSelect
-                    interface="popover"
-                    className="modern-select"
-                    value={selectedTxnType}
-                    onIonChange={async (e) => {
-                      setSelectedTxnType(e.detail.value);
-                      await fetchTransactions(EmpCode);
-                    }}
-                  >
-                    {txnTypes.map((t) => (
-                      <IonSelectOption key={t.TID} value={t.TTYPE}>
-                        {t.TTYPE}
-                      </IonSelectOption>
+                    <IonSelectOption value="">All Years</IonSelectOption>
+                    {fiscalYears.map((fy) => (
+                      <IonSelectOption key={fy} value={fy}>{fy}</IonSelectOption>
                     ))}
                   </IonSelect>
                 </div>
 
+
                 <div className="input-group">
-                  <div className="input-label" >From Date</div>
-                  <div
-                    className="modern-input"
-                    style={{ display: 'flex', alignItems: 'center', height: '44px', cursor: 'pointer', paddingLeft: '10px' }}
-                    onClick={() => setOpenStartModal(true)}
-                  >
-                    {startDate ? moment(startDate).format("DD-MM-YYYY") : "Select Start"}
-                  </div>
+                  <div className="input-label">From Date</div>
+                  <input
+                    type="date"
+                    className="native-date-input"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
                 </div>
 
                 <div className="input-group">
                   <div className="input-label">To Date</div>
-                  <div
-                    className="modern-input"
-                    style={{ display: 'flex', alignItems: 'center', height: '44px', cursor: 'pointer', justifyContent: 'space-between', paddingLeft: '10px' }}
-                    onClick={() => setOpenEndModal(true)}
+                  <input
+                    type="date"
+                    className="native-date-input"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="filter-action-col">
+                  <button
+                    className="filter-apply-btn"
+                    disabled={filterLoading}
+                    style={{ opacity: filterLoading ? 0.6 : 1, cursor: filterLoading ? "not-allowed" : "pointer" }}
+                    onClick={async () => {
+                      filterSearchRef.current = true;
+                      setFilterLoading(true);
+                      await fetchTransactions(EmpCode);
+                      presentToast("Filter applied successfully");
+                    }}
                   >
-                    <span>{endDate ? moment(endDate).format("DD-MM-YYYY") : "Select End"}</span>
-                    {endDate && (
-                      <IonIcon
-                        icon={close}
-                        style={{ fontSize: '20px', color: '#94a3b8' }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          setStartDate(undefined);
-                          setEndDate(undefined);
-                          await fetchTransactions(EmpCode);
-                        }}
-                      />
-                    )}
-                  </div>
+                    {filterLoading ? "Searching…" : "Search"}
+                  </button>
+                  <button className="filter-clear-btn" onClick={() => {
+                    setStartDate(""); setEndDate(""); setSelectedYear("");
+                    setTransCredDebt("All"); setSelectedTxnType("All");
+                    fetchTransactions(EmpCode, { start: "", end: "", year: "", type: "All", head: "All" });
+                  }}>
+                    Clear
+                  </button>
                 </div>
               </div>
 
@@ -1447,15 +1507,26 @@ const triggerBillUpload = () => {
                   </div>
                 ) : (
                   transactions.map((t, idx) => {
-                    const isCredit = t.bclass === "Credit";
                     const cdesc = t.CDescription || "";
                     const salOrAdv = t.SALorAdv || "";
-                    const remark = "";
-                    const isGeneric = cdesc.trim() === "" || cdesc.toLowerCase().includes("money transfer");
-                    const displayTitle = (isGeneric && (salOrAdv || remark))
-                      ? [salOrAdv, remark].filter(Boolean).join(" ")
-                      : `${cdesc}${remark ? " " + remark : ""}`.trim();
-                    const remarkShownInTitle = isGeneric && !!remark;
+
+                    // Determine credit / debit
+                    // 1. Trust bclass if the API returns it
+                    // 2. Fall back: parse "from {code}" / "to {code}" in the description
+                    let isCredit: boolean;
+                    if (t.bclass === "Credit") {
+                      isCredit = true;
+                    } else if (t.bclass === "Debit") {
+                      isCredit = false;
+                    } else {
+                      const d = cdesc.toLowerCase();
+                      const toMe   = new RegExp(`\\bto\\s+${EmpCode}\\b`).test(d);
+                      const fromMe = new RegExp(`\\bfrom\\s+${EmpCode}\\b`).test(d);
+                      // money comes IN when "to {me}" and NOT "from {me}"
+                      isCredit = toMe && !fromMe;
+                    }
+
+                    const displayTitle = cdesc || salOrAdv;
 
                     return (
                       <div key={idx} className="txn-card">
@@ -1474,13 +1545,8 @@ const triggerBillUpload = () => {
                           <div className="txn-footer">
                             <div className="txn-meta">
                               <span>{t.Date}</span>
-
                               {t.SALorAdv && <span> • {t.SALorAdv}</span>}
-                              {t.Remarks && <span>  • {typeof t.Remarks === "string"
-                                ? t.Remarks
-                                : t.Remarks}
-
-                              </span>}
+                              {t.Remarks && <span> • {t.Remarks}</span>}
                             </div>
 
                             <div className="amt-status">
@@ -1540,13 +1606,14 @@ const triggerBillUpload = () => {
 
                 <div className="input-group">
                   <div className="input-label">Voucher Date</div>
-                  <div
-                    className="modern-input"
-                    style={{ display: 'flex', alignItems: 'center', height: '44px', cursor: 'pointer', opacity: isDateDisabled ? 0.6 : 1, paddingLeft: '10px' }}
-                    onClick={() => !isDateDisabled && setOpenInvoiceDateModal(true)}
-                  >
-                    {invoiceDate ? moment(invoiceDate).format("DD-MM-YYYY") : "Select Date"}
-                  </div>
+                  <input
+                    type="date"
+                    className="native-date-input"
+                    disabled={isDateDisabled}
+                    value={invoiceDate ? moment(invoiceDate).format("YYYY-MM-DD") : ""}
+                    onChange={(e) => setInvoiceDate(e.target.value ? moment(e.target.value).toISOString() : undefined)}
+                    style={{ opacity: isDateDisabled ? 0.5 : 1 }}
+                  />
                 </div>
 
                 <div className="input-group">
@@ -1756,78 +1823,6 @@ const triggerBillUpload = () => {
               </div>
             </div>
           )}
-
-        {/* Date pickers */}
-        <IonModal
-          isOpen={openStartModal}
-          onDidDismiss={() => setOpenStartModal(false)}
-          className="pwt-date-modal"
-        >
-          <div className="pwt-modal-content">
-            <h3 className="pwt-modal-title">Select Start Date</h3>
-            <IonDatetime
-              presentation="date"
-              onIonChange={async (e) => {
-                if (typeof e.detail.value === "string") {
-                  setStartDate(e.detail.value);
-                  await fetchTransactions(EmpCode);
-                }
-                setOpenStartModal(false);
-              }}
-            />
-            <IonButton expand="block" mode="ios" onClick={() => setOpenStartModal(false)}>
-              Close
-            </IonButton>
-          </div>
-        </IonModal>
-
-        <IonModal
-          isOpen={openEndModal}
-          onDidDismiss={() => setOpenEndModal(false)}
-          className="pwt-date-modal"
-        >
-          <div className="pwt-modal-content">
-            <h3 className="pwt-modal-title">Select End Date</h3>
-            <IonDatetime
-              presentation="date"
-              onIonChange={async (e) => {
-                if (typeof e.detail.value === "string") {
-                  setEndDate(e.detail.value);
-                  await fetchTransactions(EmpCode);
-                }
-                setOpenEndModal(false);
-              }}
-            />
-            <IonButton className="btn-primary" expand="block" onClick={() => setOpenEndModal(false)}>
-              Close
-            </IonButton>
-          </div>
-        </IonModal>
-
-        <IonModal
-          isOpen={openInvoiceDateModal}
-          onDidDismiss={() => setOpenInvoiceDateModal(false)}
-          className="pwt-date-modal"
-        >
-          <div className="pwt-modal-content">
-            <h3 className="pwt-modal-title">Select Voucher Date</h3>
-            <IonDatetime
-              presentation="date"
-              onIonChange={(e) => {
-                if (typeof e.detail.value === "string")
-                  setInvoiceDate(e.detail.value);
-                setOpenInvoiceDateModal(false);
-              }}
-            />
-            <IonButton
-              className="btn-primary"
-              expand="block"
-              onClick={() => setOpenInvoiceDateModal(false)}
-            >
-              Close
-            </IonButton>
-          </div>
-        </IonModal>
 
         {/* Select payee for Advance Repayment (Directors only) */}
         <IonModal

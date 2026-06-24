@@ -192,6 +192,148 @@ const Tasks: React.FC = () => {
     }
   };
 
+  const formatEmpWithCode = (value: string) => {
+    if (!value) return "";
+    const parts = value.split("-");
+    if (parts.length > 2 && parts[0] === parts[1]) {
+      parts.splice(1, 1);
+    }
+    if (parts.length >= 2) {
+      return `${parts[0].trim()} - ${parts.slice(1).join("-").trim()}`;
+    }
+    return value.trim();
+  };
+
+  const getCurrentTimeFormatted = () => {
+    const date = new Date();
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
+  const buildTaskContext = (task: any) => ({
+    taskId: String(task.TID ?? task.taskId ?? ""),
+    description: String(task.TDesc ?? task.description ?? "")
+      .replace(/\r?\n/g, " ")
+      .trim(),
+    priority: task.TPriority ?? task.priority ?? "Low",
+    creator: formatEmpWithCode(task.SenEName),
+    creatorEmpCode: task.SenEName ? String(task.SenEName).split("-")[0].trim() : "",
+    assignee: formatEmpWithCode(task.RecEName),
+    assigneeEmpCode: task.RecEName ? String(task.RecEName).split("-")[0].trim() : "",
+    assignedDate: task.ADt ?? "",
+    targetDate: task.TDt ?? "",
+    targetDays: String(task.TargetDays ?? 0),
+    actionTime: getCurrentTimeFormatted()
+  });
+
+  const sendTaskWhatsApp = async (mobile: string, templateType: string, ctx: any, extra?: any) => {
+    if (!mobile) return;
+    const cleanedMobile = mobile.replace(/\D/g, "");
+    if (cleanedMobile.length < 10) {
+      console.warn(`[WhatsApp] Skipped sending: invalid mobile length (${mobile})`);
+      return;
+    }
+    let msg = "";
+
+    switch (templateType) {
+      case "task_new_assigned":
+        msg = `📌 NEW TASK ASSIGNED\n\n` +
+              `Task ID: #${ctx.taskId}\n\n` +
+              `👤 Created By: ${ctx.creator}\n\n` +
+              `👨💼 Assigned To: ${ctx.assignee}\n\n` +
+              `⚡ Priority: ${ctx.priority}\n\n` +
+              `📝 Task Description: ${ctx.description}\n\n` +
+              `📅 Assigned Date: ${ctx.assignedDate}\n\n` +
+              `🎯 Target Date: ${ctx.targetDate}\n\n` +
+              `⏳ Target Days: ${ctx.targetDays}\n\n` +
+              `🕒 Action Time: ${ctx.actionTime}\n\n` +
+              `Please review and start the task.`;
+        break;
+
+      case "task_status_updated":
+        msg = `📋 TASK STATUS UPDATED\n\n` +
+              `Task ID: #${ctx.taskId}\n\n` +
+              `👤 Created By: ${ctx.creator}\n\n` +
+              `👨💻 Assigned Employee: ${ctx.assignee}\n\n` +
+              `⚡ Priority: ${ctx.priority}\n\n` +
+              `📝 Task Description: ${ctx.description}\n\n` +
+              `📊 New Status: ${extra.status || "In Progress"}\n\n` +
+              `✍ Updated By: ${extra.updatedBy}\n\n` +
+              `💬 Remarks: ${extra.remarks || "No remarks provided"}\n\n` +
+              `🎯 Target Date: ${ctx.targetDate}\n\n` +
+              `Please review the latest task update in the Office Dashboard.`;
+        break;
+
+      case "task_completed":
+        msg = `✅ TASK COMPLETED\n\n` +
+              `Task ID: #${ctx.taskId}\n\n` +
+              `👤 Created By: ${ctx.creator}\n\n` +
+              `👨💻 Completed By: ${extra.completedBy}\n\n` +
+              `⚡ Priority: ${ctx.priority}\n\n` +
+              `📝 Task Description: ${ctx.description}\n\n` +
+              `💬 Completion Remarks: ${extra.remarks || "Task marked as completed"}\n\n` +
+              `🎯 Target Date: ${ctx.targetDate}\n\n` +
+              `📊 Final Status: Closed\n\n` +
+              `Thank you for completing the assigned task.`;
+        break;
+
+      case "task_transferred_creator":
+        msg = `🔄 TASK TRANSFERRED\n\n` +
+              `Task ID: #${ctx.taskId}\n\n` +
+              `👤 Created By: ${ctx.creator}\n\n` +
+              `👨💼 Previous Assignee: ${ctx.assignee}\n\n` +
+              `👨💻 New Assignee: ${extra.newAssignee}\n\n` +
+              `⚡ Priority: ${ctx.priority}\n\n` +
+              `📝 Task Description: ${ctx.description}\n\n` +
+              `✍ Transferred By: ${extra.transferredBy}\n\n` +
+              `💬 Transfer Remarks: ${extra.remarks || "N/A"}\n\n` +
+              `🎯 Target Date: ${ctx.targetDate}\n\n` +
+              `The task ownership has been updated successfully.`;
+        break;
+
+      case "task_transferred_assignee":
+        msg = `📥 TASK ASSIGNED VIA TRANSFER\n\n` +
+              `Task ID: #${ctx.taskId}\n\n` +
+              `👤 Original Creator: ${ctx.creator}\n\n` +
+              `👨💼 Previous Assignee: ${ctx.assignee}\n\n` +
+              `👨💻 Assigned To You: ${extra.newAssignee}\n\n` +
+              `⚡ Priority: ${ctx.priority}\n\n` +
+              `📝 Task Description: ${ctx.description}\n\n` +
+              `✍ Transferred By: ${extra.transferredBy}\n\n` +
+              `💬 Transfer Remarks: ${extra.remarks || "N/A"}\n\n` +
+              `🎯 Target Date: ${ctx.targetDate}\n\n` +
+              `Please review and continue the task.`;
+        break;
+
+      case "task_reopened":
+        msg = `♻️ TASK REOPENED\n\n` +
+              `Task ID: #${ctx.taskId}\n\n` +
+              `👤 Created By: ${ctx.creator}\n\n` +
+              `👨💻 Current Assignee: ${ctx.assignee}\n\n` +
+              `⚡ Priority: ${ctx.priority}\n\n` +
+              `📝 Task Description: ${ctx.description}\n\n` +
+              `✍ Reopened By: ${extra.reopenedBy}\n\n` +
+              `🎯 Target Date: ${ctx.targetDate}\n\n` +
+              `📊 Status: Reopened\n\n` +
+              `The task has been moved back to pending for further action.`;
+        break;
+    }
+
+    if (msg) {
+      console.log(`[WhatsApp] Sending ${templateType} to ${mobile}`);
+      try {
+        await apiService.sendMessage(mobile, msg);
+      } catch (err) {
+        console.error("[WhatsApp] sendMessage failed:", err);
+      }
+    }
+  };
+
+
   useEffect(() => {
     const userJson = localStorage.getItem("user");
     if (userJson) {
@@ -361,6 +503,38 @@ const Tasks: React.FC = () => {
         console.error("Push Catch:", e);
       }
       // ------------------------------
+      
+      // --- SEND WHATSAPP NOTIFICATION ---
+      try {
+        const assignedEmpCode = assignTo.split("-")[0].trim();
+        if (assignedEmpCode) {
+          const mobile = await fetchEmployeeMobile(assignedEmpCode);
+          if (mobile) {
+            let newTaskId = "";
+            if (saveResult) {
+              if (typeof saveResult === "object") {
+                newTaskId = String(saveResult.TID || saveResult.taskId || saveResult.id || "");
+              } else {
+                newTaskId = String(saveResult);
+              }
+            }
+            const ctx = {
+              taskId: newTaskId || "N/A",
+              description: String(description).replace(/\r?\n/g, " ").trim(),
+              priority: priority,
+              creator: formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`),
+              assignee: formatEmpWithCode(assignTo),
+              assignedDate: formatDateOnly(today.toISOString()),
+              targetDate: formatDateOnly(targetDate),
+              targetDays: String(diffDays),
+              actionTime: getCurrentTimeFormatted()
+            };
+            await sendTaskWhatsApp(mobile, "task_new_assigned", ctx);
+          }
+        }
+      } catch (e) {
+        console.error("[WhatsApp] Failed to send assignment notification:", e);
+      }
 
       // SMS notification has been removed per user requirements (WhatsApp only)
       handleClear();
@@ -418,7 +592,75 @@ const Tasks: React.FC = () => {
       };
       await apiService.saveTaskStatus(statusData);
 
-      // SMS notification has been removed per user requirements (WhatsApp only)
+      // --- SEND PUSH NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(activeTask);
+        const pushTargetEmpCode = (currentEmpCode === ctx.assigneeEmpCode)
+          ? ctx.creatorEmpCode
+          : ctx.assigneeEmpCode;
+        if (pushTargetEmpCode) {
+          fetch(`${API_BASE}Notifications/SendPush`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
+            },
+            body: JSON.stringify({
+              EmpCode: pushTargetEmpCode,
+              Title: updateStatus === "Closed" ? "Task Completed" : "Task Status Updated",
+              Body: `Task #${activeTask.TID}: ${updateStatusInfo || "Status updated"} — by ${currentEmpName}.`,
+              Url: "/tasks"
+            })
+          }).catch(e => console.error("Push Error:", e));
+        }
+      } catch (e) {
+        console.error("Push Catch:", e);
+      }
+      // ------------------------------
+
+      // --- SEND WHATSAPP NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(activeTask);
+        const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
+        
+        if (updateStatus === "Closed") {
+          const extra = {
+            completedBy: formattedCurrentUser,
+            remarks: updateStatusInfo || "Task marked as completed"
+          };
+          
+          const [creatorMobile, assigneeMobile] = await Promise.all([
+            fetchEmployeeMobile(ctx.creatorEmpCode),
+            fetchEmployeeMobile(ctx.assigneeEmpCode)
+          ]);
+          
+          // Deduplicate mobile numbers
+          const mobiles = new Set<string>();
+          if (creatorMobile) mobiles.add(creatorMobile);
+          if (assigneeMobile) mobiles.add(assigneeMobile);
+          
+          await Promise.all(
+            Array.from(mobiles).map(mobile =>
+              sendTaskWhatsApp(mobile, "task_completed", ctx, extra)
+            )
+          );
+        } else {
+          const extra = {
+            status: updateStatus || "In Progress",
+            updatedBy: formattedCurrentUser,
+            remarks: updateStatusInfo || "No remarks provided"
+          };
+          
+          // Notify the counterparty
+          const targetEmpCode = (currentEmpCode === ctx.creatorEmpCode) ? ctx.assigneeEmpCode : ctx.creatorEmpCode;
+          const targetMobile = await fetchEmployeeMobile(targetEmpCode);
+          if (targetMobile) {
+            await sendTaskWhatsApp(targetMobile, "task_status_updated", ctx, extra);
+          }
+        }
+      } catch (e) {
+        console.error("[WhatsApp] Failed to send status update notification:", e);
+      }
 
       setToastMessage("Status updated");
       setUpdateStatusInfo("");
@@ -451,7 +693,39 @@ const Tasks: React.FC = () => {
       };
       await apiService.transferTask(transferData);
 
-      // SMS notification has been removed per user requirements (WhatsApp only)
+      // --- SEND WHATSAPP NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(activeTask);
+        const newAssigneeEmpCode = transferTargetEmp.split("-")[0].trim();
+        const newAssigneeFormatted = formatEmpWithCode(transferTargetEmp);
+        const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
+
+        const extra = {
+          newAssignee: newAssigneeFormatted,
+          transferredBy: formattedCurrentUser,
+          remarks: updateStatusInfo || "N/A"
+        };
+
+        const [creatorMobile, newAssigneeMobile] = await Promise.all([
+          fetchEmployeeMobile(ctx.creatorEmpCode),
+          newAssigneeEmpCode ? fetchEmployeeMobile(newAssigneeEmpCode) : Promise.resolve("")
+        ]);
+
+        if (creatorMobile === newAssigneeMobile && creatorMobile) {
+          await sendTaskWhatsApp(creatorMobile, "task_transferred_assignee", ctx, extra);
+        } else {
+          const sends = [];
+          if (creatorMobile) {
+            sends.push(sendTaskWhatsApp(creatorMobile, "task_transferred_creator", ctx, extra));
+          }
+          if (newAssigneeMobile) {
+            sends.push(sendTaskWhatsApp(newAssigneeMobile, "task_transferred_assignee", ctx, extra));
+          }
+          await Promise.all(sends);
+        }
+      } catch (e) {
+        console.error("[WhatsApp] Failed to send transfer notifications:", e);
+      }
 
       setToastMessage("Task transferred");
 
@@ -528,7 +802,43 @@ const Tasks: React.FC = () => {
       };
       await apiService.reopenTask(reopenData);
 
-      // SMS notification has been removed per user requirements (WhatsApp only)
+      // --- SEND PUSH NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(task);
+        if (ctx.assigneeEmpCode) {
+          fetch(`${API_BASE}Notifications/SendPush`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
+            },
+            body: JSON.stringify({
+              EmpCode: ctx.assigneeEmpCode,
+              Title: "Task Reopened",
+              Body: `Task #${task.TID} has been reopened by ${currentEmpName}. Please review.`,
+              Url: "/tasks"
+            })
+          }).catch(e => console.error("Push Error:", e));
+        }
+      } catch (e) {
+        console.error("Push Catch:", e);
+      }
+      // ------------------------------
+
+      // --- SEND WHATSAPP NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(task);
+        const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
+        const extra = {
+          reopenedBy: formattedCurrentUser
+        };
+        const assigneeMobile = await fetchEmployeeMobile(ctx.assigneeEmpCode);
+        if (assigneeMobile) {
+          await sendTaskWhatsApp(assigneeMobile, "task_reopened", ctx, extra);
+        }
+      } catch (e) {
+        console.error("[WhatsApp] Failed to send reopen notification:", e);
+      }
 
       setToastMessage("Task reopened");
       fetchInitialData(currentEmpCode);
@@ -673,7 +983,7 @@ const Tasks: React.FC = () => {
         {selectedTab === "assign" && (
           <div className="ntv-form-wrapper ion-padding">
             <div className="ntv-form-card">
-              <div className="ntv-form-header">  
+              <div className="ntv-form-header">
               </div>
 
               <div className="ntv-form-body">

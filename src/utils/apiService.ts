@@ -137,12 +137,12 @@ export const apiService = {
 
     sendMessage: async (mobile: string, message: string) => {
         if (!mobile || mobile.trim() === "") {
-            console.warn("⚠️ [SMS] Skipped: No mobile number provided. Employee lookup may have failed.");
+            console.warn("⚠️ [WhatsApp] Skipped: No mobile number provided.");
             return null;
         }
         const phone = mobile.trim();
-        console.log("API 13: Send SMS", { phone, message });
-        return apiService.get(`/Sources/sendMessage?phoneNo=${phone}&message=${encodeURIComponent(message)}`);
+        console.log("API 13: Send WhatsApp", { phone, message });
+        return apiService.post("/Tickets/SendWhatsApp", { Phone: phone, Message: message });
     },
 
     saveWorkReportTicketWise: async (reportData: any) => {

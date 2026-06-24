@@ -313,7 +313,6 @@
 /* --- Responsive Helpers --- */
 @media (min-width: 768px) {
     .transactions-container {
-        /* max-width: 900px; */
         margin: 0 auto;
         width: 100%;
     }
@@ -340,6 +339,131 @@
     .amt-value {
         font-size: 17px;
     }
+}
+
+/* =========================================================
+   Transaction Filter Grid
+   ========================================================= */
+.txn-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+    align-items: end;
+}
+
+@media (min-width: 600px) {
+    .txn-filter-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 900px) {
+    .txn-filter-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+/* =========================================================
+   Native Date Input — replaces the bad IonModal date picker
+   ========================================================= */
+.native-date-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--input-radius);
+    background: #f8fafc;
+    font-size: 14px;
+    color: #334155;
+    font-family: inherit;
+    box-sizing: border-box;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    /* Fix browser default ugly calendar icon alignment */
+    appearance: auto;
+    -webkit-appearance: auto;
+}
+
+.native-date-input:focus {
+    border-color: var(--ion-color-primary, #f15a24);
+    box-shadow: 0 0 0 3px rgba(241, 90, 36, 0.12);
+    background: #ffffff;
+}
+
+.native-date-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* =========================================================
+   Filter Action Buttons (Search / Clear)
+   ========================================================= */
+.filter-action-col {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 18px; /* align with inputs (label height) */
+}
+
+.filter-apply-btn,
+.filter-clear-btn {
+    flex: 1;
+    height: 44px;
+    border: none;
+    border-radius: var(--input-radius);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+}
+
+.filter-apply-btn {
+    background: var(--ion-color-primary, #f15a24);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(241, 90, 36, 0.28);
+}
+
+.filter-clear-btn {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1.5px solid #e2e8f0;
+}
+
+.filter-apply-btn:active,
+.filter-clear-btn:active {
+    transform: scale(0.96);
+    opacity: 0.85;
+}
+
+/* =========================================================
+   pwt-date-modal — clean up the old modal (still used for
+   Payee / DA-TA employee selection modals)
+   ========================================================= */
+.pwt-date-modal {
+    --border-radius: 28px;
+    --height: auto;
+    --max-height: 80vh;
+    --width: 92%;
+    --max-width: 480px;
+}
+
+.pwt-modal-content {
+    background: #ffffff;
+    padding: 28px 24px 24px;
+    border-radius: 28px;
+}
+
+.pwt-modal-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0 0 20px;
+    text-align: center;
+    letter-spacing: -0.02em;
 }
 
 /* --- Voucher Specifics --- */
