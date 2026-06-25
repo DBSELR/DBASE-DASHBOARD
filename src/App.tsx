@@ -77,6 +77,7 @@ import ViolationReport from "./pages/ViolationReport";
 import ViolationApproval from "./pages/ViolationApproval";
 import ChangePassword from "./pages/ChangePassword";
 import ApprovalDates from "./components/requests/ApprovalDates";
+import LeaveAction from "./pages/LeaveAction";
 
 
 AnswerKeyImport
@@ -194,6 +195,7 @@ const App: React.FC = () => {
                   <Route exact path="/violation-approval" component={ViolationApproval} />
                   <Route exact path="/change-password" component={ChangePassword} />
                   <Route exact path="/Approval-Dates" component={ApprovalDates} />
+                  <Route exact path="/leave-action" component={LeaveAction} />
 
                   <Redirect from="*" to="/home" />
                 </Switch>

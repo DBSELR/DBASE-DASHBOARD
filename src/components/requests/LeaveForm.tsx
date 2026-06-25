@@ -12,6 +12,7 @@ import { calendarOutline, documentTextOutline, optionsOutline, timeOutline, info
 import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
+import { apiService } from "../../utils/apiService";
 import "./RequestList.css";
 
 const getUser = () => JSON.parse(localStorage.getItem("user") || "{}");
@@ -523,24 +524,56 @@ useEffect(() => {
     };
 
     try {
-      await axios.post(
+      const res = await axios.post(
         `${API_BASE}Leave/saveleaverequest`,
         payload
       );
 
-      window.dispatchEvent(
-        new Event("refreshRequests")
-      );
+      const newLid = typeof res.data === "number" ? res.data : null;
 
-      window.dispatchEvent(
-        new CustomEvent("leaveRequestAdded")
-      );
+      window.dispatchEvent(new Event("refreshRequests"));
+      window.dispatchEvent(new CustomEvent("leaveRequestAdded"));
 
       showToast("Submitted Successfully");
-
       clearForm();
-
       loadExistingLeaves();
+
+      // ── Send WhatsApp template to RA1 with Approve / Reject buttons ─
+      if (newLid) {
+        try {
+          const token = localStorage.getItem("token")?.replace(/"/g, "");
+          const ra1Res = await axios.get(
+            `${API_BASE}Leave/GetRA1Mobile`,
+            {
+              params: { lid: newLid },
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          const { mobile, empName: ra1Name, empCode: ra1EmpCode } = ra1Res.data;
+          if (mobile) {
+            const user = getUser();
+            const leaveType = payload._leaveMode +
+              (payload._leaveCategory ? ` / ${payload._leaveCategory}` : "");
+
+            await axios.post(
+              `${API_BASE}Leave/SendLeaveWhatsApp`,
+              {
+                Lid:       newLid,
+                Ra1Mobile: mobile,
+                EmpName:   user.empName || user.empCode,
+                FromDate:  payload._fromdate,
+                ToDate:    payload._todate,
+                LeaveType: leaveType,
+                Reason:    payload._remarks,
+                RaEmpCode: ra1EmpCode
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+          }
+        } catch (waErr) {
+          console.error("[WhatsApp] Leave RA1 notify failed:", waErr);
+        }
+      }
     }
     catch (err: any) {
       showToast(
