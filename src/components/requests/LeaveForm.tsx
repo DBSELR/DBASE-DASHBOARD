@@ -52,43 +52,43 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   const [unlockReason, setUnlockReason] = useState("");
 
   const [unlockRange, setUnlockRange] = useState({
-  approved: false,
-  fromDate: "",
-  toDate: ""
-});
-const loadApprovedUnlockRequest = async () => {
-  try {
-    const empCode = getUser()?.empCode;
+    approved: false,
+    fromDate: "",
+    toDate: ""
+  });
+  const loadApprovedUnlockRequest = async () => {
+    try {
+      const empCode = getUser()?.empCode;
 
-    const res = await axios.get(
-      `${API_BASE}Leave/Leave/GetApprovedUnlockRequest`,
-      {
-        params: {
-          empCode,
-          requestType
+      const res = await axios.get(
+        `${API_BASE}Leave/Leave/GetApprovedUnlockRequest`,
+        {
+          params: {
+            empCode,
+            requestType
+          }
         }
-      }
-    );
+      );
 
-    setUnlockRange({
-      approved: res.data?.approved || false,
-      fromDate: res.data?.fromDate || "",
-      toDate: res.data?.toDate || ""
-    });
+      setUnlockRange({
+        approved: res.data?.approved || false,
+        fromDate: res.data?.fromDate || "",
+        toDate: res.data?.toDate || ""
+      });
 
-  } catch (err) {
-    console.error("Unlock Request Error", err);
+    } catch (err) {
+      console.error("Unlock Request Error", err);
 
-    setUnlockRange({
-      approved: false,
-      fromDate: "",
-      toDate: ""
-    });
-  }
-};
-useEffect(() => {
-  loadApprovedUnlockRequest();
-}, [requestType]);
+      setUnlockRange({
+        approved: false,
+        fromDate: "",
+        toDate: ""
+      });
+    }
+  };
+  useEffect(() => {
+    loadApprovedUnlockRequest();
+  }, [requestType]);
 
 
   const showToast = (msg: string) => {
@@ -385,7 +385,21 @@ useEffect(() => {
     const empCode = getUser()?.empCode;
 
     //if (!startDate) return showToast("Select date");
+    if (unlockRange.approved) {
+      const selectedDate = moment(startDate);
 
+      const unlockFrom = moment(unlockRange.fromDate);
+      const unlockTo = moment(unlockRange.toDate);
+
+      if (
+        selectedDate.isBefore(unlockFrom, "day") ||
+        selectedDate.isAfter(unlockTo, "day")
+      ) {
+        return showToast(
+          `Allowed dates: ${unlockRange.fromDate} to ${unlockRange.toDate}`
+        );
+      }
+    }
     if (!remarks) return showToast("Enter remarks");
     // ✅ Leave Type Validation
     if (requestType === "Leave" && !leaveMode) {
@@ -402,12 +416,12 @@ useEffect(() => {
     }
 
     const isDuplicateDate = (date: string | null) => {
-  if (!date) return false;
+      if (!date) return false;
 
-  return existingDates.includes(
-    moment(date).format("YYYY-MM-DD")
-  );
-};
+      return existingDates.includes(
+        moment(date).format("YYYY-MM-DD")
+      );
+    };
     if (isDuplicateDate(startDate)) {
       clearForm();
       return showToast("Leave already applied for this date");
@@ -420,17 +434,37 @@ useEffect(() => {
       finalCategory = "Casual";
     }
     // ✅ LOP CHECK (FIXED)
-    if (finalCategory === "Casual" && balance && balance.balance <= 0) {
-      setLopMessage("Auto converted to LOP - Exceeded CL balance");
-      setConfirmLOP(true);
-      return;
-    }
+    // if (finalCategory === "Casual" && balance && balance.balance <= 0) {
+    //   setLopMessage("Auto converted to LOP - Exceeded CL balance");
+    //   setConfirmLOP(true);
+    //   return;
+    // }
 
-    if (finalCategory === "Sick" && balance && balance.balance <= 0) {
-      setLopMessage("Auto converted to LOP - Sick limit exceeded");
-      setConfirmLOP(true);
-      return;
-    }
+    if (
+    finalCategory === "Casual" &&
+    Number(balance?.balance ?? 0) <= 0
+)
+{
+    setLopMessage("CL balance exhausted. Convert to LOP?");
+    setConfirmLOP(true);
+    return;
+}
+
+    // if (finalCategory === "Sick" && balance && balance.balance <= 0) {
+    //   setLopMessage("Auto converted to LOP - Sick limit exceeded");
+    //   setConfirmLOP(true);
+    //   return;
+    // }
+
+    if (
+    finalCategory === "Sick" &&
+    Number(balance?.balance ?? 0) <= 0
+)
+{
+    setLopMessage("SL balance exhausted. Convert to LOP?");
+    setConfirmLOP(true);
+    return;
+}
 
     // 🔥 PERMISSION VALIDATION
     if (requestType === "Permission" && balance) {
@@ -513,6 +547,12 @@ useEffect(() => {
         `${API_BASE}Leave/saveleaverequest`,
         payload
       );
+      console.log("================================");
+      console.log("[SAVE LEAVE SUCCESS]");
+      console.log("Payload:", payload);
+      console.log("Response:", res.data);
+      console.log("Response Type:", typeof res.data);
+      console.log("================================");
 
       const newLid = typeof res.data === "number" ? res.data : null;
 
@@ -524,39 +564,141 @@ useEffect(() => {
       loadExistingLeaves();
 
       // ── Send WhatsApp template to RA1 with Approve / Reject buttons ─
+      // if (newLid) {
+      //   try {
+      //     const token = localStorage.getItem("token")?.replace(/"/g, "");
+      //     const ra1Res = await axios.get(
+      //       `${API_BASE}Leave/GetRA1Mobile`,
+      //       {
+      //         params: { lid: newLid },
+      //         headers: { Authorization: `Bearer ${token}` }
+      //       }
+      //     );
+      //     const { mobile, empName: ra1Name, empCode: ra1EmpCode } = ra1Res.data;
+      //     if (mobile) {
+      //       const user = getUser();
+      //       const leaveType = payload._leaveMode +
+      //         (payload._leaveCategory ? ` / ${payload._leaveCategory}` : "");
+
+      //       await axios.post(
+      //         `${API_BASE}Leave/SendLeaveWhatsApp`,
+      //         {
+      //           Lid:       newLid,
+      //           Ra1Mobile: mobile,
+      //           EmpName:   user.empName || user.empCode,
+      //           FromDate:  payload._fromdate,
+      //           ToDate:    payload._todate,
+      //           LeaveType: leaveType,
+      //           Reason:    payload._remarks,
+      //           RaEmpCode: ra1EmpCode
+      //         },
+      //         { headers: { Authorization: `Bearer ${token}` } }
+      //       );
+      //     }
+      //   } catch (waErr) {
+      //     console.error("[WhatsApp] Leave RA1 notify failed:", waErr);
+      //   }
+      // }
+
+      // ── Send WhatsApp template to RA1 ──
       if (newLid) {
         try {
           const token = localStorage.getItem("token")?.replace(/"/g, "");
+
+          console.log("====================================");
+          console.log("[WHATSAPP FLOW START]");
+          console.log("Leave Id:", newLid);
+          console.log("Token Exists:", !!token);
+          console.log("API_BASE:", API_BASE);
+          console.log("====================================");
+
+          const ra1Url =
+            `${API_BASE}Leave/GetRA1Mobile?lid=${newLid}`;
+
+          console.log("[STEP-1] Calling RA1 API");
+          console.log("URL:", ra1Url);
+
           const ra1Res = await axios.get(
             `${API_BASE}Leave/GetRA1Mobile`,
             {
               params: { lid: newLid },
-              headers: { Authorization: `Bearer ${token}` }
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
             }
           );
-          const { mobile, empName: ra1Name, empCode: ra1EmpCode } = ra1Res.data;
-          if (mobile) {
-            const user = getUser();
-            const leaveType = payload._leaveMode +
-              (payload._leaveCategory ? ` / ${payload._leaveCategory}` : "");
 
-            await axios.post(
-              `${API_BASE}Leave/SendLeaveWhatsApp`,
-              {
-                Lid:       newLid,
-                Ra1Mobile: mobile,
-                EmpName:   user.empName || user.empCode,
-                FromDate:  payload._fromdate,
-                ToDate:    payload._todate,
-                LeaveType: leaveType,
-                Reason:    payload._remarks,
-                RaEmpCode: ra1EmpCode
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
+          console.log("[STEP-1 SUCCESS]");
+          console.log("Status:", ra1Res.status);
+          console.log("Response:", ra1Res.data);
+
+          const {
+            mobile,
+            empName: ra1Name,
+            empCode: ra1EmpCode
+          } = ra1Res.data;
+
+          console.log("RA1 Mobile:", mobile);
+          console.log("RA1 Name:", ra1Name);
+          console.log("RA1 EmpCode:", ra1EmpCode);
+
+          if (!mobile) {
+            console.warn(
+              "[WHATSAPP SKIPPED] RA1 not configured"
             );
+            return;
           }
-        } catch (waErr) {
-          console.error("[WhatsApp] Leave RA1 notify failed:", waErr);
+
+          const user = getUser();
+
+          const leaveType =
+            payload._leaveMode +
+            (payload._leaveCategory
+              ? ` / ${payload._leaveCategory}`
+              : "");
+
+          const whatsappPayload = {
+            Lid: newLid,
+            Ra1Mobile: mobile,
+            EmpName: user.empName || user.empCode,
+            FromDate: payload._fromdate,
+            ToDate: payload._todate,
+            LeaveType: leaveType,
+            Reason: payload._remarks,
+            RaEmpCode: ra1EmpCode
+          };
+
+          console.log("====================================");
+          console.log("[STEP-2] Sending WhatsApp");
+          console.log("Payload:");
+          console.log(JSON.stringify(whatsappPayload, null, 2));
+          console.log("====================================");
+
+          const waRes = await axios.post(
+            `${API_BASE}Leave/SendLeaveWhatsApp`,
+            whatsappPayload,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
+          console.log("[STEP-2 SUCCESS]");
+          console.log("Status:", waRes.status);
+          console.log("Response:", waRes.data);
+
+          console.log("[WHATSAPP FLOW COMPLETED]");
+        } catch (waErr: any) {
+          console.error("====================================");
+          console.error("[WHATSAPP ERROR]");
+          console.error("Message:", waErr.message);
+          console.error("Status:", waErr?.response?.status);
+          console.error("StatusText:", waErr?.response?.statusText);
+          console.error("Response Data:", waErr?.response?.data);
+          console.error("Request URL:", waErr?.config?.url);
+          console.error("Request Params:", waErr?.config?.params);
+          console.error("====================================");
         }
       }
     }
@@ -659,7 +801,7 @@ useEffect(() => {
             </span>
           </div>
         </div>
-        
+
 
         {requestType === "Permission" && (
           <div className="lr-field-box">
@@ -878,7 +1020,7 @@ useEffect(() => {
           </IonButton>
         </div>
       )} */}
-      
+
       <button
         className="lr-gradient-btn"
         onClick={onSubmit}
@@ -904,46 +1046,46 @@ useEffect(() => {
       </button>
 
       {/* ✅ START DATE MODAL */}
-    <IonModal
-  isOpen={startModal}
-  className="small-datetime-modal"
-  onDidDismiss={() => setStartModal(false)}
->
-<IonDatetime
-  presentation="date"
-  preferWheel={true}
-  showDefaultButtons={true}
-  doneText="Done"
-  cancelText="Cancel"
-  value={startDate || undefined}
-  min={unlockRange.approved ? unlockRange.fromDate : new Date().toISOString().split("T")[0]}
-  max={`${new Date().getFullYear()}-12-31`}
-  isDateEnabled={(dateString) => {
-    const date = dateString.split("T")[0];
-    const today = new Date().toISOString().split("T")[0];
+      <IonModal
+        isOpen={startModal}
+        className="small-datetime-modal"
+        onDidDismiss={() => setStartModal(false)}
+      >
+        <IonDatetime
+          presentation="date"
+          preferWheel={true}
+          showDefaultButtons={true}
+          doneText="Done"
+          cancelText="Cancel"
+          value={startDate || undefined}
+          min={unlockRange.approved ? unlockRange.fromDate : new Date().toISOString().split("T")[0]}
+          max={`${new Date().getFullYear()}-12-31`}
+          isDateEnabled={(dateString) => {
+            const date = dateString.split("T")[0];
+            const today = new Date().toISOString().split("T")[0];
 
-    // Approved date
-    if (
-      unlockRange.approved &&
-      date === unlockRange.fromDate
-    ) {
-      return true;
-    }
+            // Approved date
+            if (
+              unlockRange.approved &&
+              date === unlockRange.fromDate
+            ) {
+              return true;
+            }
 
-    // Today and future
-    return date >= today;
-  }}
-  onIonChange={(e) => {
-    const value = e.detail.value;
+            // Today and future
+            return date >= today;
+          }}
+          onIonChange={(e) => {
+            const value = e.detail.value;
 
-    if (value) {
-      const selected = String(value).split("T")[0];
-      setStartDate(selected);
-      setEndDate("");
-    }
-  }}
-/>
-</IonModal>
+            if (value) {
+              const selected = String(value).split("T")[0];
+              setStartDate(selected);
+              setEndDate("");
+            }
+          }}
+        />
+      </IonModal>
 
 
 
@@ -954,56 +1096,59 @@ useEffect(() => {
         onDidDismiss={() => setEndModal(false)}
       >
         <div className="datetime-card">
-<IonDatetime
-  presentation="date"
-  preferWheel={true}
-  showDefaultButtons={true}
-  doneText="Done"
-  cancelText="Cancel"
-  value={endDate || undefined}
-  min={
-    startDate === unlockRange.fromDate
-      ? unlockRange.fromDate
-      : (startDate || new Date().toISOString().split("T")[0])
-  }
-  max={
-    startDate === unlockRange.fromDate
-      ? unlockRange.toDate
-      : `${new Date().getFullYear()}-12-31`
-  }
-  isDateEnabled={(dateString) => {
-    const date = dateString.split("T")[0];
-    const today = new Date().toISOString().split("T")[0];
+          <IonDatetime
+            presentation="date"
+            preferWheel={true}
+            showDefaultButtons={true}
+            doneText="Done"
+            cancelText="Cancel"
+            value={endDate || undefined}
+            min={
+              startDate === unlockRange.fromDate
+                ? unlockRange.fromDate
+                : (startDate || new Date().toISOString().split("T")[0])
+            }
+            max={
+              startDate === unlockRange.fromDate
+                ? unlockRange.toDate
+                : `${new Date().getFullYear()}-12-31`
+            }
+            isDateEnabled={(dateString) => {
+              const date = dateString.split("T")[0];
+              const today = new Date().toISOString().split("T")[0];
 
-    // If approved date selected as Start Date,
-    // restrict End Date to approval range only
-    if (startDate === unlockRange.fromDate) {
-      return (
-        date >= unlockRange.fromDate &&
-        date <= unlockRange.toDate
-      );
-    }
+              // If approved date selected as Start Date,
+              // restrict End Date to approval range only
+              if (startDate === unlockRange.fromDate) {
+                return (
+                  date >= unlockRange.fromDate &&
+                  date <= unlockRange.toDate
+                );
+              }
 
-    // Normal behavior
-    return date >= (startDate || today);
-  }}
-  onIonChange={(e) => {
-    const value = e.detail.value;
+              // Normal behavior
+              return date >= (startDate || today);
+            }}
+            onIonChange={(e) => {
+              const value = e.detail.value;
 
-    if (value) {
-      setEndDate(String(value).split("T")[0]);
-    }
-  }}
-/>
+              if (value) {
+                setEndDate(String(value).split("T")[0]);
+              }
+            }}
+          />
         </div>
       </IonModal>
       {/* ✅ LOP CONFIRMATION MODAL */}
-      <IonModal isOpen={confirmLOP}>
+     <IonModal
+  isOpen={confirmLOP}
+  onDidDismiss={() => setConfirmLOP(false)}
+>
         <div style={{ padding: 20 }}>
           <h3>⚠️ Confirmation</h3>
           <p>{lopMessage}</p>
 
-          <IonButton
+          {/* <IonButton
             color="danger"
             expand="block"
             onClick={() => {
@@ -1028,9 +1173,9 @@ useEffect(() => {
             }}
           >
             Yes Continue
-          </IonButton>
+          </IonButton> */}
 
-          {/* <IonButton
+         <IonButton
             color="danger"
             expand="block"
             onClick={() => {
@@ -1039,7 +1184,7 @@ useEffect(() => {
             }}
           >
             Yes Continue (LOP)
-          </IonButton> */}
+          </IonButton> 
 
           <IonButton
             expand="block"
@@ -1052,6 +1197,8 @@ useEffect(() => {
           </IonButton>
         </div>
       </IonModal>
+
+      
 
       <IonToast
         isOpen={toastOpen}
