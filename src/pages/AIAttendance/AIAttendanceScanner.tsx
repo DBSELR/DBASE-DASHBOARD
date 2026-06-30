@@ -1,37 +1,15 @@
-import {
-  IonContent,
-  IonPage,
-  IonIcon,
-  IonSpinner,
-} from "@ionic/react";
-
-import { arrowBackOutline } from "ionicons/icons";
-
-import {
-  useRef,
-  useState,
-  useEffect,
-} from "react";
-
+import { IonContent, IonPage, IonIcon, IonSpinner } from "@ionic/react";
+import { arrowBackOutline, cameraReverseOutline, pinOutline, bluetoothOutline, calendarOutline } from "ionicons/icons";
+import { useRef, useState, useEffect } from "react";
 import { useHistory } from "react-router";
-
 import { API_BASE } from "../../config";
-
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
-
+import { BleClient, ScanResult } from "@capacitor-community/bluetooth-le";
 import "./AIAttendanceScanner.css";
-import {
-  BleClient,
-  ScanResult
-} from "@capacitor-community/bluetooth-le";
 
 const speakText = (text: string) => {
-  if (
-    typeof window !== "undefined" &&
-    "speechSynthesis" in window &&
-    "SpeechSynthesisUtterance" in window
-  ) {
+  if (typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window) {
     try {
       const SpeechUtterance = (window as any).SpeechSynthesisUtterance;
       const utterance = new SpeechUtterance(text);
@@ -41,1107 +19,351 @@ const speakText = (text: string) => {
     } catch (error) {
       console.warn("SpeechSynthesis error:", error);
     }
-  } else {
-    console.warn("SpeechSynthesis not supported on this platform/browser.");
   }
 };
 
 const AIAttendanceScanner: React.FC = () => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const history  = useHistory();
 
-  const videoRef =
-    useRef<HTMLVideoElement>(null);
+  const [isProcessing,  setIsProcessing]  = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [scanSuccess,   setScanSuccess]   = useState(false);
+  const [cameraMode,    setCameraMode]    = useState<"user" | "environment">("user");
+  const [latitude,      setLatitude]      = useState<number>(0);
+  const [longitude,     setLongitude]     = useState<number>(0);
+  const [locationReady, setLocationReady] = useState(false);
+  const [resultMessage, setResultMessage] = useState("Initializing camera...");
+  const [statusColor,   setStatusColor]   = useState("#6366f1");
+  const [userData,      setUserData]      = useState<any>(null);
+  const [userProfile,   setUserProfile]   = useState<any>(null);
+  const [bleVerified,   setBleVerified]   = useState(false);
+  const [bleDeviceId,   setBleDeviceId]   = useState("");
+  const [bleDeviceName, setBleDeviceName] = useState("");
+  const [isBleScanning, setIsBleScanning] = useState(false);
 
-  const history =
-    useHistory();
+  const [attendanceDetails, setAttendanceDetails] = useState<{
+    empName?: string; empId?: string; status?: string; time?: string; officeName?: string;
+    isDuplicate?: boolean; customMessage?: string;
+  } | null>(null);
 
-  const [isProcessing, setIsProcessing] =
-    useState(false);
+  const latitudeRef      = useRef(0);
+  const longitudeRef     = useRef(0);
+  const locationReadyRef = useRef(false);
+  const bleVerifiedRef   = useRef(false);
+  const bleDeviceNameRef = useRef("");
+  const bleDeviceIdRef   = useRef("");
+  const userDataRef      = useRef<any>(null);
+  const userProfileRef   = useRef<any>(null);
+  const isCameraReadyRef = useRef(false);
+  const scanSuccessRef   = useRef(false);
+  const isProcessingRef  = useRef(false);
+  const loopTimeoutRef   = useRef<any>(null);
+  const bleTimeoutRef    = useRef<any>(null);
 
-  const [isCameraReady, setIsCameraReady] =
-    useState(false);
+  useEffect(() => { latitudeRef.current      = latitude;      }, [latitude]);
+  useEffect(() => { longitudeRef.current     = longitude;     }, [longitude]);
+  useEffect(() => { locationReadyRef.current = locationReady; }, [locationReady]);
+  useEffect(() => { bleVerifiedRef.current   = bleVerified;   }, [bleVerified]);
+  useEffect(() => { bleDeviceNameRef.current = bleDeviceName; }, [bleDeviceName]);
+  useEffect(() => { bleDeviceIdRef.current   = bleDeviceId;   }, [bleDeviceId]);
+  useEffect(() => { userDataRef.current      = userData;      }, [userData]);
+  useEffect(() => { userProfileRef.current   = userProfile;   }, [userProfile]);
+  useEffect(() => { isCameraReadyRef.current = isCameraReady; }, [isCameraReady]);
+  useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
+  useEffect(() => { isProcessingRef.current  = isProcessing;  }, [isProcessing]);
 
-  const [scanSuccess, setScanSuccess] =
-    useState(false);
-
-  // =========================================
-  // LOCATION STATES
-  // =========================================
-
-  const [latitude, setLatitude] =
-    useState<number>(0);
-
-  const [longitude, setLongitude] =
-    useState<number>(0);
-
-  const [locationReady, setLocationReady] =
-    useState(false);
-
-  const [resultMessage, setResultMessage] =
-    useState(
-      "Start to detect your face"
-    );
-
-  const [statusColor, setStatusColor] =
-    useState("#6b7280");
-
-  const [userData, setUserData] =
-    useState<any>(null);
-
-  const [userProfile, setUserProfile] =
-    useState<any>(null);
-
-  const [cameraMode, setCameraMode] =
-    useState<"user" | "environment">(
-      "user"
-    );
-
-  const [bleVerified, setBleVerified] =
-    useState(false);
-
-  const [bleDeviceId, setBleDeviceId] =
-    useState("");
-  const [bleDeviceName, setBleDeviceName] =
-    useState("");
-
-    const [isBleScanning, setIsBleScanning] = useState(false);
-
-useEffect(() => {
-  let timer: any;
-
-  const init = async () => {
-    console.log("🚀 [AIAttendanceScanner] Component mounted - Initializing...");
-    
-    if (!Capacitor.isNativePlatform()) {
-      console.log("🖥️ [BLE] Running on Web - Skipping Bluetooth LE initialization and periodic scan");
-      return;
-    }
-    
-    try {
-      console.log("📱 [BleClient] Initializing Bluetooth...");
-      await BleClient.initialize();
-      console.log("✅ [BleClient] Bluetooth initialized successfully");
-      
-      // Request BLE permissions on Android 12+
-      console.log("🔐 [BLE] Requesting Bluetooth permissions...");
-      try {
-        await BleClient.requestLEScan(
-          { allowDuplicates: false },
-          (result) => {
-            console.log("[BLE] Permission granted - initial scan callback");
-          }
-        );
-        // Stop the initial scan immediately
-        await BleClient.stopLEScan();
-        console.log("✅ [BLE] Bluetooth permissions granted");
-      } catch (permErr) {
-        console.warn("⚠️ [BLE] Permission request returned error (this may be normal):", permErr);
-      }
-      
-      console.log("🔍 [BLE] Starting initial EasyReach verification...");
-      await verifyEasyReach();
-      
-      timer = setInterval(() => {
-        console.log("⏰ [BLE] Running periodic EasyReach verification (every 10s)");
-        verifyEasyReach();
-      }, 10000);
-      
-      console.log("✅ [Init] All initialization complete");
-    } catch (err) {
-      console.error("❌ [Init] Initialization failed:", err);
-    }
-  };
-
-  init();
-
-  return () => {
-    if (timer) {
-      console.log("🛑 [Cleanup] Clearing BLE verification interval");
-      clearInterval(timer);
-    }
-  };
-}, []);
-
-  //--------------------------------------------------
-  // LOAD USER
-  //--------------------------------------------------
-
+  // ── BLE ───────────────────────────────────────────────────────────────────
   useEffect(() => {
-    console.log("👤 [User] Loading user from localStorage...");
-    
-    const storedUser =
-      localStorage.getItem("user");
+    const initBLE = async () => {
+      if (!Capacitor.isNativePlatform()) return;
+      try {
+        await BleClient.initialize();
+        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => {}); await BleClient.stopLEScan(); } catch {}
+        await verifyEasyReach();
+      } catch {}
+    };
+    initBLE();
+    return () => { if (bleTimeoutRef.current) clearTimeout(bleTimeoutRef.current); };
+  }, []);
 
+  // ── User load ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      try {
-        const parsed =
-          JSON.parse(storedUser);
-
-        console.log("✅ [User] User loaded:", {
-          empCode: parsed?.empCode,
-          empName: parsed?.empName,
-          EmpName: parsed?.EmpName
-        });
-
-        setUserData(parsed);
-        setUserProfile(parsed);
-      } catch (err) {
-        console.error("❌ [User] Failed to parse user data:", err);
-      }
-    } else {
-      console.warn("⚠️ [User] No user data found in localStorage");
-    }
-
+      try { const parsed = JSON.parse(storedUser); setUserData(parsed); setUserProfile(parsed); setResultMessage("Align your face in the frame"); setStatusColor("#6366f1"); }
+      catch { setResultMessage("Error loading user profile"); setStatusColor("#ef4444"); }
+    } else { setResultMessage("No user profile found. Please login."); setStatusColor("#ef4444"); }
   }, []);
 
-  //--------------------------------------------------
-  // GET LOCATION
-  //--------------------------------------------------
-
-  //--------------------------------------------------
-  // GET LOCATION
-  //--------------------------------------------------
-
+  // ── GPS ───────────────────────────────────────────────────────────────────
   useEffect(() => {
-
-    const loadLocation = async () => {
-
+    let watchId: any = null;
+    const startLocationWatch = async () => {
       try {
-        console.log("📍 [Location] Requesting geolocation permissions...");
-
-        //------------------------------------------
-        // CAPACITOR GEOLOCATION
-        //------------------------------------------
-
-        const permission =
-          await Geolocation.requestPermissions();
-
-        console.log(
-          "📍 [Location] Permission response:",
-          permission
+        const perm = await Geolocation.requestPermissions();
+        if (perm.location === "granted") {
+          const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+          setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocationReady(true);
+        }
+      } catch {}
+      if ("geolocation" in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          (p) => { setLatitude(p.coords.latitude); setLongitude(p.coords.longitude); setLocationReady(true); },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
         );
-
-        if (
-          permission.location === "granted"
-        ) {
-          console.log("✅ [Location] Permission granted - fetching position via Capacitor...");
-          
-          const position =
-            await Geolocation.getCurrentPosition({
-              enableHighAccuracy: true,
-              timeout: 15000,
-            });
-
-          console.log(
-            "✅ [Location] Capacitor position obtained:",
-            {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy
-            }
-          );
-
-          setLatitude(
-            position.coords.latitude
-          );
-
-          setLongitude(
-            position.coords.longitude
-          );
-
-          setLocationReady(true);
-
-          return;
-        } else {
-          console.warn("⚠️ [Location] Capacitor geolocation permission denied");
-        }
-
-        //------------------------------------------
-        // FALLBACK BROWSER GEOLOCATION
-        //------------------------------------------
-
-        console.log("[Location] Falling back to Browser Geolocation API...");
-        
-        if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition(
-
-            (position) => {
-
-              console.log(
-                "[Location] Browser geolocation obtained:",
-                {
-                  latitude: position.coords.latitude,
-                  longitude: position.coords.longitude,
-                  accuracy: position.coords.accuracy
-                }
-              );
-
-              setLatitude(
-                position.coords.latitude
-              );
-
-              setLongitude(
-                position.coords.longitude
-              );
-
-              setLocationReady(true);
-            },
-
-            (error) => {
-
-              console.error("[Location] Browser geolocation error:", error);
-
-              setResultMessage(
-                "Location access denied"
-              );
-
-              setStatusColor("#ef4444");
-            },
-
-            {
-              enableHighAccuracy: true,
-              timeout: 15000,
-              maximumAge: 0,
-            }
-          );
-        }
-        else {
-          setResultMessage(
-            "Geolocation not supported"
-          );
-
-          setStatusColor("#ef4444");
-        }
-
-      }
-      catch (err) {
-        console.error(
-          "[Location] Error in loadLocation:",
-          err
-        );
-
-        //------------------------------------------
-        // FALLBACK AGAIN
-        //------------------------------------------
-
-        console.log("[Location] Attempting second fallback to Browser Geolocation...");
-        
-        if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition(
-
-            (position) => {
-              console.log(
-                "[Location] Second fallback succeeded:",
-                {
-                  latitude: position.coords.latitude,
-                  longitude: position.coords.longitude
-                }
-              );
-
-              setLatitude(
-                position.coords.latitude
-              );
-
-              setLongitude(
-                position.coords.longitude
-              );
-
-              setLocationReady(true);
-            },
-
-            () => {
-              console.error("[Location] Second fallback failed");
-
-              setResultMessage(
-                "Unable to fetch location"
-              );
-
-              setStatusColor("#ef4444");
-            }
-          );
-        }
-        else {
-          setResultMessage(
-            "Unable to fetch location"
-          );
-
-          setStatusColor("#ef4444");
-        }
       }
     };
-
-    loadLocation();
-
+    startLocationWatch();
+    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
   }, []);
 
-  // =========================================
-  // GET GPS LOCATION
-  // =========================================
-
+  // ── Camera ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    console.log("[GPS] Setting up continuous GPS tracking...");
-
-    if (!navigator.geolocation) {
-      console.error(
-        "[GPS] Geolocation not supported in this browser"
-      );
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-
-      (position) => {
-        console.log(
-          "[GPS] Position updated:",
-          {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy + "m"
-          }
-        );
-
-        setLatitude(
-          position.coords.latitude
-        );
-
-        setLongitude(
-          position.coords.longitude
-        );
-      },
-
-      (error) => {
-        console.error(
-          "[GPS] Geolocation error:",
-          error
-        );
-
-        setResultMessage(
-          "Please enable location access"
-        );
-
-        setStatusColor("#ef4444");
-      },
-
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-
-  }, []);
-
-  //--------------------------------------------------
-  // START CAMERA
-  //--------------------------------------------------
-
-  useEffect(() => {
-    console.log("[Camera] Starting camera setup with mode:", cameraMode);
-
     let stream: MediaStream | null = null;
-
     const startVideo = async () => {
-
       try {
-        console.log("[Camera] Checking camera support...");
-        
-        if (
-          !navigator.mediaDevices ||
-          !navigator.mediaDevices
-            .getUserMedia
-        ) {
-          console.error("[Camera] Camera not supported in this browser");
-          
-          setResultMessage(
-            "Camera not supported"
-          );
-
-          setStatusColor("#ef4444");
-
-          return;
-        }
-
-        console.log("[Camera] Requesting camera access with mode:", cameraMode);
-        
-        stream =
-          await navigator.mediaDevices
-            .getUserMedia({
-              video: {
-                facingMode:
-                  cameraMode,
-
-                width: {
-                  ideal: 640
-                },
-
-                height: {
-                  ideal: 480
-                }
-              },
-
-              audio: false
-            });
-
+        setIsCameraReady(false);
+        if (!navigator.mediaDevices?.getUserMedia) { setResultMessage("Camera not supported"); setStatusColor("#ef4444"); return; }
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraMode, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
         if (videoRef.current) {
-          console.log("[Camera] Stream obtained, attaching to video element...");
-          
-          videoRef.current.srcObject =
-            stream;
-
-          videoRef.current
-            .onloadedmetadata =
-            async () => {
-              try {
-                console.log("[Camera] Video metadata loaded, attempting to play...");
-                
-                await videoRef
-                  .current
-                  ?.play();
-
-                console.log("[Camera] Video playback started successfully");
-                
-                setIsCameraReady(true);
-
-                setResultMessage(
-                  "Face detection started"
-                );
-
-                setStatusColor(
-                  "#22c55e"
-                );
-              }
-              catch (err) {
-                console.error("[Camera] Video playback failed:", err);
-                
-                setResultMessage(
-                  "Video play failed"
-                );
-
-                setStatusColor(
-                  "#ef4444"
-                );
-              }
-            };
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = async () => {
+            try { await videoRef.current?.play(); setIsCameraReady(true); }
+            catch { setResultMessage("Failed to stream video feed"); setStatusColor("#ef4444"); }
+          };
         }
-
-      }
-      catch (err: any) {
-        console.error("[Camera] getUserMedia error:", err);
-
-        setResultMessage(
-          "Unable to access camera"
-        );
-
-        setStatusColor("#ef4444");
-      }
+      } catch { setResultMessage("Unable to access camera"); setStatusColor("#ef4444"); }
     };
-
     startVideo();
-
-    return () => {
-      if (stream) {
-        console.log("[Camera] Stopping all media tracks");
-        
-        stream
-          .getTracks()
-          .forEach(
-            (track) => {
-              track.stop();
-              console.log("[Camera] Stopped track:", track.kind);
-            }
-          );
-      }
-    };
-
+    return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
   }, [cameraMode]);
 
-  //--------------------------------------------------
-  // AUTO SCAN
-  //--------------------------------------------------
+  // ── Scan loop ─────────────────────────────────────────────────────────────
+  const scheduleNextScan = (delay: number, resetSuccessState = false) => {
+    if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current);
+    loopTimeoutRef.current = setTimeout(() => {
+      if (resetSuccessState) {
+        setScanSuccess(false); scanSuccessRef.current = false;
+        setAttendanceDetails(null); setResultMessage("Align your face in the frame"); setStatusColor("#6366f1");
+      }
+      captureAndScan();
+    }, delay);
+  };
+
+  const captureAndScan = async () => {
+    if (isProcessingRef.current || scanSuccessRef.current) return;
+    if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
+    setIsProcessing(true); isProcessingRef.current = true;
+    setResultMessage("Scanning face..."); setStatusColor("#3b82f6");
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 320; canvas.height = 240;
+      const context = canvas.getContext("2d");
+      if (context && videoRef.current) {
+        context.save(); context.scale(-1, 1); context.drawImage(videoRef.current, -canvas.width, 0, canvas.width, canvas.height); context.restore();
+        const imageData = canvas.toDataURL("image/jpeg", 0.6);
+        const response = await fetch(`${API_BASE}Checkin/AILogAttendance`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
+          body: JSON.stringify({ image: imageData, empId: userDataRef.current?.empCode || "", empName: userProfileRef.current?.EmpName || userDataRef.current?.empName || "", latitude: latitudeRef.current, longitude: longitudeRef.current, bluetoothConnected: bleVerifiedRef.current, bluetoothDeviceName: bleDeviceNameRef.current, bluetoothDeviceId: bleDeviceIdRef.current })
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.invalidLocation) {
+          // GPS not yet acquired — retry quickly without alarming the user
+          const isGpsNotReady = latitudeRef.current === 0 && longitudeRef.current === 0;
+          if (isGpsNotReady) { setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b"); scheduleNextScan(2000); }
+          else               { setResultMessage("⛔ Outside Office Location"); setStatusColor("#ef4444"); speakText("You are not in office location"); scheduleNextScan(4000); }
+          return;
+        }
+        if (data.invalidTime)   { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
+        if (data.alreadyMarked) {
+          const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
+          const empId   = data.empId   || userDataRef.current?.empCode || "";
+          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
+          setAttendanceDetails({ empName, empId, status: data.status || "", isDuplicate: true, customMessage: data.message || "Already marked" });
+          setResultMessage(`⚠️ ${empName}`); speakText(`${empName} attendance already marked`);
+          scheduleNextScan(4500, true); return;
+        }
+        if (data.success) {
+          const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
+          const empId   = data.empId   || userDataRef.current?.empCode || "";
+          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
+          setAttendanceDetails({ empName, empId, status: data.status || "Attendance Logged", time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), officeName: data.officeName || "Main Office Area" });
+          setResultMessage(`✅ Welcome, ${empName}`);
+          speakText(`${empName} attendance marked successfully`);
+          scheduleNextScan(5000, true);
+        } else { setResultMessage("❌ Face Not Recognized"); setStatusColor("#ef4444"); scheduleNextScan(2500); }
+      } else { scheduleNextScan(1000); }
+    } catch { setResultMessage("❌ Connection Timeout"); setStatusColor("#ef4444"); scheduleNextScan(3500); }
+    finally { setIsProcessing(false); isProcessingRef.current = false; }
+  };
 
   useEffect(() => {
+    if (isCameraReady) scheduleNextScan(1200);
+    return () => { if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current); };
+  }, [isCameraReady]);
 
-    const handleAutoCapture =
-      async () => {
-
-        //------------------------------------------------
-        // PRESENCE: Bluetooth OR GPS is required
-        //------------------------------------------------
-
-        if (!locationReady) {
-          console.warn("[Scan] Waiting for GPS before sending attendance request");
-          setResultMessage("Waiting for GPS...");
-          setStatusColor("#ef4444");
-          return;
-        }
-
-        console.log("[Scan] Presence ready, GPS obtained:", {
-          bleVerified,
-          latitude,
-          longitude
-        });
-
-        //--------------------------------------------
-        // PREVENT MULTIPLE CALLS
-        //--------------------------------------------
-
-        if (
-          scanSuccess ||
-          isProcessing ||
-          !videoRef.current ||
-          !isCameraReady
-        ) {
-          console.debug("[Scan] Skipping scan due to:", {
-            scanSuccess,
-            isProcessing,
-            videoRefReady: !!videoRef.current,
-            isCameraReady
-          });
-          return;
-        }
-
-        console.log("[Scan] Starting attendance scan...");
-        
+  // ── BLE scan ──────────────────────────────────────────────────────────────
+  const verifyEasyReach = async () => {
+    if (!Capacitor.isNativePlatform() || isBleScanning || bleVerifiedRef.current) return;
+    setIsBleScanning(true);
+    try {
+      let found = false;
+      await BleClient.requestLEScan({}, async (result: ScanResult) => {
         try {
-          setIsProcessing(true);
-
-          const canvas =
-            document.createElement(
-              "canvas"
-            );
-
-          canvas.width =
-            videoRef.current.videoWidth;
-
-          canvas.height =
-            videoRef.current.videoHeight;
-
-          const context =
-            canvas.getContext("2d");
-
-          context?.save();
-
-          context?.scale(-1, 1);
-
-          context?.drawImage(
-            videoRef.current,
-            -canvas.width,
-            0,
-            canvas.width,
-            canvas.height
-          );
-
-          context?.restore();
-
-          //--------------------------------------------
-          // IMAGE
-          //--------------------------------------------
-
-          const imageData =
-            canvas.toDataURL(
-              "image/jpeg",
-              0.85
-            );
-          
-          console.log("[Scan] Face image captured", {
-            canvasWidth: canvas.width,
-            canvasHeight: canvas.height,
-            imageDataLength: imageData.length
-          });
-          
-          console.log("[API] Sending attendance request with data:", {
-            bluetoothConnected:
-              bleVerified,
-
-            bluetoothDeviceName:
-              bleDeviceName,
-
-            bluetoothDeviceId:
-              bleDeviceId,
-
-            latitude,
-            longitude
-          });
-
-          //--------------------------------------------
-          // API CALL
-          //--------------------------------------------
-
-          console.log("[API] Sending POST request to: Checkin/AILogAttendance");
-          
-          const response =
-            await fetch(
-              `${API_BASE}Checkin/AILogAttendance`,
-              {
-                method: "POST",
-
-                headers: {
-                  "Content-Type":
-                    "application/json",
-
-                  "x-api-key":
-                    "dbase-ai-master-key-2026",
-                },
-
-                body: JSON.stringify({
-
-                  image: imageData,
-
-                  empId:
-                    userData?.empCode || "",
-
-                  empName:
-                    userProfile?.EmpName ||
-                    userData?.empName ||
-                    "",
-
-                  latitude:
-                    latitude,
-
-                  longitude:
-                    longitude,
-
-                  bluetoothConnected:
-                    bleVerified,
-
-                  bluetoothDeviceName:
-                    bleDeviceName,
-
-                  bluetoothDeviceId:
-                    bleDeviceId
-                }),
-              }
-            );
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(
-              "[API] Request failed:",
-              response.status,
-              response.statusText,
-              errorText
-            );
-            throw new Error(
-              `API request failed ${response.status}: ${response.statusText}`
-            );
-          }
-
-          let data;
-          try {
-            data = await response.json();
-            console.log("[API] Response received:", data);
-          } catch (parseError) {
-            console.error("[API] JSON parse error:", parseError);
-            const rawText = await response.text();
-            console.error("[API] Raw response text:", rawText);
-            const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
-            throw new Error(`Failed to parse API response: ${errorMsg}`);
-          }
-
-          if (!data) {
-            throw new Error("API returned empty response");
-          }
-
-          //--------------------------------------------
-          // INVALID LOCATION
-          //--------------------------------------------
-
-          if (data.invalidLocation) {
-            console.warn("[Scan] Invalid location - outside office area");
-            setStatusColor("#ef4444");
-
-            setResultMessage(
-              "⛔ You are not in office location"
-            );
-
-            speakText("You are not in office location");
-
-            setTimeout(() => {
-
-              setResultMessage(
-                "Start to detect your face"
-              );
-
-              setStatusColor(
-                "#6b7280"
-              );
-
-            }, 4000);
-
-            return;
-          }
-
-          //--------------------------------------------
-          // INVALID TIME
-          //--------------------------------------------
-
-          if (data.invalidTime) {
-            console.warn("[Scan] Invalid time for attendance - outside allowed hours", data.message);
-            
-            setStatusColor("#ef4444");
-
-            setResultMessage(
-              `⛔ ${data.message}`
-            );
-
-            speakText(data.message);
-
-            setTimeout(() => {
-
-              setResultMessage(
-                "Start to detect your face"
-              );
-
-              setStatusColor(
-                "#6b7280"
-              );
-
-            }, 4000);
-
-            return;
-          }
-
-          //--------------------------------------------
-          // ALREADY MARKED
-          //--------------------------------------------
-
-          if (data.alreadyMarked) {
-            console.warn("[Scan] Attendance already marked today", data.message);
-            
-            setStatusColor("#f59e0b");
-
-            setResultMessage(
-              `⚠️ ${data.message}`
-            );
-
-            speakText(data.message);
-
-            setTimeout(() => {
-
-              setResultMessage(
-                "Start to detect your face"
-              );
-
-              setStatusColor(
-                "#6b7280"
-              );
-
-            }, 4000);
-
-            return;
-          }
-
-          //--------------------------------------------
-          // SUCCESS
-          //--------------------------------------------
-
-          if (
-            data.success &&
-            data.name &&
-            data.name.length > 0 &&
-            data.name[0] !== "Unknown"
-          ) {
-            console.log("[Scan] ATTENDANCE MARKED SUCCESSFULLY", {
-              empId: data.empId,
-              empName: data.empName,
-              status: data.status,
-              time: data.time,
-              officeName: data.officeName
-            });
-            
-            setScanSuccess(true);
-
-            const empName =
-              data.empName || "";
-
-            const empId =
-              data.empId || "";
-
-            const status =
-              data.status || "";
-
-            const logTime =
-              data.time || "";
-
-            const officeName =
-              data.officeName || "";
-
-            setStatusColor("#22c55e");
-
-            speakText(`${empName} attendance marked successfully`);
-
-            setResultMessage(
-              `✅ ${empName} (${empId})
-
-${status} at ${logTime}
-
-📍 ${officeName}`
-            );
-
-            setTimeout(() => {
-
-              setResultMessage(
-                "Start to detect your face"
-              );
-
-              setStatusColor(
-                "#6b7280"
-              );
-
-              setScanSuccess(false);
-
-            }, 5000);
-          }
-          else {
-            console.warn("[Scan] Face not recognized or matched");
-            
-            setResultMessage(
-              "❌ Face Not Matched"
-            );
-
-            setStatusColor("#ef4444");
-
-            setTimeout(() => {
-
-              setResultMessage(
-                "Start to detect your face"
-              );
-
-              setStatusColor(
-                "#6b7280"
-              );
-
-            }, 3000);
-          }
-
-        }
-        catch (error) {
-          console.error("[Scan] Attendance scanning error:", error);
-
-          // Derive a safe, displayable message from the error
-          let errorMessage = "Connection Error";
-          if (error instanceof Error) {
-            errorMessage = error.message;
-          }
-
-          // Trim long messages for UI clarity
-          const shortMsg = errorMessage.length > 200 ? errorMessage.slice(0, 200) + "..." : errorMessage;
-
-          // Always show the specific error (prefixed) so users see what's failing
-          setResultMessage(`❌ ${shortMsg}`);
-
-          setStatusColor("#ef4444");
-        }
-        finally {
-          setIsProcessing(false);
-        }
-      };
-
-    const interval =
-      setInterval(
-        handleAutoCapture,
-        4000
-      );
-
-    return () =>
-      clearInterval(interval);
-
-  },[
-  isProcessing,
-  isCameraReady,
-  userData,
-  scanSuccess,
-  locationReady,
-  bleVerified,
-  bleDeviceId,
-  bleDeviceName,
-  latitude,
-  longitude
-]);
-
- const verifyEasyReach = async () => {
-  console.log("[BLE] Starting EasyReach device verification");
-  
-  if (!Capacitor.isNativePlatform()) {
-    console.debug("[BLE] Skipping BLE verification on Web");
-    return;
-  }
-  
-  if (isBleScanning) {
-    console.debug("[BLE] Scan already in progress, skipping");
-    return;
-  }
-  setIsBleScanning(true);
-
-  try {
-    let found = false;
-    console.log("[BLE] Initiating LE scan");
-
-    await BleClient.requestLEScan(
-      {},
-      async (result: ScanResult) => {
-        try {
-          const name =
-            (result.device.name || "")
-              .trim()
-              .toUpperCase();
-
-          const mac =
-            (result.device.deviceId || "")
-              .replace(/:/g, "")
-              .replace(/-/g, "")
-              .trim()
-              .toUpperCase();
-
-          console.log("[BLE] Device found", {
-            name: name,
-            mac: mac,
-            originalId: result.device.deviceId
-          });
-
-          // Exact match with your database values
-          if (
-            name === "ER2650001F" &&
-            mac === "EA2658F0001F"
-          ) {
-            found = true;
-
-            setBleVerified(true);
-            setBleDeviceName(name);
-            setBleDeviceId(result.device.deviceId);
-
-            console.log("[BLE] EASYREACH DEVICE MATCHED AND VERIFIED", {
-              name: name,
-              id: result.device.deviceId
-            });
-
-            setResultMessage(
-              `EasyReach Verified\n${name}`
-            );
-
-            setStatusColor("#22c55e");
-
-            console.log("[BLE] Stopping LE scan (device found)");
+          const name = (result.device.name || "").trim().toUpperCase();
+          const mac  = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
+          if (name === "ER2650001F" && mac === "EA2658F0001F") {
+            found = true; setBleVerified(true); bleVerifiedRef.current = true;
+            setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
             await BleClient.stopLEScan();
-            return;
           }
-        } catch (e) {
-          console.error("[BLE] Error during scan callback", e);
-        }
-      }
-    );
+        } catch {}
+      });
+      if (bleTimeoutRef.current) clearTimeout(bleTimeoutRef.current);
+      bleTimeoutRef.current = setTimeout(async () => {
+        try { await BleClient.stopLEScan(); } catch {}
+        setIsBleScanning(false);
+        if (!found && !bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 30000);
+      }, 7000);
+    } catch {
+      setIsBleScanning(false); setBleVerified(false);
+      if (!bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 30000);
+    }
+  };
 
-    setTimeout(async () => {
-      console.log("[BLE] 8-second scan timeout reached");
-      
-      try {
-        await BleClient.stopLEScan();
-        console.log("[BLE] LE scan stopped");
-      } catch (err) {
-        console.warn("[BLE] Error stopping scan", err);
-      }
-      
-      setIsBleScanning(false);
+  const toggleCameraMode = () => { setIsCameraReady(false); setCameraMode(p => p === "user" ? "environment" : "user"); };
 
-      if (!found) {
-        console.warn("[BLE] Target device not found after scan");
-        setBleVerified(false);
-        setResultMessage("EasyReach device not found");
-        setStatusColor("#ef4444");
-      } else {
-        console.log("[BLE] Device found during scan");
-      }
-    }, 8000);
-  } catch (err) {
-    console.error("[BLE] Fatal error in verifyEasyReach", err);
-    setIsBleScanning(false);
-    setBleVerified(false);
-    setResultMessage("Bluetooth scan failed");
-    setStatusColor("#ef4444");
-  }
-};
-
+  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <IonPage>
+      <IonContent fullscreen scrollY={false} className="scanner-pg">
+        <div className="sc-shell">
 
-      <IonContent
-        fullscreen
-        className="attendance-page"
-        scrollY={true}
-      >
+          {/* HEADER */}
+          <div className="sc-header">
+            <button className="sc-back" onClick={() => history.goBack()}>
+              <IonIcon icon={arrowBackOutline} />
+            </button>
+            <div className="sc-title-wrap">
+              <h1 className="sc-title">AI FACE ATTENDANCE</h1>
+              <p className="sc-subtitle">Self Check-In Portal</p>
+            </div>
+            <button className="sc-log-btn ai-log-btn" onClick={() => history.push('/ai-attendance-log/user')}>
+              <IonIcon icon={calendarOutline} />
+            </button>
+          </div>
 
-        <div className="scanner-wrapper">
+          {/* BODY — camera left · panel right */}
+          <div className="sc-body">
 
-          <div className="scanner-frame">
+            {/* LEFT: CAMERA */}
+            <div className="sc-cam-area">
+              <div className="sc-cam-card clay">
+                <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
 
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="scanner-video"
-            />
+                <div className="sc-hud">
+                  <div className={`sc-ring ai-ring ${isProcessing ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
+                  <div className="sc-corners">
+                    <span className="sc-cor tl" /><span className="sc-cor tr" />
+                    <span className="sc-cor bl" /><span className="sc-cor br" />
+                  </div>
+                  <div className={`sc-laser ai-laser ${isProcessing ? 'laser-on' : ''}`} />
+                </div>
 
-            <div className="face-overlay">
+                <div className="sc-ind-row">
+                  <div className={`sc-ind ${locationReady ? 'ind-ok' : 'ind-wait'}`}>
+                    <IonIcon icon={pinOutline} />
+                    <span>{locationReady ? 'GPS ✓' : 'GPS…'}</span>
+                  </div>
+                  <div className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}>
+                    <IonIcon icon={bluetoothOutline} />
+                    <span>{bleVerified ? 'BLE ✓' : 'BLE…'}</span>
+                  </div>
+                </div>
 
-              <div className="corner top-left"></div>
-
-              <div className="corner top-right"></div>
-
-              <div className="corner bottom-left"></div>
-
-              <div className="corner bottom-right"></div>
-
-              <div className="scan-line"></div>
-
+                {!isCameraReady && (
+                  <div className="sc-cam-loader">
+                    <IonSpinner name="crescent" color="primary" />
+                    <p>Starting camera…</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {!isCameraReady && (
-              <div className="camera-loader">
-                <IonSpinner name="crescent" />
+            {/* RIGHT: PANEL — toggles between idle and result */}
+            <div className="sc-panel-area">
+            {scanSuccess && attendanceDetails ? (
+
+              /* ── RESULT CARD ── */
+              <div className={`sc-result clay ${attendanceDetails.isDuplicate ? 'clay-warn' : 'clay-ok'}`}>
+                <div className="sc-res-top">
+                  <div className={`sc-res-avatar ${attendanceDetails.isDuplicate ? 'av-warn' : 'av-ok'}`}>
+                    {(attendanceDetails.empName || 'E').charAt(0)}
+                  </div>
+                  <div className="sc-res-info">
+                    <div className="sc-res-name">{attendanceDetails.empName}</div>
+                    <div className="sc-res-id">ID #{attendanceDetails.empId}</div>
+                  </div>
+                  <div className={`sc-res-badge ${attendanceDetails.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
+                    {attendanceDetails.isDuplicate ? '⚠ Marked' : '✓ Marked'}
+                  </div>
+                </div>
+                {attendanceDetails.isDuplicate ? (
+                  <div className="sc-res-msg warn-msg">{attendanceDetails.customMessage}</div>
+                ) : (
+                  <div className="sc-res-chips">
+                    <div className="sc-chip ok-chip">
+                      <span className="chip-lbl">Session</span>
+                      <span className="chip-val">{attendanceDetails.status}</span>
+                    </div>
+                    <div className="sc-chip ok-chip">
+                      <span className="chip-lbl">Time</span>
+                      <span className="chip-val">{attendanceDetails.time}</span>
+                    </div>
+                    <div className="sc-chip ok-chip chip-full">
+                      <span className="chip-lbl">Location</span>
+                      <span className="chip-val">📍 {attendanceDetails.officeName}</span>
+                    </div>
+                  </div>
+                )}
               </div>
+
+            ) : (
+
+              /* ── IDLE PANEL ── */
+              <div className="sc-idle clay">
+                <div className="sc-status-pill" style={{ background: `${statusColor}18`, color: statusColor, borderColor: `${statusColor}40` }}>
+                  <span className="sc-dot" style={{ background: statusColor }} />
+                  {isProcessing ? 'ANALYZING...' : scanSuccess ? 'VERIFIED' : 'AWAITING'}
+                </div>
+                <div className="sc-msg" style={{ color: statusColor }}>{resultMessage}</div>
+                <div className="sc-ind-chips">
+                  <div className={`sc-ic ${locationReady ? 'ic-ok' : 'ic-wait'}`}>
+                    <IonIcon icon={pinOutline} />
+                    <span>{locationReady ? 'GPS Ready' : 'GPS…'}</span>
+                  </div>
+                  <div className={`sc-ic ${bleVerified ? 'ic-ok' : 'ic-wait'}`}>
+                    <IonIcon icon={bluetoothOutline} />
+                    <span>{bleVerified ? 'Beacon OK' : 'BLE…'}</span>
+                  </div>
+                </div>
+                <button className="sc-swap" onClick={toggleCameraMode}>
+                  <IonIcon icon={cameraReverseOutline} />
+                  <span>Flip</span>
+                </button>
+              </div>
+
             )}
+            </div>
 
-          </div>
-
-          <button className="scan-button">
-
-            {isProcessing
-              ? "SCANNING..."
-              : "AI SCANNER ACTIVE"}
-
-          </button>
-
-          <button
-            className="scan-button switch-btn"
-            onClick={() => {
-
-              setIsCameraReady(false);
-
-              setCameraMode((prev) =>
-                prev === "user"
-                  ? "environment"
-                  : "user"
-              );
-
-            }}
-          >
-            SWITCH CAMERA
-          </button>
-
-          <div
-            className="scan-status"
-            style={{
-              color: statusColor,
-              whiteSpace: "pre-line",
-            }}
-          >
-            {resultMessage}
-          </div>
+          </div>{/* sc-body */}
 
         </div>
-
       </IonContent>
-
     </IonPage>
   );
 };

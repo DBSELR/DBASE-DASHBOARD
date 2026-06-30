@@ -1,0 +1,303 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MeetingMaster.css — Card form on web, native-app form on mobile
+   Classes: meeting-page · meeting-card · meeting-header · meeting-grid
+            field-box · full-width · save-btn · custom-select-ui
+            input-icon · textarea-box
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --app-bg: #f1f5f9;
+  --card-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --primary-accent: #2563eb;
+  --primary-hover: #1d4ed8;
+  --input-bg: #ffffff;
+  --input-border: #e2e8f0;
+  --input-focus: #2563eb;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.09);
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── PAGE ───────────────────────────────────────────────────────── */
+.meeting-page {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--app-bg);
+  padding: 32px 20px 100px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── CARD ───────────────────────────────────────────────────────── */
+.meeting-card {
+  width: 100%;
+  max-width: 860px;
+  background: var(--card-bg);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg);
+  padding: 36px 40px;
+  box-shadow: var(--shadow-lg);
+  animation: masterSlideUp 0.4s ease-out;
+}
+
+/* ── CARD HEADER ────────────────────────────────────────────────── */
+.meeting-header {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.meeting-header h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: -0.5px;
+}
+
+.meeting-header h2 ion-icon {
+  color: var(--primary-accent);
+  font-size: 28px;
+  background: rgba(37, 99, 235, 0.1);
+  padding: 9px;
+  border-radius: 11px;
+}
+
+/* ── FORM GRID ──────────────────────────────────────────────────── */
+.meeting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px 24px;
+}
+
+/* ── FIELD BOX ──────────────────────────────────────────────────── */
+.field-box {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.field-box label {
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.field-box input,
+.field-box select,
+.field-box textarea,
+.custom-select-ui {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--radius-md);
+  padding: 13px 15px;
+  font-size: 14px;
+  color: var(--text-main);
+  outline: none;
+  transition: var(--transition);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  font-family: inherit;
+}
+
+.field-box select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 15px;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+.field-box input:focus,
+.field-box select:focus,
+.field-box textarea:focus,
+.custom-select-ui:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.13);
+  background: #fff;
+}
+
+.field-box input:hover,
+.field-box select:hover {
+  border-color: #94a3b8;
+}
+
+.field-box textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+/* ── INPUT ICON ─────────────────────────────────────────────────── */
+.input-icon {
+  position: relative;
+}
+
+/* ── TEXTAREA WITH ICON ─────────────────────────────────────────── */
+.textarea-box {
+  display: flex;
+  align-items: flex-start;
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  transition: var(--transition);
+  gap: 0;
+}
+
+.textarea-box:focus-within {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.13);
+}
+
+.textarea-box ion-icon {
+  color: #94a3b8;
+  font-size: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+.textarea-box textarea {
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  resize: vertical;
+  flex: 1;
+  min-height: 88px;
+  font-size: 14px;
+  color: var(--text-main);
+  outline: none;
+  font-family: inherit;
+  line-height: 1.55;
+}
+
+/* ── FULL WIDTH ─────────────────────────────────────────────────── */
+.full-width { grid-column: 1 / -1; }
+
+/* ── SAVE BUTTON ────────────────────────────────────────────────── */
+.save-btn {
+  background: linear-gradient(135deg, var(--primary-accent), var(--primary-hover));
+  color: #fff;
+  border: none;
+  padding: 15px 28px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 220px;
+  margin: 28px 0 0 auto;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.38);
+  font-family: inherit;
+}
+
+.save-btn ion-icon { font-size: 20px; }
+
+.save-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.5);
+}
+
+.save-btn:active { transform: translateY(0); }
+
+/* ── ANIMATION ──────────────────────────────────────────────────── */
+@keyframes masterSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Native-app feel: edge-to-edge card, no outer bg gradient */
+  .meeting-page {
+    padding: 0 0 80px;
+    align-items: flex-start;
+    background: #f1f5f9;
+  }
+
+  .meeting-card {
+    max-width: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    padding: 24px 18px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    animation: none;
+  }
+
+  .meeting-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+
+  .meeting-header h2 {
+    font-size: 22px;
+  }
+
+  .meeting-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .full-width { grid-column: 1; }
+
+  /* Larger tap targets + prevent iOS zoom on focus */
+  .field-box input,
+  .field-box select,
+  .field-box textarea,
+  .custom-select-ui {
+    padding: 14px 15px;
+    font-size: 16px;
+    border-radius: 11px;
+  }
+
+  .field-box label { font-size: 11px; }
+
+  .textarea-box { padding: 12px 13px; }
+
+  .textarea-box textarea { font-size: 16px; }
+
+  .save-btn {
+    max-width: 100%;
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    border-radius: 11px;
+    margin-top: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .meeting-page { padding: 0 0 80px; }
+  .meeting-card { padding: 20px 16px; }
+  .meeting-header h2 { font-size: 20px; }
+}

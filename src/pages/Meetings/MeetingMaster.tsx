@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { API_BASE } from "../config";
+import { API_BASE } from "../../config";
 import {
   IonToast,
   IonIcon,
@@ -48,20 +48,24 @@ function MeetingMaster() {
     "React"
   ];
 
-  const initialForm = {
-    year: "",
-    month: "",
-    meetingDate: "",
-    weekName: "",
-    meetingType: "",
-    participants: [] as string[],
-    frequencyType: "",
-    projectName: "",
-    meetingOwner: [] as string[],
-    meetingStatus: "Pending",
-    remarks: "",
-    createdBy: "Admin"
-  };
+const initialForm = {
+  year: "",
+  month: "",
+  meetingDate: "",
+  weekName: "",
+  meetingType: "",
+  participants: [] as string[],
+  frequencyType: "",
+  projectName: "",
+  meetingOwner: [] as string[],
+  meetingStatus: "Pending",
+  remarks: "",
+  createdBy: "Admin",
+  teamsOrganizerEmail: "PSivaPrasaddbs@DBASESOLUTIONSPVTLTD.onmicrosoft.com",
+  // Phase A: timing for auto-complete
+  meetingStartTime: "",
+  meetingEndTime: "",
+};
 
   const [form, setForm] = useState(initialForm);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -141,25 +145,43 @@ function MeetingMaster() {
         return;
       }
 
-      const payload = {
-        ...form,
-        participants: Array.isArray(form.participants) ? form.participants.join(',') : form.participants,
-        meetingOwner: Array.isArray(form.meetingOwner) ? form.meetingOwner.join(',') : form.meetingOwner,
-        meetingDate:
-          form.frequencyType === "Every Day"
-            ? null
-            : form.meetingDate
-      };
+  const baseDate = form.meetingDate || new Date().toISOString().split("T")[0];
+  const payload = {
+    ...form,
+    participants: Array.isArray(form.participants)
+      ? form.participants.join(",")
+      : form.participants,
+    meetingOwner: Array.isArray(form.meetingOwner)
+      ? form.meetingOwner.join(",")
+      : form.meetingOwner,
+    meetingDate:      form.frequencyType === "Every Day" ? null : form.meetingDate,
+    meetingStartTime: form.meetingStartTime ? `${baseDate}T${form.meetingStartTime}:00` : null,
+    meetingEndTime:   form.meetingEndTime   ? `${baseDate}T${form.meetingEndTime}:00`   : null,
+  };
+
+      console.log("[MeetingMaster] Saving payload:", payload);
 
       const response = await axios.post(
         `${API_BASE}Meeting/SaveMeeting`,
         payload
       );
 
+      console.log("[MeetingMaster] SaveMeeting response:", response.data);
+
+      const teamsUrl = response?.data?.teamsUrl;
+      const resMessage = response?.data?.message || "";
+
+      if (!teamsUrl) {
+        console.warn("[MeetingMaster] No Teams URL returned. Full message:", resMessage);
+      } else {
+        console.log("[MeetingMaster] Teams URL created:", teamsUrl);
+      }
+
       showToast(
-        response?.data?.message ||
-        "Meeting Saved Successfully",
-        "success"
+        teamsUrl
+          ? "Meeting saved! Teams meeting created automatically."
+          : resMessage || "Meeting Saved Successfully",
+        teamsUrl ? "success" : "warning"
       );
 
       // ✅ CLEAR FORM
@@ -349,6 +371,28 @@ function MeetingMaster() {
             </div>
 
           )}
+
+          {/* START TIME */}
+          <div className="field-box">
+            <label>Start Time</label>
+            <input
+              type="time"
+              name="meetingStartTime"
+              value={form.meetingStartTime}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* END TIME */}
+          <div className="field-box">
+            <label>End Time</label>
+            <input
+              type="time"
+              name="meetingEndTime"
+              value={form.meetingEndTime}
+              onChange={handleChange}
+            />
+          </div>
 
           {/* MEETING TYPE */}
           <div className="field-box">

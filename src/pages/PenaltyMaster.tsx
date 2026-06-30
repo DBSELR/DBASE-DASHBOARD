@@ -14,7 +14,7 @@ import {
   saveOutline
 } from "ionicons/icons";
 
-import "./MeetingMaster.css";
+import "../pages/Meetings/MeetingMaster.css";
 
 function PenaltyMaster() {
 

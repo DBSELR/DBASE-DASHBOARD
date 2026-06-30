@@ -1,0 +1,424 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MeetingDashboard.css — stat cards + web table + native mobile cards
+   Prefix for new classes: mdash-
+   Legacy classes kept for compat: meeting-dashboard-page, status-*
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── PAGE SHELL ─────────────────────────────────────────────────── */
+.mdash-page {
+  padding: 24px 28px 100px;
+  height: 100%;
+  min-height: 100vh;
+  background: #f1f5f9;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-sizing: border-box;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+.mdash-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 22px;
+  letter-spacing: -0.5px;
+}
+
+/* ── FILTERS ROW ─────────────────────────────────────────────────── */
+.mdash-filters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  align-items: flex-end;
+}
+
+/* ── STAT CARDS GRID ─────────────────────────────────────────────── */
+.mdash-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.mdash-stat {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 22px 18px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.mdash-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+}
+
+.mdash-stat:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.09);
+}
+
+.mdash-active {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+}
+
+.mdash-stat-total::before    { background: #2563eb; }
+.mdash-stat-done::before     { background: #10b981; }
+.mdash-stat-pend::before     { background: #f59e0b; }
+.mdash-stat-esc::before      { background: #ef4444; }
+
+.mdash-stat-total.mdash-active  { border-color: #2563eb; }
+.mdash-stat-done.mdash-active   { border-color: #10b981; }
+.mdash-stat-pend.mdash-active   { border-color: #f59e0b; }
+.mdash-stat-esc.mdash-active    { border-color: #ef4444; }
+
+.mdash-stat-emoji {
+  font-size: 24px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.mdash-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.mdash-stat-num {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.mdash-stat-total  .mdash-stat-num { color: #2563eb; }
+.mdash-stat-done   .mdash-stat-num { color: #10b981; }
+.mdash-stat-pend   .mdash-stat-num { color: #f59e0b; }
+.mdash-stat-esc    .mdash-stat-num { color: #ef4444; }
+
+/* ── SECTION TITLE ───────────────────────────────────────────────── */
+.mdash-section-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mdash-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.mdash-section-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* ── TABLE WRAPPER (desktop) ─────────────────────────────────────── */
+.mdash-tbl-wrap {
+  height: 400px;
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+  overflow: auto;
+  animation: mdashFadeUp 0.35s ease;
+}
+
+/* ── EMPTY STATE ─────────────────────────────────────────────────── */
+.mdash-empty {
+  text-align: center;
+  padding: 48px 20px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── MOBILE CARDS (hidden on desktop) ────────────────────────────── */
+.mdash-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  animation: mdashFadeUp 0.35s ease;
+}
+
+.mdash-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.mdash-card-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mdash-date-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  min-width: 46px;
+  text-align: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.mdash-date-badge-none {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+}
+
+.mdash-date-day { font-size: 20px; font-weight: 800; line-height: 1; }
+.mdash-date-mon {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; opacity: 0.85;
+  letter-spacing: 0.4px; margin-top: 2px;
+}
+
+.mdash-card-info { flex: 1; min-width: 0; }
+
+.mdash-card-type {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mdash-card-period { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+.mdash-card-meta {
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.mdash-meta-item { display: flex; flex-direction: column; gap: 3px; }
+
+.mdash-meta-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mdash-meta-val { font-size: 13px; color: #334155; font-weight: 500; }
+
+.mdash-card-footer {
+  padding: 10px 16px 12px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mdash-card-sync {
+  padding: 10px 16px 14px;
+  border-top: 1px dashed #e2e8f0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.mdash-card-sync-lbl {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+/* ── MOBILE BUTTON VARIANTS ──────────────────────────────────────── */
+.mdash-btn-join {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 14px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex: 1;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+
+.mdash-btn-join:hover { background: #1d4ed8; }
+
+.mdash-btn-sync-att {
+  padding: 8px 10px;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.mdash-btn-sync-att:hover { background: #6d28d9; }
+
+.mdash-btn-sync-tx {
+  padding: 8px 10px;
+  background: #0891b2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.mdash-btn-sync-tx:hover { background: #0e7490; }
+
+.mdash-btn-view {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid;
+  background: transparent;
+  transition: opacity 0.2s;
+}
+
+.mdash-btn-view:hover { opacity: 0.8; }
+
+/* ── STATUS BADGE ────────────────────────────────────────────────── */
+.mdash-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mdash-status-completed { background: #dcfce7; color: #15803d; }
+.mdash-status-pending   { background: #fef9c3; color: #92400e; }
+.mdash-status-escalated { background: #fee2e2; color: #b91c1c; }
+.mdash-status-default   { background: #f1f5f9; color: #64748b; }
+
+/* ── ANIMATION ───────────────────────────────────────────────────── */
+@keyframes mdashFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── LEGACY COMPAT ───────────────────────────────────────────────── */
+.meeting-dashboard-page {
+  font-family: 'Inter', sans-serif;
+  background-color: #f1f5f9;
+  min-height: 100vh;
+}
+
+.dashboard-stat-card {
+  transition: all 0.3s ease;
+}
+
+.dashboard-stat-card:hover { transform: translateY(-5px); }
+
+.status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-completed { background: rgba(16, 185, 129, 0.15); color: #047857; }
+.status-pending   { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+.status-escalated { background: rgba(239, 68, 68, 0.15);  color: #b91c1c; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .mdash-stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .mdash-page { padding: 16px 14px 100px; }
+  .mdash-title { font-size: 22px; margin-bottom: 18px; }
+
+  .mdash-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .mdash-stat { padding: 16px 14px; }
+  .mdash-stat-num { font-size: 28px; }
+  .mdash-stat-emoji { font-size: 20px; margin-bottom: 6px; }
+
+  .mdash-filters {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .mdash-filters .custom-dropdown-container,
+  .mdash-filters .premium-filter-trigger { width: 100%; min-width: 0; }
+
+  /* Hide desktop table */
+  .mdash-tbl-wrap { display: none; }
+
+  /* Show mobile cards */
+  .mdash-cards { display: flex; }
+}
+
+@media (max-width: 480px) {
+  .mdash-stat-num { font-size: 24px; }
+  .mdash-stat-label { font-size: 10px; }
+}
+
+@media (min-width: 769px) {
+  .mdash-cards { display: none !important; }
+}

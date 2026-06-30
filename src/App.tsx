@@ -55,13 +55,14 @@ import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
 import AIAttendanceReports from "./pages/AIAttendance/AIAttendanceReports";
 import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
 import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceScanner";
+import AIAttendanceLog from "./pages/AIAttendance/AIAttendanceLog";
 import DaywiseAttendanceDashboard from "./pages/DaywiseAttendanceDashboard";
 import getCurrentPosition from "./pages/getCurrentPosition";
 import OMRJsonImport from "./pages/OMRJsonImport";
 import AnswerKeyImport from "./pages/AnswerKeyImport";
-import MeetingMaster from "./pages/MeetingMaster";
-import MeetingDashboard from "./pages/MeetingDashboard";
-import MeetingList from "./pages/MeetingList";
+import MeetingMaster from "./pages/Meetings/MeetingMaster";
+import MeetingDashboard from "./pages/Meetings/MeetingDashboard";
+import MeetingList from "./pages/Meetings/MeetingList";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
 import { registerNativePush } from "./services/pushNotification";
 
@@ -178,6 +179,7 @@ const App: React.FC = () => {
                   <Route exact path="/ai-attendance-reports" component={AIAttendanceReports} />
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
                   <Route exact path="/security-attendance" component={SecurityAttendanceScanner} />
+                  <Route exact path="/ai-attendance-log/:mode" component={AIAttendanceLog} />
                   <Route exact path="/daywise-attendance" component={DaywiseAttendanceDashboard} />
                   <Route exact path="/test-location" component={getCurrentPosition} />
                   <Route exact path="/omr-json-import" component={OMRJsonImport} />
