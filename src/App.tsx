@@ -56,6 +56,7 @@ import AIAttendanceReports from "./pages/AIAttendance/AIAttendanceReports";
 import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
 import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceScanner";
 import AIAttendanceLog from "./pages/AIAttendance/AIAttendanceLog";
+import AIAttendanceRuleMaster from "./pages/AIAttendance/AIAttendanceRuleMaster";
 import DaywiseAttendanceDashboard from "./pages/DaywiseAttendanceDashboard";
 import getCurrentPosition from "./pages/getCurrentPosition";
 import OMRJsonImport from "./pages/OMRJsonImport";
@@ -135,17 +136,18 @@ const App: React.FC = () => {
   return (
     <IonApp>
       <IonReactRouter>
-        <IonRouterOutlet>
-          {!user ? (
+        {!user ? (
+          <IonRouterOutlet>
             <Switch>
               <Route exact path="/login" component={Login} />
               <Redirect from="*" to="/login" />
             </Switch>
-          ) : (
-            <IonSplitPane contentId="main">
-              <Menu />
-              <IonRouterOutlet id="main">
-                <Switch>
+          </IonRouterOutlet>
+        ) : (
+          <IonSplitPane contentId="main">
+            <Menu />
+            <IonRouterOutlet id="main">
+              <Switch>
                   
                   <Route exact path="/home" component={Home} />
                   <Route exact path="/eprofile" component={EmpProfile} />
@@ -180,6 +182,7 @@ const App: React.FC = () => {
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
                   <Route exact path="/security-attendance" component={SecurityAttendanceScanner} />
                   <Route exact path="/ai-attendance-log/:mode" component={AIAttendanceLog} />
+                  <Route exact path="/ai-attendance-rule-master" component={AIAttendanceRuleMaster} />
                   <Route exact path="/daywise-attendance" component={DaywiseAttendanceDashboard} />
                   <Route exact path="/test-location" component={getCurrentPosition} />
                   <Route exact path="/omr-json-import" component={OMRJsonImport} />
@@ -199,12 +202,11 @@ const App: React.FC = () => {
                   <Route exact path="/Approval-Dates" component={ApprovalDates} />
                   <Route exact path="/leave-action" component={LeaveAction} />
 
-                  <Redirect from="*" to="/home" />
-                </Switch>
-              </IonRouterOutlet>
-            </IonSplitPane>
-          )}
-        </IonRouterOutlet>
+                <Redirect from="*" to="/home" />
+              </Switch>
+            </IonRouterOutlet>
+          </IonSplitPane>
+        )}
       </IonReactRouter>
 
       {user && <SpeedDialComponent />}

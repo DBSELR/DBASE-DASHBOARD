@@ -396,12 +396,12 @@ const EmpProfile: React.FC = () => {
     console.log("Input Row Array:", row);
     console.log("Row length:", row.length);
     console.log(
-      "Row[50] (Project):",
-      row[50],
-      "Row[51] (LocationType):",
+      "Row[51] (Project):",
       row[51],
-      "Row[52] (Location):",
+      "Row[52] (LocationType):",
       row[52],
+      "Row[53] (Location1):",
+      row[53],
     );
 
     if (!Array.isArray(row)) {
@@ -533,12 +533,9 @@ const EmpProfile: React.FC = () => {
             "0",
           ),
       _RequestTo: getValue(15, ["_RequestTo", "RequestTo", "requestTo"], ""),
-      _Project: getValue(50, ["_Project", "Project", "project"], ""),
-      _LocationType: getValue(51, ["_LocationType", "LocationType", "locationType"], ""),
-      _Location1: getValue(52, ["_Location1", "Location1", "location1"], ""),
-      // _Project: projects.find(p => p.name == row[50])?.id || row[50] || "",
-      // _LocationType: locationTypes.find(l => l.name == row[51])?.id || row[51] || "",
-      // _Location1: locations.find(l => l.name == row[52])?.id || row[52] || ""
+      _Project: getValue(51, ["_Project", "Project", "project"], ""),
+      _LocationType: getValue(52, ["_LocationType", "LocationType", "locationType"], ""),
+      _Location1: getValue(53, ["_Location1", "Location1", "location1"], ""),
     };
 
     console.log("Mapped Result:", mapped);
@@ -898,9 +895,9 @@ const EmpProfile: React.FC = () => {
     };
 
 
-    const projectValue = getRowValue(employeeRawRow, 50, ["_Project", "Project", "project"]);
-    const locationTypeValue = getRowValue(employeeRawRow, 51, ["_LocationType", "LocationType", "locationType"]);
-    const locationValue = getRowValue(employeeRawRow, 52, ["_Location1", "Location1", "location1"]);
+    const projectValue = getRowValue(employeeRawRow, 51, ["_Project", "Project", "project"]);
+    const locationTypeValue = getRowValue(employeeRawRow, 52, ["_LocationType", "LocationType", "locationType"]);
+    const locationValue = getRowValue(employeeRawRow, 53, ["_Location1", "Location1", "location1"]);
 
     const projectId =
       projects.find((p) => p.name == projectValue || p.id == projectValue)?.id ||

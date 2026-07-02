@@ -1,5 +1,5 @@
 import { IonContent, IonPage, IonInput, IonButton } from '@ionic/react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useHistory } from 'react-router';
 import { API_BASE_URL } from './ai_config';
 
@@ -7,13 +7,6 @@ const AIAttendanceAdminDashboard: React.FC = () => {
   const [email, setEmail] = useState('');
   const [popupMessage, setPopupMessage] = useState('');
   const history = useHistory();
-
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-        history.push('/ai-attendance-admin-login');
-    }
-  }, [history]);
 
   const showPopup = (msg: string) => {
     setPopupMessage(msg);
@@ -28,20 +21,13 @@ const AIAttendanceAdminDashboard: React.FC = () => {
       return;
     }
 
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-        history.push('/ai-attendance-admin-login');
-        return;
-    }
-
-    showPopup('Sending...'); // Give immediate feedback
+    showPopup('Sending...');
 
     try {
       const response = await fetch(`${API_BASE_URL}/send_attendance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ email })
       });
@@ -52,9 +38,6 @@ const AIAttendanceAdminDashboard: React.FC = () => {
         setEmail('');
       } else {
         showPopup(data.message || 'Failed to send attendance report.');
-        if (response.status === 401) {
-            handleLogout();
-        }
       }
     } catch (error) {
       showPopup('An error occurred while sending the report.');
@@ -62,8 +45,8 @@ const AIAttendanceAdminDashboard: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    history.push('/ai-attendance-admin-login');
+    localStorage.removeItem('user');
+    history.push('/login');
   };
 
   return (
@@ -80,6 +63,9 @@ const AIAttendanceAdminDashboard: React.FC = () => {
                     
                       <IonButton shape="round" style={{ width: 'auto', minWidth: '220px', fontSize: '1.1rem', '--background': 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)', '--box-shadow': '0 4px 6px -1px rgba(249, 115, 22, 0.4)' }} routerLink="/ai-attendance-reports">
                          View Reports
+                    </IonButton>
+                    <IonButton shape="round" style={{ width: 'auto', minWidth: '220px', fontSize: '1.1rem', '--background': 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', '--box-shadow': '0 4px 6px -1px rgba(13, 148, 136, 0.4)' }} routerLink="/ai-attendance-rule-master">
+                        Rule Master
                     </IonButton>
                 </div>
 
@@ -112,12 +98,7 @@ const AIAttendanceAdminDashboard: React.FC = () => {
             </IonButton>
         </div>
 
-        <div className="credits-popup" style={{ position: 'fixed', bottom: '2rem', left: '2rem', background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(12px)', padding: '1.5rem', borderRadius: '16px' }}>
-            <div className="credits-content">
-                <h3 style={{ color: 'white', marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Credits</h3>
-                <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', margin: 0 }}>Developer:<br/>Sandeep Dukkipati<br/>Company:<br/>DBase Solutions Pvt Ltd</p>
-            </div>
-        </div>
+       
       </IonContent>
     </IonPage>
   );

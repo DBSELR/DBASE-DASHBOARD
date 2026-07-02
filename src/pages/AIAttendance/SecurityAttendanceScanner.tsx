@@ -110,12 +110,13 @@ const SecurityAttendanceScanner: React.FC = () => {
         const perm = await Geolocation.requestPermissions();
         if (perm.location === "granted") {
           const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+          latitudeRef.current = pos.coords.latitude; longitudeRef.current = pos.coords.longitude; locationReadyRef.current = true;
           setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocationReady(true);
         }
       } catch {}
       if ("geolocation" in navigator) {
         watchId = navigator.geolocation.watchPosition(
-          (p) => { setLatitude(p.coords.latitude); setLongitude(p.coords.longitude); setLocationReady(true); },
+          (p) => { latitudeRef.current = p.coords.latitude; longitudeRef.current = p.coords.longitude; locationReadyRef.current = true; setLatitude(p.coords.latitude); setLongitude(p.coords.longitude); setLocationReady(true); },
           () => {},
           { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
         );
@@ -140,6 +141,10 @@ const SecurityAttendanceScanner: React.FC = () => {
   const autoScan = async () => {
     if (processingRef.current || scanSuccessRef.current) return;
     if (!cameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
+    if (latitudeRef.current === 0 && longitudeRef.current === 0) {
+      setMessage("Getting GPS fix…"); setStatusColor("#f59e0b");
+      scheduleNextScan(2000); return;
+    }
     setProcessing(true); processingRef.current = true;
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {

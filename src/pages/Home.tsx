@@ -24,12 +24,18 @@ declare global {
 import { FileWarning } from "lucide-react";
 
 
+const ADMIN_EMPCODES = ['1501', '1509', '1601'];
+
 const Home: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [location, setLocation] = useState<string>("Fetching location...");
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingTasksCount, setPendingTasksCount] = useState<number>(0);
   const history = useHistory();
+
+  const currentEmpCode = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}').empCode ?? ''; } catch { return ''; }
+  })();
 
   useEffect(() => {
     updateTime();
@@ -155,6 +161,14 @@ const Home: React.FC = () => {
   colorClass: "home-card-penalties",
   isLucide: true
 },
+...(ADMIN_EMPCODES.includes(currentEmpCode) ? [{
+  id: "ai-attendance-admin",
+  label: "AI Attendance Admin",
+  icon: <ShieldAlert size={32} color="#ffffff" />,
+  path: "/ai-attendance-admin-dashboard",
+  colorClass: "home-card-ai-admin",
+  isLucide: true
+}] : []),
   ];
 
   return (  

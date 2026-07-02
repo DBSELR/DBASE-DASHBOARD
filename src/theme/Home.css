@@ -596,3 +596,8 @@
  .home-card-penalties .home-card-icon-wrapper {
     background: linear-gradient(135deg,#ef4444,#dc2626);
 }
+
+.home-card-ai-admin .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #fff;
+}

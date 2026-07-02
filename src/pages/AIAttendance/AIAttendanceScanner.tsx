@@ -45,6 +45,8 @@ const AIAttendanceScanner: React.FC = () => {
   const [attendanceDetails, setAttendanceDetails] = useState<{
     empName?: string; empId?: string; status?: string; time?: string; officeName?: string;
     isDuplicate?: boolean; customMessage?: string;
+    presenceMethod?: string; graceType?: string;
+    lateMinutes?: number; date?: string; attendanceStatus?: string;
   } | null>(null);
 
   const latitudeRef      = useRef(0);
@@ -104,12 +106,13 @@ const AIAttendanceScanner: React.FC = () => {
         const perm = await Geolocation.requestPermissions();
         if (perm.location === "granted") {
           const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+          latitudeRef.current = pos.coords.latitude; longitudeRef.current = pos.coords.longitude; locationReadyRef.current = true;
           setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocationReady(true);
         }
       } catch {}
       if ("geolocation" in navigator) {
         watchId = navigator.geolocation.watchPosition(
-          (p) => { setLatitude(p.coords.latitude); setLongitude(p.coords.longitude); setLocationReady(true); },
+          (p) => { latitudeRef.current = p.coords.latitude; longitudeRef.current = p.coords.longitude; locationReadyRef.current = true; setLatitude(p.coords.latitude); setLongitude(p.coords.longitude); setLocationReady(true); },
           () => {},
           { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
         );
@@ -155,6 +158,10 @@ const AIAttendanceScanner: React.FC = () => {
   const captureAndScan = async () => {
     if (isProcessingRef.current || scanSuccessRef.current) return;
     if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
+    if (latitudeRef.current === 0 && longitudeRef.current === 0) {
+      setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b");
+      scheduleNextScan(2000); return;
+    }
     setIsProcessing(true); isProcessingRef.current = true;
     setResultMessage("Scanning face..."); setStatusColor("#3b82f6");
     try {
@@ -169,7 +176,11 @@ const AIAttendanceScanner: React.FC = () => {
           headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
           body: JSON.stringify({ image: imageData, empId: userDataRef.current?.empCode || "", empName: userProfileRef.current?.EmpName || userDataRef.current?.empName || "", latitude: latitudeRef.current, longitude: longitudeRef.current, bluetoothConnected: bleVerifiedRef.current, bluetoothDeviceName: bleDeviceNameRef.current, bluetoothDeviceId: bleDeviceIdRef.current })
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          let errMsg = `HTTP ${response.status}`;
+          try { const eb = await response.json(); errMsg = eb.message || errMsg; } catch {}
+          throw new Error(errMsg);
+        }
         const data = await response.json();
         if (data.invalidLocation) {
           // GPS not yet acquired — retry quickly without alarming the user
@@ -191,13 +202,23 @@ const AIAttendanceScanner: React.FC = () => {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId   = data.empId   || userDataRef.current?.empCode || "";
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
-          setAttendanceDetails({ empName, empId, status: data.status || "Attendance Logged", time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), officeName: data.officeName || "Main Office Area" });
+          setAttendanceDetails({
+            empName, empId,
+            status:           data.status           || "Attendance Logged",
+            time:             data.time             || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            officeName:       data.officeName        || "",
+            presenceMethod:   data.presenceMethod    || "Face Only",
+            graceType:        data.graceType         || "",
+            lateMinutes:      data.lateMinutes       ?? 0,
+            date:             data.date              || new Date().toLocaleDateString('en-GB'),
+            attendanceStatus: data.attendanceStatus  || "",
+          });
           setResultMessage(`✅ Welcome, ${empName}`);
           speakText(`${empName} attendance marked successfully`);
           scheduleNextScan(5000, true);
         } else { setResultMessage("❌ Face Not Recognized"); setStatusColor("#ef4444"); scheduleNextScan(2500); }
       } else { scheduleNextScan(1000); }
-    } catch { setResultMessage("❌ Connection Timeout"); setStatusColor("#ef4444"); scheduleNextScan(3500); }
+    } catch (err: any) { setResultMessage(`❌ ${err?.message || "Connection Error"}`); setStatusColor("#ef4444"); scheduleNextScan(3500); }
     finally { setIsProcessing(false); isProcessingRef.current = false; }
   };
 
@@ -316,6 +337,7 @@ const AIAttendanceScanner: React.FC = () => {
                   <div className="sc-res-msg warn-msg">{attendanceDetails.customMessage}</div>
                 ) : (
                   <div className="sc-res-chips">
+                    {/* Row 1: Session + Time */}
                     <div className="sc-chip ok-chip">
                       <span className="chip-lbl">Session</span>
                       <span className="chip-val">{attendanceDetails.status}</span>
@@ -324,10 +346,36 @@ const AIAttendanceScanner: React.FC = () => {
                       <span className="chip-lbl">Time</span>
                       <span className="chip-val">{attendanceDetails.time}</span>
                     </div>
-                    <div className="sc-chip ok-chip chip-full">
-                      <span className="chip-lbl">Location</span>
-                      <span className="chip-val">📍 {attendanceDetails.officeName}</span>
+                    {/* Row 2: Date + Verified Via */}
+                    <div className="sc-chip ok-chip">
+                      <span className="chip-lbl">Date</span>
+                      <span className="chip-val">{attendanceDetails.date}</span>
                     </div>
+                    <div className="sc-chip ok-chip">
+                      <span className="chip-lbl">Verified Via</span>
+                      <span className="chip-val">
+                        {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
+                         attendanceDetails.presenceMethod === 'Bluetooth'       ? '📶 Bluetooth' :
+                         attendanceDetails.presenceMethod === 'GPS'             ? '📍 GPS' :
+                                                                                  '🎭 Face Only'}
+                      </span>
+                    </div>
+                    {/* Row 3: Branch (full-width) */}
+                    {attendanceDetails.officeName && (
+                      <div className="sc-chip ok-chip chip-full">
+                        <span className="chip-lbl">Branch / Location</span>
+                        <span className="chip-val">📍 {attendanceDetails.officeName}</span>
+                      </div>
+                    )}
+                    {/* Row 4: Late status (amber, only when late) */}
+                    {(attendanceDetails.lateMinutes ?? 0) > 0 && (
+                      <div className="sc-chip warn-chip chip-full">
+                        <span className="chip-lbl">Status</span>
+                        <span className="chip-val">
+                          {attendanceDetails.graceType || attendanceDetails.attendanceStatus} — {attendanceDetails.lateMinutes} min late
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

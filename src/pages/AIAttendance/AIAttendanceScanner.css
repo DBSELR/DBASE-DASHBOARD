@@ -233,10 +233,11 @@
 }
 .warn-msg { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
 
-.sc-res-chips { display: flex; flex-direction: column; gap: 6px; }
-.chip-full { /* full-width by default in column layout */ }
+.sc-res-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-full { flex: 0 0 100% !important; }
 
 .sc-chip {
+  flex: 1; min-width: 44%;
   display: flex; flex-direction: column; gap: 2px;
   padding: 7px 10px; border-radius: 12px;
   background: rgba(255,255,255,0.8);
@@ -245,6 +246,10 @@
 }
 .chip-lbl { font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
 .chip-val { font-size: 12px; font-weight: 800; color: #0f172a; }
+.ok-chip  { border-color: rgba(16,185,129,0.25); background: rgba(16,185,129,0.06); }
+.warn-chip { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.08); }
+.warn-chip .chip-lbl { color: #b45309; }
+.warn-chip .chip-val { color: #92400e; }
 
 /* ── IDLE PANEL ──────────────────────────────────────────────────────────── */
 .sc-idle {

@@ -6,6 +6,7 @@ dns.setDefaultResultOrder("ipv4first");
 
 export default defineConfig({
   plugins: [react()],
+  appType: "spa",
   server: {
     proxy: {
       "/api": {
