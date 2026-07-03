@@ -1312,30 +1312,35 @@ const loadTeamPermissionDashboard = async () => {
                 )}
                 {(type !== 'equipment' && type !== 'overtime' && type !== 'onduty') && (
                   <>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Category</span><span className="lr-grid-value">{item.Leavemode} {item.Leavemode && `(${item.LeaveCategory})`}</span></div>
+                  <div className="lr-grid-item">
+  <span className="lr-grid-label">Category</span>
+  <span className="lr-grid-value">
+    {item?.ltype?.toLowerCase() === "permission"
+      ? item.Leavemode
+      : `${item.Leavemode} (${item.LeaveCategory})`}
+  </span>
+</div>
                     <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{item.AppliedOn}</span></div>
                     {item?.ltype?.toLowerCase() === 'permission' ? (
-  <>
-  
-    <div className="lr-row">
-  <div className="lr-grid-item">
-    <span className="lr-grid-label">Permission Time</span>
-    <span className="lr-grid-value">
-      {cleanDate(item.lfrom)} {item.ptime ? `(${item.ptime})` : ''}
-    </span>
-  </div>
-
-  {typeof item.Slip === "string" && item.Slip.trim() !== "" && (
+<>
+  <div className="lr-row">
     <div className="lr-grid-item">
-      <span className="lr-grid-label">Slip</span>
-      <span className="lr-grid-value">{item.Slip}</span>
+      <span className="lr-grid-label">Permission Time</span>
+      <span className="lr-grid-value permission-time">
+        {cleanDate(item.lfrom)}
+        {item.ptime ? ` (${item.ptime})` : ""}
+      </span>
     </div>
-  )}
-</div>
-    
 
-  
-                      </>
+    {typeof item.Slip === "string" &&
+      item.Slip.trim() !== "" && (
+        <div className="lr-grid-item">
+          <span className="lr-grid-label">Slip</span>
+          <span className="lr-grid-value">{item.Slip}</span>
+        </div>
+      )}
+  </div>
+</>
                     ) : (
                       <div className="lr-grid-item"><span className="lr-grid-label">Leave Dates</span><span className="lr-grid-value">{cleanDate(item.lfrom)} {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom) ? `- ${cleanDate(item.lto)}` : ''}</span></div>
                     )}

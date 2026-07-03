@@ -1367,6 +1367,14 @@
   padding-bottom: 2px;
 }
 
+.permission-time {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
 /* =========================
    INPUTS
 ========================= */
