@@ -41,6 +41,7 @@ const AIAttendanceScanner: React.FC = () => {
   const [bleDeviceId,   setBleDeviceId]   = useState("");
   const [bleDeviceName, setBleDeviceName] = useState("");
   const [isBleScanning, setIsBleScanning] = useState(false);
+  const [isMobile,      setIsMobile]      = useState(window.innerWidth <= 768);
 
   const [attendanceDetails, setAttendanceDetails] = useState<{
     empName?: string; empId?: string; status?: string; time?: string; officeName?: string;
@@ -96,6 +97,12 @@ const AIAttendanceScanner: React.FC = () => {
       try { const parsed = JSON.parse(storedUser); setUserData(parsed); setUserProfile(parsed); setResultMessage("Align your face in the frame"); setStatusColor("#6366f1"); }
       catch { setResultMessage("Error loading user profile"); setStatusColor("#ef4444"); }
     } else { setResultMessage("No user profile found. Please login."); setStatusColor("#ef4444"); }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // ── GPS ───────────────────────────────────────────────────────────────────
@@ -258,6 +265,45 @@ const AIAttendanceScanner: React.FC = () => {
 
   const toggleCameraMode = () => { setIsCameraReady(false); setCameraMode(p => p === "user" ? "environment" : "user"); };
 
+  // ── Drag Sheet Gesture ────────────────────────────────────────────────────
+  const [sheetY, setSheetY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("expanded");
+  const startY = useRef(0);
+  const currentY = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const deltaY = e.touches[0].clientY - startY.current;
+    let newY = sheetState === "collapsed" ? 140 + deltaY : deltaY;
+    if (newY < 0) newY = 0;
+    if (newY > 140) newY = 140;
+    setSheetY(newY);
+    currentY.current = newY;
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    if (currentY.current > 70) {
+      setSheetState("collapsed"); setSheetY(140);
+    } else {
+      setSheetState("expanded"); setSheetY(0);
+    }
+  };
+
+  const toggleSheet = () => {
+    if (sheetState === "collapsed") {
+      setSheetState("expanded"); setSheetY(0);
+    } else {
+      setSheetState("collapsed"); setSheetY(140);
+    }
+  };
+
   // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <IonPage>
@@ -316,11 +362,28 @@ const AIAttendanceScanner: React.FC = () => {
             </div>
 
             {/* RIGHT: PANEL — toggles between idle and result */}
-            <div className="sc-panel-area">
+            <div 
+              className="sc-panel-area"
+              style={
+                isMobile 
+                  ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
+                  : {}
+              }
+            >
+              <div 
+                className="sc-drag-zone" 
+                onClick={toggleSheet} 
+                onTouchStart={handleTouchStart} 
+                onTouchMove={handleTouchMove} 
+                onTouchEnd={handleTouchEnd}
+              >
+                <div className="sc-drag-handle" />
+              </div>
+
             {scanSuccess && attendanceDetails ? (
 
               /* ── RESULT CARD ── */
-              <div className={`sc-result clay ${attendanceDetails.isDuplicate ? 'clay-warn' : 'clay-ok'}`}>
+              <div className="scanner-dashboard-card">
                 <div className="sc-res-top">
                   <div className={`sc-res-avatar ${attendanceDetails.isDuplicate ? 'av-warn' : 'av-ok'}`}>
                     {(attendanceDetails.empName || 'E').charAt(0)}
@@ -330,52 +393,57 @@ const AIAttendanceScanner: React.FC = () => {
                     <div className="sc-res-id">ID #{attendanceDetails.empId}</div>
                   </div>
                   <div className={`sc-res-badge ${attendanceDetails.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
-                    {attendanceDetails.isDuplicate ? '⚠ Marked' : '✓ Marked'}
+                    {attendanceDetails.isDuplicate ? '⚠ Already Marked' : '✓ Logged Successfully'}
                   </div>
                 </div>
+
                 {attendanceDetails.isDuplicate ? (
                   <div className="sc-res-msg warn-msg">{attendanceDetails.customMessage}</div>
                 ) : (
-                  <div className="sc-res-chips">
-                    {/* Row 1: Session + Time */}
-                    <div className="sc-chip ok-chip">
-                      <span className="chip-lbl">Session</span>
-                      <span className="chip-val">{attendanceDetails.status}</span>
-                    </div>
-                    <div className="sc-chip ok-chip">
-                      <span className="chip-lbl">Time</span>
-                      <span className="chip-val">{attendanceDetails.time}</span>
-                    </div>
-                    {/* Row 2: Date + Verified Via */}
-                    <div className="sc-chip ok-chip">
-                      <span className="chip-lbl">Date</span>
-                      <span className="chip-val">{attendanceDetails.date}</span>
-                    </div>
-                    <div className="sc-chip ok-chip">
-                      <span className="chip-lbl">Verified Via</span>
-                      <span className="chip-val">
-                        {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
-                         attendanceDetails.presenceMethod === 'Bluetooth'       ? '📶 Bluetooth' :
-                         attendanceDetails.presenceMethod === 'GPS'             ? '📍 GPS' :
-                                                                                  '🎭 Face Only'}
-                      </span>
-                    </div>
-                    {/* Row 3: Branch (full-width) */}
-                    {attendanceDetails.officeName && (
-                      <div className="sc-chip ok-chip chip-full">
-                        <span className="chip-lbl">Branch / Location</span>
-                        <span className="chip-val">📍 {attendanceDetails.officeName}</span>
+                  <div>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                      Verification Details
+                    </h3>
+                    
+                    <div className="sc-res-chips">
+                      <div className="sc-chip ok-chip">
+                        <span className="chip-lbl">Shift Status</span>
+                        <span className="chip-val">{attendanceDetails.status}</span>
                       </div>
-                    )}
-                    {/* Row 4: Late status (amber, only when late) */}
-                    {(attendanceDetails.lateMinutes ?? 0) > 0 && (
-                      <div className="sc-chip warn-chip chip-full">
-                        <span className="chip-lbl">Status</span>
+                      <div className="sc-chip ok-chip">
+                        <span className="chip-lbl">Timestamp</span>
+                        <span className="chip-val">{attendanceDetails.time}</span>
+                      </div>
+                      <div className="sc-chip ok-chip">
+                        <span className="chip-lbl">Calendar Date</span>
+                        <span className="chip-val">{attendanceDetails.date}</span>
+                      </div>
+                      <div className="sc-chip ok-chip">
+                        <span className="chip-lbl">Identity Mode</span>
                         <span className="chip-val">
-                          {attendanceDetails.graceType || attendanceDetails.attendanceStatus} — {attendanceDetails.lateMinutes} min late
+                          {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
+                           attendanceDetails.presenceMethod === 'Bluetooth'       ? '📶 Bluetooth' :
+                           attendanceDetails.presenceMethod === 'GPS'             ? '📍 GPS' :
+                                                                                    '🎭 Face Recognition'}
                         </span>
                       </div>
-                    )}
+
+                      {attendanceDetails.officeName && (
+                        <div className="sc-chip ok-chip chip-full">
+                          <span className="chip-lbl">Registered Office</span>
+                          <span className="chip-val">📍 {attendanceDetails.officeName}</span>
+                        </div>
+                      )}
+
+                      {(attendanceDetails.lateMinutes ?? 0) > 0 && (
+                        <div className="sc-chip warn-chip chip-full">
+                          <span className="chip-lbl">Late Warning</span>
+                          <span className="chip-val">
+                            ⚠️ {attendanceDetails.graceType || attendanceDetails.attendanceStatus} — {attendanceDetails.lateMinutes} min late
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -383,26 +451,92 @@ const AIAttendanceScanner: React.FC = () => {
             ) : (
 
               /* ── IDLE PANEL ── */
-              <div className="sc-idle clay">
+              <div className="scanner-dashboard-card">
                 <div className="sc-status-pill" style={{ background: `${statusColor}18`, color: statusColor, borderColor: `${statusColor}40` }}>
                   <span className="sc-dot" style={{ background: statusColor }} />
-                  {isProcessing ? 'ANALYZING...' : scanSuccess ? 'VERIFIED' : 'AWAITING'}
+                  {isProcessing ? 'SCANNING BIOMETRICS...' : 'AWAITING RECOGNITION'}
                 </div>
                 <div className="sc-msg" style={{ color: statusColor }}>{resultMessage}</div>
-                <div className="sc-ind-chips">
-                  <div className={`sc-ic ${locationReady ? 'ic-ok' : 'ic-wait'}`}>
-                    <IonIcon icon={pinOutline} />
-                    <span>{locationReady ? 'GPS Ready' : 'GPS…'}</span>
-                  </div>
-                  <div className={`sc-ic ${bleVerified ? 'ic-ok' : 'ic-wait'}`}>
-                    <IonIcon icon={bluetoothOutline} />
-                    <span>{bleVerified ? 'Beacon OK' : 'BLE…'}</span>
+                
+                {/* Dashboard Checklist Widget */}
+                <div style={{ marginTop: '24px' }}>
+                  <h3 className="checklist-header">
+                    Telemetry Checklist
+                  </h3>
+                  
+                  <div className="checklist-widget">
+                    {/* 1. Camera Health */}
+                    <div className="check-item">
+                      <div className="check-label-wrap">
+                        <span style={{ fontSize: '18px' }}>📷</span>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontWeight: 700 }}>Live Video Stream</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                            {isCameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`check-status-badge ${isCameraReady ? 'badge-verified' : 'badge-pending'}`}>
+                        {isCameraReady ? 'ACTIVE' : 'OFFLINE'}
+                      </span>
+                    </div>
+
+                    {/* 2. GPS Location */}
+                    <div className="check-item">
+                      <div className="check-label-wrap">
+                        <span style={{ fontSize: '18px' }}>📍</span>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontWeight: 700 }}>Office Geofencing</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                            {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
+                        {locationReady ? 'VERIFIED' : 'SYNCING'}
+                      </span>
+                    </div>
+
+                    {/* 3. Bluetooth Beacon */}
+                    <div className="check-item">
+                      <div className="check-label-wrap">
+                        <span style={{ fontSize: '18px' }}>📶</span>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                            {bleVerified ? `Found: ${bleDeviceName}` : 'Scanning BLE signals...'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}>
+                        {bleVerified ? 'CONNECTED' : 'SCANNING'}
+                      </span>
+                    </div>
+
+                    {/* 4. Employee Identity */}
+                    <div className="check-item">
+                      <div className="check-label-wrap">
+                        <span style={{ fontSize: '18px' }}>👤</span>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontWeight: 700 }}>Biometric Profile</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                            {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
+                        {userData ? 'LOADED' : 'AWAITING'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <button className="sc-swap" onClick={toggleCameraMode}>
-                  <IonIcon icon={cameraReverseOutline} />
-                  <span>Flip</span>
-                </button>
+
+                <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                  <button className="sc-swap" onClick={toggleCameraMode}>
+                    <IonIcon icon={cameraReverseOutline} />
+                    <span>Flip Camera</span>
+                  </button>
+                </div>
               </div>
 
             )}

@@ -40,6 +40,10 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [message,      setMessage]      = useState("Initializing camera...");
   const [statusColor,  setStatusColor]  = useState("#8b5cf6");
 
+  const [userData,     setUserData]     = useState<any>(null);
+  const [userProfile,  setUserProfile]  = useState<any>(null);
+  const [isMobile,     setIsMobile]     = useState(window.innerWidth <= 768);
+
   const [scannedEmployee, setScannedEmployee] = useState<{
     empName?: string; empId?: string; status?: string; time?: string;
     isDuplicate?: boolean; customMessage?: string;
@@ -66,6 +70,26 @@ const SecurityAttendanceScanner: React.FC = () => {
   useEffect(() => { cameraReadyRef.current   = cameraReady;   }, [cameraReady]);
   useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
   useEffect(() => { processingRef.current    = processing;    }, [processing]);
+
+  // ── Load User Profile ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUserData(parsed);
+        setUserProfile(parsed);
+      } catch (err) {
+        console.error("Error loading user profile in security scanner", err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // ── Camera ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -218,6 +242,45 @@ const SecurityAttendanceScanner: React.FC = () => {
 
   const toggleCamera = () => { setCameraReady(false); setCameraMode(p => p === "user" ? "environment" : "user"); };
 
+  // ── Drag Sheet Gesture ────────────────────────────────────────────────────
+  const [sheetY, setSheetY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("expanded");
+  const startY = useRef(0);
+  const currentY = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const deltaY = e.touches[0].clientY - startY.current;
+    let newY = sheetState === "collapsed" ? 140 + deltaY : deltaY;
+    if (newY < 0) newY = 0;
+    if (newY > 140) newY = 140;
+    setSheetY(newY);
+    currentY.current = newY;
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    if (currentY.current > 70) {
+      setSheetState("collapsed"); setSheetY(140);
+    } else {
+      setSheetState("expanded"); setSheetY(0);
+    }
+  };
+
+  const toggleSheet = () => {
+    if (sheetState === "collapsed") {
+      setSheetState("expanded"); setSheetY(0);
+    } else {
+      setSheetState("collapsed"); setSheetY(140);
+    }
+  };
+
   // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <IonPage>
@@ -276,11 +339,28 @@ const SecurityAttendanceScanner: React.FC = () => {
             </div>
 
             {/* RIGHT: PANEL — toggles between idle and result */}
-            <div className="sc-panel-area">
+            <div 
+              className="sc-panel-area"
+              style={
+                isMobile 
+                  ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
+                  : {}
+              }
+            >
+              <div 
+                className="sc-drag-zone" 
+                onClick={toggleSheet} 
+                onTouchStart={handleTouchStart} 
+                onTouchMove={handleTouchMove} 
+                onTouchEnd={handleTouchEnd}
+              >
+                <div className="sc-drag-handle" />
+              </div>
+
               {scanSuccess && scannedEmployee ? (
 
                 /* ── RESULT CARD ── */
-                <div className={`sc-result clay ${scannedEmployee.isDuplicate ? 'clay-warn' : 'clay-ok'}`}>
+                <div className="scanner-dashboard-card">
                   <div className="sc-res-top">
                     <div className={`sc-res-avatar ${scannedEmployee.isDuplicate ? 'av-warn' : 'av-ok'}`}>
                       {(scannedEmployee.empName || 'E').charAt(0)}
@@ -290,20 +370,25 @@ const SecurityAttendanceScanner: React.FC = () => {
                       <div className="sc-res-id">ID #{scannedEmployee.empId}</div>
                     </div>
                     <div className={`sc-res-badge ${scannedEmployee.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
-                      {scannedEmployee.isDuplicate ? '⚠ Marked' : '✓ Verified'}
+                      {scannedEmployee.isDuplicate ? '⚠ Already Marked' : '✓ Verified'}
                     </div>
                   </div>
                   {scannedEmployee.isDuplicate ? (
                     <div className="sc-res-msg warn-msg">{scannedEmployee.customMessage}</div>
                   ) : (
-                    <div className="sc-res-chips">
-                      <div className="sc-chip ok-chip">
-                        <span className="chip-lbl">Status</span>
-                        <span className="chip-val">{scannedEmployee.status}</span>
-                      </div>
-                      <div className="sc-chip ok-chip">
-                        <span className="chip-lbl">Logged At</span>
-                        <span className="chip-val">{scannedEmployee.time}</span>
+                    <div>
+                      <h3 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                        Officer Verification Details
+                      </h3>
+                      <div className="sc-res-chips">
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Shift Status</span>
+                          <span className="chip-val">{scannedEmployee.status}</span>
+                        </div>
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Logged At</span>
+                          <span className="chip-val">{scannedEmployee.time}</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -312,26 +397,92 @@ const SecurityAttendanceScanner: React.FC = () => {
               ) : (
 
                 /* ── IDLE PANEL ── */
-                <div className="sc-idle clay">
+                <div className="scanner-dashboard-card">
                   <div className="sc-status-pill" style={{ background: `${statusColor}18`, color: statusColor, borderColor: `${statusColor}40` }}>
                     <span className="sc-dot" style={{ background: statusColor }} />
-                    {processing ? 'VERIFYING...' : scanSuccess ? 'RECORDED' : 'AWAITING'}
+                    {processing ? 'ANALYZING FACE...' : 'AWAITING SCAN'}
                   </div>
                   <div className="sc-msg" style={{ color: statusColor }}>{message}</div>
-                  <div className="sc-ind-chips">
-                    <div className={`sc-ic ${locationReady ? 'ic-ok' : 'ic-wait'}`}>
-                      <IonIcon icon={pinOutline} />
-                      <span>{locationReady ? 'GPS Ready' : 'GPS…'}</span>
-                    </div>
-                    <div className={`sc-ic ${bleVerified ? 'ic-ok' : 'ic-wait'}`}>
-                      <IonIcon icon={bluetoothOutline} />
-                      <span>{bleVerified ? 'Beacon OK' : 'BLE…'}</span>
+                  
+                  {/* Dashboard Checklist Widget */}
+                  <div style={{ marginTop: '24px' }}>
+                    <h3 className="checklist-header">
+                      Security Telemetry Checklist
+                    </h3>
+                    
+                    <div className="checklist-widget">
+                      {/* 1. Camera Health */}
+                      <div className="check-item">
+                        <div className="check-label-wrap">
+                          <span style={{ fontSize: '18px' }}>📷</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontWeight: 700 }}>Live Video Stream</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                              {cameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`check-status-badge ${cameraReady ? 'badge-verified' : 'badge-pending'}`}>
+                          {cameraReady ? 'ACTIVE' : 'OFFLINE'}
+                        </span>
+                      </div>
+
+                      {/* 2. GPS Location */}
+                      <div className="check-item">
+                        <div className="check-label-wrap">
+                          <span style={{ fontSize: '18px' }}>📍</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontWeight: 700 }}>Officer Geofencing</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                              {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
+                          {locationReady ? 'VERIFIED' : 'SYNCING'}
+                        </span>
+                      </div>
+
+                      {/* 3. Bluetooth Beacon */}
+                      <div className="check-item">
+                        <div className="check-label-wrap">
+                          <span style={{ fontSize: '18px' }}>📶</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                              {bleVerified ? `Found: ${bleDeviceName}` : 'Scanning BLE signals...'}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}>
+                          {bleVerified ? 'CONNECTED' : 'SCANNING'}
+                        </span>
+                      </div>
+
+                      {/* 4. Employee Identity */}
+                      <div className="check-item">
+                        <div className="check-label-wrap">
+                          <span style={{ fontSize: '18px' }}>👤</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontWeight: 700 }}>Biometric Profile</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                              {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
+                          {userData ? 'LOADED' : 'AWAITING'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <button className="sc-swap" onClick={toggleCamera}>
-                    <IonIcon icon={cameraReverseOutline} />
-                    <span>Flip</span>
-                  </button>
+
+                  <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                    <button className="sc-swap" onClick={toggleCamera}>
+                      <IonIcon icon={cameraReverseOutline} />
+                      <span>Flip Camera</span>
+                    </button>
+                  </div>
                 </div>
 
               )}

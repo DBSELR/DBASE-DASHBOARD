@@ -1345,7 +1345,7 @@ const Tasks: React.FC = () => {
                         </div>
                         {activeTask.TargetDays && (
                           <div className="tdm-target-badge">
-                            {activeTask.TargetDays} Day(s) Alpha
+                            {activeTask.TargetDays} Day(s) 
                           </div>
                         )}
                       </div>
