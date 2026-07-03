@@ -129,25 +129,61 @@ const SecurityAttendanceScanner: React.FC = () => {
   // ── GPS ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let watchId: any = null;
+    let isMounted = true;
     const startLocationWatch = async () => {
-      try {
-        const perm = await Geolocation.requestPermissions();
-        if (perm.location === "granted") {
-          const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
-          latitudeRef.current = pos.coords.latitude; longitudeRef.current = pos.coords.longitude; locationReadyRef.current = true;
-          setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocationReady(true);
-        }
-      } catch {}
+      const isSecure = window.isSecureContext || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const isNative = Capacitor.isNativePlatform();
+
+      if (!isNative && !isSecure) {
+        console.warn("Geolocation requires HTTPS secure context on mobile browsers.");
+        setMessage("⚠️ HTTPS Required for GPS");
+        setStatusColor("#ef4444");
+      }
+
+      if (isNative) {
+        try {
+          const perm = await Geolocation.requestPermissions();
+          if (perm.location !== "granted") return;
+        } catch {}
+      }
+
       if ("geolocation" in navigator) {
-        watchId = navigator.geolocation.watchPosition(
-          (p) => { latitudeRef.current = p.coords.latitude; longitudeRef.current = p.coords.longitude; locationReadyRef.current = true; setLatitude(p.coords.latitude); setLongitude(p.coords.longitude); setLocationReady(true); },
+        // Fast, low-accuracy cached resolve
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!isMounted) return;
+            latitudeRef.current = pos.coords.latitude;
+            longitudeRef.current = pos.coords.longitude;
+            locationReadyRef.current = true;
+            setLatitude(pos.coords.latitude);
+            setLongitude(pos.coords.longitude);
+            setLocationReady(true);
+          },
           () => {},
-          { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+          { enableHighAccuracy: false, timeout: 3000, maximumAge: Infinity }
+        );
+
+        // Precise active watch
+        watchId = navigator.geolocation.watchPosition(
+          (p) => {
+            if (!isMounted) return;
+            latitudeRef.current = p.coords.latitude;
+            longitudeRef.current = p.coords.longitude;
+            locationReadyRef.current = true;
+            setLatitude(p.coords.latitude);
+            setLongitude(p.coords.longitude);
+            setLocationReady(true);
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       }
     };
     startLocationWatch();
-    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
+    return () => {
+      isMounted = false;
+      if (watchId !== null && "geolocation" in navigator) navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   // ── Scan loop ─────────────────────────────────────────────────────────────
