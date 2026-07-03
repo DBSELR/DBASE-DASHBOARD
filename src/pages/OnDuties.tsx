@@ -221,7 +221,7 @@ const OnDuties: React.FC = () => {
         const el = await modalContentRef.current.getScrollElement();
         savedScrollTop.current = el.scrollTop;
       } catch (e) {
-        console.warn("Failed to get scroll element:", e);
+        console.warn("Failed to get scroll elementS:", e);
       }
     }
   };
