@@ -577,6 +577,54 @@ const Tasks: React.FC = () => {
     }
   };
 
+  const hasTodayNoProgressEntry = (history: any[]) => {
+    const today = formatDateOnly(new Date().toISOString());
+    return history.some((item) => {
+      const datePart = (item.date || "").split(" ")[0];
+      const message = (item.message || "").trim().toLowerCase();
+      return datePart === today && message === "no progress yet";
+    });
+  };
+
+  const refreshTaskHistory = async (tid: string) => {
+    const history = await apiService.loadViewTask(tid);
+    const mappedHistory = (history || []).map((item: any) => ({
+      fromName: item[0],
+      toName: item[1],
+      status: item[5],
+      date: item[9],
+      message: item[10],
+    }));
+    setSelectedTaskHistory(mappedHistory);
+  };
+
+  const handleProgress = async () => {
+    if (!activeTask) return;
+
+    if (hasTodayNoProgressEntry(selectedTaskHistory)) {
+      setToastMessage("No progress already recorded for today");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const statusData = {
+        _Tskid: String(activeTask.TID),
+        _StatusDate: formatDateTime(new Date()),
+        _StatusInfo: "No Progress yet",
+        _Status: "",
+      };
+      await apiService.saveTaskStatus(statusData);
+      await refreshTaskHistory(activeTask.TID);
+      setToastMessage("Progress recorded");
+    } catch (error) {
+      console.error("Error saving progress:", error);
+      setToastMessage("Failed to record progress");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSaveStatus = async () => {
     if (!updateStatusInfo && !updateStatus) {
       setToastMessage("Please fill status or info");
@@ -1231,25 +1279,31 @@ const Tasks: React.FC = () => {
         <IonModal
           isOpen={startDateModalOpen}
           onDidDismiss={() => setStartDateModalOpen(false)}
-          className="pwt-date-modal"
+          className="tasks-deadline-modal"
         >
           <div className="pwt-modal-content">
             <h3 className="pwt-modal-title">Select Deadline</h3>
-            <IonDatetime
-              presentation="date"
-              onIonChange={(e) => {
-                if (typeof e.detail.value === "string")
-                  setTargetDate(e.detail.value);
-                setStartDateModalOpen(false);
-              }}
-            />
-            <IonButton
-              expand="block"
-              mode="ios"
-              onClick={() => setStartDateModalOpen(false)}
-            >
-              Close
-            </IonButton>
+            <div className="pwt-datetime-wrap">
+              <IonDatetime
+                presentation="date"
+                value={targetDate || undefined}
+                onIonChange={(e) => {
+                  if (typeof e.detail.value === "string")
+                    setTargetDate(e.detail.value);
+                  setStartDateModalOpen(false);
+                }}
+              />
+            </div>
+            <div className="pwt-modal-footer">
+              <IonButton
+                expand="block"
+                mode="ios"
+                fill="clear"
+                onClick={() => setStartDateModalOpen(false)}
+              >
+                Close
+              </IonButton>
+            </div>
           </div>
         </IonModal>
 
@@ -1345,6 +1399,9 @@ const Tasks: React.FC = () => {
                           </div>
                           <IonButton expand="block" shape="round" onClick={handleSaveStatus} style={{ marginTop: '16px', '--background': 'var(--premium-gradient)', fontWeight: '700' }}>
                             {updateStatus === 'Closed' ? 'Close Task' : 'Save Status'}
+                          </IonButton>
+                          <IonButton expand="block" shape="round" onClick={handleProgress} style={{ marginTop: '10px', '--background': 'var(--premium-gradient)', fontWeight: '700' }}>
+                            No Progress Status
                           </IonButton>
                         </div>
 

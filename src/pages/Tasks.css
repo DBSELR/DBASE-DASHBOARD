@@ -1404,3 +1404,104 @@ textarea.ntv-form-input {
 .premium-alert .alert-button-cancel.sc-ion-alert-md {
     color: var(--ion-color-step-600) !important;
 }
+
+/* Deadline Date Picker Modal */
+.tasks-deadline-modal {
+    --width: min(400px, 94vw);
+    --height: auto;
+    --max-height: 92vh;
+    --border-radius: 18px;
+    --box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+    --background: #fff;
+}
+
+.tasks-deadline-modal::part(content) {
+    border-radius: 18px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.dark .tasks-deadline-modal,
+.dark .tasks-deadline-modal::part(content) {
+    --background: #1a1a1a;
+    background: #1a1a1a;
+}
+
+.tasks-deadline-modal .pwt-modal-content {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 20px 8px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.dark .tasks-deadline-modal .pwt-modal-content {
+    background: #1a1a1a;
+}
+
+.tasks-deadline-modal .pwt-modal-title {
+    margin: 0 0 4px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ion-color-primary);
+}
+
+.tasks-deadline-modal .pwt-datetime-wrap {
+    width: 100%;
+    flex: 0 0 auto;
+    margin: 0;
+    overflow: hidden;
+}
+
+.tasks-deadline-modal .pwt-datetime-wrap ion-datetime {
+    width: 100%;
+    max-width: 100%;
+    height: 330px;
+    margin: 0;
+    --background: transparent;
+    --padding-top: 0;
+    --padding-bottom: 0;
+}
+
+.tasks-deadline-modal .pwt-datetime-wrap ion-datetime::part(calendar-body) {
+    padding-bottom: 0;
+}
+
+.tasks-deadline-modal .pwt-modal-footer {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 6px 0 4px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dark .tasks-deadline-modal .pwt-modal-footer {
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.tasks-deadline-modal .pwt-modal-footer ion-button {
+    position: static;
+    bottom: auto;
+    right: auto;
+    margin: 0;
+    min-height: 30px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    --background: transparent;
+    --background-hover: transparent;
+    --background-focused: transparent;
+    --background-activated: transparent;
+    --border-color: transparent;
+    --box-shadow: none;
+    --color: var(--ion-color-primary);
+    --padding-top: 4px;
+    --padding-bottom: 4px;
+}
+
+.tasks-deadline-modal .pwt-modal-footer ion-button::part(native) {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
