@@ -123,9 +123,13 @@ const AIAttendanceRegister: React.FC = () => {
       return;
     }
     try {
+      // Determine camera stream's native dimensions dynamically to prevent scaling/stretching on mobile screens
+      const videoWidth = videoRef.current.videoWidth || 640;
+      const videoHeight = videoRef.current.videoHeight || 480;
+      
       const canvas = document.createElement("canvas");
-      canvas.width = 640;
-      canvas.height = 480;
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
       const ctx = canvas.getContext("2d");
       
       if (ctx) {
@@ -234,6 +238,12 @@ const AIAttendanceRegister: React.FC = () => {
             border: 1px solid #e2e8f0;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
           }
+          @media (max-width: 768px) {
+            .scanner-frame {
+              height: 280px;
+              border-radius: 16px;
+            }
+          }
           .video-feed {
             position: absolute;
             top: 0;
@@ -263,6 +273,12 @@ const AIAttendanceRegister: React.FC = () => {
             box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.65);
             position: relative;
             animation: pulse-ring 3s infinite ease-in-out;
+          }
+          @media (max-width: 768px) {
+            .scan-oval {
+              width: 170px;
+              height: 220px;
+            }
           }
           .scan-line {
             position: absolute;
@@ -312,234 +328,461 @@ const AIAttendanceRegister: React.FC = () => {
             height: 100%;
             object-fit: cover;
           }
+
+          /* Responsive Layout Styles */
+          .register-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .register-wrapper {
+              padding: 12px;
+              align-items: flex-start;
+            }
+          }
+
+          .register-card {
+            width: 100%;
+            max-width: 1050px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01);
+            position: relative;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .register-card {
+              border-radius: 16px;
+            }
+          }
+
+          .popup-toast {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: #1e293b;
+            padding: 16px 24px;
+            border-radius: 16px;
+            z-index: 99999;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: calc(100% - 40px);
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .popup-toast {
+              top: 16px;
+              right: 16px;
+              left: 16px;
+              padding: 12px 16px;
+              font-size: 0.85rem;
+              border-radius: 12px;
+            }
+          }
+
+          .register-header {
+            padding: 30px 40px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.02) 0%, rgba(139,92,246,0.02) 100%);
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .register-header {
+              padding: 16px 20px;
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 12px;
+            }
+          }
+
+          .register-header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+          }
+          @media (max-width: 768px) {
+            .register-header-left {
+              gap: 12px;
+              width: 100%;
+            }
+          }
+
+          .btn-back {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+            flex-shrink: 0;
+          }
+          @media (max-width: 768px) {
+            .btn-back {
+              width: 38px;
+              height: 38px;
+              border-radius: 10px;
+            }
+          }
+
+          .register-title {
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+          }
+          @media (max-width: 768px) {
+            .register-title {
+              font-size: 1.25rem;
+            }
+          }
+
+          .register-subtitle {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            max-width: 600px;
+          }
+          @media (max-width: 768px) {
+            .register-subtitle {
+              font-size: 0.8rem;
+              margin-top: 4px;
+            }
+          }
+
+          .register-secure-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(99, 102, 241, 0.06);
+            padding: 10px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            flex-shrink: 0;
+          }
+          @media (max-width: 768px) {
+            .register-secure-badge {
+              padding: 6px 10px;
+              border-radius: 10px;
+              font-size: 0.75rem;
+            }
+          }
+
+          .register-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 36px;
+            padding: 40px;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .register-grid {
+              grid-template-columns: 1fr;
+              gap: 24px;
+              padding: 20px;
+            }
+          }
+
+          .employee-info-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 24px;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .employee-info-card {
+              padding: 16px;
+              border-radius: 16px;
+            }
+          }
+
+          .section-title {
+            margin: 0 0 18px 0;
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          @media (max-width: 768px) {
+            .section-title {
+              font-size: 0.95rem;
+              margin-bottom: 12px;
+            }
+          }
+
+          .detail-label {
+            color: #64748b;
+            font-weight: 600;
+            font-size: 0.82rem;
+            margin-bottom: 6px;
+            display: block;
+          }
+          @media (max-width: 768px) {
+            .detail-label {
+              font-size: 0.75rem;
+            }
+          }
+
+          .detail-value {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #334155;
+            font-size: 0.95rem;
+            font-weight: 600;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .detail-value {
+              padding: 10px 12px;
+              font-size: 0.85rem;
+              border-radius: 10px;
+            }
+          }
+
+          .guidelines-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .guidelines-card {
+              padding: 16px;
+              border-radius: 16px;
+            }
+          }
+
+          .guidelines-text {
+            margin: 0 0 18px 0;
+            color: #64748b;
+            font-size: 0.88rem;
+            line-height: 1.4;
+          }
+          @media (max-width: 768px) {
+            .guidelines-text {
+              font-size: 0.78rem;
+              margin-bottom: 12px;
+            }
+          }
+
+          .guidelines-list {
+            color: #475569;
+            line-height: 1.7;
+            font-size: 0.88rem;
+            padding-left: 20px;
+            margin: 0 0 20px 0;
+          }
+          @media (max-width: 768px) {
+            .guidelines-list {
+              font-size: 0.78rem;
+              margin-bottom: 12px;
+              padding-left: 15px;
+            }
+          }
+
+          .rec-avoid-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+          @media (max-width: 480px) {
+            .rec-avoid-grid {
+              grid-template-columns: 1fr;
+              gap: 8px;
+            }
+          }
+
+          .rec-box {
+            background: rgba(34, 197, 94, 0.04);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+          }
+          .avoid-box {
+            background: rgba(239, 68, 68, 0.04);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+          }
+          @media (max-width: 768px) {
+            .rec-box, .avoid-box {
+              padding: 8px;
+            }
+          }
+
+          .rec-avoid-title {
+            font-weight: 700;
+            font-size: 0.78rem;
+            margin-bottom: 4px;
+          }
+          .rec-avoid-desc {
+            margin: 0;
+            font-size: 0.72rem;
+            line-height: 1.3;
+          }
+
+          .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          @media (max-width: 768px) {
+            .btn-container {
+              gap: 12px;
+            }
+          }
+
+          .photo-controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+          }
+          @media (max-width: 480px) {
+            .photo-controls-grid {
+              grid-template-columns: 1fr;
+              gap: 10px;
+            }
+          }
+
+          .btn-action {
+            height: 56px;
+            border-radius: 16px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-sizing: border-box;
+          }
+          @media (max-width: 768px) {
+            .btn-action {
+              height: 48px;
+              border-radius: 12px;
+              font-size: 0.9rem;
+            }
+          }
+          
+          .btn-action-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.25);
+          }
+          .btn-action-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.25);
+          }
+          .btn-action-secondary {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+          }
         `}</style>
 
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "24px",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "1050px",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "28px",
-              overflow: "hidden",
-              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01)",
-              position: "relative",
-            }}
-          >
+        <div className="register-wrapper">
+          <div className="register-card">
             {/* POPUP ALERT */}
             {popupMessage && (
-              <div
-                style={{
-                  position: "fixed",
-                  top: "30px",
-                  right: "30px",
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  color: "#1e293b",
-                  padding: "16px 24px",
-                  borderRadius: "16px",
-                  zIndex: 99999,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  animation: "animate__animated animate__fadeInRight",
-                }}
-              >
+              <div className="popup-toast animate__animated animate__fadeInRight">
                 <IonIcon icon={alertCircleOutline} style={{ color: "#ef4444", fontSize: "20px" }} />
                 <span>{popupMessage}</span>
               </div>
             )}
 
             {/* HEADER AREA */}
-            <div
-              style={{
-                padding: "30px 40px",
-                background: "linear-gradient(135deg, rgba(99,102,241,0.02) 0%, rgba(139,92,246,0.02) 100%)",
-                borderBottom: "1px solid #f1f5f9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "20px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <div className="register-header">
+              <div className="register-header-left">
                 <button
                   onClick={() => history.push("/ai-attendance-admin-dashboard")}
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "14px",
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = "#f8fafc";
-                    e.currentTarget.style.borderColor = "#cbd5e1";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = "#ffffff";
-                    e.currentTarget.style.borderColor = "#e2e8f0";
-                  }}
+                  className="btn-back"
                   title="Back to Dashboard"
                 >
                   <IonIcon icon={arrowBackOutline} style={{ fontSize: "20px", color: "#475569" }} />
                 </button>
 
                 <div>
-                  <h1
-                    style={{
-                      margin: 0,
-                      color: "#0f172a",
-                      fontSize: "1.8rem",
-                      fontWeight: 800,
-                      letterSpacing: "-0.5px",
-                    }}
-                  >
+                  <h1 className="register-title">
                     Biometric Face Enrollment
                   </h1>
-                  <p
-                    style={{
-                      marginTop: "6px",
-                      color: "#64748b",
-                      fontSize: "0.95rem",
-                      lineHeight: 1.4,
-                      maxWidth: "600px",
-                    }}
-                  >
+                  <p className="register-subtitle">
                     Register direct camera pictures to secure verification. AI-generated or heavily edited photos are prohibited.
                   </p>
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "rgba(99, 102, 241, 0.06)",
-                  padding: "10px 16px",
-                  borderRadius: "14px",
-                  border: "1px solid rgba(99, 102, 241, 0.12)",
-                }}
-              >
+              <div className="register-secure-badge">
                 <IonIcon icon={shieldCheckmarkOutline} style={{ color: "#6366f1", fontSize: "18px" }} />
                 <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#4f46e5" }}>Secure Link</span>
               </div>
             </div>
 
             {/* TWO-COLUMN GRID LAYOUT */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-                gap: "36px",
-                padding: "40px",
-              }}
-            >
+            <div className="register-grid">
               {/* LEFT COLUMN: GUIDELINES & EMP INFO */}
               <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
                 
                 {/* EMPLOYEE INFO CARD */}
-                <div
-                  style={{
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "20px",
-                    padding: "24px",
-                  }}
-                >
-                  <h3
-                    style={{
-                      margin: "0 0 18px 0",
-                      color: "#1e293b",
-                      fontSize: "1.1rem",
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
+                <div className="employee-info-card">
+                  <h3 className="section-title">
                     <IonIcon icon={personOutline} style={{ color: "#6366f1" }} />
                     Employee Details
                   </h3>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                     <div>
-                      <label
-                        style={{
-                          color: "#64748b",
-                          fontWeight: 600,
-                          fontSize: "0.82rem",
-                          marginBottom: "6px",
-                          display: "block",
-                        }}
-                      >
+                      <label className="detail-label">
                         FULL NAME
                       </label>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          width: "100%",
-                          padding: "14px 16px",
-                          borderRadius: "12px",
-                          border: "1px solid #e2e8f0",
-                          background: "#ffffff",
-                          color: "#334155",
-                          fontSize: "0.95rem",
-                          fontWeight: 600,
-                        }}
-                      >
+                      <div className="detail-value">
                         <IonIcon icon={personOutline} style={{ color: "#94a3b8" }} />
                         <span>{name || "Loading name..."}</span>
                       </div>
                     </div>
 
                     <div>
-                      <label
-                        style={{
-                          color: "#64748b",
-                          fontWeight: 600,
-                          fontSize: "0.82rem",
-                          marginBottom: "6px",
-                          display: "block",
-                        }}
-                      >
+                      <label className="detail-label">
                         EMPLOYEE ID / CODE
                       </label>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          width: "100%",
-                          padding: "14px 16px",
-                          borderRadius: "12px",
-                          border: "1px solid #e2e8f0",
-                          background: "#ffffff",
-                          color: "#334155",
-                          fontSize: "0.95rem",
-                          fontWeight: 600,
-                        }}
-                      >
+                      <div className="detail-value">
                         <IonIcon icon={idCardOutline} style={{ color: "#94a3b8" }} />
                         <span>{empId || "Loading ID..."}</span>
                       </div>
@@ -548,41 +791,15 @@ const AIAttendanceRegister: React.FC = () => {
                 </div>
 
                 {/* CAMERA GUIDELINES */}
-                <div
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "20px",
-                    padding: "24px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.01)",
-                  }}
-                >
-                  <h3
-                    style={{
-                      margin: "0 0 12px 0",
-                      color: "#1e293b",
-                      fontSize: "1.1rem",
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
+                <div className="guidelines-card">
+                  <h3 className="section-title">
                     📸 Enrollment Guidelines
                   </h3>
-                  <p style={{ margin: "0 0 18px 0", color: "#64748b", fontSize: "0.88rem", lineHeight: 1.4 }}>
+                  <p className="guidelines-text">
                     Live camera capture ensures maximum registration accuracy.
                   </p>
 
-                  <ul
-                    style={{
-                      color: "#475569",
-                      lineHeight: 1.7,
-                      fontSize: "0.88rem",
-                      paddingLeft: "20px",
-                      margin: "0 0 20px 0",
-                    }}
-                  >
+                  <ul className="guidelines-list">
                     <li style={{ marginBottom: "6px" }}>Capture 1 clear, front-facing live photo.</li>
                     <li style={{ marginBottom: "6px" }}>Align your face inside the overlay oval marker.</li>
                     <li style={{ marginBottom: "6px" }}>Position yourself in well-lit surroundings.</li>
@@ -591,35 +808,19 @@ const AIAttendanceRegister: React.FC = () => {
                   </ul>
 
                   {/* RECOMMEND VS AVOID CHECKS */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div
-                      style={{
-                        background: "rgba(34, 197, 94, 0.04)",
-                        border: "1px solid rgba(34, 197, 94, 0.15)",
-                        borderRadius: "12px",
-                        padding: "12px",
-                        textAlign: "center",
-                      }}
-                    >
+                  <div className="rec-avoid-grid">
+                    <div className="rec-box">
                       <div style={{ fontSize: "24px", marginBottom: "4px" }}>👤</div>
-                      <div style={{ color: "#166534", fontWeight: 700, fontSize: "0.78rem", marginBottom: "4px" }}>RECOMMENDED</div>
-                      <p style={{ margin: 0, color: "#15803d", fontSize: "0.72rem", lineHeight: 1.3 }}>
+                      <div className="rec-avoid-title" style={{ color: "#166534" }}>RECOMMENDED</div>
+                      <p className="rec-avoid-desc" style={{ color: "#15803d" }}>
                         Front-facing view under natural light.
                       </p>
                     </div>
 
-                    <div
-                      style={{
-                        background: "rgba(239, 68, 68, 0.04)",
-                        border: "1px solid rgba(239, 68, 68, 0.15)",
-                        borderRadius: "12px",
-                        padding: "12px",
-                        textAlign: "center",
-                      }}
-                    >
+                    <div className="avoid-box">
                       <div style={{ fontSize: "24px", marginBottom: "4px" }}>🧢🕶️</div>
-                      <div style={{ color: "#991b1b", fontWeight: 700, fontSize: "0.78rem", marginBottom: "4px" }}>AVOID</div>
-                      <p style={{ margin: 0, color: "#b91c1c", fontSize: "0.72rem", lineHeight: 1.3 }}>
+                      <div className="rec-avoid-title" style={{ color: "#991b1b" }}>AVOID</div>
+                      <p className="rec-avoid-desc" style={{ color: "#b91c1c" }}>
                         Hats, sunglasses, filters, dark shadows.
                       </p>
                     </div>
@@ -633,15 +834,7 @@ const AIAttendanceRegister: React.FC = () => {
                 
                 {/* VIDEO FEED TERMINAL */}
                 <div>
-                  <label
-                    style={{
-                      color: "#334155",
-                      fontWeight: 700,
-                      fontSize: "0.95rem",
-                      marginBottom: "12px",
-                      display: "block",
-                    }}
-                  >
+                  <label className="detail-label" style={{ color: "#334155", fontWeight: 700, fontSize: "0.95rem", marginBottom: "12px" }}>
                     Live Biometric Camera Capture
                   </label>
 
@@ -766,28 +959,12 @@ const AIAttendanceRegister: React.FC = () => {
                 </div>
 
                 {/* CONTROLS */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div className="btn-container">
                   {/* SCENARIO 1: Live camera active, ready to snap */}
                   {cameraActive && !capturedPhoto && (
                     <button
                       onClick={capturePhoto}
-                      style={{
-                        width: "100%",
-                        height: "56px",
-                        borderRadius: "16px",
-                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                        color: "#ffffff",
-                        fontSize: "1.05rem",
-                        fontWeight: 700,
-                        border: "none",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "10px",
-                        boxShadow: "0 10px 20px rgba(99, 102, 241, 0.25)",
-                        transition: "all 0.2s",
-                      }}
+                      className="btn-action btn-action-primary"
                       onMouseOver={(e) => {
                         e.currentTarget.style.transform = "translateY(-1px)";
                         e.currentTarget.style.boxShadow = "0 12px 24px rgba(99, 102, 241, 0.3)";
@@ -804,25 +981,11 @@ const AIAttendanceRegister: React.FC = () => {
 
                   {/* SCENARIO 2: Picture has been captured, ready to submit or retake */}
                   {capturedPhoto && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                    <div className="photo-controls-grid">
                       <button
                         onClick={retakePhoto}
                         disabled={isProcessing}
-                        style={{
-                          height: "56px",
-                          borderRadius: "16px",
-                          background: "#ffffff",
-                          border: "1px solid #cbd5e1",
-                          color: "#475569",
-                          fontSize: "1.05rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "8px",
-                          transition: "all 0.2s",
-                        }}
+                        className="btn-action btn-action-secondary"
                         onMouseOver={(e) => {
                           if (!isProcessing) e.currentTarget.style.background = "#f8fafc";
                         }}
@@ -837,22 +1000,7 @@ const AIAttendanceRegister: React.FC = () => {
                       <button
                         onClick={handleSubmit}
                         disabled={isProcessing}
-                        style={{
-                          height: "56px",
-                          borderRadius: "16px",
-                          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                          color: "#ffffff",
-                          fontSize: "1.05rem",
-                          fontWeight: 700,
-                          border: "none",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "8px",
-                          boxShadow: "0 10px 20px rgba(16, 185, 129, 0.25)",
-                          transition: "all 0.2s",
-                        }}
+                        className="btn-action btn-action-success"
                         onMouseOver={(e) => {
                           if (!isProcessing) {
                             e.currentTarget.style.transform = "translateY(-1px)";
@@ -882,30 +1030,14 @@ const AIAttendanceRegister: React.FC = () => {
                   {!cameraActive && !capturedPhoto && (
                     <button
                       onClick={startCamera}
-                      style={{
-                        width: "100%",
-                        height: "56px",
-                        borderRadius: "16px",
-                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                        color: "#ffffff",
-                        fontSize: "1.05rem",
-                        fontWeight: 700,
-                        border: "none",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "10px",
-                        boxShadow: "0 10px 20px rgba(99, 102, 241, 0.2)",
-                        transition: "all 0.2s",
-                      }}
+                      className="btn-action btn-action-primary"
                       onMouseOver={(e) => {
                         e.currentTarget.style.transform = "translateY(-1px)";
                         e.currentTarget.style.boxShadow = "0 12px 24px rgba(99, 102, 241, 0.25)";
                       }}
                       onMouseOut={(e) => {
                         e.currentTarget.style.transform = "none";
-                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(99, 102, 241, 0.2)";
+                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(99, 102, 241, 0.25)";
                       }}
                     >
                       <IonIcon icon={cameraOutline} style={{ fontSize: "20px" }} />

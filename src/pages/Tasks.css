@@ -1505,3 +1505,66 @@ textarea.ntv-form-input {
     box-shadow: none !important;
 }
 
+/* Custom inline select matching Support Tickets */
+.dbase-inline-select.searchable-trigger {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    background: #fff;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.dark .dbase-inline-select.searchable-trigger {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dbase-inline-select.searchable-trigger:hover,
+.dbase-inline-select.searchable-trigger.active {
+    border-color: var(--ion-color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
+}
+
+.dbase-select-text {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Responsiveness rules for Update / Transfer Task form card */
+.tdm-inputs-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+}
+
+@media (min-width: 768px) {
+    .tdm-inputs-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.tdm-button-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Small screens: 1 by 1 */
+    gap: 10px;
+    margin-top: 20px;
+}
+
+@media (min-width: 576px) and (max-width: 991px) {
+    .tdm-button-grid {
+        grid-template-columns: 1fr 1fr; /* Medium screens: 2 by 2 */
+    }
+}
+
+@media (min-width: 992px) {
+    .tdm-button-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr; /* Large screens: 1 single line (4 cols) */
+    }
+}
+

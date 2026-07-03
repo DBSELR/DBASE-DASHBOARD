@@ -89,9 +89,11 @@ const Tasks: React.FC = () => {
 
   // Custom Dropdown States
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [isTransferDropdownOpen, setIsTransferDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const [empSearchTerm, setEmpSearchTerm] = useState("");
   const triggerRef = useRef<HTMLDivElement>(null);
+  const transferTriggerRef = useRef<HTMLDivElement>(null);
 
   // Position logic
   useEffect(() => {
@@ -104,6 +106,17 @@ const Tasks: React.FC = () => {
       });
     }
   }, [isEmployeeDropdownOpen]);
+
+  useEffect(() => {
+    if (isTransferDropdownOpen && transferTriggerRef.current) {
+      const rect = transferTriggerRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 220)
+      });
+    }
+  }, [isTransferDropdownOpen]);
 
   // Filtering for Searchable Dropdown
   const filteredEmployees = employees.filter((emp) => {
@@ -582,7 +595,7 @@ const Tasks: React.FC = () => {
     return history.some((item) => {
       const datePart = (item.date || "").split(" ")[0];
       const message = (item.message || "").trim().toLowerCase();
-      return datePart === today && message === "no progress yet";
+      return datePart === today && (message === "no progress yet" || message === "no change");
     });
   };
 
@@ -611,7 +624,7 @@ const Tasks: React.FC = () => {
       const statusData = {
         _Tskid: String(activeTask.TID),
         _StatusDate: formatDateTime(new Date()),
-        _StatusInfo: "No Progress yet",
+        _StatusInfo: "No Change",
         _Status: "",
       };
       await apiService.saveTaskStatus(statusData);
@@ -625,9 +638,9 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const handleSaveStatus = async () => {
-    if (!updateStatusInfo && !updateStatus) {
-      setToastMessage("Please fill status or info");
+  const handleUpdateStatus = async () => {
+    if (!updateStatusInfo) {
+      setToastMessage("Please enter status info / progress");
       return;
     }
     setIsLoading(true);
@@ -636,7 +649,7 @@ const Tasks: React.FC = () => {
         _Tskid: String(activeTask.TID),
         _StatusDate: formatDateTime(new Date()),
         _StatusInfo: updateStatusInfo,
-        _Status: updateStatus === "Closed" ? "true" : "",
+        _Status: "",
       };
       await apiService.saveTaskStatus(statusData);
 
@@ -655,8 +668,8 @@ const Tasks: React.FC = () => {
             },
             body: JSON.stringify({
               EmpCode: pushTargetEmpCode,
-              Title: updateStatus === "Closed" ? "Task Completed" : "Task Status Updated",
-              Body: `Task #${activeTask.TID}: ${updateStatusInfo || "Status updated"} — by ${currentEmpName}.`,
+              Title: "Task Status Updated",
+              Body: `Task #${activeTask.TID}: ${updateStatusInfo} — by ${currentEmpName}.`,
               Url: "/tasks"
             })
           }).catch(e => console.error("Push Error:", e));
@@ -671,40 +684,17 @@ const Tasks: React.FC = () => {
         const ctx = buildTaskContext(activeTask);
         const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
         
-        if (updateStatus === "Closed") {
-          const extra = {
-            completedBy: formattedCurrentUser,
-            remarks: updateStatusInfo || "Task marked as completed"
-          };
-          
-          const [creatorMobile, assigneeMobile] = await Promise.all([
-            fetchEmployeeMobile(ctx.creatorEmpCode),
-            fetchEmployeeMobile(ctx.assigneeEmpCode)
-          ]);
-          
-          // Deduplicate mobile numbers
-          const mobiles = new Set<string>();
-          if (creatorMobile) mobiles.add(creatorMobile);
-          if (assigneeMobile) mobiles.add(assigneeMobile);
-          
-          await Promise.all(
-            Array.from(mobiles).map(mobile =>
-              sendTaskWhatsApp(mobile, "task_completed", ctx, extra)
-            )
-          );
-        } else {
-          const extra = {
-            status: updateStatus || "In Progress",
-            updatedBy: formattedCurrentUser,
-            remarks: updateStatusInfo || "No remarks provided"
-          };
-          
-          // Notify the counterparty
-          const targetEmpCode = (currentEmpCode === ctx.creatorEmpCode) ? ctx.assigneeEmpCode : ctx.creatorEmpCode;
-          const targetMobile = await fetchEmployeeMobile(targetEmpCode);
-          if (targetMobile) {
-            await sendTaskWhatsApp(targetMobile, "task_status_updated", ctx, extra);
-          }
+        const extra = {
+          status: "In Progress",
+          updatedBy: formattedCurrentUser,
+          remarks: updateStatusInfo
+        };
+        
+        // Notify the counterparty
+        const targetEmpCode = (currentEmpCode === ctx.creatorEmpCode) ? ctx.assigneeEmpCode : ctx.creatorEmpCode;
+        const targetMobile = await fetchEmployeeMobile(targetEmpCode);
+        if (targetMobile) {
+          await sendTaskWhatsApp(targetMobile, "task_status_updated", ctx, extra);
         }
       } catch (e) {
         console.error("[WhatsApp] Failed to send status update notification:", e);
@@ -712,22 +702,120 @@ const Tasks: React.FC = () => {
 
       setToastMessage("Status updated");
       setUpdateStatusInfo("");
-      setUpdateStatus("");
       setDetailModalOpen(false);
       setActiveTask(null);
-      //handleViewTask(activeTask);
       fetchInitialData(currentEmpCode);
     } catch (error) {
-      console.error("Error saving status:", error);
+      console.error("Error updating status:", error);
       setToastMessage("Failed to update status");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const performComplete = async () => {
+    setIsLoading(true);
+    try {
+      const statusData = {
+        _Tskid: String(activeTask.TID),
+        _StatusDate: formatDateTime(new Date()),
+        _StatusInfo: updateStatusInfo || "Task completed",
+        _Status: "true",
+      };
+      await apiService.saveTaskStatus(statusData);
+
+      // --- SEND PUSH NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(activeTask);
+        const pushTargetEmpCode = (currentEmpCode === ctx.assigneeEmpCode)
+          ? ctx.creatorEmpCode
+          : ctx.assigneeEmpCode;
+        if (pushTargetEmpCode) {
+          fetch(`${API_BASE}Notifications/SendPush`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
+            },
+            body: JSON.stringify({
+              EmpCode: pushTargetEmpCode,
+              Title: "Task Completed",
+              Body: `Task #${activeTask.TID}: ${updateStatusInfo || "Task completed"} — by ${currentEmpName}.`,
+              Url: "/tasks"
+            })
+          }).catch(e => console.error("Push Error:", e));
+        }
+      } catch (e) {
+        console.error("Push Catch:", e);
+      }
+      // ------------------------------
+
+      // --- SEND WHATSAPP NOTIFICATION ---
+      try {
+        const ctx = buildTaskContext(activeTask);
+        const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
+        
+        const extra = {
+          completedBy: formattedCurrentUser,
+          remarks: updateStatusInfo || "Task marked as completed"
+        };
+        
+        const [creatorMobile, assigneeMobile] = await Promise.all([
+          fetchEmployeeMobile(ctx.creatorEmpCode),
+          fetchEmployeeMobile(ctx.assigneeEmpCode)
+        ]);
+        
+        // Deduplicate mobile numbers
+        const mobiles = new Set<string>();
+        if (creatorMobile) mobiles.add(creatorMobile);
+        if (assigneeMobile) mobiles.add(assigneeMobile);
+        
+        await Promise.all(
+          Array.from(mobiles).map(mobile =>
+            sendTaskWhatsApp(mobile, "task_completed", ctx, extra)
+          )
+        );
+      } catch (e) {
+        console.error("[WhatsApp] Failed to send status update notification:", e);
+      }
+
+      setToastMessage("Task completed");
+      setUpdateStatusInfo("");
+      setUpdateStatus("");
+      setDetailModalOpen(false);
+      setActiveTask(null);
+      fetchInitialData(currentEmpCode);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      setToastMessage("Failed to complete task");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCompleteTask = () => {
+    present({
+      header: 'Complete Task',
+      message: 'Are you sure you want to mark this task as completed?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Yes, Complete',
+          handler: () => {
+            performComplete();
+          }
+        }
+      ]
+    });
+  };
+
   const handleTransferTask = async () => {
     if (!transferTargetEmp) {
       setToastMessage("Please select recipient");
+      return;
+    }
+    if (!updateStatusInfo) {
+      setToastMessage("Please enter What's the progress? (transfer remarks)");
       return;
     }
     setIsLoading(true);
@@ -1239,12 +1327,24 @@ const Tasks: React.FC = () => {
                   <div className={`priority-marker ${(task.TPriority || "Low").toLowerCase()}`}></div>
                   <div className="task-card-header">
                     <div className="tid-badge">ID: {task.TID}</div>
-                    <div className="action-buttons">
+                    <div className="action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {task.Status === 'Closed' && (
+                        <IonButton
+                          fill="outline"
+                          color="success"
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); handleReopenTask(task); }}
+                          style={{ '--border-radius': '8px', fontSize: '9px', height: '22px', margin: '0', '--padding-start': '8px', '--padding-end': '8px', width: 'auto' }}
+                        >
+                          Reopen
+                        </IonButton>
+                      )}
                       <IonButton
                         fill="clear"
                         color="danger"
                         size="small"
                         onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.TID); }}
+                        style={{ margin: 0 }}
                       >
                         <IonIcon icon={trash} slot="icon-only" style={{ fontSize: '18px' }} />
                       </IonButton>
@@ -1355,98 +1455,157 @@ const Tasks: React.FC = () => {
                     {activeTask.Status !== 'Closed' && selectedTab === 'view' && (
                       <div className="tdm-action-forms">
                         <div className="tdm-form-card">
-                          <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Update Status</h4>
-                          <IonItem lines="full" style={{ '--padding-start': '0' }}>
-                            <IonLabel position="stacked">Status Info</IonLabel>
-                            <IonInput value={updateStatusInfo} onIonChange={e => setUpdateStatusInfo(e.detail.value!)} placeholder="What's the progress?" />
-                          </IonItem>
-                          <div className="tdm-status-toggle-box" style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '12px 16px',
-                            background: 'rgba(255,255,255,0.05)',
-                            borderRadius: '12px',
-                            margin: '16px 0'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <IonIcon
-                                icon={updateStatus === 'Closed' ? checkmarkCircle : checkmarkCircleOutline}
-                                style={{ fontSize: '22px', color: updateStatus === 'Closed' ? 'var(--ion-color-success)' : 'rgba(255,255,255,0.4)' }}
+                          <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Update / Transfer Task</h4>
+                          
+                          <div className="tdm-inputs-row">
+                            <IonItem lines="full" style={{ '--padding-start': '0', width: '100%' }}>
+                              <IonLabel position="stacked">What's the progress?</IonLabel>
+                              <IonInput 
+                                value={updateStatusInfo} 
+                                onIonChange={e => setUpdateStatusInfo(e.detail.value!)} 
+                                placeholder="Enter task updates or transfer remarks..." 
                               />
-                              <span style={{ fontSize: '14px', fontWeight: '700', color: updateStatus === 'Closed' ? 'var(--ion-color-success)' : 'inherit' }}>
-                                Mark as Completed
-                              </span>
+                            </IonItem>
+                            
+                            <div>
+                              <span style={{ fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--ion-color-medium)', display: 'block', marginBottom: '8px' }}>Transfer To :</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div 
+                                  ref={transferTriggerRef}
+                                  className={`dbase-inline-select searchable-trigger ${isTransferDropdownOpen ? 'active' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsEmployeeDropdownOpen(false);
+                                    setIsTransferDropdownOpen(!isTransferDropdownOpen);
+                                  }}
+                                  style={{ 
+                                    flex: 1, 
+                                    cursor: 'pointer', 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    border: '1.5px solid #e2e8f0',
+                                    borderRadius: '10px',
+                                    height: '40px',
+                                    padding: '0 12px',
+                                    background: 'var(--ion-item-background, #fff)'
+                                  }}
+                                >
+                                  <span className="dbase-select-text" style={{ fontSize: '14px', color: transferTargetEmp ? 'var(--ion-text-color, #000)' : 'var(--ion-color-medium, #888)' }}>
+                                    {transferTargetEmp || "Select Employee"}
+                                  </span>
+                                  {transferTargetEmp && (
+                                    <IonIcon 
+                                      icon={close} 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTransferTargetEmp("");
+                                      }}
+                                      style={{ fontSize: '18px', color: 'var(--ion-color-medium)', cursor: 'pointer' }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {isTransferDropdownOpen && createPortal(
+                                <>
+                                  <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTransferDropdownOpen(false); }} />
+                                  <div
+                                    className="custom-inline-dropdown"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    style={{
+                                      position: 'absolute',
+                                      top: `${dropdownPos.top}px`,
+                                      left: `${dropdownPos.left}px`,
+                                      width: `${dropdownPos.width}px`
+                                    }}
+                                  >
+                                    <div className="dropdown-search-sec">
+                                      <IonIcon icon={search} className="dropdown-search-icon" />
+                                      <input
+                                        type="text"
+                                        className="dropdown-pure-input"
+                                        placeholder="Search name or code..."
+                                        value={empSearchTerm}
+                                        onChange={(e) => setEmpSearchTerm(e.target.value)}
+                                        autoFocus
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                      />
+                                      {empSearchTerm && (
+                                        <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                                          <IonIcon icon={close} />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="dropdown-body">
+                                      {filteredEmployees.map((emp, index) => {
+                                        const empId = String(emp[0]);
+                                        let empName = String(emp[1]);
+                                        if (empName.startsWith(empId + "-")) {
+                                          empName = empName.replace(empId + "-", "").trim();
+                                        }
+                                        const isSelected = transferTargetEmp === `${empId}-${empName}`;
+                                        const initials = (empName.charAt(0) || "?").toUpperCase();
+
+                                        return (
+                                          <div
+                                            key={index}
+                                            className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              setTransferTargetEmp(`${empId}-${empName}`);
+                                              setIsTransferDropdownOpen(false);
+                                              setEmpSearchTerm("");
+                                            }}
+                                          >
+                                            <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
+                                              {initials}
+                                            </div>
+                                            <div className="dr-info">
+                                              <span className="dr-name">{empName}</span>
+                                              <span className="dr-id">ID: {empId}</span>
+                                            </div>
+                                            {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                                          </div>
+                                        );
+                                      })}
+                                      {filteredEmployees.length === 0 && (
+                                        <div className="dr-no-results">
+                                          <p>No matches for "{empSearchTerm}"</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </>,
+                                document.body
+                              )}
                             </div>
-                            <IonToggle
-                              checked={updateStatus === 'Closed'}
-                              onIonChange={e => {
-                                if (e.detail.checked) {
-                                  present({
-                                    header: 'Close Task',
-                                    message: 'Are you sure you want to mark this task as completed?',
-                                    buttons: [
-                                      { text: 'Cancel', role: 'cancel', handler: () => setUpdateStatus('') },
-                                      { text: 'Yes, Close', handler: () => setUpdateStatus('Closed') }
-                                    ]
-                                  });
-                                } else {
-                                  setUpdateStatus('');
-                                }
-                              }}
-                              color="success"
-                            />
                           </div>
-                          <IonButton expand="block" shape="round" onClick={handleSaveStatus} style={{ marginTop: '16px', '--background': 'var(--premium-gradient)', fontWeight: '700' }}>
-                            {updateStatus === 'Closed' ? 'Close Task' : 'Save Status'}
-                          </IonButton>
-                          <IonButton expand="block" shape="round" onClick={handleProgress} style={{ marginTop: '10px', '--background': 'var(--premium-gradient)', fontWeight: '700' }}>
-                            No Progress Status
-                          </IonButton>
-                        </div>
 
-                        <div className="tdm-form-card">
-                          <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Transfer Task</h4>
-                          <IonItem lines="full" style={{ '--padding-start': '0' }}>
-                            <IonLabel position="stacked">Transfer To</IonLabel>
-                            <IonSelect
-                              value={transferTargetEmp}
-                              onIonChange={e => setTransferTargetEmp(e.detail.value!)}
-                            >
-                              {employees.map((emp, i) => {
-                                const empId = String(emp[0]);
+                          <div className="tdm-button-grid">
+                            <IonButton expand="block" shape="round" onClick={handleProgress} style={{ '--background': '#f39c12', fontWeight: '700', fontSize: '13px', margin: 0 }}>
+                              No Change
+                            </IonButton>
+                            
+                            <IonButton expand="block" shape="round" onClick={handleUpdateStatus} style={{ '--background': 'var(--premium-gradient)', fontWeight: '700', fontSize: '13px', margin: 0 }}>
+                              Update
+                            </IonButton>
+                            
+                            <IonButton expand="block" color="success" shape="round" onClick={handleCompleteTask} style={{ '--background': '#0bcd3cff', fontWeight: '700', fontSize: '13px', margin: 0 }}>
+                              Complete
+                            </IonButton>
 
-                                let empName = String(emp[1]);
-
-                                // ✅ Remove duplicate ID if exists
-                                if (empName.startsWith(empId + "-")) {
-                                  empName = empName.replace(empId + "-", "").trim();
-                                }
-
-                                return (
-                                  <IonSelectOption key={i} value={`${empId}-${empName}`}>
-                                    {empId} - {empName}
-                                  </IonSelectOption>
-                                );
-                              })}
-                            </IonSelect>
-                          </IonItem>
-                          <IonItem lines="full" style={{ '--padding-start': '0' }}>
-                            <IonLabel position="stacked">Transfer Remarks</IonLabel>
-                            <IonInput
-                              value={updateStatusInfo}
-                              onIonChange={e => setUpdateStatusInfo(e.detail.value!)}
-                              placeholder="Enter details for transfer..."
-                            />
-                          </IonItem>
-                          <IonButton expand="block" fill="outline" shape="round" onClick={handleTransferTask} style={{ marginTop: '16px', fontWeight: '700' }}>
-                            Transfer Now
-                          </IonButton>
+                            <IonButton expand="block" fill="outline" shape="round" onClick={handleTransferTask} style={{ fontWeight: '700', fontSize: '13px', margin: 0 }}>
+                              Transfer
+                            </IonButton>
+                          </div>
                         </div>
                       </div>
                     )}
 
-                    {activeTask.Status === 'Closed' && selectedTab === 'view' && (
+                    {activeTask.Status === 'Closed' && (
                       <div className="tdm-action-forms">
                         <div className="tdm-form-card" style={{ textAlign: 'center' }}>
                           <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Task Completed</h4>
