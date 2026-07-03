@@ -212,6 +212,44 @@ const OnDuties: React.FC = () => {
   const [userLoaded, setUserLoaded] = useState<boolean>(false);
   const didInitRef = useRef(false);
   const contentRef = useRef<HTMLIonContentElement>(null);
+  const modalContentRef = useRef<HTMLIonContentElement>(null);
+  const savedScrollTop = useRef<number>(0);
+
+  const saveModalScroll = async () => {
+    if (modalContentRef.current) {
+      try {
+        const el = await modalContentRef.current.getScrollElement();
+        savedScrollTop.current = el.scrollTop;
+      } catch (e) {
+        console.warn("Failed to get scroll elementS:", e);
+      }
+    }
+  };
+
+  const restoreModalScroll = () => {
+    if (modalContentRef.current && savedScrollTop.current > 0) {
+      const currentScroll = savedScrollTop.current;
+      setTimeout(async () => {
+        try {
+          if (modalContentRef.current) {
+            await modalContentRef.current.scrollToPoint(0, currentScroll, 0);
+          }
+        } catch (e) {
+          console.warn("Failed to restore scroll (50ms):", e);
+        }
+      }, 50);
+
+      setTimeout(async () => {
+        try {
+          if (modalContentRef.current) {
+            await modalContentRef.current.scrollToPoint(0, currentScroll, 0);
+          }
+        } catch (e) {
+          console.warn("Failed to restore scroll (150ms):", e);
+        }
+      }, 150);
+    }
+  };
 
 
   const api = useMemo(() => {
@@ -268,7 +306,8 @@ const [dutyToDate, setDutyToDate] = useState<string | null>(null);
 const maxDateObj = new Date(dutyFromDate || today);
 maxDateObj.setDate(maxDateObj.getDate() + 6);
 const maxDate = maxDateObj.toISOString().split("T")[0];
-
+const [tripModalMode, setTripModalMode] =
+  useState<"add" | "edit">("add");
 
   
 
@@ -351,46 +390,96 @@ useEffect(() => {
     return generateDaysBetween(fromDate, toDate);
   };
 
+  // const openAddDayTripModal = (row: DutyRow) => {
+  //   const allTripDates = getTripDatesForDuty(row);
+
+  //   const normalize = (d: string) =>
+  //     d ? new Date(d).toISOString().split("T")[0] : "";
+
+  //   const currentTrips = tripDaysByDuty[row.id] || [];
+
+  //   const existingDates = currentTrips.map((x) =>
+  //     normalize(x.dutyDate)
+  //   );
+
+  //   const nextDate = allTripDates.find(
+  //     (d) => !existingDates.includes(normalize(d))
+  //   );
+
+  //   if (!nextDate) {
+  //     notify("All day trips already added", "warning");
+  //     return;
+  //   }
+
+  //   const newTrip = emptyTripDay(normalize(nextDate));
+
+  //   setTripDaysByDuty((prev) => ({
+  //     ...prev,
+  //     [row.id]: [...(prev[row.id] || []), newTrip],
+  //   }));
+
+  //   setSelectedDutyRow(row);
+  //   setSelectedDutyId(row.id);
+  //   setEditingTripIndex((tripDaysByDuty[row.id] || []).length);
+  //   setShowDayTripModal(true);
+  // };
+
   const openAddDayTripModal = (row: DutyRow) => {
-    const allTripDates = getTripDatesForDuty(row);
+  setTripModalMode("add");
 
-    const normalize = (d: string) =>
-      d ? new Date(d).toISOString().split("T")[0] : "";
+  const allTripDates = getTripDatesForDuty(row);
 
-    const currentTrips = tripDaysByDuty[row.id] || [];
+  const normalize = (d: string) =>
+    d ? new Date(d).toISOString().split("T")[0] : "";
 
-    const existingDates = currentTrips.map((x) =>
-      normalize(x.dutyDate)
-    );
+  const currentTrips = tripDaysByDuty[row.id] || [];
 
-    const nextDate = allTripDates.find(
-      (d) => !existingDates.includes(normalize(d))
-    );
+  const existingDates = currentTrips.map((x) =>
+    normalize(x.dutyDate)
+  );
 
-    if (!nextDate) {
-      notify("All day trips already added", "warning");
-      return;
-    }
+  const nextDate = allTripDates.find(
+    (d) => !existingDates.includes(normalize(d))
+  );
 
-    const newTrip = emptyTripDay(normalize(nextDate));
+  if (!nextDate) {
+    notify("All day trips already added", "warning");
+    return;
+  }
 
-    setTripDaysByDuty((prev) => ({
-      ...prev,
-      [row.id]: [...(prev[row.id] || []), newTrip],
-    }));
+  const newTrip = emptyTripDay(normalize(nextDate));
 
-    setSelectedDutyRow(row);
-    setSelectedDutyId(row.id);
-    setEditingTripIndex((tripDaysByDuty[row.id] || []).length);
-    setShowDayTripModal(true);
-  };
+  const newIndex = currentTrips.length;
 
-  const openEditDayTripModal = (row: DutyRow, index: number) => {
-    setSelectedDutyRow(row);
-    setSelectedDutyId(row.id);
-    setEditingTripIndex(index);
-    setShowDayTripModal(true);
-  };
+  setTripDaysByDuty((prev) => ({
+    ...prev,
+    [row.id]: [...(prev[row.id] || []), newTrip],
+  }));
+
+  setSelectedDutyRow(row);
+  setSelectedDutyId(row.id);
+  setEditingTripIndex(newIndex);
+  setShowDayTripModal(true);
+};
+
+  // const openEditDayTripModal = (row: DutyRow, index: number) => {
+  //   setSelectedDutyRow(row);
+  //   setSelectedDutyId(row.id);
+  //   setEditingTripIndex(index);
+  //   setShowDayTripModal(true);
+  // };
+
+  const openEditDayTripModal = (
+  row: DutyRow,
+  index: number
+) => {
+  setTripModalMode("edit");
+
+  setSelectedDutyRow(row);
+  setSelectedDutyId(row.id);
+  setEditingTripIndex(index);
+  setShowDayTripModal(true);
+};
 
   const closeDayTripModal = () => {
     setShowDayTripModal(false);
@@ -575,19 +664,48 @@ useEffect(() => {
     }
   };
 
+  console.log("===== SAVE START =====");
+console.log("tripModalMode:", tripModalMode);
+console.log("selectedDutyId:", selectedDutyId);
+console.log("editingTripIndex:", editingTripIndex);
+console.log("tripDaysByDuty:", tripDaysByDuty);
+
+const trips = tripDaysByDuty[selectedDutyId] || [];
+console.log("trips:", trips);
+console.log("trips.length:", trips.length);
+
+const trip =
+  editingTripIndex != null &&
+  editingTripIndex >= 0 &&
+  editingTripIndex < trips.length
+    ? trips[editingTripIndex]
+    : null;
+
+console.log("trip:", trip);
+
   const saveDayTripModal = async () => {
-    if (!selectedDutyId || editingTripIndex === null) {
+    if (
+      !selectedDutyId ||
+      editingTripIndex === null ||
+      editingTripIndex === undefined
+    ) {
       notify("Invalid trip state", "warning");
       return;
     }
 
-    const trip = tripDaysByDuty[selectedDutyId]?.[editingTripIndex];
+    const trips = tripDaysByDuty[selectedDutyId] || [];
+    const trip =
+      editingTripIndex != null &&
+      editingTripIndex >= 0 &&
+      editingTripIndex < trips.length
+        ? trips[editingTripIndex]
+        : null;
+
     if (!trip) {
       notify("Trip data missing", "danger");
       return;
     }
 
-    // validation
     // ===== VALIDATION =====
 
     // Public Transport → only distance required
@@ -602,40 +720,27 @@ useEffect(() => {
     if (!isPublicTransport) {
       if (
         !trip.readingFrom ||
-        !trip.readingTo ||
-        !trip.readingFromImage ||
-        !trip.readingToImage
+        !trip.readingFromImage
       ) {
         notify("Reading values and images are required", "warning");
         return;
       }
     }
 
-    // Office Vehicle → fuel required
-    if (isOfficeVehicle) {
-      if (!trip.fuelAmount || !trip.fuelImage) {
-        notify("Fuel amount and bill image are required", "warning");
+    // At least one visit required (Only in EDIT mode)
+    if (tripModalMode === "edit") {
+      if (!trip.visits || !trip.visits.length) {
+        notify("At least one visit required", "warning");
         return;
       }
-    }
-
-    // At least one visit required
-    if (!trip.visits.length) {
-      notify("At least one visit required", "warning");
-      return;
-    }
-
-    if (!trip.visits.length) {
-      notify("At least one visit required", "warning");
-      return;
     }
 
     const formData = new FormData();
 
     formData.append("duty_Id", selectedDutyId);
     formData.append("duty_Date", trip.dutyDate);
-    // Transport based data handling
 
+    // Transport based data handling
     if (isPublicTransport) {
       // Public Transport
       formData.append("reading_From", "0");
@@ -661,48 +766,63 @@ useEffect(() => {
     if (!isPublicTransport) {
       if (trip.readingFromImage instanceof File) {
         formData.append("ReadingFrom_Image", trip.readingFromImage);
+      } else if (typeof trip.readingFromImage === "string" && trip.readingFromImage.trim() !== "") {
+        formData.append("ReadingFrom_ImagePath", trip.readingFromImage);
       }
 
       if (trip.readingToImage instanceof File) {
         formData.append("ReadingTo_Image", trip.readingToImage);
+      } else if (typeof trip.readingToImage === "string" && trip.readingToImage.trim() !== "") {
+        formData.append("ReadingTo_ImagePath", trip.readingToImage);
       }
     }
 
     // Fuel image only for Office vehicle
-    if (isOfficeVehicle && trip.fuelImage instanceof File) {
-      formData.append("Fuel_Image", trip.fuelImage);
+    if (isOfficeVehicle) {
+      if (trip.fuelImage instanceof File) {
+        formData.append("Fuel_Image", trip.fuelImage);
+      } else if (typeof trip.fuelImage === "string" && trip.fuelImage.trim() !== "") {
+        formData.append("Fuel_ImagePath", trip.fuelImage);
+      }
     }
 
-    // visits
-    trip.visits.forEach((v, i) => {
-      formData.append(`visits[${i}].visit_Id`, String(v.visit_Id || 0));
-      formData.append(`visits[${i}].client_Name`, v.partyName);
-      formData.append(`visits[${i}].location`, v.location);
-      formData.append(`visits[${i}].latitude`, v.latitude || "");
-      formData.append(`visits[${i}].longitude`, v.longitude || "");
-      formData.append(`visits[${i}].visit_FromTime`, v.visitFromTime);
-      formData.append(`visits[${i}].visit_ToTime`, v.visitToTime);
-      formData.append(`visits[${i}].projects`, v.demoProjects.join(","));
-      formData.append(`visits[${i}].contact_Person`, v.contactPerson);
-      formData.append(`visits[${i}].mobile_Number`, v.mobile);
-      formData.append(`visits[${i}].remarks`, v.remarks);
-      formData.append(`visits[${i}].localTransportAmount`, v.localTransportAmount || "");
+    // visits (Only in EDIT mode)
+    if (tripModalMode === "edit") {
+      trip.visits.forEach((v, i) => {
+        formData.append(`visits[${i}].visit_Id`, String(v.visit_Id || 0));
+        formData.append(`visits[${i}].client_Name`, v.partyName);
+        formData.append(`visits[${i}].location`, v.location);
+        formData.append(`visits[${i}].latitude`, v.latitude || "");
+        formData.append(`visits[${i}].longitude`, v.longitude || "");
+        formData.append(`visits[${i}].visit_FromTime`, v.visitFromTime);
+        formData.append(`visits[${i}].visit_ToTime`, v.visitToTime);
+        formData.append(`visits[${i}].projects`, (v.demoProjects || []).join(","));
+        formData.append(`visits[${i}].contact_Person`, v.contactPerson);
+        formData.append(`visits[${i}].mobile_Number`, v.mobile);
+        formData.append(`visits[${i}].remarks`, v.remarks);
+        formData.append(`visits[${i}].localTransportAmount`, v.localTransportAmount || "");
 
-      if (v.visitSlipImage instanceof File) {
-        formData.append(`visits[${i}].visit_Image`, v.visitSlipImage);
-      } else if (typeof v.visitSlipImage === "string" && v.visitSlipImage.trim() !== "") {
-        formData.append(`visits[${i}].visit_ImagePath`, v.visitSlipImage);
-      }
+        if (v.visitSlipImage instanceof File) {
+          formData.append(`visits[${i}].visit_Image`, v.visitSlipImage);
+        } else if (typeof v.visitSlipImage === "string" && v.visitSlipImage.trim() !== "") {
+          formData.append(`visits[${i}].visit_ImagePath`, v.visitSlipImage);
+        }
 
-      if (v.localTransportImage instanceof File) {
-        formData.append(`visits[${i}].localTransportImage`, v.localTransportImage);
-      } else if (
-        typeof v.localTransportImage === "string" &&
-        v.localTransportImage.trim() !== ""
-      ) {
-        formData.append(`visits[${i}].localTransportImagePath`, v.localTransportImage);
-      }
-    });
+        if (v.localTransportImage instanceof File) {
+          formData.append(`visits[${i}].localTransportImage`, v.localTransportImage);
+        } else if (
+          typeof v.localTransportImage === "string" &&
+          v.localTransportImage.trim() !== ""
+        ) {
+          formData.append(`visits[${i}].localTransportImagePath`, v.localTransportImage);
+        }
+      });
+    }
+
+    console.log("editingTripIndex", editingTripIndex);
+    console.log("selectedDutyId", selectedDutyId);
+    console.log("tripDaysByDuty", tripDaysByDuty);
+    console.log("trip", trip);
 
     try {
       const res = await api.post("Workreport/save_daytrip", formData, {
@@ -721,13 +841,18 @@ useEffect(() => {
       console.log("SAVE ERROR:", error);
       console.log("SAVE ERROR RESPONSE:", error?.response);
 
-      notify(
-        error?.response?.data?.message ||
-        error?.response?.data ||
-        error?.message ||
-        "Save failed",
-        "danger"
-      );
+      let errorMsg = "Save failed";
+      if (error?.response?.data) {
+        if (typeof error.response.data === "string") {
+          errorMsg = error.response.data;
+        } else if (typeof error.response.data === "object") {
+          errorMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+        }
+      } else if (error?.message) {
+        errorMsg = error.message;
+      }
+
+      notify(errorMsg, "danger");
     }
   };
   useEffect(() => {
@@ -2038,7 +2163,7 @@ useEffect(() => {
         </div>
 
         <IonModal isOpen={showDayTripModal} onDidDismiss={closeDayTripModal}>
-          <IonContent className="ion-padding">
+          <IonContent className="ion-padding" ref={modalContentRef}>
             {editingTripIndex !== null && currentModalTrip && (() => {
               const trip = currentModalTrip;
               const hasReadingFromImage = !!trip.readingFromImage;
@@ -2129,7 +2254,12 @@ useEffect(() => {
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr",
+                        gridTemplateColumns:
+  window.innerWidth <= 768
+    ? "1fr"
+    : tripModalMode === "add"
+    ? "1fr"
+    : "1fr 1fr",
                           gap: "10px",
                           alignItems: "start",
                         }}
@@ -2156,33 +2286,45 @@ useEffect(() => {
                               minHeight: "24px",
                             }}
                           >
-                            <label
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: 700,
-                                color: "#334155",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                                lineHeight: "20px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "6px",
-                              }}
-                            >
-                              Reading From
-                              <input
-                                hidden
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) =>
-                                  updateTripDay(
-                                    editingTripIndex,
-                                    "readingFromImage",
-                                    e.target.files?.[0] || null
-                                  )
-                                }
-                              />
-                            </label>
+                           <label
+  style={{
+    fontSize: "14px",
+    fontWeight: 700,
+    color: "#334155",
+    cursor: "pointer",
+    textDecoration: "underline",
+    lineHeight: "20px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+  }}
+>
+  Reading From
+  <input
+    hidden
+    type="file"
+    accept="image/*"
+    onClick={saveModalScroll}
+    onChange={(e) => {
+      const file = e.target.files?.[0] || null;
+
+      updateTripDay(
+        editingTripIndex!,
+        "readingFromImage",
+        file
+      );
+
+      if (tripModalMode === "add") {
+        updateTripDay(
+          editingTripIndex!,
+          "readingTo",
+          trip.readingFrom
+        );
+      }
+      restoreModalScroll();
+    }}
+  />
+</label>
 
                             {trip.readingFromImage && (
                               <span
@@ -2201,33 +2343,41 @@ useEffect(() => {
                             )}
                           </div>
 
-                          <input
-                            value={trip.readingFrom}
-                            disabled={!hasReadingFromImage}
-                            placeholder={
-                              hasReadingFromImage
-                                ? "Reading From"
-                                : "Upload image to enable"
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              updateTripDay(editingTripIndex, "readingFrom", value);
-                              autoFillDistance(editingTripIndex, value, trip.readingTo);
-                            }}
-                            style={{
-                              width: "100%",
-                              height: "46px",
-                              border: "1px solid #cbd5e1",
-                              borderRadius: "12px",
-                              padding: "0 14px",
-                              fontSize: "14px",
-                              background: hasReadingFromImage ? "#fff" : "#f1f5f9",
-                              color: "#0f172a",
-                            }}
-                          />
+                        <input
+  value={trip.readingFrom}
+  disabled={!hasReadingFromImage}
+  placeholder={
+    hasReadingFromImage
+      ? "Reading From"
+      : "Upload image to enable"
+  }
+  onChange={(e) => {
+    const value = e.target.value;
+
+    updateTripDay(
+      editingTripIndex!,
+      "readingFrom",
+      value
+    );
+
+    if (tripModalMode === "add") {
+      updateTripDay(
+        editingTripIndex!,
+        "readingTo",
+        value
+      );
+    }
+
+    autoFillDistance(
+      editingTripIndex!,
+      value,
+      trip.readingTo
+    );
+  }}
+/>
                         </div>
 
-                        <div
+                        {/* <div
                           style={{
                             border: "1px solid #d8dee8",
                             borderRadius: "16px",
@@ -2335,23 +2485,143 @@ useEffect(() => {
                                 : "#f1f5f9",
                             }}
                           />
-                        </div>
+                        </div> */}
+                      {tripModalMode === "edit" && (
+  <div
+    style={{
+      border: "1px solid #d8dee8",
+      borderRadius: "16px",
+      padding: "12px",
+      background: "#ffffff",
+      display: "flex",
+      flexDirection: "column",
+      gap: "10px",
+      justifyContent: "flex-start",
+      alignSelf: "start",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: "8px",
+        minHeight: "24px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "8px",
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        <label
+          style={{
+            fontSize: "14px",
+            fontWeight: 700,
+            color: "#334155",
+            cursor: "pointer",
+            textDecoration: "underline",
+            lineHeight: "20px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          Reading To
+          <input
+            hidden
+            type="file"
+            accept="image/*"
+            onClick={saveModalScroll}
+            onChange={(e) => {
+              updateTripDay(
+                editingTripIndex!,
+                "readingToImage",
+                e.target.files?.[0] || null
+              );
+              restoreModalScroll();
+            }}
+          />
+        </label>
+
+        {trip.readingToImage && (
+          <span
+            style={{
+              fontSize: "12px",
+              color: "#0f172a",
+              fontWeight: 500,
+              lineHeight: "20px",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+            onClick={() => openFilePreview(trip.readingToImage)}
+          >
+            {getFileLabel(trip.readingToImage)}
+          </span>
+        )}
+      </div>
+    </div>
+
+    <input
+      value={trip.readingTo}
+      disabled={!trip.readingToImage}
+      placeholder={
+        trip.readingToImage
+          ? "Reading To"
+          : "Upload image to enable"
+      }
+      onChange={(e) => {
+        const value = e.target.value;
+
+       if (editingTripIndex === undefined) return;
+
+updateTripDay(
+  editingTripIndex,
+  "readingTo",
+  value
+);
+
+        autoFillDistance(
+          editingTripIndex!,
+          trip.readingFrom,
+          value
+        );
+      }}
+      style={{
+        width: "100%",
+        height: "46px",
+        border: "1px solid #cbd5e1",
+        borderRadius: "12px",
+        padding: "0 14px",
+        fontSize: "14px",
+        background: trip.readingToImage
+          ? "#fff"
+          : "#f1f5f9",
+      }}
+    />
+  </div>
+)}
                       </div>
                     )}
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          window.innerWidth <= 768
-                            ? "1fr"
-                            : isOfficeVehicle
-                              ? "1fr 1fr"
-                              : "1fr",
-                        gap: "12px",
-                        marginTop: "14px",
-                      }}
-                    >
+                    {tripModalMode === "edit" && (
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns:
+      window.innerWidth <= 768
+        ? "1fr"
+        : isOfficeVehicle
+        ? "1fr 1fr"
+        : "1fr",
+    gap: "12px",
+    marginTop: "14px",
+  }}
+>
                       {/* DISTANCE */}
                       <div
                         style={{
@@ -2437,13 +2707,15 @@ useEffect(() => {
                                 hidden
                                 type="file"
                                 accept="image/*"
-                                onChange={(e) =>
+                                onClick={saveModalScroll}
+                                onChange={(e) => {
                                   updateTripDay(
                                     editingTripIndex!,
                                     "fuelImage",
                                     e.target.files?.[0] || null
-                                  )
-                                }
+                                  );
+                                  restoreModalScroll();
+                                }}
                               />
                             </label>
 
@@ -2493,19 +2765,20 @@ useEffect(() => {
                         </div>
                       )}
                     </div>
-
+)}
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      marginBottom: "12px",
-                      padding: "12px 14px",
-                      border: "1px solid #d8dee8",
-                      borderRadius: "16px",
-                      background: "#ffffff",
-                    }}
-                  >
+                 {tripModalMode === "edit" && (
+<div
+  style={{
+    marginTop: "8px",
+    marginBottom: "12px",
+    padding: "12px 14px",
+    border: "1px solid #d8dee8",
+    borderRadius: "16px",
+    background: "#ffffff",
+  }}
+>
                     <div
                       style={{
                         fontSize: "15px",
@@ -2525,7 +2798,9 @@ useEffect(() => {
                       Add one or more client / party visit entries
                     </div>
                   </div>
-                  {trip.visits.map((visit, visitIndex) => {
+                  )}
+                 {tripModalMode === "edit" &&
+  trip.visits.map((visit, visitIndex) => {
 
                     const isGeoTagged =
                       visit.latitude &&
@@ -2639,14 +2914,16 @@ useEffect(() => {
                                     hidden
                                     type="file"
                                     accept="image/*"
-                                    onChange={(e) =>
+                                    onClick={saveModalScroll}
+                                    onChange={(e) => {
                                       updateTripVisit(
-                                        editingTripIndex,
+                                        editingTripIndex!,
                                         visitIndex,
                                         "visitSlipImage",
                                         e.target.files?.[0] || null
-                                      )
-                                    }
+                                      );
+                                      restoreModalScroll();
+                                    }}
                                   />
                                 </label>
 
@@ -2828,14 +3105,16 @@ useEffect(() => {
                                         hidden
                                         type="file"
                                         accept="image/*"
-                                        onChange={(e) =>
+                                        onClick={saveModalScroll}
+                                        onChange={(e) => {
                                           updateTripVisit(
                                             editingTripIndex!,
                                             visitIndex,
                                             "localTransportImage",
                                             e.target.files?.[0] || null
-                                          )
-                                        }
+                                          );
+                                          restoreModalScroll();
+                                        }}
                                       />
                                     </label>
 
@@ -2996,7 +3275,7 @@ useEffect(() => {
                                   interface="popover"
                                   value={visit.demoProjects}
                                   selectedText={
-                                    visit.demoProjects?.length === 0
+                                    !visit.demoProjects || visit.demoProjects.length === 0
                                       ? ""
                                       : visit.demoProjects.length <= 2
                                         ? visit.demoProjects.join(", ")
@@ -3182,30 +3461,34 @@ useEffect(() => {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                       gridTemplateColumns:
+  tripModalMode === "add"
+    ? "1fr"
+    : "1fr 1fr",
                         gap: "10px",
                         marginTop: "18px",
                         width: "100%",
                       }}
                     >
-                      <IonButton
-                        type="button"
-                        fill="outline"
-                        style={{
-                          margin: 0,
-                          width: "100%",
-                          minHeight: "46px",
-                          fontSize: "12px",
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addTripVisit(editingTripIndex);
-                        }}
-                      >
-                        + Add Party
-                      </IonButton>
-
+                     {tripModalMode === "edit" && (
+  <IonButton
+    type="button"
+    fill="outline"
+    style={{
+      margin: 0,
+      width: "100%",
+      minHeight: "46px",
+      fontSize: "12px",
+    }}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      addTripVisit(editingTripIndex);
+    }}
+  >
+    + Add Party
+  </IonButton>
+)}
                       <IonButton
                         style={{
                           margin: 0,
