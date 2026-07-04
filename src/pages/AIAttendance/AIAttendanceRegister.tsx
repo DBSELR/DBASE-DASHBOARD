@@ -1135,7 +1135,7 @@ const AIAttendanceRegister: React.FC = () => {
               <button
                 onClick={() => {
                   setShowSuccessPopup(false);
-                  history.push("/ai-attendance-admin-dashboard");
+                  history.push("/home");
                 }}
                 style={{
                   width: "100%",
@@ -1157,7 +1157,7 @@ const AIAttendanceRegister: React.FC = () => {
                   e.currentTarget.style.background = "#10b981";
                 }}
               >
-                Return to Dashboard
+                Return to Home
               </button>
             </div>
           </div>
