@@ -59,14 +59,14 @@
   transition: color 0.2s, border-color 0.2s;
 }
 .rm-tab-active {
-  color: #0d9488;
-  border-bottom-color: #0d9488;
+  color: var(--ion-color-primary);
+  border-bottom-color: var(--ion-color-primary);
 }
 
 /* ── TOAST ─────────────────────────────────────────────────────────────────── */
 .rm-toast {
   position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
-  background: #0d9488; color: #fff;
+  background: var(--ion-color-primary); color: #fff;
   padding: 8px 20px; border-radius: 20px;
   font-size: 12px; font-weight: 700;
   z-index: 9999; white-space: nowrap;
@@ -135,7 +135,7 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.18);
   transition: transform 0.2s;
 }
-.rm-toggle input:checked + .rm-slider { background: #0d9488; }
+.rm-toggle input:checked + .rm-slider { background: var(--ion-color-primary); }
 .rm-toggle input:checked + .rm-slider::before { transform: translateX(16px); }
 
 /* ── BUTTONS ─────────────────────────────────────────────────────────────── */
@@ -165,7 +165,7 @@
   margin-top: 10px;
   padding: 7px 16px; border-radius: 12px;
   background: #f0fdfa; border: 1.5px solid #99f6e4;
-  color: #0d9488; font-size: 11px; font-weight: 700;
+  color: var(--ion-color-primary); font-size: 11px; font-weight: 700;
   cursor: pointer; font-family: inherit;
   transition: transform 0.15s;
 }
@@ -174,7 +174,7 @@
 .rm-always-on {
   display: inline-block;
   font-size: 9px; font-weight: 800;
-  color: #0d9488; padding: 2px 8px;
+  color: var(--ion-color-primary); padding: 2px 8px;
   background: #f0fdfa; border-radius: 20px;
   border: 1px solid #99f6e4;
 }
@@ -195,7 +195,7 @@
   transition: all 0.15s;
 }
 .rm-chip-active {
-  background: #0d9488; border-color: #0d9488; color: #fff;
+  background: var(--ion-color-primary); border-color: var(--ion-color-primary); color: #fff;
   box-shadow: 0 4px 12px rgba(13,148,136,0.3);
 }
 
@@ -225,13 +225,13 @@
   transition: all 0.25s;
 }
 .rm-step-done .rm-step-dot {
-  background: #0d9488; color: #fff; border-color: #0d9488;
+  background: var(--ion-color-primary); color: #fff; border-color: var(--ion-color-primary);
 }
 .rm-step-label {
   font-size: 8px; font-weight: 700; color: #94a3b8;
   text-align: center;
 }
-.rm-step-done .rm-step-label { color: #0d9488; }
+.rm-step-done .rm-step-label { color: var(--ion-color-primary); }
 
 .rm-step-body { padding-top: 6px; }
 
@@ -259,8 +259,8 @@
   background: #fff;
   transition: border-color 0.15s, background 0.15s;
 }
-.rm-emp-item input { accent-color: #0d9488; }
-.rm-emp-selected { border-color: #0d9488; background: #f0fdfa; }
+.rm-emp-item input { accent-color: var(--ion-color-primary); }
+.rm-emp-selected { border-color: var(--ion-color-primary); background: #f0fdfa; }
 
 .rm-emp-name { font-size: 12px; font-weight: 700; color: #0f172a; }
 .rm-emp-sub  { font-size: 9px; font-weight: 600; color: #64748b; }
@@ -299,7 +299,7 @@
 
 .rm-next-btn {
   padding: 8px 20px; border-radius: 10px;
-  background: #0d9488; border: none;
+  background: var(--ion-color-primary); border: none;
   color: #fff; font-size: 11px; font-weight: 700;
   cursor: pointer; font-family: inherit;
   box-shadow: 0 4px 12px rgba(13,148,136,0.3);
@@ -340,7 +340,7 @@
   padding: 0; font-family: inherit;
   transition: color 0.15s;
 }
-.rm-branch-btn:hover { color: #0d9488; }
+.rm-branch-btn:hover { color: var(--ion-color-primary); }
 
 .rm-branch-arrow {
   display: inline-block;
@@ -348,7 +348,7 @@
   transition: transform 0.2s, color 0.2s;
   line-height: 1;
 }
-.rm-arrow-open { transform: rotate(90deg); color: #0d9488; }
+.rm-arrow-open { transform: rotate(90deg); color: var(--ion-color-primary); }
 
 .rm-branch-emp-row td { background: #f8fafc; }
 
@@ -367,7 +367,7 @@
 .rm-badge-code {
   display: inline-block; flex-shrink: 0;
   font-size: 9px; font-weight: 800;
-  color: #0d9488; padding: 2px 7px;
+  color: var(--ion-color-primary); padding: 2px 7px;
   background: #f0fdfa; border-radius: 10px;
   border: 1px solid #99f6e4; white-space: nowrap;
   margin-top: 1px;
@@ -381,10 +381,10 @@
 }
 .rm-select-all-label {
   display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 700; color: #0d9488;
+  font-size: 11px; font-weight: 700; color: var(--ion-color-primary);
   cursor: pointer;
 }
 .rm-select-all-label input {
-  accent-color: #0d9488;
+  accent-color: var(--ion-color-primary);
   width: 14px; height: 14px; cursor: pointer;
 }

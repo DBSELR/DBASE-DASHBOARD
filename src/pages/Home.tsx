@@ -143,13 +143,13 @@ const Home: React.FC = () => {
     { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },
     { id: "maintenance", label: "Maintenance", icon: "https://cdn.lordicon.com/qawxkplz.json", path: null, colorClass: "home-card-maintenance" },
     { id: "scanner", label: "Scanner", icon: <Scan size={32} color="#ffffff" />, path: "/camera", colorClass: "home-card-scanner", isLucide: true },
-    { id: "ai-attendance", label: "AI Attendance", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-scanner", colorClass: "home-card-ai-attendance", isLucide: true },
-    { id: "view-reports", label: "View Reports", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-reports", colorClass: "home-card-view-reports", isLucide: true },
-    {
+    ...(String(currentEmpCode).trim() !== "2001" ? [{ id: "ai-attendance", label: "AI Attendance", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-scanner", colorClass: "home-card-ai-attendance", isLucide: true }] : []),
+    
+{
   id: "daywise-attendance",
   label: "Attendance Logs",
   icon: <UserCheck size={32} color="#ffffff" />,
-  path: "/daywise-attendance",
+  path: "/ai-attendance-log/logs",
   colorClass: "home-card-ai-attendance",
   isLucide: true
 },

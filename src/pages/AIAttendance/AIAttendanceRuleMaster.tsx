@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { IonPage, IonContent } from '@ionic/react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { IonPage, IonContent, IonIcon } from '@ionic/react';
+import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router-dom';
+import { person, search, close, checkmarkCircle } from 'ionicons/icons';
 import { API_BASE } from '../../config';
 import './AIAttendanceRuleMaster.css';
 
@@ -51,7 +53,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
   const [newGps, setNewGps] = useState(true);
 
   // --- Override tab state ---
-  const [ruleType, setRuleType] = useState<'BRANCH' | 'MARKETING'>('BRANCH');
+  const [ruleType, setRuleType] = useState<'BRANCH' | 'MARKETING'>('MARKETING');
   const [step, setStep] = useState(1);
   const [selBranch, setSelBranch] = useState('');
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -63,6 +65,29 @@ const AIAttendanceRuleMaster: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [overrides, setOverrides] = useState<Override[]>([]);
+
+  // --- Dropdown states ---
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [empSearchTerm, setEmpSearchTerm] = useState("");
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  // Position logic
+  useEffect(() => {
+    if (isEmployeeDropdownOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, [isEmployeeDropdownOpen]);
+
+  const filteredEmployees = employees.filter(emp => {
+    const term = empSearchTerm.toLowerCase();
+    return emp.empName.toLowerCase().includes(term) || emp.empCode.toLowerCase().includes(term);
+  });
 
   // --- Branch expand state ---
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
@@ -172,7 +197,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
   }
 
   async function deleteOverride(id: number) {
-    await fetch(API_BASE + `Checkin/DeleteEmployeeOverride/${id}`, { method: 'DELETE', headers: hdrs });
+    await fetch(API_BASE + `Checkin/DeleteEmployeeOverride/${id}`, { method: 'POST', headers: hdrs });
     showToast('Override removed.');
     loadOverrides();
   }
@@ -369,14 +394,6 @@ const AIAttendanceRuleMaster: React.FC = () => {
             {activeTab === 'overrides' && (
               <div className="rm-override-tab">
 
-                {/* Rule-type chips */}
-                <div className="rm-chips">
-                  <button className={`rm-chip${ruleType === 'BRANCH' ? ' rm-chip-active' : ''}`}
-                    onClick={() => { setRuleType('BRANCH'); resetWizard(); }}>Branch Override</button>
-                  <button className={`rm-chip${ruleType === 'MARKETING' ? ' rm-chip-active' : ''}`}
-                    onClick={() => { setRuleType('MARKETING'); resetWizard(); }}>Marketing</button>
-                </div>
-
                 {/* ── Wizard ───────────────────────────────────────── */}
                 <div className="rm-card rm-wizard">
 
@@ -409,32 +426,105 @@ const AIAttendanceRuleMaster: React.FC = () => {
                   {/* Employees step (BRANCH step 2 / MARKETING step 1) */}
                   {showEmployeePicker && (
                     <div className="rm-step-body">
-                      <p className="rm-label">Select Employees ({selIds.length} selected)</p>
-                      {employees.length > 0 && (
-                        <div className="rm-select-all-row">
-                          <label className="rm-select-all-label">
-                            <input
-                              type="checkbox"
-                              checked={selIds.length === employees.length}
-                              onChange={e => setSelIds(e.target.checked ? employees.map(emp => emp.empCode) : [])}
-                            />
-                            <span>{selIds.length === employees.length ? 'Deselect All' : 'Select All'} ({employees.length})</span>
-                          </label>
-                        </div>
-                      )}
-                      <div className="rm-emp-list">
-                        {empLoading && <p className="rm-empty">Loading employees…</p>}
-                        {!empLoading && employees.map(e => (
-                          <label key={e.empCode} className={`rm-emp-item${selIds.includes(e.empCode) ? ' rm-emp-selected' : ''}`}>
-                            <input type="checkbox" checked={selIds.includes(e.empCode)} onChange={() => toggleEmp(e.empCode)} />
-                            <div>
-                              <div className="rm-emp-name">{e.empName}</div>
-                              <div className="rm-emp-sub">{e.empCode} &middot; {e.designation} &middot; {e.branch}</div>
+                      <p className="rm-label" style={{ fontWeight: 800 }}>Transfer To :</p>
+                      
+                      <div className="ntv-form-input-wrapper" ref={triggerRef} onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '14px',
+                        border: '1.5px solid rgba(226, 232, 240, 0.8)',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        marginBottom: '16px'
+                      }}>
+                        <IonIcon icon={person} style={{ fontSize: '18px', color: '#64748b' }} />
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: selIds.length > 0 ? '#0f172a' : '#94a3b8' }}>
+                          {selIds.length > 0 
+                            ? (employees.find(e => e.empCode === selIds[0])?.empName || selIds[0]) 
+                            : "Select Employee"}
+                        </span>
+
+                        {isEmployeeDropdownOpen && createPortal(
+                          <>
+                            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsEmployeeDropdownOpen(false); }} />
+                            <div
+                              className="custom-inline-dropdown"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: `${dropdownPos.top}px`,
+                                left: `${dropdownPos.left}px`,
+                                width: `${dropdownPos.width}px`,
+                                border: '1px solid #e2e8f0',
+                                background: '#ffffff',
+                                borderRadius: '16px',
+                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+                                zIndex: 9999
+                              }}
+                            >
+                              <div className="dropdown-search-sec" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <IonIcon icon={search} className="dropdown-search-icon" style={{ color: '#94a3b8' }} />
+                                <input
+                                  type="text"
+                                  className="dropdown-pure-input"
+                                  placeholder="Search name or code..."
+                                  value={empSearchTerm}
+                                  onChange={(e) => setEmpSearchTerm(e.target.value)}
+                                  autoFocus
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  style={{ color: '#0f172a' }}
+                                />
+                                {empSearchTerm && (
+                                  <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                                    <IonIcon icon={close} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="dropdown-body">
+                                {filteredEmployees.map((emp, index) => {
+                                  const isSelected = selIds.includes(emp.empCode);
+                                  const initials = (emp.empName.charAt(0) || "?").toUpperCase();
+
+                                  return (
+                                    <div
+                                      key={index}
+                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderRadius: '12px', cursor: 'pointer', background: isSelected ? '#f1f5f9' : 'transparent' }}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelIds([emp.empCode]);
+                                        setIsEmployeeDropdownOpen(false);
+                                        setEmpSearchTerm("");
+                                      }}
+                                    >
+                                      <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`} style={{ width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d9488', color: '#ffffff', fontWeight: 800 }}>
+                                        {initials}
+                                      </div>
+                                      <div className="dr-info" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                        <span className="dr-name" style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{emp.empName}</span>
+                                        <span className="dr-id" style={{ fontSize: '11px', color: '#64748b' }}>ID: {emp.empCode}</span>
+                                      </div>
+                                      {isSelected && <IonIcon icon={checkmarkCircle} style={{ color: '#0d9488', fontSize: '16px' }} />}
+                                    </div>
+                                  );
+                                })}
+                                {filteredEmployees.length === 0 && (
+                                  <div className="dr-no-results" style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>
+                                    <p>No matches for "{empSearchTerm}"</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </label>
-                        ))}
-                        {!empLoading && employees.length === 0 && <p className="rm-empty">No employees found.</p>}
+                          </>                             ,
+                          document.body
+                        )}
                       </div>
+
                       <div className="rm-nav-row">
                         {empPrevStep !== undefined && (
                           <button className="rm-back-btn" onClick={() => setStep(empPrevStep)}>&#8592; Back</button>

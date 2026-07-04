@@ -732,7 +732,7 @@ const AIAttendanceRegister: React.FC = () => {
             <div className="register-header">
               <div className="register-header-left">
                 <button
-                  onClick={() => history.push("/ai-attendance-admin-dashboard")}
+                  onClick={() => history.push("/home")}
                   className="btn-back"
                   title="Back to Dashboard"
                 >

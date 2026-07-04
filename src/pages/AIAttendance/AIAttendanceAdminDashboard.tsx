@@ -1,7 +1,13 @@
-import { IonContent, IonPage, IonInput, IonButton } from '@ionic/react';
+import { IonContent, IonPage, IonIcon } from '@ionic/react';
 import { useState } from 'react';
 import { useHistory } from 'react-router';
+import { 
+  mailOutline, calendarOutline, settingsOutline, 
+  arrowBackOutline, logOutOutline, sendOutline, 
+  fingerPrintOutline 
+} from 'ionicons/icons';
 import { API_BASE_URL } from './ai_config';
+import './AIAttendanceAdminDashboard.css';
 
 const AIAttendanceAdminDashboard: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -50,59 +56,93 @@ const AIAttendanceAdminDashboard: React.FC = () => {
   };
 
   return (
-    <IonPage>
+    <IonPage className="ad-page">
       <IonContent fullscreen style={{ '--background': 'transparent' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1rem' }}>
-            <div style={{ background: 'rgba(26, 27, 46, 0.9)', color: 'white', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', padding: '3rem', width: '100%', maxWidth: '800px', backdropFilter: 'blur(10px)' }}>
-                <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '2rem', textAlign: 'center', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', WebkitBackgroundClip: 'text', color: 'transparent' }}>
-                    Admin Dashboard
-                </h1>
-                
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '3rem', gap: '1rem', flexWrap: 'wrap' }}>
-                    
-                    
-                      <IonButton shape="round" style={{ width: 'auto', minWidth: '220px', fontSize: '1.1rem', '--background': 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)', '--box-shadow': '0 4px 6px -1px rgba(249, 115, 22, 0.4)' }} routerLink="/ai-attendance-reports">
-                         View Reports
-                    </IonButton>
-                    <IonButton shape="round" style={{ width: 'auto', minWidth: '220px', fontSize: '1.1rem', '--background': 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', '--box-shadow': '0 4px 6px -1px rgba(13, 148, 136, 0.4)' }} routerLink="/ai-attendance-rule-master">
-                        Rule Master
-                    </IonButton>
+        <div className="ad-shell">
+          
+          {/* Header */}
+          <div className="ad-header">
+            <button className="ad-back" onClick={() => history.push('/home')}>
+              <IonIcon icon={arrowBackOutline} />
+            </button>
+            <div className="ad-title-wrap">
+              <h1 className="ad-title">AI Attendance</h1>
+              <p className="ad-subtitle">Admin Management Console</p>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="ad-body">
+            <div className="ad-container">
+              
+              <div className="ad-logo-header">
+                <div className="ad-logo-icon">
+                  <IonIcon icon={fingerPrintOutline} />
+                </div>
+                <h2 className="ad-logo-title">Control Panel</h2>
+                <p className="ad-logo-desc">Manage geofence rules, beacons, and review attendance logs</p>
+              </div>
+
+              {/* Grid Options */}
+              <div className="ad-grid">
+                <div className="ad-card-option" onClick={() => history.push('/ai-attendance-log/logs')}>
+                  <div className="ad-card-icon ad-card-logs">
+                    <IonIcon icon={calendarOutline} />
+                  </div>
+                  <h3 className="ad-card-title">Attendance Logs</h3>
+                  <p className="ad-card-subtitle">Review daily records, check-in timelines, and presence parameters.</p>
                 </div>
 
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2rem', textAlign: 'center', position: 'relative' }}>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem', color: '#e5e7eb' }}>Send Attendance Report</h2>
-                    
-                    {popupMessage && (
-                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(12px)', padding: '2rem', borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', minWidth: '300px', textAlign: 'center', color: 'white', zIndex: 9999, transition: 'all 0.3s ease' }}>
-                            {popupMessage}
-                        </div>
-                    )}
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <IonInput 
-                            type="email" 
-                            value={email} 
-                            placeholder="Enter admin email"
-                            onIonChange={e => setEmail(e.detail.value!)}
-                            style={{ background: 'rgba(255,255,255,0.05)', color: 'white', borderRadius: '8px', padding: '12px 16px', marginBottom: '1rem', width: '100%', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }}
-                        />
-                        <IonButton className="btn-teal" shape="round" style={{ width: 'auto', minWidth: '220px', fontSize: '1.1rem' }} onClick={handleSendEmail}>
-                            Send Email Report
-                        </IonButton>
-                    </div>
+                <div className="ad-card-option" onClick={() => history.push('/ai-attendance-rule-master')}>
+                  <div className="ad-card-icon ad-card-rules">
+                    <IonIcon icon={settingsOutline} />
+                  </div>
+                  <h3 className="ad-card-title">Rule Master</h3>
+                  <p className="ad-card-subtitle">Enforce Bluetooth and GPS validation rules by branch or employee.</p>
                 </div>
+              </div>
+
+              {/* Email Report section */}
+              <div className="ad-report-card">
+                <h3 className="ad-report-title">Send Attendance Report</h3>
+                <p className="ad-report-desc">Send a full CSV sheet export directly to an administrator's email inbox.</p>
+                
+                {popupMessage && (
+                  <div className="ad-toast">
+                    {popupMessage}
+                  </div>
+                )}
+                
+                <div className="ad-input-group">
+                  <div className="ad-input-wrapper">
+                    <IonIcon icon={mailOutline} className="ad-input-icon" />
+                    <input 
+                      type="email" 
+                      value={email} 
+                      placeholder="Enter admin email address"
+                      onChange={e => setEmail(e.target.value)}
+                      className="ad-input"
+                    />
+                  </div>
+                  <button className="ad-btn-send" onClick={handleSendEmail}>
+                    <IonIcon icon={sendOutline} />
+                    Send Email Report
+                  </button>
+                </div>
+              </div>
+
             </div>
 
-            <IonButton color="danger" shape="round" style={{ marginTop: '2rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)', fontWeight: 'bold' }} onClick={handleLogout}>
-                Logout
-            </IonButton>
-        </div>
+            <button className="ad-logout" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
+              <IonIcon icon={logOutOutline} />
+              Log Out
+            </button>
+          </div>
 
-       
+        </div>
       </IonContent>
     </IonPage>
   );
 };
 
 export default AIAttendanceAdminDashboard;
-

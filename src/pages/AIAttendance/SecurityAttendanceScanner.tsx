@@ -5,6 +5,7 @@ import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
+import { Camera } from "@capacitor/camera";
 import { BleClient, ScanResult } from "@capacitor-community/bluetooth-le";
 import "./SecurityAttendanceScanner.css";
 
@@ -43,6 +44,12 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [userData,     setUserData]     = useState<any>(null);
   const [userProfile,  setUserProfile]  = useState<any>(null);
   const [isMobile,     setIsMobile]     = useState(window.innerWidth <= 768);
+  const [capturedImg,  setCapturedImg]  = useState<string | null>(null);
+  const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
+  const logDebug = (msg: string) => {
+    console.log(`[DEBUG] ${msg}`);
+    setDebugLogs(prev => [msg, ...prev.slice(0, 4)]);
+  };
 
   const [scannedEmployee, setScannedEmployee] = useState<{
     empName?: string; empId?: string; status?: string; time?: string;
@@ -97,12 +104,34 @@ const SecurityAttendanceScanner: React.FC = () => {
     const startCamera = async () => {
       try {
         setCameraReady(false);
+        logDebug("Starting camera...");
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const perm = await Camera.requestPermissions({ permissions: ["camera"] });
+            logDebug("Camera perm: " + perm.camera);
+            if (perm.camera !== "granted") {
+              setMessage("Camera permission denied");
+              setStatusColor("#ef4444");
+              return;
+            }
+          } catch (err: any) {
+            logDebug("Native perm err: " + err.message);
+          }
+        }
         if (!navigator.mediaDevices?.getUserMedia) { setMessage("Camera not supported"); setStatusColor("#ef4444"); return; }
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraMode }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = async () => {
-            try { await videoRef.current?.play(); setCameraReady(true); setMessage("Align face to scan"); setStatusColor("#8b5cf6"); }
+            try {
+              await videoRef.current?.play();
+              setCameraReady(true);
+              const w = videoRef.current?.videoWidth || 0;
+              const h = videoRef.current?.videoHeight || 0;
+              logDebug(`Camera active: ${w}x${h}`);
+              setMessage("Align face to scan");
+              setStatusColor("#8b5cf6");
+            }
             catch { setMessage("Video play failed"); setStatusColor("#ef4444"); }
           };
         }
@@ -118,9 +147,13 @@ const SecurityAttendanceScanner: React.FC = () => {
       if (!Capacitor.isNativePlatform()) return;
       try {
         await BleClient.initialize();
-        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => {}); await BleClient.stopLEScan(); } catch {}
+        const enabled = await BleClient.isEnabled();
+        logDebug("Bluetooth enabled: " + enabled);
+        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => {}); await BleClient.stopLEScan(); } catch (err: any) { logDebug("BLE Perm Request Err: " + err.message); }
         await verifyEasyReach();
-      } catch {}
+      } catch (e: any) {
+        logDebug("BLE Init Error: " + e.message);
+      }
     };
     initBLE();
     return () => { if (bleTimeoutRef.current) clearTimeout(bleTimeoutRef.current); };
@@ -193,6 +226,7 @@ const SecurityAttendanceScanner: React.FC = () => {
       if (resetScanState) {
         setScanSuccess(false); scanSuccessRef.current = false;
         setScannedEmployee(null); setMessage("Align face to scan"); setStatusColor("#8b5cf6");
+        setCapturedImg(null);
       }
       autoScan();
     }, delay);
@@ -209,11 +243,28 @@ const SecurityAttendanceScanner: React.FC = () => {
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = 320; canvas.height = 240;
+      const videoWidth = videoRef.current.videoWidth || 640;
+      const videoHeight = videoRef.current.videoHeight || 480;
+
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
+
       const ctx = canvas.getContext("2d");
       if (ctx && videoRef.current) {
-        ctx.save(); ctx.scale(-1, 1); ctx.drawImage(videoRef.current, -canvas.width, 0, canvas.width, canvas.height); ctx.restore();
-        const image = canvas.toDataURL("image/jpeg", 0.6);
+        ctx.save();
+        // Mirror horizontally (matching standard front-camera perspective)
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        const image = canvas.toDataURL("image/jpeg", 0.8);
+        setCapturedImg(image);
+        logDebug(`Capture: ${videoWidth}x${videoHeight}`);
+        logDebug(`Base64 len: ${image.length}`);
+        
+        logDebug(`API POST: AISecurityAttendance`);
+
         const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
@@ -221,7 +272,8 @@ const SecurityAttendanceScanner: React.FC = () => {
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (data.invalidLocation) { setStatusColor("#ef4444"); setMessage("⛔ Outside Office Location"); speakText("You are not in office location"); scheduleNextScan(4000); return; }
+        logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
+        if (data.invalidLocation) { setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`); speakText(data.message || "You are not in office location"); scheduleNextScan(4000); return; }
         if (data.invalidTime)     { setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);          speakText(data.message);                          scheduleNextScan(4000); return; }
         if (data.alreadyMarked) {
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
@@ -238,7 +290,10 @@ const SecurityAttendanceScanner: React.FC = () => {
           setStatusColor("#ef4444"); setMessage("❌ Face Not Recognized"); scheduleNextScan(2500);
         }
       } else { scheduleNextScan(1000); }
-    } catch { setStatusColor("#ef4444"); setMessage("❌ Connection Timeout"); scheduleNextScan(3500); }
+    } catch (err: any) {
+      logDebug("Err: " + err.message);
+      setStatusColor("#ef4444"); setMessage("❌ Connection Timeout"); scheduleNextScan(3500);
+    }
     finally { setProcessing(false); processingRef.current = false; }
   };
 
@@ -251,6 +306,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   const verifyEasyReach = async () => {
     if (!Capacitor.isNativePlatform() || isBleScanning || bleVerifiedRef.current) return;
     setIsBleScanning(true);
+    logDebug("BLE Scan started...");
     try {
       let found = false;
       await BleClient.requestLEScan({}, async (result: ScanResult) => {
@@ -260,6 +316,7 @@ const SecurityAttendanceScanner: React.FC = () => {
           if (name === "ER2650001F" && mac === "EA2658F0001F") {
             found = true; setBleVerified(true); bleVerifiedRef.current = true;
             setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
+            logDebug("Beacon verified!");
             await BleClient.stopLEScan();
           }
         } catch {}
@@ -268,11 +325,13 @@ const SecurityAttendanceScanner: React.FC = () => {
       bleTimeoutRef.current = setTimeout(async () => {
         try { await BleClient.stopLEScan(); } catch {}
         setIsBleScanning(false);
-        if (!found && !bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 30000);
+        logDebug(`BLE cycle done. Found=${found}`);
+        if (!found && !bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 5000);
       }, 7000);
-    } catch {
+    } catch (e: any) {
+      logDebug("BLE Scan err: " + e.message);
       setIsBleScanning(false); setBleVerified(false);
-      if (!bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 30000);
+      if (!bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 5000);
     }
   };
 
@@ -388,11 +447,39 @@ const SecurityAttendanceScanner: React.FC = () => {
                   </div>
                 )}
 
+                {capturedImg && (
+                  <div className="sc-last-capture-preview" onClick={() => setCapturedImg(null)} title="Clear Preview">
+                    <img src={capturedImg} alt="last scan preview" />
+                  </div>
+                )}
+
                 {cameraReady && (
                   <button className="sc-cam-flip-btn" onClick={toggleCamera} title="Flip Camera">
                     <IonIcon icon={cameraReverseOutline} />
                   </button>
                 )}
+
+                {/* Debug Logs Overlay */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '16px',
+                  left: '16px',
+                  zIndex: 100,
+                  background: 'rgba(15, 23, 42, 0.85)',
+                  color: '#22c55e',
+                  padding: '6px 10px',
+                  borderRadius: '10px',
+                  fontSize: '9px',
+                  fontFamily: 'monospace',
+                  pointerEvents: 'none',
+                  maxWidth: '75%',
+                  lineHeight: '1.3',
+                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                }}>
+                  {debugLogs.length === 0 ? "[DEBUG] Idle" : debugLogs.map((log, i) => (
+                    <div key={i}>{log}</div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -420,8 +507,12 @@ const SecurityAttendanceScanner: React.FC = () => {
                 /* ── RESULT CARD ── */
                 <div className="scanner-dashboard-card">
                   <div className="sc-res-top">
-                    <div className={`sc-res-avatar ${scannedEmployee.isDuplicate ? 'av-warn' : 'av-ok'}`}>
-                      {(scannedEmployee.empName || 'E').charAt(0)}
+                    <div className={`sc-res-avatar ${scannedEmployee.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
+                      {capturedImg ? (
+                        <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        (scannedEmployee.empName || 'E').charAt(0)
+                      )}
                     </div>
                     <div className="sc-res-info">
                       <div className="sc-res-name">{scannedEmployee.empName}</div>
@@ -542,6 +633,40 @@ const SecurityAttendanceScanner: React.FC = () => {
             </div>
 
           </div>
+
+          {scanSuccess && scannedEmployee && (
+            <div className="sc-success-popup-overlay">
+              <div className="sc-success-popup-card animate__animated animate__zoomIn">
+                <div className={`sc-success-popup-icon ${scannedEmployee.isDuplicate ? 'icon-warn' : 'icon-ok'}`}>
+                  {scannedEmployee.isDuplicate ? '⚠️' : '✓'}
+                </div>
+                <h2 className="sc-success-popup-title">
+                  {scannedEmployee.isDuplicate ? 'Already Marked' : 'Attendance Logged'}
+                </h2>
+                <div className="sc-success-popup-name">
+                  {scannedEmployee.empName}
+                </div>
+                <div className="sc-success-popup-id">
+                  ID #{scannedEmployee.empId}
+                </div>
+                <div className="sc-success-popup-time">
+                  Time: {scannedEmployee.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+                {scannedEmployee.customMessage && (
+                  <div className="sc-success-popup-msg">
+                    {scannedEmployee.customMessage}
+                  </div>
+                )}
+                <button className="sc-success-popup-btn" onClick={() => {
+                  setScanSuccess(false);
+                  scanSuccessRef.current = false;
+                  setCapturedImg(null);
+                }}>
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
       </IonContent>
