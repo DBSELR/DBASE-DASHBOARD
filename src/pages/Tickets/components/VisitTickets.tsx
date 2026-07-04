@@ -44,13 +44,24 @@ const VisitTickets: React.FC = () => {
   const [loading, setLoading] = useState(false);
 const today = moment().format("YYYY-MM-DD");
 
-const [fromDate, setFromDate] = useState(today);
-const [toDate, setToDate] = useState(today);
+const [fromDate, setFromDate] = useState("");
+const [toDate, setToDate] = useState("");
   const [activeTab, setActiveTab] = useState<"tickets" | "visits">("tickets");
   const [ticketList, setTicketList] = useState<Ticket[]>([]);
   const getHeaders = (isGet = false) => {
   const token = localStorage.getItem("token")?.replace(/"/g, "");
+  const applyFilter = () => {
+ const from = fromDate || today;
+const to = toDate || today;
 
+loadClosedTickets(formatDate(from), formatDate(to));
+
+  if (activeTab === "tickets") {
+    loadClosedTickets(from, to);
+  } else {
+    loadTickets(from, to);
+  }
+};
   const headers: any = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
@@ -129,124 +140,115 @@ const loadClosedTickets = async (from?: string, to?: string) => {
   try {
     setLoading(true);
 
-    const fromValue = from || moment().format("YYYY-MM-DD");
-    const toValue = to || moment().format("YYYY-MM-DD");
+    const fromValue = from || today;
+    const toValue = to || today;
 
     const params = new URLSearchParams({
       ClientID: "0",
       ProjectID: "0",
-      Date: moment(fromValue).format("MM-DD-YYYY"),
-      ToDate: moment(toValue).format("MM-DD-YYYY"),
+      Date: moment(fromValue).format("YYYY-MM-DD"),
+      ToDate: moment(toValue).format("YYYY-MM-DD"),
       status: "C",
       EMPCODE: "0",
     });
 
     const res = await fetch(
       `${API_BASE}Tickets/Load_LOADSUPPORTTICKETS_DateWise_FromTo?${params.toString()}`,
-      {
-        headers: getHeaders(true),
-      }
+      { headers: getHeaders(true) }
     );
 
     const raw = await handleResponse(res);
     setTicketList(raw.map(mapTicketRow));
+
   } catch (err) {
     console.error(err);
-    alert("Failed to load ticket records.");
   } finally {
     setLoading(false);
   }
 };
 
 useEffect(() => {
-  loadTickets();
-  loadClosedTickets(today, today);
-}, []);
+  if (activeTab === "tickets") {
+    loadClosedTickets(today, today);
+  } else {
+    loadTickets();
+  }
+}, [activeTab]);
 
 const loadTickets = async (from?: string, to?: string) => {
   try {
     setLoading(true);
 
-    const token = localStorage.getItem("token")?.replace(/"/g, "");
-
     const params = new URLSearchParams();
 
-    if (from) {
-      params.append("fromDate", from);
-    }
-
-    if (to) {
-      params.append("toDate", to);
-    }
+    if (from) params.append("fromDate", moment(from).format("YYYY-MM-DD"));
+    if (to) params.append("toDate", moment(to).format("YYYY-MM-DD"));
 
     const url =
       `${API_BASE}Tickets/load_OnDuty_visits` +
       (params.toString() ? `?${params.toString()}` : "");
 
-    console.log("Request URL:", url);
-
     const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
+      headers: getHeaders(true),
     });
 
-    if (!response.ok) {
-      throw new Error(await response.text());
-    }
-
-    const data: VisitTicket[] = await response.json();
-
-    console.log("API Response:", data);
-
+    const data = await response.json();
     setTickets(data);
+
   } catch (err) {
     console.error(err);
-    alert("Failed to load visit records.");
   } finally {
     setLoading(false);
   }
 };
-const formatDate = (date: string) => {
-  if (!date) return "-";
-
-  return new Date(date).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+const formatDate = (d: string) => {
+  if (!d) return "";
+  return moment(d).format("YYYY-MM-DD");
 };
+
 const formatTime = (time: string) => {
   if (!time) return "-";
   return time.substring(0, 5);
 };
 
   return (
-    <IonPage>
-      
+   <IonContent className="visit-page">
+  <div className="visit-container">
 
-      <IonContent className="visit-page">
-        <div className="visit-tabs">
-  <button
-    type="button"
-    className={activeTab === "tickets" ? "visit-tab active" : "visit-tab"}
-    onClick={() => setActiveTab("tickets")}
-  >
-    Tickets
-  </button>
+    {/* Header */}
+    <div className="visit-top-header">
+      <h2 className="visit-title">Visits Management</h2>
+      <p className="visit-subtitle">
+        Closed Tickets & Visit History
+      </p>
+    </div>
 
-  <button
-    type="button"
-    className={activeTab === "visits" ? "visit-tab active" : "visit-tab"}
-    onClick={() => setActiveTab("visits")}
-  >
-    Visits
-  </button>
-</div>
+    {/* Sticky Section */}
+    <div className="visit-sticky-bar">
 
+      {/* Tabs */}
+      <div className="visit-tabs">
+        <button
+          type="button"
+          className={activeTab === "tickets" ? "visit-tab active" : "visit-tab"}
+          onClick={() => setActiveTab("tickets")}
+        >
+          Tickets
+        </button>
+
+        <button
+          type="button"
+          className={activeTab === "visits" ? "visit-tab active" : "visit-tab"}
+          onClick={() => setActiveTab("visits")}
+        >
+          Visits
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="visit-panel">
         <div className="date-filter-container">
-         
+
           <IonItem className="date-filter-item">
             <IonLabel position="stacked">From Date</IonLabel>
             <IonInput
@@ -266,22 +268,27 @@ const formatTime = (time: string) => {
           </IonItem>
 
           <div className="filter-button-group">
-            <IonButton
-              color="primary"
-              onClick={() => {
+        <IonButton
+  color="primary"
+  expand="block"
+ onClick={() => {
+  const from = fromDate || today;
+  const to = toDate || today;
+
   if (activeTab === "tickets") {
-    loadClosedTickets(fromDate, toDate);
+    loadClosedTickets(from, to);
   } else {
-    loadTickets(fromDate, toDate);
+    loadTickets(from, to);
   }
 }}
-              expand="block"
-            >
-              Apply Filter
-            </IonButton>
+>
+  Apply Filter
+</IonButton>
+
             <IonButton
-              color="medium"
-             onClick={() => {
+  color="medium"
+  expand="block"
+ onClick={() => {
   setFromDate("");
   setToDate("");
 
@@ -291,135 +298,133 @@ const formatTime = (time: string) => {
     loadTickets();
   }
 }}
-              expand="block"
-            >
-              Reset
-            </IonButton>
+>
+  Reset
+</IonButton>
           </div>
+
         </div>
+      </div>
 
-        <div className="visit-table-wrapper">
+    </div>
 
-  {activeTab === "tickets" ? (
+    {/* Table Panel */}
+    <div className="visit-panel">
 
-    <table className="visit-table">
-      <thead>
-        <tr>
-          <th>Ticket ID</th>
-          <th>Project & Client</th>
-          <th>Mobile</th>
-          <th>Date</th>
-          <th>Remarks</th>
-        </tr>
-      </thead>
+      <div className="visit-table-wrapper">
 
-      <tbody>
-        {ticketList.length > 0 ? (
-          ticketList.map((item, index) => (
-            <tr key={index}>
-              <td>{item.ticketId}</td>
-              <td>{item.projectClient || "-"}</td>
-              <td>{item.mobileNo || "-"}</td>
-              <td>{item.date || "-"}</td>
-              <td>{item.remarks || "-"}</td>
-            </tr>
-          ))
+        {activeTab === "tickets" ? (
+
+          <table className="visit-table">
+            <thead>
+              <tr>
+                <th>Ticket ID</th>
+                <th>Project & Client</th>
+                <th>Mobile</th>
+                <th>Date</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {ticketList.length > 0 ? (
+                ticketList.map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.ticketId}</td>
+                    <td>{item.projectClient || "-"}</td>
+                    <td>{item.mobileNo || "-"}</td>
+                    <td>{item.date || "-"}</td>
+                    <td>{item.remarks || "-"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: 20 }}>
+                    No ticket records found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
         ) : (
-          <tr>
-            <td
-              colSpan={5}
-              style={{ textAlign: "center", padding: "20px" }}
-            >
-              No ticket records found.
-            </td>
-          </tr>
+
+          <table className="visit-table">
+            <thead>
+              <tr>
+                <th>S.No</th>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Location</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Project</th>
+                <th>Contact Person</th>
+                <th>Mobile</th>
+                <th>Remarks</th>
+                <th>Employees</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {tickets.length > 0 ? (
+                tickets.map((item, index) => (
+                  <tr key={index}>
+                    <td>{index + 1}</td>
+
+                    <td>{formatDate(item.duty_Date)}</td>
+
+                    <td>{item.client_Name}</td>
+
+                    <td>{item.location || "-"}</td>
+
+                    <td>{formatTime(item.visit_FromTime)}</td>
+
+                    <td>{formatTime(item.visit_ToTime)}</td>
+
+                    <td>
+                      <span className="project-chip">
+                        {item.projects}
+                      </span>
+                    </td>
+
+                    <td>{item.contact_Person || "-"}</td>
+
+                    <td>{item.mobile_Number || "-"}</td>
+
+                    <td>{item.remarks || "-"}</td>
+
+                    <td className="employee-column">
+                      {item.employees
+                        ? item.employees.split(",").map((emp, i) => (
+                            <div key={i} className="employee-chip">
+                              {emp.trim()}
+                            </div>
+                          ))
+                        : "-"}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={11} style={{ textAlign: "center", padding: 20 }}>
+                    No visit records found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
         )}
-      </tbody>
-    </table>
 
-  ) : (
+      </div>
 
-    <table className="visit-table">
-      <thead>
-        <tr>
-          <th>S.No</th>
-          <th>Date</th>
-          <th>Client</th>
-          <th>Location</th>
-          <th>From</th>
-          <th>To</th>
-          <th>Project</th>
-          <th>Contact Person</th>
-          <th>Mobile</th>
-          <th>Remarks</th>
-          <th>Employees</th>
-        </tr>
-      </thead>
+    </div>
 
-      <tbody>
-        {tickets.length > 0 ? (
-          tickets.map((item, index) => (
-            <tr key={index}>
-              <td>{index + 1}</td>
+  </div>
 
-              <td>{formatDate(item.duty_Date)}</td>
-
-              <td>{item.client_Name}</td>
-
-              <td>{item.location || "-"}</td>
-
-              <td>{formatTime(item.visit_FromTime)}</td>
-
-              <td>{formatTime(item.visit_ToTime)}</td>
-
-              <td>
-                <span className="project-chip">
-                  {item.projects}
-                </span>
-              </td>
-
-              <td>{item.contact_Person || "-"}</td>
-
-              <td>{item.mobile_Number || "-"}</td>
-
-              <td>{item.remarks || "-"}</td>
-
-              <td className="employee-column">
-                {item.employees ? (
-                  item.employees.split(",").map((emp, i) => (
-                    <div key={i} className="employee-chip">
-                      {emp.trim()}
-                    </div>
-                  ))
-                ) : (
-                  "-"
-                )}
-              </td>
-            </tr>
-          ))
-        ) : (
-          <tr>
-            <td
-              colSpan={11}
-              style={{ textAlign: "center", padding: "20px" }}
-            >
-              No visit records found.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-
-  )}
-
-</div>
-
-<IonLoading isOpen={loading} message="Loading..." />
-
-        <IonLoading isOpen={loading} message="Loading..." />
-
-      </IonContent>
-    </IonPage>
+  <IonLoading isOpen={loading} message="Loading..." />
+</IonContent>
   );
 };
 
