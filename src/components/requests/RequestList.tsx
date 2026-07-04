@@ -258,6 +258,7 @@ const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string 
          lid: x.lid || x.Id,
     empcode: x.empcode || x.EmpCode,
     Empname: safeText(x.Empname || x.empname || x.EmpCode),
+    InTime: safeText(x.InTime || x.InTime),
 
     // ✅ EQUIPMENT FIX
     Remarks: safeText(x.Remarks || x.Purpose),
@@ -553,6 +554,12 @@ console.log("ONDUTY PAYLOAD:", payload);
   }
 };
 
+const formatTime = (time:any) => {
+  if (!time) return "";
+
+  return moment(time, "HH:mm:ss.SSSSSSS").format("hh:mm A");
+};
+
   const updateStatus = async (id: string, status: string) => {
     try {
       await axios.post(
@@ -785,12 +792,12 @@ const getStatusLabel = (item: any) => {
 const normalizeText = (val: any) =>
   safeText(val).toLowerCase().replace(/\s/g, "");
 
+
 const canAct = (item: any) => {
   if (!item) return false;
 
   const status = normalizeText(item.L_status);
 
-  // ❌ already completed
   if (
     status.includes("approved") ||
     status.includes("accepted") ||
@@ -800,10 +807,39 @@ const canAct = (item: any) => {
   }
 
   const user = normalizeText(getUser()?.designation);
-  const current = normalizeText(item?.CurrentRA);
 
+  // Permission -> RA1 and RA2 together
+  if (normalizeText(item.ltype) === "permission") {
+    return (
+      user === normalizeText(item.RA1) ||
+      user === normalizeText(item.RA2)
+    );
+  }
+
+  // Existing flow
+  const current = normalizeText(item?.CurrentRA);
   return current === user;
 };
+
+// const canAct = (item: any) => {
+//   if (!item) return false;
+
+//   const status = normalizeText(item.L_status);
+
+//   // ❌ already completed
+//   if (
+//     status.includes("approved") ||
+//     status.includes("accepted") ||
+//     status.includes("rejected")
+//   ) {
+//     return false;
+//   }
+
+//   const user = normalizeText(getUser()?.designation);
+//   const current = normalizeText(item?.CurrentRA);
+
+//   return current === user;
+// };
   const cleanDate = (val: any) => {
   if (!val) return "";
 
@@ -1326,10 +1362,11 @@ const loadTeamPermissionDashboard = async () => {
   <div className="lr-row">
     <div className="lr-grid-item">
       <span className="lr-grid-label">Permission Time</span>
-      <span className="lr-grid-value permission-time">
-        {cleanDate(item.lfrom)}
-        {item.ptime ? ` (${item.ptime})` : ""}
-      </span>
+     <span className="lr-grid-value permission-time">
+ {cleanDate(item.lfrom)}
+{item.InTime ? ` (${formatTime(item.InTime)})` : ""}
+{item.ptime ? ` (${item.ptime})` : ""}
+</span>
     </div>
 
     {typeof item.Slip === "string" &&
