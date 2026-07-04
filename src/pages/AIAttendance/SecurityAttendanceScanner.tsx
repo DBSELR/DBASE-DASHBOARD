@@ -279,11 +279,27 @@ const SecurityAttendanceScanner: React.FC = () => {
   const toggleCamera = () => { setCameraReady(false); setCameraMode(p => p === "user" ? "environment" : "user"); };
 
   // ── Drag Sheet Gesture ────────────────────────────────────────────────────
-  const [sheetY, setSheetY] = useState(0);
+  const COLLAPSED_Y = 120;
+
+  const [sheetY, setSheetY] = useState(COLLAPSED_Y);
   const [isDragging, setIsDragging] = useState(false);
-  const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("expanded");
+  const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("collapsed");
   const startY = useRef(0);
   const currentY = useRef(0);
+
+  useEffect(() => {
+    if (isMobile) {
+      if (scanSuccess) {
+        setSheetState("expanded");
+        setSheetY(0);
+      } else {
+        setSheetState("collapsed");
+        setSheetY(COLLAPSED_Y);
+      }
+    } else {
+      setSheetY(0);
+    }
+  }, [scanSuccess, isMobile]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
@@ -293,17 +309,17 @@ const SecurityAttendanceScanner: React.FC = () => {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     const deltaY = e.touches[0].clientY - startY.current;
-    let newY = sheetState === "collapsed" ? 140 + deltaY : deltaY;
+    let newY = sheetState === "collapsed" ? COLLAPSED_Y + deltaY : deltaY;
     if (newY < 0) newY = 0;
-    if (newY > 140) newY = 140;
+    if (newY > COLLAPSED_Y) newY = COLLAPSED_Y;
     setSheetY(newY);
     currentY.current = newY;
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    if (currentY.current > 70) {
-      setSheetState("collapsed"); setSheetY(140);
+    if (currentY.current > COLLAPSED_Y / 2) {
+      setSheetState("collapsed"); setSheetY(COLLAPSED_Y);
     } else {
       setSheetState("expanded"); setSheetY(0);
     }
@@ -313,7 +329,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     if (sheetState === "collapsed") {
       setSheetState("expanded"); setSheetY(0);
     } else {
-      setSheetState("collapsed"); setSheetY(140);
+      setSheetState("collapsed"); setSheetY(COLLAPSED_Y);
     }
   };
 
@@ -370,6 +386,12 @@ const SecurityAttendanceScanner: React.FC = () => {
                     <IonSpinner name="crescent" color="secondary" />
                     <p>Starting camera…</p>
                   </div>
+                )}
+
+                {cameraReady && (
+                  <button className="sc-cam-flip-btn" onClick={toggleCamera} title="Flip Camera">
+                    <IonIcon icon={cameraReverseOutline} />
+                  </button>
                 )}
               </div>
             </div>
@@ -441,84 +463,79 @@ const SecurityAttendanceScanner: React.FC = () => {
                   <div className="sc-msg" style={{ color: statusColor }}>{message}</div>
                   
                   {/* Dashboard Checklist Widget */}
-                  <div style={{ marginTop: '24px' }}>
-                    <h3 className="checklist-header">
-                      Security Telemetry Checklist
-                    </h3>
-                    
-                    <div className="checklist-widget">
-                      {/* 1. Camera Health */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>📷</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>Live Video Stream</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {cameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
+                  {(!isMobile || sheetState === "expanded") && (
+                    <div style={{ marginTop: '24px' }}>
+                      <h3 className="checklist-header">
+                        Security Telemetry Checklist
+                      </h3>
+                      
+                      <div className="checklist-widget">
+                        {/* 1. Camera Health */}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>📷</span>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontWeight: 700 }}>Live Video Stream</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {cameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${cameraReady ? 'badge-verified' : 'badge-pending'}`}>
+                            {cameraReady ? 'ACTIVE' : 'OFFLINE'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${cameraReady ? 'badge-verified' : 'badge-pending'}`}>
-                          {cameraReady ? 'ACTIVE' : 'OFFLINE'}
-                        </span>
-                      </div>
 
-                      {/* 2. GPS Location */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>📍</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>Officer Geofencing</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
+                        {/* 2. GPS Location */}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>📍</span>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontWeight: 700 }}>Officer Geofencing</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
+                            {locationReady ? 'VERIFIED' : 'SYNCING'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
-                          {locationReady ? 'VERIFIED' : 'SYNCING'}
-                        </span>
-                      </div>
 
-                      {/* 3. Bluetooth Beacon */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>📶</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {bleVerified ? `Found: ${bleDeviceName}` : 'Scanning BLE signals...'}
+                        {/* 3. Bluetooth Beacon */}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>📶</span>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {bleVerified ? `Found: ${bleDeviceName}` : 'Scanning BLE signals...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}>
+                            {bleVerified ? 'CONNECTED' : 'SCANNING'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}>
-                          {bleVerified ? 'CONNECTED' : 'SCANNING'}
-                        </span>
-                      </div>
 
-                      {/* 4. Employee Identity */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>👤</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>Biometric Profile</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
+                        {/* 4. Employee Identity */}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>👤</span>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontWeight: 700 }}>Biometric Profile</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
+                            {userData ? 'LOADED' : 'AWAITING'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
-                          {userData ? 'LOADED' : 'AWAITING'}
-                        </span>
                       </div>
                     </div>
-                  </div>
-
-                  <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                    <button className="sc-swap" onClick={toggleCamera}>
-                      <IonIcon icon={cameraReverseOutline} />
-                      <span>Flip Camera</span>
-                    </button>
-                  </div>
+                  )}
                 </div>
 
               )}

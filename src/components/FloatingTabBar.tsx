@@ -33,6 +33,10 @@ const FloatingTabBar: React.FC = () => {
     }
   };
 
+  if (["/ai-attendance-scanner", "/security-attendance"].includes(location.pathname)) {
+    return null;
+  }
+
   return (
     <div className="floating-tab-bar">
       <div className="tab-container">
