@@ -28,6 +28,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   const [endDate, setEndDate] = useState<string | null>(null);
   const [remarks, setRemarks] = useState("");
   const [permTime, setPermTime] = useState("");
+  const [inTime, setInTime] = useState("");
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -172,73 +173,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   // =========================================
   // 🔥 REAL-TIME BALANCE API
   // =========================================
-  //   const checkBalance = async () => {
-  //   const empCode = getUser()?.empCode;
-
-  //   if (!startDate) return;
-
-  //   let finalCategory =
-  //     leaveMode === "Leave" ? leaveCategory : leaveMode;
-
-  //   // ✅ FIX: Map to Casual
-  //   if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
-  //     finalCategory = "Casual";
-  //   }
-
-  //   if (!finalCategory) {
-  //     return showToast("Select leave category");
-  //   }
-
-  //   try {
-  //     const res = await axios.get(
-  //       `${API_BASE}Leave/GetLeaveBalance?empCode=${empCode}&leaveCategory=${finalCategory}&date=${startDate}`
-  //     );
-
-  //     setBalance({
-  //       eligibleMonths: res.data?.eligibleMonths || 0,
-  //       used: res.data?.used || 0,
-  //       balance: res.data?.balance || 0,
-  //     });
-  //   } catch (err: any) {
-  //     showToast(err?.response?.data || "Error fetching balance");
-  //   }
-  // };
-
-  // const checkBalance = async () => {
-  //   const empCode = getUser()?.empCode;
-
-  //   if (!startDate) return;
-
-  //   let finalCategory =
-  //     requestType === "Permission"
-  //       ? "Permission"
-  //       : leaveMode === "Leave"
-  //       ? leaveCategory
-  //       : leaveMode;
-
-  //   if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
-  //     finalCategory = "Casual";
-  //   }
-
-  //   if (!finalCategory) {
-  //     return showToast("Select category");
-  //   }
-
-  //   try {
-  //     const res = await axios.get(
-  //       `${API_BASE}Leave/GetLeaveBalance?empCode=${empCode}&leaveCategory=${finalCategory}&date=${startDate}`
-  //     );
-
-  //     setBalance({
-  //       used: res.data?.used || 0,
-  //       balance: res.data?.balance || 0,
-  //       usedSessions: res.data?.usedSessions || 0,
-  //       maxSessions: res.data?.maxSessions || 0,
-  //     });
-  //   } catch (err: any) {
-  //     showToast(err?.response?.data || "Error fetching balance");
-  //   }
-  // };
+  
 
   const checkBalance = async () => {
     const empCode = getUser()?.empCode;
@@ -289,15 +224,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     }
   };
 
-  // 🔥 AUTO TRIGGER BALANCE
-  //   useEffect(() => {
-  //   const finalCategory =
-  //     leaveMode === "Leave" ? leaveCategory : leaveMode;
-
-  //   if (startDate && finalCategory) {
-  //     checkBalance();
-  //   }
-  // }, [startDate, leaveCategory, leaveMode]);
+ 
 
   useEffect(() => {
     if (!startDate) return;
@@ -317,89 +244,13 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     checkBalance();
   }, [startDate, leaveCategory, leaveMode, requestType]);
 
-  // =========================================
-  // 🔥 SUBMIT
-  // =========================================
-  //   const onSubmit = async () => {
-  //     const empCode = getUser()?.empCode;
 
-  //     if (!startDate) return showToast("Select date");
-  //     if (!remarks) return showToast("Enter remarks");
-
-  //     // 🔥 DUPLICATE CHECK
-  //     if (isDuplicateDate(startDate)) {
-  //       clearForm();
-  //       return showToast("Leave already applied for this date");
-  //     }
-
-  //     // 🔥 BALANCE CHECK
-  //     if (leaveCategory === "Casual" && balance && balance.balance <= 0) {
-  //       clearForm();
-  //       return showToast("No leave balance available");
-  //     }
-
-  //     const finalCategory =
-  //       leaveMode === "Leave" ? leaveCategory : leaveMode;
-
-
-
-  //     const payload = {
-  //       _fromdate: fmtDMY(startDate),
-  //       _todate:
-  //         requestType === "Permission"
-  //           ? fmtDMY(startDate)
-  //           : fmtDMY(endDate),
-
-  //       _remarks: remarks,
-  //       _PermTime: requestType === "Permission" ? permTime : "",
-  //       _requesttype: requestType,
-  //       _empcode: empCode,
-
-  //       _leaveMode: leaveMode,
-  //       _leaveCategory: finalCategory,
-  //     };
-
-  //     try {
-  //       await axios.post(`${API_BASE}Leave/saveleaverequest`, payload);
-
-  //       showToast("Submitted Successfully");
-
-  //       window.dispatchEvent(new Event("refreshRequests"));
-
-  //       clearForm();
-  //       loadExistingLeaves();
-  //     } catch (err: any) {
-  //       // 🔥 SHOW BACKEND ERROR
-  //       const msg =
-  //         err?.response?.data ||
-  //         err?.response?.data?.message ||
-  //         "Error submitting request";
-
-  //       showToast(msg);
-  //       clearForm();
-  //     }
-  //   };
 
   const onSubmit = async () => {
     if (loading) return; // Prevent double click
     const empCode = getUser()?.empCode;
 
-    //if (!startDate) return showToast("Select date");
-    // if (unlockRange.approved) {
-    //   const selectedDate = moment(startDate);
-
-    //   const unlockFrom = moment(unlockRange.fromDate);
-    //   const unlockTo = moment(unlockRange.toDate);
-
-    //   if (
-    //     selectedDate.isBefore(unlockFrom, "day") ||
-    //     selectedDate.isAfter(unlockTo, "day")
-    //   ) {
-    //     return showToast(
-    //       `Allowed dates: ${unlockRange.fromDate} to ${unlockRange.toDate}`
-    //     );
-    //   }
-    // }
+   
     if (!remarks) return showToast("Enter remarks");
     // ✅ Leave Type Validation
     if (requestType === "Leave" && !leaveMode) {
@@ -433,12 +284,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
       finalCategory = "Casual";
     }
-    // ✅ LOP CHECK (FIXED)
-    // if (finalCategory === "Casual" && balance && balance.balance <= 0) {
-    //   setLopMessage("Auto converted to LOP - Exceeded CL balance");
-    //   setConfirmLOP(true);
-    //   return;
-    // }
+   
 
     if (
     finalCategory === "Casual" &&
@@ -450,11 +296,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     return;
 }
 
-    // if (finalCategory === "Sick" && balance && balance.balance <= 0) {
-    //   setLopMessage("Auto converted to LOP - Sick limit exceeded");
-    //   setConfirmLOP(true);
-    //   return;
-    // }
+   
 
     if (
     finalCategory === "Sick" &&
@@ -486,34 +328,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     submitToServer(finalCategory);
   };
 
-  // const submitToServer = async (category: string) => {
-  //   const empCode = getUser()?.empCode;
-
-  //   const payload = {
-  //     _fromdate: fmtDMY(startDate),
-  //     _todate:
-  // singleDateMode
-  //   ? fmtDMY(startDate)
-  //   : fmtDMY(endDate),
-
-  //     _remarks: remarks,
-  //     _PermTime: requestType === "Permission" ? permTime : "",
-  //     _requesttype: requestType,
-  //     _empcode: empCode,
-  //     _leaveMode: requestType === "Permission" ? "Permission" : leaveMode,
-  //     _leaveCategory: requestType === "Permission" ? "Permission" : category,
-  //   };
-
-  //   try {
-  //     await axios.post(`${API_BASE}Leave/saveleaverequest`, payload);
-  //     showToast("Submitted Successfully");
-  //     clearForm();
-  //     loadExistingLeaves();
-  //   } catch (err: any) {
-  //     showToast(err?.response?.data || "Error");
-  //   }
-  // };
-
+ 
   const submitToServer = async (category: string) => {
     if (loading) return;
 
@@ -529,6 +344,10 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
       _remarks: remarks,
       _PermTime: requestType === "Permission" ? permTime : "",
+       _InTime:
+  requestType === "Permission"
+    ? moment(inTime, "HH:mm").format("HH:mm")
+    : "",
       _requesttype: requestType,
       _empcode: empCode,
       _leaveMode:
@@ -563,42 +382,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       clearForm();
       loadExistingLeaves();
 
-      // ── Send WhatsApp template to RA1 with Approve / Reject buttons ─
-      // if (newLid) {
-      //   try {
-      //     const token = localStorage.getItem("token")?.replace(/"/g, "");
-      //     const ra1Res = await axios.get(
-      //       `${API_BASE}Leave/GetRA1Mobile`,
-      //       {
-      //         params: { lid: newLid },
-      //         headers: { Authorization: `Bearer ${token}` }
-      //       }
-      //     );
-      //     const { mobile, empName: ra1Name, empCode: ra1EmpCode } = ra1Res.data;
-      //     if (mobile) {
-      //       const user = getUser();
-      //       const leaveType = payload._leaveMode +
-      //         (payload._leaveCategory ? ` / ${payload._leaveCategory}` : "");
-
-      //       await axios.post(
-      //         `${API_BASE}Leave/SendLeaveWhatsApp`,
-      //         {
-      //           Lid:       newLid,
-      //           Ra1Mobile: mobile,
-      //           EmpName:   user.empName || user.empCode,
-      //           FromDate:  payload._fromdate,
-      //           ToDate:    payload._todate,
-      //           LeaveType: leaveType,
-      //           Reason:    payload._remarks,
-      //           RaEmpCode: ra1EmpCode
-      //         },
-      //         { headers: { Authorization: `Bearer ${token}` } }
-      //       );
-      //     }
-      //   } catch (waErr) {
-      //     console.error("[WhatsApp] Leave RA1 notify failed:", waErr);
-      //   }
-      // }
+     
 
       // ── Send WhatsApp template to RA1 ──
       if (newLid) {
@@ -801,7 +585,26 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             </span>
           </div>
         </div>
+       {requestType === "Permission" && (
+  <div className="lr-field-box">
+    <label className="lr-field-label">In Time</label>
+    <div className="lr-field-content">
+      <IonIcon icon={timeOutline} className="lr-field-icon" />
 
+      <input
+        type="time"
+        value={inTime}
+        onChange={(e) => setInTime(e.target.value)}
+        style={{
+          flex: 1,
+          border: "none",
+          background: "transparent",
+          outline: "none"
+        }}
+      />
+    </div>
+  </div>
+)}
 
         {requestType === "Permission" && (
           <div className="lr-field-box">
@@ -904,122 +707,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           )}
         </div>
       )}
-      {/* <IonButton
-        expand="block"
-        fill="outline"
-        onClick={() =>
-          setShowPreviousDateRequest(!showPreviousDateRequest)
-        }
-      >
-        {showPreviousDateRequest
-          ? "Hide Previous Date Request"
-          : "Request Previous Date Access"}
-      </IonButton>
-
-      {showPreviousDateRequest && (
-        <div
-          style={{
-            marginTop: 12,
-            marginBottom: 16,
-            padding: 16,
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            background: "#f8fafc"
-          }}
-        >
-          <h4>Previous Date Unlock Request</h4>
-
-          <div className="lr-field-box">
-            <label className="lr-field-label">
-              Employee Code
-            </label>
-            <input
-              value={getUser()?.empCode || ""}
-              disabled
-            />
-          </div>
-
-          <div className="lr-field-box">
-            <label className="lr-field-label">Request Type</label>
-            <div className="lr-field-content">
-              <IonIcon icon={optionsOutline} className="lr-field-icon" />
-              <IonSelect
-                value={requestType}
-                onIonChange={(e) => {
-                  const value = e.detail.value;
-                  setRequestType(value);
-
-                  // reset fields when changing request type
-                  setLeaveMode("");
-                  setLeaveCategory("");
-                  setStartDate(null);
-                  setEndDate(null);
-                  setPermTime("");
-                }}
-                interface="popover"
-                className="lr-popover-select"
-              >
-                <IonSelectOption value="Leave">Leave</IonSelectOption>
-                <IonSelectOption value="Permission">Permission</IonSelectOption>
-                <IonSelectOption value="HalfDay">Half Day</IonSelectOption>
-                <IonSelectOption value="FullDay">Full Day</IonSelectOption>
-              </IonSelect>
-            </div>
-          </div>
-
-          <div className="lr-field-box">
-            <label className="lr-field-label">
-              From Date
-            </label>
-            <input
-              type="date"
-              value={unlockFromDate || ""}
-              max={moment()
-                .subtract(1, "day")
-                .format("YYYY-MM-DD")}
-              onChange={(e) =>
-                setUnlockFromDate(e.target.value)
-              }
-            />
-          </div>
-
-          <div className="lr-field-box">
-            <label className="lr-field-label">
-              To Date
-            </label>
-            <input
-              type="date"
-              value={unlockToDate || ""}
-              max={moment()
-                .subtract(1, "day")
-                .format("YYYY-MM-DD")}
-              onChange={(e) =>
-                setUnlockToDate(e.target.value)
-              }
-            />
-          </div>
-
-          <div className="lr-field-box">
-            <label className="lr-field-label">
-              Reason
-            </label>
-            <textarea
-              rows={3}
-              value={unlockReason}
-              onChange={(e) =>
-                setUnlockReason(e.target.value)
-              }
-            />
-          </div>
-
-          <IonButton
-            expand="block"
-            onClick={submitPreviousDateRequest}
-          >
-            Submit Unlock Request
-          </IonButton>
-        </div>
-      )} */}
+   
 
       <button
         className="lr-gradient-btn"
@@ -1148,32 +836,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           <h3>⚠️ Confirmation</h3>
           <p>{lopMessage}</p>
 
-          {/* <IonButton
-            color="danger"
-            expand="block"
-            onClick={() => {
-              setConfirmLOP(false);
-
-              let finalCategory = "";
-
-              if (requestType === "Permission") {
-                finalCategory = "Permission";
-              } else if (leaveMode === "Leave") {
-                finalCategory = leaveCategory;
-              } else if (
-                leaveMode === "Forenoon" ||
-                leaveMode === "Afternoon"
-              ) {
-                finalCategory = "Casual";
-              } else {
-                finalCategory = leaveMode;
-              }
-
-              submitToServer(finalCategory);
-            }}
-          >
-            Yes Continue
-          </IonButton> */}
+     
 
          <IonButton
             color="danger"
