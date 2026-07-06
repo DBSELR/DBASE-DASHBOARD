@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import axios from "axios";
 import "./WorkReportDashboard.css";
 import { API_BASE } from "../config";
+import { IonIcon } from "@ionic/react";
+import { person, search, close, checkmarkCircle, chevronDown } from "ionicons/icons";
 
 type WorkReport = {
   WorkId?: string | number;
@@ -26,55 +28,61 @@ const WorkReportDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [monthYearList, setMonthYearList] = useState<string[]>([]);
   const [searchDate, setSearchDate] = useState<string>("");
- const [workReports, setWorkReports] =
-  useState<WorkReport[]>([]);
+  const [workReports, setWorkReports] =
+    useState<WorkReport[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
 
   const empCode: string = localStorage.getItem("EmpCode") || "1520";
   const empName: string = localStorage.getItem("EmpName") || "User";
   const [periodOpen, setPeriodOpen] = useState<boolean>(false);
   const [periodPos, setPeriodPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 320 });
-  const pillRef = useRef<HTMLDivElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const [employees, setEmployees] = useState<any[]>([]);
-const [selectedEmp, setSelectedEmp] = useState("All Employees");
-const [selectedEmpCode, setSelectedEmpCode] = useState("0");
+  const [selectedEmp, setSelectedEmp] = useState("All Employees");
+  const [selectedEmpCode, setSelectedEmpCode] = useState("0");
+
+  // Custom searchable employee dropdown states
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState<boolean>(false);
+  const [employeeDropdownPos, setEmployeeDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 240 });
+  const [empSearchTerm, setEmpSearchTerm] = useState<string>("");
+  const empTriggerRef = useRef<HTMLDivElement | null>(null);
+  const periodTriggerRef = useRef<HTMLDivElement | null>(null);
 
   // ================= GROUP DATA =================
-// ================= GROUP DATA =================
-const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
-  const grouped: GroupedReports = {};
+  const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
+    const grouped: GroupedReports = {};
 
-  (data || []).forEach((item) => {
-    const key = String(item?.ClientProject || "No Project")
-      .trim()
-      .replace(/\s+/g, " ");
+    (data || []).forEach((item) => {
+      const key = String(item?.ClientProject || "No Project")
+        .trim()
+        .replace(/\s+/g, " ");
 
-    if (!grouped[key]) {
-      grouped[key] = [];
-    }
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
 
-    grouped[key].push(item);
-  });
+      grouped[key].push(item);
+    });
 
-  return grouped;
-};
+    return grouped;
+  };
 
   // ================= LOAD WORK REPORT =================
-  const loadWorkReports = async (date: string) => {
+  const loadWorkReports = async (date: string, targetEmpCode?: string) => {
     try {
       setLoading(true);
+      const activeEmpCode = targetEmpCode !== undefined ? targetEmpCode : selectedEmpCode;
+
+      const isTeam = activeEmpCode === "0";
+      const endpoint = isTeam ? "Load_WorkReport_Team" : "Load_WorkReport";
+      const queryEmpCode = isTeam ? empCode : activeEmpCode;
 
       const res = await axios.get(
-        `${API_BASE}Workreport/Load_WorkReport_Team`,
+        `${API_BASE}Workreport/${endpoint}`,
         {
-         params: {
-  EmpCode:
-    selectedEmpCode === "0"
-      ? empCode
-      : selectedEmpCode,
-  SearchDate: date,
-},
+          params: {
+            EmpCode: queryEmpCode,
+            SearchDate: date,
+          },
         }
       );
       console.log("API RESPONSE:", res.data);
@@ -96,7 +104,7 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
         TLRemark: x?.[11] ?? "-",
       }));
 
-    setWorkReports(reportData);
+      setWorkReports(reportData);
     } catch (err) {
       console.error("WorkReport Load Error", err);
     } finally {
@@ -105,23 +113,19 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
   };
 
 
-   const handleEmployeeChange = (
-  e: React.ChangeEvent<HTMLSelectElement>
-) => {
-  const code = e.target.value;
+  const handleEmployeeChange = (code: string) => {
+    setSelectedEmpCode(code);
 
-  setSelectedEmpCode(code);
+    const emp = employees.find(
+      (x: any) => String(x[0]) === code
+    );
 
-  const emp = employees.find(
-    (x: any) => String(x[0]) === code
-  );
+    setSelectedEmp(
+      emp ? emp[1] : "All Employees"
+    );
 
-  setSelectedEmp(
-    emp ? emp[1] : "All Employees"
-  );
-
-  loadWorkReports(searchDate);
-};
+    loadWorkReports(searchDate, code);
+  };
   // ================= LOAD MONTH LIST =================
   const loadMonthYearList = async () => {
     try {
@@ -150,122 +154,152 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
   }, []);
 
   useEffect(() => {
-  fetchEmployees();
-}, []);
+    fetchEmployees();
+  }, []);
 
-const fetchEmployees = async () => {
-  try {
-    const response = await axios.get(
-      `${API_BASE}Employee/Load_Employees`
-    );
-
-    if (response.data && Array.isArray(response.data)) {
-      const filtered = response.data.filter(
-        (emp: any) => emp[0] !== "0"
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE}Employee/Load_Employees`
       );
 
-      filtered.unshift(["0", "All Employees"]);
+      if (response.data && Array.isArray(response.data)) {
+        const filtered = response.data.filter(
+          (emp: any) => emp[0] !== "0"
+        );
 
-      setEmployees(filtered);
+        filtered.unshift(["0", "All Employees"]);
+
+        setEmployees(filtered);
+      }
+    } catch (err) {
+      console.error("Failed to load employees", err);
     }
-  } catch (err) {
-    console.error("Failed to load employees", err);
-  }
-};
+  };
 
   // ================= MONTH CHANGE =================
   const handleMonthChange = (value: string) => {
     setSearchDate(value);
-    loadWorkReports(value);
+    loadWorkReports(value, selectedEmpCode);
   };
 
-  // close the custom period menu when clicking outside
-  useEffect(() => {
-    const handleDocClick = (e: MouseEvent) => {
-      if (!periodOpen) return;
-      if (pillRef.current && pillRef.current.contains(e.target as Node)) return;
-      if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
-      setPeriodOpen(false);
-    };
+  // Filtering for Searchable Dropdown
+  const filteredEmployees = employees.filter((emp) => {
+    const term = empSearchTerm.toLowerCase();
+    const id = String(emp[0]).toLowerCase();
 
-    document.addEventListener("mousedown", handleDocClick);
-    return () => document.removeEventListener("mousedown", handleDocClick);
-  }, [periodOpen]);
+    let name = String(emp[1]);
+    if (name.startsWith(emp[0] + "-")) {
+      name = name.replace(emp[0] + "-", "").trim();
+    }
+    name = name.toLowerCase();
+    return name.includes(term) || id.includes(term);
+  });
 
-  // compute position for portal-based period menu and update on scroll/resize
+  // Position logic for custom dropdowns
   useEffect(() => {
-    if (!periodOpen) return;
-    const compute = () => {
-      if (!pillRef.current) return;
-      const rect = pillRef.current.getBoundingClientRect();
+    if (isEmployeeDropdownOpen && empTriggerRef.current) {
+      const rect = empTriggerRef.current.getBoundingClientRect();
+      setEmployeeDropdownPos({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 240),
+      });
+    }
+  }, [isEmployeeDropdownOpen]);
+
+  useEffect(() => {
+    if (periodOpen && periodTriggerRef.current) {
+      const rect = periodTriggerRef.current.getBoundingClientRect();
       setPeriodPos({
         top: rect.bottom + window.scrollY + 8,
         left: rect.left + window.scrollX,
-        width: rect.width,
+        width: Math.max(rect.width, 200),
       });
+    }
+  }, [periodOpen]);
+
+  useEffect(() => {
+    if (!isEmployeeDropdownOpen && !periodOpen) return;
+    const compute = () => {
+      if (isEmployeeDropdownOpen && empTriggerRef.current) {
+        const rect = empTriggerRef.current.getBoundingClientRect();
+        setEmployeeDropdownPos({
+          top: rect.bottom + window.scrollY + 8,
+          left: rect.left + window.scrollX,
+          width: Math.max(rect.width, 240),
+        });
+      }
+      if (periodOpen && periodTriggerRef.current) {
+        const rect = periodTriggerRef.current.getBoundingClientRect();
+        setPeriodPos({
+          top: rect.bottom + window.scrollY + 8,
+          left: rect.left + window.scrollX,
+          width: Math.max(rect.width, 200),
+        });
+      }
     };
-    compute();
     window.addEventListener("scroll", compute, true);
     window.addEventListener("resize", compute);
     return () => {
       window.removeEventListener("scroll", compute, true);
       window.removeEventListener("resize", compute);
     };
-  }, [periodOpen]);
+  }, [isEmployeeDropdownOpen, periodOpen]);
 
   // ================= UPDATE STATUS =================
-const updateWorkReportStatus = async (
-  workId: string | number,
-  status: string
-) => {
-  try {
-    setUpdatingStatus((p) => ({
-      ...p,
-      [String(workId)]: true,
-    }));
+  const updateWorkReportStatus = async (
+    workId: string | number,
+    status: string
+  ) => {
+    try {
+      setUpdatingStatus((p) => ({
+        ...p,
+        [String(workId)]: true,
+      }));
 
-    // Optimistic update
-    setWorkReports((prev) =>
-      prev.map((item) => {
-        const id = item.WorkId ?? item.workId;
+      // Optimistic update
+      setWorkReports((prev) =>
+        prev.map((item) => {
+          const id = item.WorkId ?? item.workId;
 
-        if (String(id) === String(workId)) {
-          return {
-            ...item,
+          if (String(id) === String(workId)) {
+            return {
+              ...item,
+              Status: status,
+            };
+          }
+
+          return item;
+        })
+      );
+
+      await axios.get(
+        `${API_BASE}Workreport/update_WR_Permission`,
+        {
+          params: {
+            Wrid: workId,
             Status: status,
-          };
+            EmpCode: empCode,
+          },
         }
+      );
 
-        return item;
-      })
-    );
+      // Uncomment if you want to refresh from server
+      // await loadWorkReports(searchDate);
+    } catch (err) {
+      console.error("Status Update Error", err);
 
-    await axios.get(
-      `${API_BASE}Workreport/update_WR_Permission`,
-      {
-        params: {
-          Wrid: workId,
-          Status: status,
-          EmpCode: empCode,
-        },
-      }
-    );
-
-    // Uncomment if you want to refresh from server
-    // await loadWorkReports(searchDate);
-  } catch (err) {
-    console.error("Status Update Error", err);
-
-    // Reload data if update fails
-    loadWorkReports(searchDate);
-  } finally {
-    setUpdatingStatus((p) => {
-      const n = { ...p };
-      delete n[String(workId)];
-      return n;
-    });
-  }
-};
+      // Reload data if update fails
+      loadWorkReports(searchDate);
+    } finally {
+      setUpdatingStatus((p) => {
+        const n = { ...p };
+        delete n[String(workId)];
+        return n;
+      });
+    }
+  };
 
   return (
     <div className="work-dashboard">
@@ -274,169 +308,240 @@ const updateWorkReportStatus = async (
       <div className="dashboard-header">
         <div>
           <h2>WorkReport Dashboard</h2>
-      
         </div>
 
-        <div className="filters">
-          <div
-            className="period-pill"
-            ref={pillRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              setPeriodOpen((p) => !p);
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="period-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M8 7V3M16 7V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div className="period-text">
-              <div className="period-main">{searchDate || "Select Month"}</div>
-              <div className="period-sub">Period</div>
+        <div className="filters-row">
+          {/* Employee Filter */}
+          <div className="filter-group">
+            <span className="filter-label">Employee</span>
+            <div
+              ref={empTriggerRef}
+              className={`dbase-inline-select searchable-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPeriodOpen(false);
+                setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen);
+              }}
+            >
+              <span className="dbase-select-text">
+                {selectedEmp || "Select Employee"}
+              </span>
+              <IonIcon icon={chevronDown} className="select-chevron" />
             </div>
           </div>
 
-          {periodOpen && createPortal(
+          {/* Period Filter */}
+          <div className="filter-group">
+            <span className="filter-label">Period</span>
+            <div
+              ref={periodTriggerRef}
+              className={`dbase-inline-select searchable-trigger ${periodOpen ? 'active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEmployeeDropdownOpen(false);
+                setPeriodOpen(!periodOpen);
+              }}
+            >
+              <span className="dbase-select-text">
+                {searchDate || "Select Month"}
+              </span>
+              <IonIcon icon={chevronDown} className="select-chevron" />
+            </div>
+          </div>
+        </div>
+
+        {/* Employee Dropdown Portal */}
+        {isEmployeeDropdownOpen && createPortal(
+          <>
+            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsEmployeeDropdownOpen(false); }} />
             <div
               className="custom-inline-dropdown"
-              ref={menuRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: `${employeeDropdownPos.top}px`,
+                left: `${employeeDropdownPos.left}px`,
+                width: `${employeeDropdownPos.width}px`
+              }}
+            >
+              <div className="dropdown-search-sec">
+                <IonIcon icon={search} className="dropdown-search-icon" />
+                <input
+                  type="text"
+                  className="dropdown-pure-input"
+                  placeholder="Search name or code..."
+                  value={empSearchTerm}
+                  onChange={(e) => setEmpSearchTerm(e.target.value)}
+                  autoFocus
+                  onMouseDown={(e) => e.stopPropagation()}
+                />
+                {empSearchTerm && (
+                  <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                    <IonIcon icon={close} />
+                  </button>
+                )}
+              </div>
+
+              <div className="dropdown-body">
+                {filteredEmployees.map((emp, index) => {
+                  const empId = String(emp[0]);
+                  let empName = String(emp[1]);
+                  if (empName.startsWith(empId + "-")) {
+                    empName = empName.replace(empId + "-", "").trim();
+                  }
+                  const isSelected = selectedEmpCode === empId;
+                  const cleanNameForInitials = empName.includes("-")
+                    ? empName.split("-").slice(1).join("-").trim()
+                    : empName;
+                  const initials = (cleanNameForInitials.charAt(0) || "?").toUpperCase();
+
+                  return (
+                    <div
+                      key={index}
+                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => {
+                        handleEmployeeChange(empId);
+                        setIsEmployeeDropdownOpen(false);
+                        setEmpSearchTerm("");
+                      }}
+                    >
+                      <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
+                        {initials}
+                      </div>
+                      <div className="dr-info">
+                        <span className="dr-name">{empName}</span>
+                        <span className="dr-id">ID: {empId}</span>
+                      </div>
+                      {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                    </div>
+                  );
+                })}
+                {filteredEmployees.length === 0 && (
+                  <div className="dr-no-results">
+                    <p>No matches for "{empSearchTerm}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {/* Period Dropdown Portal */}
+        {periodOpen && createPortal(
+          <>
+            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setPeriodOpen(false); }} />
+            <div
+              className="custom-inline-dropdown"
+              onMouseDown={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
                 top: `${periodPos.top}px`,
                 left: `${periodPos.left}px`,
-                width: `${periodPos.width + 20}px`,
+                width: `${periodPos.width}px`,
               }}
-              onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="dropdown-body">
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {monthYearList.map((item, i) => (
-                    <li
+                {monthYearList.map((item, i) => {
+                  const isSelected = item === searchDate;
+                  return (
+                    <div
                       key={i}
-                      className={item === searchDate ? "selected" : ""}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
+                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => {
                         handleMonthChange(item);
                         setPeriodOpen(false);
                       }}
-                      style={{ padding: '12px 16px', cursor: 'pointer', fontWeight: 800 }}
+                      style={{ padding: '12px 16px' }}
                     >
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                      <div className="dr-info">
+                        <span className="dr-name" style={{ fontWeight: isSelected ? 800 : 500 }}>{item}</span>
+                      </div>
+                      {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                    </div>
+                  );
+                })}
               </div>
-            </div>,
-            document.body
-          )}
-        </div>
+            </div>
+          </>,
+          document.body
+        )}
       </div>
 
       {/* CONTENT */}
       <div className="task-list-container">
 
-  <div className="top-filters">
-    <select
-      className="employee-select"
-      value={selectedEmpCode}
-      onChange={handleEmployeeChange}
-    >
-      {employees.map((emp: any, i) => (
-        <option key={i} value={String(emp[0])}>
-          {emp[1]}
-        </option>
-      ))}
-    </select>
-
-    <select
-      className="month-select"
-      value={searchDate}
-      onChange={(e) =>
-        handleMonthChange(e.target.value)
-      }
-    >
-      {monthYearList.map((m, i) => (
-        <option key={i} value={m}>
-          {m}
-        </option>
-      ))}
-    </select>
-  </div>
-
-  {loading && (
-    <div className="loading">
-      Loading...
-    </div>
-  )}
-
-  {!loading &&
-    workReports.map((item, i) => (
-      <React.Fragment key={i}>
-
-        {(item.DateStatus === "1" ||
-          item.DateStatus === 1) && (
-          <div className="card-date">
-            {item.WorkDate}
+        {loading && (
+          <div className="loading">
+            Loading...
           </div>
         )}
 
-        <div
-          className={`wr-card ${item.LPClass || ""}`}
-        >
-          <div className="wr-badge">
-            {item.EmpName} -- {item.ClientProject}
-          </div>
+        {!loading &&
+          workReports.map((item, i) => (
+            <React.Fragment key={i}>
 
-          <div className="wr-actions">
-            {item.Status === "Pending" && (
-              <>
-                <span
-                  className="success-bg"
-                  onClick={() =>
-                    updateWorkReportStatus(
-                      item.WorkId ?? "",
-                      "Approved"
-                    )
-                  }
-                >
-                  ✓
-                </span>
+              {(item.DateStatus === "1" ||
+                item.DateStatus === 1) && (
+                  <div className="card-date">
+                    {item.WorkDate}
+                  </div>
+                )}
 
-                <span
-                  className="danger-bg"
-                  onClick={() =>
-                    updateWorkReportStatus(
-                      item.WorkId ?? "",
-                      "Rejected"
-                    )
-                  }
-                >
-                  ✕
-                </span>
-              </>
-            )}
-          </div>
+              <div
+                className={`wr-card status-${(item.Status || "Pending").toLowerCase()} ${item.LPClass || ""}`}
+              >
+                <div className="wr-badge">
+                  {item.EmpName} -- {item.ClientProject}
+                </div>
 
-          <div className="wr-desc">
-            {item.Description}
-          </div>
+                <div className="wr-actions">
+                  {item.Status === "Pending" && (
+                    <>
+                      <span
+                        className="success-bg"
+                        onClick={() =>
+                          updateWorkReportStatus(
+                            item.WorkId ?? "",
+                            "Approved"
+                          )
+                        }
+                      >
+                        ✓
+                      </span>
 
-          {item.TLRemark &&
-            item.TLRemark !== "-" && (
-              <div className="wr-remark">
-                TL Remark :
-                <span>
-                  {item.TLRemark}
-                </span>
+                      <span
+                        className="danger-bg"
+                        onClick={() =>
+                          updateWorkReportStatus(
+                            item.WorkId ?? "",
+                            "Rejected"
+                          )
+                        }
+                      >
+                        ✕
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="wr-desc">
+                  {item.Description}
+                </div>
+
+                {item.TLRemark &&
+                  item.TLRemark !== "-" && (
+                    <div className="wr-remark">
+                      TL Remark :
+                      <span>
+                        {item.TLRemark}
+                      </span>
+                    </div>
+                  )}
               </div>
-            )}
-        </div>
-      </React.Fragment>
-    ))}
-</div>
+            </React.Fragment>
+          ))}
+      </div>
     </div>
   );
 };
