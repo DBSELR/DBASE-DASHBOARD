@@ -32,13 +32,30 @@ const WorkReportDashboard: React.FC = () => {
     useState<WorkReport[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
 
-  const empCode: string = localStorage.getItem("EmpCode") || "1520";
-  const empName: string = localStorage.getItem("EmpName") || "User";
+  // Parse active user from localStorage "user" JSON key
+  const getLoggedInUser = () => {
+    let code = "1520";
+    let name = "User";
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.empCode) code = String(parsed.empCode);
+        if (parsed.empName) name = String(parsed.empName);
+      }
+    } catch (e) {
+      console.error("Error reading stored user:", e);
+    }
+    return { code, name };
+  };
+
+  const { code: empCode, name: empName } = getLoggedInUser();
+
   const [periodOpen, setPeriodOpen] = useState<boolean>(false);
   const [periodPos, setPeriodPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 320 });
   const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmp, setSelectedEmp] = useState("All Employees");
-  const [selectedEmpCode, setSelectedEmpCode] = useState("0");
+  const [selectedEmp, setSelectedEmp] = useState(empName);
+  const [selectedEmpCode, setSelectedEmpCode] = useState(empCode);
 
   // Custom searchable employee dropdown states
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState<boolean>(false);
@@ -73,7 +90,7 @@ const WorkReportDashboard: React.FC = () => {
       const activeEmpCode = targetEmpCode !== undefined ? targetEmpCode : selectedEmpCode;
 
       const isTeam = activeEmpCode === "0";
-      const endpoint = isTeam ? "Load_WorkReport_Team" : "Load_WorkReport";
+      const endpoint = "Load_WorkReport_Team";
       const queryEmpCode = isTeam ? empCode : activeEmpCode;
 
       const res = await axios.get(
@@ -171,6 +188,14 @@ const WorkReportDashboard: React.FC = () => {
         filtered.unshift(["0", "All Employees"]);
 
         setEmployees(filtered);
+
+        // Find the active logged-in user in the loaded employees
+        const activeEmp = filtered.find(
+          (x: any) => String(x[0]) === empCode
+        );
+        if (activeEmp) {
+          setSelectedEmp(activeEmp[1]);
+        }
       }
     } catch (err) {
       console.error("Failed to load employees", err);
