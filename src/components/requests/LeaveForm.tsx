@@ -347,7 +347,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
        _InTime:
   requestType === "Permission"
     ? moment(inTime, "HH:mm").format("HH:mm")
-    : "",
+    : null,
       _requesttype: requestType,
       _empcode: empCode,
       _leaveMode:
