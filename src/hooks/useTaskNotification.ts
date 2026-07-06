@@ -116,6 +116,14 @@ export const useTaskNotification = () => {
 
     // Listen for newly assigned tasks pushed in real-time
     const handler = (payload: any) => {
+      // Safeguard: Ensure the notification is intended for the logged-in user
+      const myEmpCode = getUserEmpCode();
+      const targetEmpCode = payload.empCode ?? payload.EmpCode ?? payload.recECode ?? payload.RecECode;
+      if (targetEmpCode && myEmpCode && String(targetEmpCode).trim() !== String(myEmpCode).trim()) {
+        console.log("[Notifications] Ignored real-time notification intended for user:", targetEmpCode);
+        return;
+      }
+
       const tid = String(payload.tID ?? payload.TID ?? Date.now());
       const dismissed = getDismissedFromStorage();
       if (dismissed.has(tid)) return;

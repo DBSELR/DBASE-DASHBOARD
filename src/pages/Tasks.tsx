@@ -250,98 +250,104 @@ const Tasks: React.FC = () => {
       console.warn(`[WhatsApp] Skipped sending: invalid mobile length (${mobile})`);
       return;
     }
-    let msg = "";
+
+    let templateName = "";
+    let params: string[] = [];
 
     switch (templateType) {
       case "task_new_assigned":
-        msg = `📌 NEW TASK ASSIGNED\n\n` +
-              `Task ID: #${ctx.taskId}\n\n` +
-              `👤 Created By: ${ctx.creator}\n\n` +
-              `👨💼 Assigned To: ${ctx.assignee}\n\n` +
-              `⚡ Priority: ${ctx.priority}\n\n` +
-              `📝 Task Description: ${ctx.description}\n\n` +
-              `📅 Assigned Date: ${ctx.assignedDate}\n\n` +
-              `🎯 Target Date: ${ctx.targetDate}\n\n` +
-              `⏳ Target Days: ${ctx.targetDays}\n\n` +
-              `🕒 Action Time: ${ctx.actionTime}\n\n` +
-              `Please review and start the task.`;
+        templateName = "task_new_assigned";
+        params = [
+          String(ctx.taskId ?? ""),
+          String(ctx.creator ?? ""),
+          String(ctx.assignee ?? ""),
+          String(ctx.priority ?? ""),
+          String(ctx.description ?? ""),
+          String(ctx.assignedDate ?? ""),
+          String(ctx.targetDate ?? ""),
+          String(ctx.targetDays ?? ""),
+          String(ctx.actionTime ?? "")
+        ];
         break;
 
       case "task_status_updated":
-        msg = `📋 TASK STATUS UPDATED\n\n` +
-              `Task ID: #${ctx.taskId}\n\n` +
-              `👤 Created By: ${ctx.creator}\n\n` +
-              `👨💻 Assigned Employee: ${ctx.assignee}\n\n` +
-              `⚡ Priority: ${ctx.priority}\n\n` +
-              `📝 Task Description: ${ctx.description}\n\n` +
-              `📊 New Status: ${extra.status || "In Progress"}\n\n` +
-              `✍ Updated By: ${extra.updatedBy}\n\n` +
-              `💬 Remarks: ${extra.remarks || "No remarks provided"}\n\n` +
-              `🎯 Target Date: ${ctx.targetDate}\n\n` +
-              `Please review the latest task update in the Office Dashboard.`;
+        templateName = "task_status_updated";
+        params = [
+          String(ctx.taskId ?? ""),
+          String(ctx.creator ?? ""),
+          String(ctx.assignee ?? ""),
+          String(ctx.priority ?? ""),
+          String(ctx.description ?? ""),
+          String(extra?.status || "In Progress"),
+          String(extra?.updatedBy ?? ""),
+          String(extra?.remarks || "No remarks provided"),
+          String(ctx.targetDate ?? "")
+        ];
         break;
 
       case "task_completed":
-        msg = `✅ TASK COMPLETED\n\n` +
-              `Task ID: #${ctx.taskId}\n\n` +
-              `👤 Created By: ${ctx.creator}\n\n` +
-              `👨💻 Completed By: ${extra.completedBy}\n\n` +
-              `⚡ Priority: ${ctx.priority}\n\n` +
-              `📝 Task Description: ${ctx.description}\n\n` +
-              `💬 Completion Remarks: ${extra.remarks || "Task marked as completed"}\n\n` +
-              `🎯 Target Date: ${ctx.targetDate}\n\n` +
-              `📊 Final Status: Closed\n\n` +
-              `Thank you for completing the assigned task.`;
+        templateName = "task_completed";
+        params = [
+          String(ctx.taskId ?? ""),
+          String(ctx.creator ?? ""),
+          String(extra?.completedBy ?? ""),
+          String(ctx.priority ?? ""),
+          String(ctx.description ?? ""),
+          String(extra?.remarks || "Task marked as completed"),
+          String(ctx.targetDate ?? "")
+        ];
         break;
 
       case "task_transferred_creator":
-        msg = `🔄 TASK TRANSFERRED\n\n` +
-              `Task ID: #${ctx.taskId}\n\n` +
-              `👤 Created By: ${ctx.creator}\n\n` +
-              `👨💼 Previous Assignee: ${ctx.assignee}\n\n` +
-              `👨💻 New Assignee: ${extra.newAssignee}\n\n` +
-              `⚡ Priority: ${ctx.priority}\n\n` +
-              `📝 Task Description: ${ctx.description}\n\n` +
-              `✍ Transferred By: ${extra.transferredBy}\n\n` +
-              `💬 Transfer Remarks: ${extra.remarks || "N/A"}\n\n` +
-              `🎯 Target Date: ${ctx.targetDate}\n\n` +
-              `The task ownership has been updated successfully.`;
+        templateName = "task_transferred_creator";
+        params = [
+          String(ctx.taskId ?? ""),
+          String(ctx.creator ?? ""),
+          String(ctx.assignee ?? ""),
+          String(extra?.newAssignee ?? ""),
+          String(ctx.priority ?? ""),
+          String(ctx.description ?? ""),
+          String(extra?.transferredBy ?? ""),
+          String(extra?.remarks || "N/A"),
+          String(ctx.targetDate ?? "")
+        ];
         break;
 
       case "task_transferred_assignee":
-        msg = `📥 TASK ASSIGNED VIA TRANSFER\n\n` +
-              `Task ID: #${ctx.taskId}\n\n` +
-              `👤 Original Creator: ${ctx.creator}\n\n` +
-              `👨💼 Previous Assignee: ${ctx.assignee}\n\n` +
-              `👨💻 Assigned To You: ${extra.newAssignee}\n\n` +
-              `⚡ Priority: ${ctx.priority}\n\n` +
-              `📝 Task Description: ${ctx.description}\n\n` +
-              `✍ Transferred By: ${extra.transferredBy}\n\n` +
-              `💬 Transfer Remarks: ${extra.remarks || "N/A"}\n\n` +
-              `🎯 Target Date: ${ctx.targetDate}\n\n` +
-              `Please review and continue the task.`;
+        templateName = "task_transferred_assignee";
+        params = [
+          String(ctx.taskId ?? ""),
+          String(ctx.creator ?? ""),
+          String(ctx.assignee ?? ""),
+          String(extra?.newAssignee ?? ""),
+          String(ctx.priority ?? ""),
+          String(ctx.description ?? ""),
+          String(extra?.transferredBy ?? ""),
+          String(extra?.remarks || "N/A"),
+          String(ctx.targetDate ?? "")
+        ];
         break;
 
       case "task_reopened":
-        msg = `♻️ TASK REOPENED\n\n` +
-              `Task ID: #${ctx.taskId}\n\n` +
-              `👤 Created By: ${ctx.creator}\n\n` +
-              `👨💻 Current Assignee: ${ctx.assignee}\n\n` +
-              `⚡ Priority: ${ctx.priority}\n\n` +
-              `📝 Task Description: ${ctx.description}\n\n` +
-              `✍ Reopened By: ${extra.reopenedBy}\n\n` +
-              `🎯 Target Date: ${ctx.targetDate}\n\n` +
-              `📊 Status: Reopened\n\n` +
-              `The task has been moved back to pending for further action.`;
+        templateName = "task_reopened";
+        params = [
+          String(ctx.taskId ?? ""),
+          String(ctx.creator ?? ""),
+          String(ctx.assignee ?? ""),
+          String(ctx.priority ?? ""),
+          String(ctx.description ?? ""),
+          String(extra?.reopenedBy ?? ""),
+          String(ctx.targetDate ?? "")
+        ];
         break;
     }
 
-    if (msg) {
-      console.log(`[WhatsApp] Sending ${templateType} to ${mobile}`);
+    if (templateName) {
+      console.log(`[WhatsApp] Sending template ${templateName} to ${mobile}`);
       try {
-        await apiService.sendMessage(mobile, msg);
+        await apiService.sendWhatsAppTemplate(cleanedMobile, templateName, params);
       } catch (err) {
-        console.error("[WhatsApp] sendMessage failed:", err);
+        console.error("[WhatsApp] sendWhatsAppTemplate failed:", err);
       }
     }
   };
@@ -656,10 +662,12 @@ const Tasks: React.FC = () => {
       // --- SEND PUSH NOTIFICATION ---
       try {
         const ctx = buildTaskContext(activeTask);
-        const pushTargetEmpCode = (currentEmpCode === ctx.assigneeEmpCode)
-          ? ctx.creatorEmpCode
-          : ctx.assigneeEmpCode;
-        if (pushTargetEmpCode) {
+        const targets = new Set<string>();
+        if (ctx.creatorEmpCode) targets.add(ctx.creatorEmpCode);
+        if (ctx.assigneeEmpCode) targets.add(ctx.assigneeEmpCode);
+        targets.delete(currentEmpCode);
+
+        targets.forEach(empCode => {
           fetch(`${API_BASE}Notifications/SendPush`, {
             method: "POST",
             headers: {
@@ -667,13 +675,13 @@ const Tasks: React.FC = () => {
               Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
             },
             body: JSON.stringify({
-              EmpCode: pushTargetEmpCode,
+              EmpCode: empCode,
               Title: "Task Status Updated",
               Body: `Task #${activeTask.TID}: ${updateStatusInfo} — by ${currentEmpName}.`,
               Url: "/tasks"
             })
           }).catch(e => console.error("Push Error:", e));
-        }
+        });
       } catch (e) {
         console.error("Push Catch:", e);
       }
@@ -727,10 +735,12 @@ const Tasks: React.FC = () => {
       // --- SEND PUSH NOTIFICATION ---
       try {
         const ctx = buildTaskContext(activeTask);
-        const pushTargetEmpCode = (currentEmpCode === ctx.assigneeEmpCode)
-          ? ctx.creatorEmpCode
-          : ctx.assigneeEmpCode;
-        if (pushTargetEmpCode) {
+        const targets = new Set<string>();
+        if (ctx.creatorEmpCode) targets.add(ctx.creatorEmpCode);
+        if (ctx.assigneeEmpCode) targets.add(ctx.assigneeEmpCode);
+        targets.delete(currentEmpCode);
+
+        targets.forEach(empCode => {
           fetch(`${API_BASE}Notifications/SendPush`, {
             method: "POST",
             headers: {
@@ -738,13 +748,13 @@ const Tasks: React.FC = () => {
               Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
             },
             body: JSON.stringify({
-              EmpCode: pushTargetEmpCode,
+              EmpCode: empCode,
               Title: "Task Completed",
               Body: `Task #${activeTask.TID}: ${updateStatusInfo || "Task completed"} — by ${currentEmpName}.`,
               Url: "/tasks"
             })
           }).catch(e => console.error("Push Error:", e));
-        }
+        });
       } catch (e) {
         console.error("Push Catch:", e);
       }
@@ -867,8 +877,15 @@ const Tasks: React.FC = () => {
 
       // --- SEND PUSH NOTIFICATION ---
       try {
+        const ctx = buildTaskContext(activeTask);
         const transferredEmpCode = transferTargetEmp.split("-")[0].trim();
-        if (transferredEmpCode) {
+        const targets = new Set<string>();
+        if (ctx.creatorEmpCode) targets.add(ctx.creatorEmpCode);
+        if (transferredEmpCode) targets.add(transferredEmpCode);
+        targets.delete(currentEmpCode);
+
+        targets.forEach(empCode => {
+          const isTransferee = (empCode === transferredEmpCode);
           fetch(`${API_BASE}Notifications/SendPush`, {
             method: "POST",
             headers: {
@@ -876,9 +893,11 @@ const Tasks: React.FC = () => {
               Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
             },
             body: JSON.stringify({
-              EmpCode: transferredEmpCode,
+              EmpCode: empCode,
               Title: "Task Transferred",
-              Body: `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`,
+              Body: isTransferee 
+                ? `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`
+                : `Task #${activeTask.TID} has been transferred to ${transferTargetEmp.split("-").slice(1).join("-").trim()} by ${currentEmpName}.`,
               Url: "/tasks"
             })
           })
@@ -890,7 +909,7 @@ const Tasks: React.FC = () => {
               }
             })
             .catch(e => console.error("Push Error:", e));
-        }
+        });
       } catch (e) {
         console.error("Push Catch:", e);
       }
@@ -941,7 +960,12 @@ const Tasks: React.FC = () => {
       // --- SEND PUSH NOTIFICATION ---
       try {
         const ctx = buildTaskContext(task);
-        if (ctx.assigneeEmpCode) {
+        const targets = new Set<string>();
+        if (ctx.creatorEmpCode) targets.add(ctx.creatorEmpCode);
+        if (ctx.assigneeEmpCode) targets.add(ctx.assigneeEmpCode);
+        targets.delete(currentEmpCode);
+
+        targets.forEach(empCode => {
           fetch(`${API_BASE}Notifications/SendPush`, {
             method: "POST",
             headers: {
@@ -949,13 +973,13 @@ const Tasks: React.FC = () => {
               Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
             },
             body: JSON.stringify({
-              EmpCode: ctx.assigneeEmpCode,
+              EmpCode: empCode,
               Title: "Task Reopened",
               Body: `Task #${task.TID} has been reopened by ${currentEmpName}. Please review.`,
               Url: "/tasks"
             })
           }).catch(e => console.error("Push Error:", e));
-        }
+        });
       } catch (e) {
         console.error("Push Catch:", e);
       }
@@ -1460,10 +1484,23 @@ const Tasks: React.FC = () => {
                           <div className="tdm-inputs-row">
                             <IonItem lines="full" style={{ '--padding-start': '0', width: '100%' }}>
                               <IonLabel position="stacked">What's the progress?</IonLabel>
-                              <IonInput 
+                              <textarea
+                                className="tdm-textarea-input"
                                 value={updateStatusInfo} 
-                                onIonChange={e => setUpdateStatusInfo(e.detail.value!)} 
+                                onChange={e => setUpdateStatusInfo(e.target.value)} 
                                 placeholder="Enter task updates or transfer remarks..." 
+                                style={{
+                                  width: '100%',
+                                  minHeight: '60px',
+                                  border: 'none',
+                                  outline: 'none',
+                                  background: 'transparent',
+                                  resize: 'vertical',
+                                  padding: '8px 0',
+                                  fontSize: '14px',
+                                  fontFamily: 'inherit',
+                                  color: 'var(--ion-text-color, #000)'
+                                }}
                               />
                             </IonItem>
                             

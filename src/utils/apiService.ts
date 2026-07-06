@@ -145,6 +145,20 @@ export const apiService = {
         return apiService.post("/Tickets/SendWhatsApp", { Phone: phone, Message: message });
     },
 
+    sendWhatsAppTemplate: async (mobile: string, templateName: string, parameters: string[]) => {
+        if (!mobile || mobile.trim() === "") {
+            console.warn("⚠️ [WhatsApp] Skipped template: No mobile number provided.");
+            return null;
+        }
+        const phone = mobile.trim();
+        console.log("API: Send WhatsApp Template", { phone, templateName, parameters });
+        return apiService.post("/Tickets/SendWhatsAppTemplate", {
+            Phone: phone,
+            TemplateName: templateName,
+            Parameters: parameters
+        });
+    },
+
     saveWorkReportTicketWise: async (reportData: any) => {
         console.log("API: Save Work Report Ticket Wise", reportData);
         return apiService.post("/Tickets/SaveWorkReport_TicketWise", reportData);

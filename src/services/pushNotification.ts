@@ -145,6 +145,20 @@ const registerWeb = async (empCode: string) => {
 
       onMessage(messaging, (payload) => {
         console.log("📩 [Push] Foreground Web Message:", payload);
+
+        // Safeguard: verify empCode if present in payload data
+        try {
+          const u = JSON.parse(localStorage.getItem("user") ?? "{}");
+          const myEmpCode = (u?.empCode || u?.EmpCode) ? String(u.empCode || u.EmpCode) : null;
+          const targetEmpCode = payload.data?.empCode || payload.data?.EmpCode;
+          if (targetEmpCode && myEmpCode && String(targetEmpCode).trim() !== String(myEmpCode).trim()) {
+            console.log("[Push] Ignored web push message intended for user:", targetEmpCode);
+            return;
+          }
+        } catch (e) {
+          console.warn("[Push] Error checking user code in onMessage:", e);
+        }
+
         const title = payload.notification?.title || payload.data?.title || "Notification";
         const body = payload.notification?.body || payload.data?.body || "";
 
