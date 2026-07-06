@@ -463,7 +463,8 @@ const EmpProfile: React.FC = () => {
       _Blood: row[5] !== null && row[5] !== undefined ? String(row[5]) : "",
       _Mobile: row[6] !== null && row[6] !== undefined ? String(row[6]) : "",
       _Email: row[8] !== null && row[8] !== undefined ? String(row[8]) : "",
-      _Email2: rowAny._Email2 ?? rowAny.Email2 ?? rowAny.email2 ?? "",
+      _Email2: row[62] !== null && row[62] !== undefined ? String(row[62]) : "",
+      //_Email2: rowAny._Email2 ?? rowAny.Email2 ?? rowAny.email2 ?? "",
       _Dept: row[30] !== null && row[30] !== undefined ? String(row[30]) : "",
       _user: getValue(9, ["_user", "_User", "user", "User", "userGroup", "UserGroup"], "Employee"),
       _Allowed_MY:
@@ -498,8 +499,8 @@ const EmpProfile: React.FC = () => {
       _PFNo: row[37] !== null && row[37] !== undefined ? String(row[37]) : "",
       _ESINo: row[36] !== null && row[36] !== undefined ? String(row[36]) : "",
       _CheckIn:
-        row[44] !== null && row[44] !== undefined
-          ? normalizeTimeValue(row[44])
+        row[43] !== null && row[43] !== undefined
+          ? normalizeTimeValue(row[43])
           : normalizeTimeValue(
             rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30",
           ),
@@ -748,11 +749,12 @@ const EmpProfile: React.FC = () => {
             leave: userProfile[11] || 0,
             sick: userProfile[21] || 0,
             p_time: userProfile[49] || "90",     // keep SAME as you want
-            checkIn: userProfile[44] || "09:30",
+            checkIn: userProfile[43] || "09:30",
             requestTo: userProfile[15] || "",
             userGroup: userProfile[9] || "",
             dayDA: userProfile[47] || "0",
             hourDA: userProfile[48] || "0",
+            email2: userProfile[62],
           });
         } else {
           // Object-based mapping
@@ -767,6 +769,7 @@ const EmpProfile: React.FC = () => {
             aadhar: userProfile.AadhaarNo,
             salary: userProfile.NetSal,
             email: userProfile.Email,
+            email2: userProfile.Email2,
             performanceScore: userProfile.UnseenCredits,
             pendingLeaves: userProfile.AVAIL_LS,
             profilePic: userProfile.Img || userProfile.ProfileImage,
@@ -800,7 +803,7 @@ const EmpProfile: React.FC = () => {
             leave: userProfile.ALLOWED_CL || 0,
             sick: userProfile.ALLOWED_SL || 0,
             p_time: userProfile.P_Time || "90",
-            checkIn: userProfile.CheckIn || "09:30",
+            checkIn: userProfile.intime1 || "09:30",
             requestTo: userProfile.RequestTo || "",
             userGroup: userProfile.UserGroup || "",
             dayDA: userProfile.dayDA || userProfile.DayDA || "0",
