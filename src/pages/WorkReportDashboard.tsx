@@ -26,7 +26,8 @@ const WorkReportDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [monthYearList, setMonthYearList] = useState<string[]>([]);
   const [searchDate, setSearchDate] = useState<string>("");
-  const [groupedReports, setGroupedReports] = useState<GroupedReports>({});
+ const [workReports, setWorkReports] =
+  useState<WorkReport[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
 
   const empCode: string = localStorage.getItem("EmpCode") || "1520";
@@ -35,6 +36,9 @@ const WorkReportDashboard: React.FC = () => {
   const [periodPos, setPeriodPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 320 });
   const pillRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [employees, setEmployees] = useState<any[]>([]);
+const [selectedEmp, setSelectedEmp] = useState("All Employees");
+const [selectedEmpCode, setSelectedEmpCode] = useState("0");
 
   // ================= GROUP DATA =================
 // ================= GROUP DATA =================
@@ -64,10 +68,13 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
       const res = await axios.get(
         `${API_BASE}Workreport/Load_WorkReport_Team`,
         {
-          params: {
-            EmpCode: empCode,
-            SearchDate: date,
-          },
+         params: {
+  EmpCode:
+    selectedEmpCode === "0"
+      ? empCode
+      : selectedEmpCode,
+  SearchDate: date,
+},
         }
       );
       console.log("API RESPONSE:", res.data);
@@ -89,13 +96,7 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
         TLRemark: x?.[11] ?? "-",
       }));
 
-      const grouped = groupWorkReports(reportData);
-
-      console.log("GROUPED DATA:", grouped);
-      console.log("PROJECT COUNT:", Object.keys(grouped).length);
-      console.log("PROJECTS:", Object.keys(grouped));
-
-      setGroupedReports(grouped);
+    setWorkReports(reportData);
     } catch (err) {
       console.error("WorkReport Load Error", err);
     } finally {
@@ -103,6 +104,24 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
     }
   };
 
+
+   const handleEmployeeChange = (
+  e: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const code = e.target.value;
+
+  setSelectedEmpCode(code);
+
+  const emp = employees.find(
+    (x: any) => String(x[0]) === code
+  );
+
+  setSelectedEmp(
+    emp ? emp[1] : "All Employees"
+  );
+
+  loadWorkReports(searchDate);
+};
   // ================= LOAD MONTH LIST =================
   const loadMonthYearList = async () => {
     try {
@@ -129,6 +148,30 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
   useEffect(() => {
     loadMonthYearList();
   }, []);
+
+  useEffect(() => {
+  fetchEmployees();
+}, []);
+
+const fetchEmployees = async () => {
+  try {
+    const response = await axios.get(
+      `${API_BASE}Employee/Load_Employees`
+    );
+
+    if (response.data && Array.isArray(response.data)) {
+      const filtered = response.data.filter(
+        (emp: any) => emp[0] !== "0"
+      );
+
+      filtered.unshift(["0", "All Employees"]);
+
+      setEmployees(filtered);
+    }
+  } catch (err) {
+    console.error("Failed to load employees", err);
+  }
+};
 
   // ================= MONTH CHANGE =================
   const handleMonthChange = (value: string) => {
@@ -171,48 +214,58 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
   }, [periodOpen]);
 
   // ================= UPDATE STATUS =================
-  const updateWorkReportStatus = async (workId: string | number, status: string) => {
-    try {
-      // set per-item loading state
-      setUpdatingStatus((p) => ({ ...p, [String(workId)]: true }));
+const updateWorkReportStatus = async (
+  workId: string | number,
+  status: string
+) => {
+  try {
+    setUpdatingStatus((p) => ({
+      ...p,
+      [String(workId)]: true,
+    }));
 
-      // optimistic update locally so UI responds immediately
-      setGroupedReports((prev) => {
-        const copy: GroupedReports = {};
-        Object.keys(prev).forEach((k) => {
-          copy[k] = prev[k].map((it) => {
-            const id = it.WorkId ?? it.workId;
-            if (String(id) === String(workId)) {
-              return { ...it, Status: status };
-            }
-            return it;
-          });
-        });
-        return copy;
-      });
+    // Optimistic update
+    setWorkReports((prev) =>
+      prev.map((item) => {
+        const id = item.WorkId ?? item.workId;
 
-      await axios.get(`${API_BASE}Workreport/update_WR_Permission`, {
+        if (String(id) === String(workId)) {
+          return {
+            ...item,
+            Status: status,
+          };
+        }
+
+        return item;
+      })
+    );
+
+    await axios.get(
+      `${API_BASE}Workreport/update_WR_Permission`,
+      {
         params: {
           Wrid: workId,
           Status: status,
           EmpCode: empCode,
         },
-      });
+      }
+    );
 
-      // optionally refresh from server to ensure consistency
-      // await loadWorkReports(searchDate);
-    } catch (err) {
-      console.error("Status Update Error", err);
-      // reload to revert optimistic change if update failed
-      try { loadWorkReports(searchDate); } catch (e) { /* ignore */ }
-    } finally {
-      setUpdatingStatus((p) => {
-        const n = { ...p };
-        delete n[String(workId)];
-        return n;
-      });
-    }
-  };
+    // Uncomment if you want to refresh from server
+    // await loadWorkReports(searchDate);
+  } catch (err) {
+    console.error("Status Update Error", err);
+
+    // Reload data if update fails
+    loadWorkReports(searchDate);
+  } finally {
+    setUpdatingStatus((p) => {
+      const n = { ...p };
+      delete n[String(workId)];
+      return n;
+    });
+  }
+};
 
   return (
     <div className="work-dashboard">
@@ -284,84 +337,106 @@ const groupWorkReports = (data?: WorkReport[]): GroupedReports => {
 
       {/* CONTENT */}
       <div className="task-list-container">
-        <div className="total-projects">
-          Total Projects: {Object.keys(groupedReports || {}).length}
-        </div>
 
-        {loading && <div style={{ padding: 10 }}>Loading...</div>}
+  <div className="top-filters">
+    <select
+      className="employee-select"
+      value={selectedEmpCode}
+      onChange={handleEmployeeChange}
+    >
+      {employees.map((emp: any, i) => (
+        <option key={i} value={String(emp[0])}>
+          {emp[1]}
+        </option>
+      ))}
+    </select>
 
-        {!loading && Object.keys(groupedReports || {}).length === 0 && (
-          <div style={{ padding: 20 }}>No Data Found</div>
+    <select
+      className="month-select"
+      value={searchDate}
+      onChange={(e) =>
+        handleMonthChange(e.target.value)
+      }
+    >
+      {monthYearList.map((m, i) => (
+        <option key={i} value={m}>
+          {m}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {loading && (
+    <div className="loading">
+      Loading...
+    </div>
+  )}
+
+  {!loading &&
+    workReports.map((item, i) => (
+      <React.Fragment key={i}>
+
+        {(item.DateStatus === "1" ||
+          item.DateStatus === 1) && (
+          <div className="card-date">
+            {item.WorkDate}
+          </div>
         )}
 
-        {Object.keys(groupedReports || {}).map((project) => (
-  <div key={project} className="premium-task-card">
-
-            {/* PROJECT NAME */}
-            <div className="task-card-header">
-              <div className="project-icon" />
-              <span className="tid-badge">
-  {project} ({groupedReports[project]?.length || 0})
-</span>
-            </div>
-
-            {/* GRID WRAPPER: horizontal + vertical scroll inside card */}
-            <div className="grid-wrapper">
-              <div className="report-grid-header">
-                <div>WDate</div>
-                <div>Service Type</div>
-                <div>Employee</div>
-                <div>Description</div>
-                <div>TLRemark</div>
-                <div>Status</div>
-                <div>Action</div>
-              </div>
-
-              {(groupedReports[project] || []).map((item, i) => (
-                <div key={i} className="report-grid-row">
-
-                  <div>{item.WorkDate}</div>
-                  <div>{item.ServiceType}</div>
-                  <div>{item.EmpName}</div>
-
-                  <div className="desc-cell">
-                    {item.Description}
-                  </div>
-
-                  <div>
-                    {item.TLRemark ?? item.tlRemark ?? "-"}
-                  </div>
-
-                  <div className="status-cell">
-                    <div className={`status-text ${String(item.Status || "Pending").toLowerCase()}`}>
-                      {item.Status || "Pending"}
-                    </div>
-                  </div>
-
-                  <div className="report-actions">
-                    {item.Status === "Pending" ? (
-                      <button
-                        className="approve-btn"
-                        onClick={() =>
-                          updateWorkReportStatus(item.WorkId ?? item.workId ?? "", "Approved")
-                        }
-                        disabled={!!updatingStatus[String(item.WorkId ?? item.workId ?? "")]}
-                      >
-                        Accept
-                      </button>
-                    ) : (
-                      <div className="action-placeholder">-</div>
-                    )}
-                  </div>
-
-                </div>
-              ))}
-            </div>
-
+        <div
+          className={`wr-card ${item.LPClass || ""}`}
+        >
+          <div className="wr-badge">
+            {item.EmpName} -- {item.ClientProject}
           </div>
-        ))}
 
-      </div>
+          <div className="wr-actions">
+            {item.Status === "Pending" && (
+              <>
+                <span
+                  className="success-bg"
+                  onClick={() =>
+                    updateWorkReportStatus(
+                      item.WorkId ?? "",
+                      "Approved"
+                    )
+                  }
+                >
+                  ✓
+                </span>
+
+                <span
+                  className="danger-bg"
+                  onClick={() =>
+                    updateWorkReportStatus(
+                      item.WorkId ?? "",
+                      "Rejected"
+                    )
+                  }
+                >
+                  ✕
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="wr-desc">
+            {item.Description}
+          </div>
+
+          {item.TLRemark &&
+            item.TLRemark !== "-" && (
+              <div className="wr-remark">
+                TL Remark :
+                <span>
+                  {item.TLRemark}
+                </span>
+              </div>
+            )}
+        </div>
+      </React.Fragment>
+    ))}
+</div>
     </div>
   );
 };

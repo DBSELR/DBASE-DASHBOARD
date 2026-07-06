@@ -402,3 +402,306 @@
     min-width: 1200px;
   }
 }
+
+.work-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+
+
+
+
+
+.work-card.orange {
+  border-left-color: orange;
+}
+
+.work-card.green {
+  border-left-color: #16a34a;
+}
+
+.work-card.red {
+  border-left-color: #ef4444;
+}
+
+.work-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+
+.emp-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.project-name {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.work-date {
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.service-type {
+  margin-top: 8px;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.description {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.tl-remark {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.tl-remark span {
+  font-weight: 600;
+}
+
+.status {
+  margin-top: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.approve-btn,
+.reject-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+}
+
+.approve-btn {
+  background: #16a34a;
+}
+
+.reject-btn {
+  background: #ef4444;
+}
+
+.work-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.card-date {
+  display: inline-block;
+  background: #5f5959;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-bottom: -10px;
+  z-index: 5;
+  width: fit-content;
+}
+
+.wr-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #d9c8a1;
+  border-radius: 10px;
+  padding: 38px 14px 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12);
+}
+
+.wr-badge {
+  position: absolute;
+  right: 0;
+  top: -18px;
+
+  background: #0054a6;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+
+  padding: 7px 15px;
+  border-radius: 8px;
+
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
+}
+
+.wr-desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #000;
+}
+
+.wr-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.success-bg,
+.danger-bg {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+
+  cursor: pointer;
+}
+
+.success-bg {
+  background: green;
+}
+
+.danger-bg {
+  background: red;
+}
+
+.work-dashboard {
+  background: #edf2f7;
+  min-height: 100vh;
+  padding: 15px;
+}
+
+.task-list-container {
+  max-width: 950px;
+  margin: auto;
+}
+
+.top-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.employee-select,
+.month-select {
+  height: 50px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 0 15px;
+  font-size: 18px;
+  background: white;
+}
+
+.card-date {
+  display: inline-block;
+  background: #5c5555;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: 700;
+  margin-top: 15px;
+  margin-bottom: 8px;
+}
+
+.wr-card {
+  position: relative;
+  background: white;
+  border-radius: 10px;
+  padding: 20px 15px;
+  margin-bottom: 20px;
+  border: 1px solid #d6c6a4;
+  box-shadow:
+    0 2px 8px rgba(0,0,0,.15);
+}
+
+.wr-badge {
+  position: absolute;
+  right: 0;
+  top: -18px;
+
+  background: #004ea8;
+  color: white;
+
+  padding: 8px 18px;
+  border-radius: 8px;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  box-shadow:
+    0 5px 15px rgba(0,0,0,.25);
+}
+
+.wr-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.success-bg,
+.danger-bg {
+  width: 30px;
+  height: 38px;
+
+  border-radius: 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: white;
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.success-bg {
+  background: green;
+}
+
+.danger-bg {
+  background: red;
+}
+
+.wr-desc {
+  font-size: 18px;
+  line-height: 1.7;
+  color: #111827;
+  word-break: break-word;
+}
+
+.wr-remark {
+  margin-top: 15px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.wr-remark span {
+  margin-left: 8px;
+  color: #000;
+}
+
+@media (max-width: 768px) {
+  .wr-badge {
+    position: static;
+    display: inline-block;
+    margin-bottom: 15px;
+  }
+
+  .wr-desc {
+    font-size: 16px;
+  }
+}
