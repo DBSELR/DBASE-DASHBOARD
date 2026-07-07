@@ -636,7 +636,7 @@ textarea.ntv-form-input {
     gap: 16px;
     margin-top: 16px;
     padding-bottom: 80px;
-    
+
 }
 
 .tasks-premium-card {
@@ -652,7 +652,7 @@ textarea.ntv-form-input {
     animation: cardEntrance 0.6s cubic-bezier(0.23, 1, 0.32, 1) backwards;
     overflow: hidden;
     height: 100% !important;
-    
+
 }
 
 @keyframes cardEntrance {
@@ -1324,6 +1324,9 @@ textarea.ntv-form-input {
     font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
 }
 
 .tdm-status-pill.pending {
@@ -1551,20 +1554,125 @@ textarea.ntv-form-input {
 
 .tdm-button-grid {
     display: grid;
-    grid-template-columns: 1fr; /* Small screens: 1 by 1 */
+    grid-template-columns: 1fr;
+    /* Small screens: 1 by 1 */
     gap: 10px;
     margin-top: 20px;
 }
 
 @media (min-width: 576px) and (max-width: 991px) {
     .tdm-button-grid {
-        grid-template-columns: 1fr 1fr; /* Medium screens: 2 by 2 */
+        grid-template-columns: 1fr 1fr;
+        /* Medium screens: 2 by 2 */
     }
 }
 
 @media (min-width: 992px) {
     .tdm-button-grid {
-        grid-template-columns: 1fr 1fr 1fr 1fr; /* Large screens: 1 single line (4 cols) */
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        /* Large screens: 1 single line (4 cols) */
     }
 }
 
+/* Premium badges */
+.premium-badge {
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 4px;
+}
+
+.cc-badge {
+    background: rgba(var(--ion-color-secondary-rgb), 0.15);
+    color: var(--ion-color-secondary);
+    border: 1px solid rgba(var(--ion-color-secondary-rgb), 0.3);
+}
+
+.transferred-badge {
+    background: rgba(124, 58, 237, 0.15);
+    color: rgb(124, 58, 237);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.reopened-badge {
+    background: rgba(var(--ion-color-warning-rgb), 0.15);
+    color: var(--ion-color-warning);
+    border: 1px solid rgba(var(--ion-color-warning-rgb), 0.3);
+}
+
+/* Reopen remarks box inside card */
+.reopen-remarks-box {
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: rgba(var(--ion-color-warning-rgb), 0.08);
+    border-left: 3px solid var(--ion-color-warning);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ion-color-step-800);
+}
+
+/* Timeline Custom Transfer Bubble */
+.tdm-transfer-bubble {
+    background: rgba(124, 58, 237, 0.04);
+    border: 1px solid rgba(124, 58, 237, 0.15);
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    box-shadow: 0 4px 15px -3px rgba(124, 58, 237, 0.05);
+}
+
+.tdm-transfer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.tdm-transfer-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #7c3aed;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tdm-transfer-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tdm-transfer-node {
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.tdm-transfer-node.active {
+    background: rgba(124, 58, 237, 0.1);
+    color: #7c3aed;
+}
+
+.tdm-transfer-arrow {
+    font-size: 16px;
+    color: #7c3aed;
+}
+
+.tdm-transfer-remarks {
+    font-size: 13px;
+    color: #475569;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border-left: 2px solid #7c3aed;
+}

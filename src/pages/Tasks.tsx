@@ -50,7 +50,12 @@ import {
   checkmarkCircle,
   checkmarkCircleOutline,
   colorFill,
-  repeat
+  repeat,
+  arrowRedo,
+  arrowUndo,
+  time,
+  playCircle,
+  pauseCircle
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
 import { apiService } from "../utils/apiService";
@@ -86,6 +91,13 @@ const Tasks: React.FC = () => {
   const [updateStatusInfo, setUpdateStatusInfo] = useState("");
   const [updateStatus, setUpdateStatus] = useState("");
   const [transferTargetEmp, setTransferTargetEmp] = useState("");
+
+  // Tagging states
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [tagActiveTask, setTagActiveTask] = useState<any>(null);
+  const [selectedTagEmployees, setSelectedTagEmployees] = useState<string[]>([]);
+  const [activeTaskTags, setActiveTaskTags] = useState<string[]>([]);
+  const [trueCurrentAssignee, setTrueCurrentAssignee] = useState("");
 
   // Custom Dropdown States
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
@@ -352,6 +364,20 @@ const Tasks: React.FC = () => {
     }
   };
 
+  const calculateTrueCurrentAssignee = (history: any[], defaultAssignee: string) => {
+    let currentAssignee = defaultAssignee;
+    const firstTransfer = history.find(item => !!item.toName);
+    if (firstTransfer) {
+      currentAssignee = firstTransfer.fromName;
+    }
+    for (let i = 0; i < history.length; i++) {
+      const item = history[i];
+      if (item.toName) {
+        currentAssignee = item.toName;
+      }
+    }
+    return currentAssignee;
+  };
 
   useEffect(() => {
     const userJson = localStorage.getItem("user");
@@ -383,13 +409,15 @@ const Tasks: React.FC = () => {
       const sent = await apiService.loadSentTasks(empCode);
       const mappedSent = (sent || []).map((t: any) => ({
         TID: t.TID || t[0],
-        SenEName: t.SenEName || t[1],
-        RecEName: t.RecEName || t[2],
-        ADt: t.ADt || t[3],
-        TDt: t.TDt || t[4],
-        TDesc: t.TDesc || t[5],
-        Status: t.Status || t[6],
-        TPriority: t.TPriority || t[10],
+        SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
+        RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
+        ADt: typeof t.ADt === 'string' ? t.ADt : "",
+        TDt: typeof t.TDt === 'string' ? t.TDt : "",
+        TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
+        Status: typeof t.Status === 'string' ? t.Status : "",
+        TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
+        ReopenRemarks: typeof t.ReopenRemarks === 'string' ? t.ReopenRemarks : "",
+        IsTransferred: t.IsTransferred === true || t.IsTransferred === 1 || t.isTransferred === true || t.isTransferred === 1 || false,
       }));
       setSentTasks(mappedSent);
 
@@ -397,14 +425,17 @@ const Tasks: React.FC = () => {
       const received = await apiService.loadReceivedTasks(empCode);
       const mappedReceived = (received || []).map((t: any) => ({
         TID: t.TID ?? t[0],
-        SenEName: t.SenEName ?? t[1],
-        RecEName: t.RecEName ?? t[2],
-        ADt: t.ADt ?? t[3],
-        TDt: t.TDt ?? t[4],
-        TDesc: t.TDesc ?? t[5],
-        Status: t.Status ?? t[6],
-        TPriority: t.TPriority ?? t[10] ?? "Low",
-        TargetDays: t.TargetDays ?? 0
+        SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
+        RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
+        ADt: typeof t.ADt === 'string' ? t.ADt : "",
+        TDt: typeof t.TDt === 'string' ? t.TDt : "",
+        TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
+        Status: typeof t.Status === 'string' ? t.Status : "",
+        TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
+        TargetDays: typeof t.TargetDays === 'number' ? t.TargetDays : (parseInt(t.TargetDays) || 0),
+        ReopenRemarks: typeof t.ReopenRemarks === 'string' ? t.ReopenRemarks : "",
+        IsTagged: t.IsTagged === true || t.IsTagged === 1 || t.isTagged === true || t.isTagged === 1 || false,
+        IsTransferred: t.IsTransferred === true || t.IsTransferred === 1 || t.isTransferred === true || t.isTransferred === 1 || false,
       }));
       setReceivedTasks(mappedReceived);
 
@@ -423,6 +454,7 @@ const Tasks: React.FC = () => {
     setIsLoading(true);
     setActiveTask(task);
     setSelectedTaskHistory([]); // Reset history before fetching
+    setActiveTaskTags([]); // Reset tags before fetching
     try {
       const history = await apiService.loadViewTask(task.TID);
       const mappedHistory = (history || []).map((item: any) => ({
@@ -433,6 +465,16 @@ const Tasks: React.FC = () => {
         message: item[10],
       }));
       setSelectedTaskHistory(mappedHistory);
+      const trueAssignee = calculateTrueCurrentAssignee(mappedHistory, task.RecEName);
+      setTrueCurrentAssignee(trueAssignee);
+
+      // Load tags
+      try {
+        const tags = await apiService.getTaskTags(task.TID);
+        setActiveTaskTags(tags || []);
+      } catch (tagErr) {
+        console.warn("Failed to load task tags:", tagErr);
+      }
     } catch (error) {
       console.error("Error fetching task view:", error);
       // Even if fetch fails (e.g., 400 Bad Request), we still want to show the modal with empty history
@@ -522,7 +564,7 @@ const Tasks: React.FC = () => {
         console.error("Push Catch:", e);
       }
       // ------------------------------
-      
+
       // --- SEND WHATSAPP NOTIFICATION ---
       try {
         const assignedEmpCode = assignTo.split("-")[0].trim();
@@ -615,6 +657,10 @@ const Tasks: React.FC = () => {
       message: item[10],
     }));
     setSelectedTaskHistory(mappedHistory);
+    if (activeTask) {
+      const trueAssignee = calculateTrueCurrentAssignee(mappedHistory, activeTask.RecEName);
+      setTrueCurrentAssignee(trueAssignee);
+    }
   };
 
   const handleProgress = async () => {
@@ -632,6 +678,7 @@ const Tasks: React.FC = () => {
         _StatusDate: formatDateTime(new Date()),
         _StatusInfo: "No Change",
         _Status: "",
+        _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.saveTaskStatus(statusData);
       await refreshTaskHistory(activeTask.TID);
@@ -656,6 +703,7 @@ const Tasks: React.FC = () => {
         _StatusDate: formatDateTime(new Date()),
         _StatusInfo: updateStatusInfo,
         _Status: "",
+        _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.saveTaskStatus(statusData);
 
@@ -691,13 +739,13 @@ const Tasks: React.FC = () => {
       try {
         const ctx = buildTaskContext(activeTask);
         const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
-        
+
         const extra = {
           status: "In Progress",
           updatedBy: formattedCurrentUser,
           remarks: updateStatusInfo
         };
-        
+
         // Notify the counterparty
         const targetEmpCode = (currentEmpCode === ctx.creatorEmpCode) ? ctx.assigneeEmpCode : ctx.creatorEmpCode;
         const targetMobile = await fetchEmployeeMobile(targetEmpCode);
@@ -729,6 +777,7 @@ const Tasks: React.FC = () => {
         _StatusDate: formatDateTime(new Date()),
         _StatusInfo: updateStatusInfo || "Task completed",
         _Status: "true",
+        _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.saveTaskStatus(statusData);
 
@@ -764,22 +813,22 @@ const Tasks: React.FC = () => {
       try {
         const ctx = buildTaskContext(activeTask);
         const formattedCurrentUser = formatEmpWithCode(`${currentEmpCode}-${currentEmpName}`);
-        
+
         const extra = {
           completedBy: formattedCurrentUser,
           remarks: updateStatusInfo || "Task marked as completed"
         };
-        
+
         const [creatorMobile, assigneeMobile] = await Promise.all([
           fetchEmployeeMobile(ctx.creatorEmpCode),
           fetchEmployeeMobile(ctx.assigneeEmpCode)
         ]);
-        
+
         // Deduplicate mobile numbers
         const mobiles = new Set<string>();
         if (creatorMobile) mobiles.add(creatorMobile);
         if (assigneeMobile) mobiles.add(assigneeMobile);
-        
+
         await Promise.all(
           Array.from(mobiles).map(mobile =>
             sendTaskWhatsApp(mobile, "task_completed", ctx, extra)
@@ -895,7 +944,7 @@ const Tasks: React.FC = () => {
             body: JSON.stringify({
               EmpCode: empCode,
               Title: "Task Transferred",
-              Body: isTransferee 
+              Body: isTransferee
                 ? `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`
                 : `Task #${activeTask.TID} has been transferred to ${transferTargetEmp.split("-").slice(1).join("-").trim()} by ${currentEmpName}.`,
               Url: "/tasks"
@@ -930,8 +979,15 @@ const Tasks: React.FC = () => {
     present({
       header: 'Reopen Task',
       subHeader: `ID: #${task.TID}`,
-      message: 'Are you sure you want to reopen this task? This will set its status back to Pending.',
+      message: 'Enter reopening remarks (Mandatory):',
       cssClass: 'premium-alert',
+      inputs: [
+        {
+          name: 'remarks',
+          type: 'textarea',
+          placeholder: 'Enter reason for reopening task...'
+        }
+      ],
       buttons: [
         {
           text: 'Cancel',
@@ -942,18 +998,27 @@ const Tasks: React.FC = () => {
           text: 'Yes, Reopen',
           role: 'confirm',
           cssClass: 'alert-button-confirm',
-          handler: () => performReopen(task)
+          handler: (data) => {
+            const remarksText = data.remarks?.trim();
+            if (!remarksText) {
+              setToastMessage("Reopening remarks are mandatory!");
+              return false; // keeps alert open
+            }
+            performReopen(task, remarksText);
+          }
         }
       ]
     });
   };
 
-  const performReopen = async (task: any) => {
+  const performReopen = async (task: any, remarks: string) => {
     setIsLoading(true);
     try {
       const reopenData = {
         _Tskid: String(task.TID),
         _StatusDate: formatDateTime(new Date()),
+        _StatusInfo: remarks,
+        _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.reopenTask(reopenData);
 
@@ -1005,6 +1070,39 @@ const Tasks: React.FC = () => {
     } catch (error) {
       console.error("Error reopening task:", error);
       setToastMessage("Failed to reopen task");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenTagModal = async (task: any) => {
+    setIsLoading(true);
+    setTagActiveTask(task);
+    setSelectedTagEmployees([]);
+    try {
+      const tags = await apiService.getTaskTags(task.TID);
+      setSelectedTagEmployees(tags || []);
+      setTagModalOpen(true);
+    } catch (err) {
+      console.error("Error loading task tags:", err);
+      setToastMessage("Failed to load task tags");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveTags = async () => {
+    if (!tagActiveTask) return;
+    setIsLoading(true);
+    try {
+      await apiService.saveTaskTags(tagActiveTask.TID, selectedTagEmployees, currentEmpCode);
+      setToastMessage("Tags saved successfully");
+      setTagModalOpen(false);
+      setTagActiveTask(null);
+      fetchInitialData(currentEmpCode);
+    } catch (err) {
+      console.error("Error saving task tags:", err);
+      setToastMessage("Failed to save task tags");
     } finally {
       setIsLoading(false);
     }
@@ -1098,22 +1196,59 @@ const Tasks: React.FC = () => {
                 >
                   <div className={`priority-marker ${(task.TPriority || "Low").toLowerCase()}`}></div>
                   <div className="task-card-header">
-                    <div className="tid-badge">ID: {task.TID}</div>
-                    {task.Status === 'Closed' ? (
-                      <IonButton
-                        fill="outline"
-                        color="success"
-                        size="small"
-                        onClick={(e) => { e.stopPropagation(); handleReopenTask(task); }}
-                        style={{ '--border-radius': '8px', fontSize: '9px', height: '22px', margin: '0', '--padding-start': '8px', '--padding-end': '8px', width: 'auto' }}
-                      >
-                        Reopen
-                      </IonButton>
-                    ) : (
-                      <div className={`tdm-status-pill small ${task.Status?.toLowerCase() || 'pending'}`}>
-                        {task.Status || 'Pending'}
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div className="tid-badge">#{task.TID}</div>
+                      {task.IsTagged && <span className="premium-badge cc-badge" title="Carbon Copy (CC)">CC</span>}
+                      {task.IsTransferred && (
+                        <span className="premium-badge transferred-badge" title="Transferred">
+                          <IonIcon icon={arrowRedo} style={{ fontSize: '10px' }} /> TRF
+                        </span>
+                      )}
+                      {task.ReopenRemarks && (
+                        <span className="premium-badge reopened-badge" title="Reopened">
+                          <IonIcon icon={arrowUndo} style={{ fontSize: '10px' }} /> RE
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {task.Status === 'Closed' ? (
+                        <IonButton
+                          fill="outline"
+                          color="success"
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); handleReopenTask(task); }}
+                          style={{ '--border-radius': '8px', fontSize: '9px', height: '22px', margin: '0', '--padding-start': '8px', '--padding-end': '8px', width: 'auto' }}
+                        >
+                          Reopen
+                        </IonButton>
+                      ) : (
+                        <div className={`tdm-status-pill small ${task.Status?.toLowerCase() || 'pending'}`} title={task.Status || 'Pending'}>
+                          <IonIcon icon={
+                            task.Status === 'In Progress' ? playCircle :
+                            task.Status === 'On Hold' ? pauseCircle :
+                            task.Status === 'Closed' || task.Status === 'Completed' ? checkmarkCircle :
+                            time
+                          } style={{ fontSize: '10px' }} />
+                          {
+                            task.Status === 'In Progress' ? 'PRG' :
+                            task.Status === 'On Hold' ? 'HLD' :
+                            task.Status === 'Closed' || task.Status === 'Completed' ? 'CLSD' :
+                            'PND'
+                          }
+                        </div>
+                      )}
+                      {!task.IsTagged && (
+                        <IonButton
+                          fill="outline"
+                          color="secondary"
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); handleOpenTagModal(task); }}
+                          style={{ '--border-radius': '8px', fontSize: '9px', height: '22px', margin: '0', '--padding-start': '8px', '--padding-end': '8px', width: 'auto' }}
+                        >
+                          Tag
+                        </IonButton>
+                      )}
+                    </div>
                   </div>
 
                   <div className="card-body">
@@ -1122,6 +1257,11 @@ const Tasks: React.FC = () => {
                       From: {formatEmpName(task.SenEName)}
                     </div>
                     <div className="desc">{task.TDesc}</div>
+                    {task.ReopenRemarks && (
+                      <div className="reopen-remarks-box">
+                        <strong>Reopen Reason:</strong> {task.ReopenRemarks}
+                      </div>
+                    )}
                   </div>
                   <div className="card-footer-flex">
                     <div className="date-box">
@@ -1350,7 +1490,19 @@ const Tasks: React.FC = () => {
                 >
                   <div className={`priority-marker ${(task.TPriority || "Low").toLowerCase()}`}></div>
                   <div className="task-card-header">
-                    <div className="tid-badge">ID: {task.TID}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div className="tid-badge">#{task.TID}</div>
+                      {task.IsTransferred && (
+                        <span className="premium-badge transferred-badge" title="Transferred">
+                          <IonIcon icon={arrowRedo} style={{ fontSize: '10px' }} /> TRF
+                        </span>
+                      )}
+                      {task.ReopenRemarks && (
+                        <span className="premium-badge reopened-badge" title="Reopened">
+                          <IonIcon icon={arrowUndo} style={{ fontSize: '10px' }} /> RE
+                        </span>
+                      )}
+                    </div>
                     <div className="action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {task.Status === 'Closed' && (
                         <IonButton
@@ -1364,6 +1516,16 @@ const Tasks: React.FC = () => {
                         </IonButton>
                       )}
                       <IonButton
+                        fill="outline"
+                        color="secondary"
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); handleOpenTagModal(task); }}
+                        style={{ '--border-radius': '8px', fontSize: '9px', height: '22px', margin: '0', '--padding-start': '8px', '--padding-end': '8px', width: 'auto' }}
+                      >
+                        Tag
+                      </IonButton>
+                      {/* Delete button commented out per user requirements
+                      <IonButton
                         fill="clear"
                         color="danger"
                         size="small"
@@ -1372,11 +1534,17 @@ const Tasks: React.FC = () => {
                       >
                         <IonIcon icon={trash} slot="icon-only" style={{ fontSize: '18px' }} />
                       </IonButton>
+                      */}
                     </div>
                   </div>
                   <div className="card-body">
                     <div className="recipient">To: {formatEmpName(task.RecEName)}</div>
                     <div className="desc">{task.TDesc}</div>
+                    {task.ReopenRemarks && (
+                      <div className="reopen-remarks-box">
+                        <strong>Reopen Reason:</strong> {task.ReopenRemarks}
+                      </div>
+                    )}
                   </div>
                   <div className="card-footer-flex">
                     <div className="date-box">
@@ -1448,10 +1616,39 @@ const Tasks: React.FC = () => {
                 {activeTask && (
                   <div className="tdm-header-details">
                     <div className="tdm-top-bar">
-                      <div className="tdm-participants-wrap" style={{ fontSize: '16px', fontWeight: '700' }}>
-                        <span className="tdm-user-name">{activeTask.SenEName}</span>
-                        <IonIcon icon={chevronForward} className="tdm-arrow-divider" style={{ margin: '0 8px' }} />
-                        <span className="tdm-user-name">{activeTask.RecEName}</span>
+                      <div className="tdm-participants-wrap" style={{ fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                        {(() => {
+                          const assigneeFlow = [activeTask.SenEName];
+                          const transfers = selectedTaskHistory.filter(item => !!item.toName);
+                          if (transfers.length > 0) {
+                            if (transfers[0].fromName) {
+                              assigneeFlow.push(transfers[0].fromName);
+                            }
+                            transfers.forEach(t => {
+                              if (t.toName) {
+                                assigneeFlow.push(t.toName);
+                              }
+                            });
+                          } else {
+                            assigneeFlow.push(activeTask.RecEName);
+                          }
+
+                          const uniqueFlow: string[] = [];
+                          assigneeFlow.forEach(name => {
+                            if (name && uniqueFlow[uniqueFlow.length - 1] !== name) {
+                              uniqueFlow.push(name);
+                            }
+                          });
+
+                          return uniqueFlow.map((name, idx) => (
+                            <React.Fragment key={idx}>
+                              {idx > 0 && <IonIcon icon={chevronForward} className="tdm-arrow-divider" style={{ margin: '0 4px', color: '#64748b' }} />}
+                              <span className={`tdm-user-name ${idx === uniqueFlow.length - 1 ? 'active-assignee' : ''}`} style={{ color: idx === uniqueFlow.length - 1 ? 'var(--ion-color-primary)' : 'inherit' }}>
+                                {formatEmpName(name)}
+                              </span>
+                            </React.Fragment>
+                          ));
+                        })()}
                       </div>
                       <div className={`tdm-status-indicator ${activeTask.Status?.toLowerCase() || 'pending'}`}>
                         {activeTask.Status || 'Pending'}
@@ -1469,26 +1666,35 @@ const Tasks: React.FC = () => {
                         </div>
                         {activeTask.TargetDays && (
                           <div className="tdm-target-badge">
-                            {activeTask.TargetDays} Day(s) 
+                            {activeTask.TargetDays} Day(s)
                           </div>
                         )}
                       </div>
                     </div>
 
+                    {activeTaskTags.length > 0 && (
+                      <div className="tdm-tagged-users-list" style={{ marginTop: '10px', fontSize: '12px', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <strong>Tagged (CC Reference):</strong> {activeTaskTags.map(code => {
+                          const emp = employees.find(e => String(e[0]) === code);
+                          return emp ? formatEmpName(emp[1]) : code;
+                        }).join(', ')}
+                      </div>
+                    )}
+
                     {/* Status Update & Transfer Forms */}
-                    {activeTask.Status !== 'Closed' && selectedTab === 'view' && (
+                    {activeTask.Status !== 'Closed' && selectedTab === 'view' && !activeTask.IsTagged && (activeTask.SenEName?.startsWith(currentEmpCode) || trueCurrentAssignee?.startsWith(currentEmpCode)) && (
                       <div className="tdm-action-forms">
                         <div className="tdm-form-card">
                           <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Update / Transfer Task</h4>
-                          
+
                           <div className="tdm-inputs-row">
                             <IonItem lines="full" style={{ '--padding-start': '0', width: '100%' }}>
                               <IonLabel position="stacked">What's the progress?</IonLabel>
                               <textarea
                                 className="tdm-textarea-input"
-                                value={updateStatusInfo} 
-                                onChange={e => setUpdateStatusInfo(e.target.value)} 
-                                placeholder="Enter task updates or transfer remarks..." 
+                                value={updateStatusInfo}
+                                onChange={e => setUpdateStatusInfo(e.target.value)}
+                                placeholder="Enter task updates or transfer remarks..."
                                 style={{
                                   width: '100%',
                                   minHeight: '60px',
@@ -1503,11 +1709,11 @@ const Tasks: React.FC = () => {
                                 }}
                               />
                             </IonItem>
-                            
+
                             <div>
                               <span style={{ fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--ion-color-medium)', display: 'block', marginBottom: '8px' }}>Transfer To :</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div 
+                                <div
                                   ref={transferTriggerRef}
                                   className={`dbase-inline-select searchable-trigger ${isTransferDropdownOpen ? 'active' : ''}`}
                                   onClick={(e) => {
@@ -1515,11 +1721,11 @@ const Tasks: React.FC = () => {
                                     setIsEmployeeDropdownOpen(false);
                                     setIsTransferDropdownOpen(!isTransferDropdownOpen);
                                   }}
-                                  style={{ 
-                                    flex: 1, 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
+                                  style={{
+                                    flex: 1,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
                                     border: '1.5px solid #e2e8f0',
                                     borderRadius: '10px',
@@ -1532,8 +1738,8 @@ const Tasks: React.FC = () => {
                                     {transferTargetEmp || "Select Employee"}
                                   </span>
                                   {transferTargetEmp && (
-                                    <IonIcon 
-                                      icon={close} 
+                                    <IonIcon
+                                      icon={close}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setTransferTargetEmp("");
@@ -1625,11 +1831,11 @@ const Tasks: React.FC = () => {
                             <IonButton expand="block" shape="round" onClick={handleProgress} style={{ '--background': '#f39c12', fontWeight: '700', fontSize: '13px', margin: 0 }}>
                               No Change
                             </IonButton>
-                            
+
                             <IonButton expand="block" shape="round" onClick={handleUpdateStatus} style={{ '--background': 'var(--premium-gradient)', fontWeight: '700', fontSize: '13px', margin: 0 }}>
                               Update
                             </IonButton>
-                            
+
                             <IonButton expand="block" color="success" shape="round" onClick={handleCompleteTask} style={{ '--background': '#0bcd3cff', fontWeight: '700', fontSize: '13px', margin: 0 }}>
                               Complete
                             </IonButton>
@@ -1642,7 +1848,7 @@ const Tasks: React.FC = () => {
                       </div>
                     )}
 
-                    {activeTask.Status === 'Closed' && (
+                    {activeTask.Status === 'Closed' && !activeTask.IsTagged && (
                       <div className="tdm-action-forms">
                         <div className="tdm-form-card" style={{ textAlign: 'center' }}>
                           <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>Task Completed</h4>
@@ -1659,24 +1865,100 @@ const Tasks: React.FC = () => {
                         </div>
                       </div>
                     )}
+
+                    {activeTask.IsTagged && (
+                      <div className="tdm-action-forms" style={{ marginTop: '10px' }}>
+                        <div className="tdm-form-card" style={{ textAlign: 'center', border: '1px dashed var(--ion-color-secondary)', background: 'rgba(var(--ion-color-secondary-rgb), 0.04)' }}>
+                          <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--ion-color-secondary)' }}>Reference Task (CC)</h4>
+                          <p style={{ fontSize: '13px', margin: '0', opacity: '0.8' }}>You are tagged on this task for reference. Actions are disabled.</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 <div className="tdm-activity-timeline" style={{ marginTop: '20px' }}>
                   <div className="tdm-timeline-heading">Update History</div>
                   <div className="tdm-timeline-scroll">
-                    {selectedTaskHistory.length > 0 ? (
-                      selectedTaskHistory.map((item: any, index: number) => {
+                    {(() => {
+                      if (selectedTaskHistory.length === 0) {
+                        return (
+                          <div className="tdm-empty-state-wrap" style={{ textAlign: 'center', padding: '40px 0', opacity: '0.6' }}>
+                            <div style={{ fontSize: '32px', marginBottom: '10px' }}><IonIcon icon={documentText} /></div>
+                            <p style={{ margin: '0' }}>No activity recorded yet.</p>
+                          </div>
+                        );
+                      }
+
+                      // Pre-calculate updater names for each history item
+                      const resolvedHistory = [];
+                      let currentAssignee = activeTask?.RecEName || "";
+
+                      // Loop backwards to track assignee changes
+                      for (let i = selectedTaskHistory.length - 1; i >= 0; i--) {
+                        const item = selectedTaskHistory[i];
                         const statusLower = item.status?.toLowerCase();
-                        const isSpecialStatus = statusLower === 'closed' || statusLower === 're-opened';
+                        const isTransfer = !!item.toName;
+
+                        let resolvedName = item.fromName;
+                        if (!resolvedName) {
+                          if (statusLower === 're-opened') {
+                            resolvedName = activeTask?.SenEName || "";
+                          } else {
+                            resolvedName = currentAssignee;
+                          }
+                        }
+
+                        resolvedHistory[i] = {
+                          ...item,
+                          resolvedUpdaterName: resolvedName
+                        };
+
+                        if (isTransfer && item.fromName) {
+                          currentAssignee = item.fromName;
+                        }
+                      }
+
+                      return resolvedHistory.map((item: any, index: number) => {
+                        const statusLower = item.status?.toLowerCase();
+                        const isTransfer = !!item.toName;
+
+                        if (isTransfer) {
+                          return (
+                            <div className="tdm-transfer-bubble" key={index}>
+                              <div className="tdm-transfer-header">
+                                <span className="tdm-transfer-title">
+                                  <IonIcon icon={repeat} style={{ marginRight: '6px', verticalAlign: 'middle', color: '#7c3aed' }} />
+                                  Task Transferred
+                                </span>
+                                <span className="tdm-bubble-timestamp">{item.date}</span>
+                              </div>
+                              <div className="tdm-transfer-flow">
+                                <span className="tdm-transfer-node">{formatEmpName(item.fromName)}</span>
+                                <IonIcon icon={chevronForward} className="tdm-transfer-arrow" />
+                                <span className="tdm-transfer-node active">{formatEmpName(item.toName)}</span>
+                              </div>
+                              {item.message && (
+                                <div className="tdm-transfer-remarks">
+                                  <strong>Remarks:</strong> {item.message}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        const isClosed = statusLower === 'closed';
+                        const isReopened = statusLower === 're-opened';
 
                         return (
                           <div className={`tdm-chat-bubble ${statusLower || 'pending'}`} key={index}>
                             <div className="tdm-bubble-metadata">
-                              <span className="tdm-bubble-timestamp">
-                                {item.date} {item.toName && <span style={{ marginLeft: '10px', color: 'var(--ion-color-secondary)' }}>{activeTask.SenEName} {'>'} {item.toName}</span>}
-                              </span>
-                              {isSpecialStatus && (
+                              {item.resolvedUpdaterName && (
+                                <span className="tdm-bubble-timestamp">
+                                  - {formatEmpName(item.resolvedUpdaterName)} ( {item.date} )
+                                </span>
+                              )}
+                              {(isClosed || isReopened) && (
                                 <div className={`tdm-status-display ${statusLower}`}>
                                   Status : <span>{item.status}</span>
                                 </div>
@@ -1687,19 +1969,104 @@ const Tasks: React.FC = () => {
                             </div>
                           </div>
                         );
-                      })
-                    ) : (
-                      <div className="tdm-empty-state-wrap" style={{ textAlign: 'center', padding: '40px 0', opacity: '0.6' }}>
-                        <div style={{ fontSize: '32px', marginBottom: '10px' }}><IonIcon icon={documentText} /></div>
-                        <p style={{ margin: '0' }}>No activity recorded yet.</p>
-                      </div>
-                    )}
+                      });
+                    })()}
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Tagging Modal */}
+        <IonModal
+          isOpen={tagModalOpen}
+          onDidDismiss={() => setTagModalOpen(false)}
+          className="tasks-tag-modal"
+        >
+          <div className="pwt-modal-content" style={{ padding: '16px' }}>
+            <h3 className="pwt-modal-title" style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '800' }}>Tag Employees (CC)</h3>
+            <div className="dropdown-search-sec" style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', borderRadius: '10px', padding: '8px 12px', marginBottom: '16px' }}>
+              <IonIcon icon={search} className="dropdown-search-icon" style={{ fontSize: '18px', marginRight: '8px', color: '#64748b' }} />
+              <input
+                type="text"
+                className="dropdown-pure-input"
+                placeholder="Search name or code..."
+                value={empSearchTerm}
+                onChange={(e) => setEmpSearchTerm(e.target.value)}
+                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px' }}
+              />
+              {empSearchTerm && (
+                <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                  <IonIcon icon={close} style={{ fontSize: '16px', color: '#64748b' }} />
+                </button>
+              )}
+            </div>
+
+            <div className="tag-employee-list" style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '20px' }}>
+              {filteredEmployees.map((emp, index) => {
+                const empId = String(emp[0]);
+                let empName = String(emp[1]);
+                if (empName.startsWith(empId + "-")) {
+                  empName = empName.replace(empId + "-", "").trim();
+                }
+                const isSelected = selectedTagEmployees.includes(empId);
+
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '10px 8px',
+                      borderBottom: '1px solid #f1f5f9',
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      background: isSelected ? 'rgba(var(--ion-color-secondary-rgb), 0.05)' : 'transparent'
+                    }}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedTagEmployees(selectedTagEmployees.filter(code => code !== empId));
+                      } else {
+                        setSelectedTagEmployees([...selectedTagEmployees, empId]);
+                      }
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      style={{ marginRight: '12px', width: '18px', height: '18px', accentColor: 'var(--ion-color-secondary)' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--ion-text-color)' }}>{empName}</span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>ID: {empId}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pwt-modal-footer" style={{ display: 'flex', gap: '10px' }}>
+              <IonButton
+                expand="block"
+                color="medium"
+                style={{ flex: 1, margin: 0, '--border-radius': '10px' }}
+                onClick={() => setTagModalOpen(false)}
+              >
+                Cancel
+              </IonButton>
+              <IonButton
+                expand="block"
+                color="secondary"
+                style={{ flex: 1, margin: 0, '--border-radius': '10px', fontWeight: '700' }}
+                onClick={handleSaveTags}
+              >
+                Save
+              </IonButton>
+            </div>
+          </div>
+        </IonModal>
 
         {/* Mobile FAB */}
         {/* <IonFab vertical="bottom" horizontal="end" slot="fixed" className="ion-hide-md-up">

@@ -219,4 +219,14 @@ export const apiService = {
         console.log("API: Load Reporting Matrix", empCode);
         return apiService.get(`/Employee/LoadReportingMatrix?empCode=${empCode}`);
     },
+
+    saveTaskTags: async (tid: number, empCodes: string[], taggedBy: string) => {
+        console.log("API: Save Task Tags", { tid, empCodes, taggedBy });
+        return apiService.post("/Tickets/Save_Task_Tags", { TID: tid, EmpCodes: empCodes, TaggedBy: taggedBy });
+    },
+
+    getTaskTags: async (tid: number) => {
+        console.log("API: Get Task Tags", tid);
+        return apiService.get(`/Tickets/Get_Task_Tags?TID=${tid}`);
+    },
 };

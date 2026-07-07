@@ -134,15 +134,15 @@
 }
 
 .tid-badge {
-  font-size: 15px;
+  font-size: 10px;
   font-weight: 800;
   /* adopt app theme primary color if available (Ionic or custom vars), fallback to orange */
   color: var(--ion-color-primary-contrast, #fff);
   background: var(--ion-color-primary, #ff9800);
   display: inline-block;
-  padding: 8px 16px;
+  padding: 4px 4px;
   border-radius: 10px;
-  max-width: 70%;
+  /* max-width: 70%; */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
