@@ -28,8 +28,8 @@ const WorkReportDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [monthYearList, setMonthYearList] = useState<string[]>([]);
   const [searchDate, setSearchDate] = useState<string>("");
-  const [workReports, setWorkReports] =
-    useState<WorkReport[]>([]);
+ const [workReports, setWorkReports] = useState<WorkReport[]>([]);
+const [allWorkReports, setAllWorkReports] = useState<WorkReport[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
 
   // Parse active user from localStorage "user" JSON key
@@ -84,65 +84,83 @@ const WorkReportDashboard: React.FC = () => {
   };
 
   // ================= LOAD WORK REPORT =================
-  const loadWorkReports = async (date: string, targetEmpCode?: string) => {
-    try {
-      setLoading(true);
-      const activeEmpCode = targetEmpCode !== undefined ? targetEmpCode : selectedEmpCode;
+  const loadWorkReports = async (
+  date: string,
+  targetEmpCode: string = "0"
+) => {
+  try {
+    setLoading(true);
 
-      const isTeam = activeEmpCode === "0";
-      const endpoint = "Load_WorkReport_Team";
-      const queryEmpCode = isTeam ? empCode : activeEmpCode;
+    const res = await axios.get(
+      `${API_BASE}Workreport/Load_WorkReport_Team`,
+      {
+        params: {
+          EmpCode: empCode,
+          SearchDate: date,
+        },
+      }
+    );
 
-      const res = await axios.get(
-        `${API_BASE}Workreport/${endpoint}`,
-        {
-          params: {
-            EmpCode: queryEmpCode,
-            SearchDate: date,
-          },
-        }
-      );
-      console.log("API RESPONSE:", res.data);
+    const dataArr = Array.isArray(res.data)
+      ? res.data
+      : [];
 
-      const dataArr: any[] = Array.isArray(res.data) ? res.data : [];
+    const reportData = dataArr.map((x: any) => ({
+      WorkId: x?.[0] ?? "",
+      EmpName: x?.[1] ?? "",
+      ServiceType: x?.[2] ?? "",
+      ClientProject: x?.[3] ?? "",
+      Description: x?.[4] ?? "",
+      WorkDate: x?.[5] ?? "",
+      Status: x?.[6] ?? "",
+      LPClass: x?.[7] ?? "",
+      Color: x?.[8] ?? "",
+      RawDate: x?.[9] ?? "",
+      DateStatus: x?.[12] ?? "",
+      TLRemark: x?.[11] ?? "-",
+      EmpCode: x?.[10] ?? "",
+    }));
+    console.log(res.data[0]);
+    setAllWorkReports(reportData);
 
-      const reportData: WorkReport[] = dataArr.map((x: any) => ({
-        WorkId: x?.[0] ?? "",
-        EmpName: x?.[1] ?? "",
-        ServiceType: x?.[2] ?? "",
-        ClientProject: x?.[3] ?? "No Project",
-        Description: x?.[4] ?? "",
-        WorkDate: x?.[5] ?? "",
-        Status: x?.[6] ?? "",
-        LPClass: x?.[7] ?? "",
-        Color: x?.[8] ?? "",
-        RawDate: x?.[9] ?? "",
-        DateStatus: x?.[10] ?? "",
-        TLRemark: x?.[11] ?? "-",
-      }));
-
+    if (targetEmpCode === "0") {
       setWorkReports(reportData);
-    } catch (err) {
-      console.error("WorkReport Load Error", err);
-    } finally {
-      setLoading(false);
+    } else {
+      setWorkReports(
+        reportData.filter(
+          x => String(x.EmpCode) === targetEmpCode
+        )
+      );
     }
-  };
+  }
+  finally {
+    setLoading(false);
+  }
+};
 
 
-  const handleEmployeeChange = (code: string) => {
-    setSelectedEmpCode(code);
+ const handleEmployeeChange = (code: string) => {
+  setSelectedEmpCode(code);
 
-    const emp = employees.find(
-      (x: any) => String(x[0]) === code
-    );
+  const emp = employees.find(
+    (x: any) => String(x[0]) === code
+  );
 
-    setSelectedEmp(
-      emp ? emp[1] : "All Employees"
-    );
+  setSelectedEmp(
+    emp ? emp[1] : "All Employees"
+  );
 
-    loadWorkReports(searchDate, code);
-  };
+  // Filter locally instead of API call
+  if (code === "0") {
+    setWorkReports(allWorkReports);
+  } else {
+   const filtered = allWorkReports.filter(
+  (x) => String(x.EmpCode) === code
+);
+
+    setWorkReports(filtered);
+  }
+};
   // ================= LOAD MONTH LIST =================
   const loadMonthYearList = async () => {
     try {
@@ -158,9 +176,11 @@ const WorkReportDashboard: React.FC = () => {
       setMonthYearList(list);
 
       if (list.length > 0) {
-        setSearchDate(list[0]);
-        loadWorkReports(list[0]);
-      }
+  setSearchDate(list[0]);
+  setSelectedEmpCode("0");
+  setSelectedEmp("All Employees");
+  loadWorkReports(list[0], "0");
+}
     } catch (err) {
       console.error("Month-Year Load Error", err);
     }
@@ -203,10 +223,10 @@ const WorkReportDashboard: React.FC = () => {
   };
 
   // ================= MONTH CHANGE =================
-  const handleMonthChange = (value: string) => {
-    setSearchDate(value);
-    loadWorkReports(value, selectedEmpCode);
-  };
+ const handleMonthChange = async (value: string) => {
+  setSearchDate(value);
+  await loadWorkReports(value, selectedEmpCode);
+};
 
   // Filtering for Searchable Dropdown
   const filteredEmployees = employees.filter((emp) => {
@@ -271,6 +291,8 @@ const WorkReportDashboard: React.FC = () => {
       window.removeEventListener("resize", compute);
     };
   }, [isEmployeeDropdownOpen, periodOpen]);
+
+ 
 
   // ================= UPDATE STATUS =================
   const updateWorkReportStatus = async (
