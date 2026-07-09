@@ -79,6 +79,7 @@ import ChangePassword from "./pages/ChangePassword";
 import ApprovalDates from "./components/requests/ApprovalDates";
 import LeaveAction from "./pages/LeaveAction";
 import VisitTickets from "./pages/Tickets/components/VisitTickets";
+import LeaveReport from "./pages/AIAttendance/LeaveReport";
 
 AnswerKeyImport
 
@@ -198,6 +199,7 @@ const App: React.FC = () => {
                   <Route exact path="/Approval-Dates" component={ApprovalDates} />
                   <Route exact path="/leave-action" component={LeaveAction} />
                   <Route exact path="/visit-tickets" component={VisitTickets} />
+                  <Route exact path="/leave-report" component={LeaveReport} />
 
                 <Redirect from="*" to="/home" />
               </Switch>

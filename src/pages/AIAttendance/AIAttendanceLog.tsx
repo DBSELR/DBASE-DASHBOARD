@@ -3,7 +3,7 @@ import {
   arrowBackOutline, calendarOutline, searchOutline,
   personOutline, timeOutline, checkmarkCircleOutline,
   closeCircleOutline, refreshOutline, chevronBackOutline,
-  chevronForwardOutline
+  chevronForwardOutline, documentTextOutline
 } from "ionicons/icons";
 import { useEffect, useState, useRef } from "react";
 import { useHistory, useParams } from "react-router";
@@ -21,7 +21,9 @@ interface AttendanceRecord {
   lateMinutes?: string;
   graceType?: string;
   attendanceStatus?: string;
+  branch?: string;
 }
+
 
 const AVATAR_CONFIG = [
   { grad: 'linear-gradient(145deg,#312e81 0%,#4f46e5 45%,#818cf8 100%)', glow: 'rgba(79,70,229,0.50)'  }, // deep indigo
@@ -45,6 +47,9 @@ const SLOTS = [
 
 const AIAttendanceLog: React.FC = () => {
   const { mode } = useParams<{ mode: string }>();
+  const [selectedBranch, setSelectedBranch] = useState("ALL");
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const [branches, setBranches] = useState<string[]>(["ALL"]);
 
   const loggedInId = (() => {
     const stored = localStorage.getItem("user");
@@ -104,8 +109,24 @@ const AIAttendanceLog: React.FC = () => {
     if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch {} }
   }, []);
 
+  /* ── load branches dynamically ── */
+  useEffect(() => {
+    if (effectiveMode === "security") {
+      fetch(API_BASE + 'Checkin/GetBranches', {
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'dbase-ai-master-key-2026' }
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setBranches(["ALL", ...d.data]);
+      })
+      .catch(console.error);
+    }
+  }, [effectiveMode]);
+
   /* ── re-fetch when mode or date changes ── */
-  useEffect(() => { fetchLogs(true); }, [effectiveMode, selectedDate]);
+  useEffect(() => {
+    fetchLogs(true);
+}, [effectiveMode, selectedDate, selectedBranch]);
 
   /* ── auto-sync in security mode (only when viewing today) ── */
   useEffect(() => {
@@ -115,7 +136,7 @@ const AIAttendanceLog: React.FC = () => {
       fetchLogs(false).finally(() => setIsSyncing(false));
     }, 10000);
     return () => clearInterval(iv);
-  }, [effectiveMode, selectedDate]);
+  }, [effectiveMode, selectedDate, selectedBranch]);
 
   /* ─────────────────────────────────────────
      FETCH
@@ -160,7 +181,10 @@ const AIAttendanceLog: React.FC = () => {
 
         const all = await Promise.all(dates.map(async date => {
           try {
-            const res = await fetch(`${API_BASE}Checkin/AIGetAttendanceByDate?date=${date}`, { headers });
+            const res = await fetch(
+    `${API_BASE}Checkin/AIGetAttendanceByDate?date=${selectedDate}`,
+    { headers }
+);
             if (!res.ok) return [];
             const d = await res.json();
             if (d.success && Array.isArray(d.data)) {
@@ -186,29 +210,92 @@ const AIAttendanceLog: React.FC = () => {
         ));
 
       } else {
-        const res = await fetch(`${API_BASE}Checkin/AIGetAttendanceByDate?date=${selectedDate}`, { headers });
+        let branchEmployees: any[] = [];
+        let fetchedBranchRoster = false;
+        
+        if (selectedBranch !== "ALL") {
+          try {
+            const br = await fetch(API_BASE + `Checkin/GetEmployeesByBranch?branch=${encodeURIComponent(selectedBranch)}`, {
+              headers: { 'Content-Type': 'application/json', 'x-api-key': 'dbase-ai-master-key-2026' }
+            });
+            const bd = await br.json();
+            if (bd.success && Array.isArray(bd.data)) {
+              branchEmployees = bd.data;
+              fetchedBranchRoster = true;
+            }
+          } catch (e) {
+            console.error("Error fetching branch employees", e);
+          }
+        }
+
+        let attendanceUrl = `${API_BASE}Checkin/AIGetAttendanceByDate?date=${selectedDate}`;
+        if (selectedBranch !== "ALL") {
+          attendanceUrl += `&branch=${encodeURIComponent(selectedBranch)}`;
+        }
+        
+        const res = await fetch(attendanceUrl, { headers });
         if (!res.ok) { console.error("[AIAttendanceLog] fetch", res.status); return; }
         const d = await res.json();
         if (d.success && Array.isArray(d.data)) {
-          const mapped: AttendanceRecord[] = d.data.map((r: any) => ({
-            'Emp ID': r.empId || '-',
-            Name: r.name || 'Unknown',
-            'Morning In': r.morningIn || '-',
-            'Lunch Out':  r.lunchOut  || '-',
-            'Lunch In':   r.lunchIn   || '-',
-            'Evening Out':r.eveningOut|| '-',
-            lateMinutes: r.lateMinutes || '0',
-            graceType: r.graceType || '-',
-            attendanceStatus: r.attendanceStatus || '-',
-          }));
-          const sorted = [...mapped].sort((a, b) => {
-            const latest = (rec: AttendanceRecord) =>
-              SLOTS.map(s => rec[s.key]).filter(t => t && t !== '-').sort().reverse()[0] || '';
-            return latest(b).localeCompare(latest(a));
-          });
-          setSecurityLogs(sorted);
-        }
-      }
+
+  const mapped: AttendanceRecord[] = d.data.map((r: any) => ({
+    'Emp ID': r.empId || '-',
+    Name: r.name || 'Unknown',
+    'Morning In': r.morningIn || '-',
+    'Lunch Out': r.lunchOut || '-',
+    'Lunch In': r.lunchIn || '-',
+    'Evening Out': r.eveningOut || '-',
+    lateMinutes: r.lateMinutes || '0',
+    graceType: r.graceType || '-',
+    attendanceStatus: r.attendanceStatus || '-',
+    branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
+  }));
+
+  // ✅ Build final list based on the roster if a branch is selected
+  let finalLogs: AttendanceRecord[] = [];
+  
+  if (selectedBranch === "ALL") {
+    finalLogs = mapped;
+  } else if (!fetchedBranchRoster) {
+    // Fallback: manually filter by branch string if API failed
+    finalLogs = mapped.filter(x => (x.branch || "").trim().toLowerCase() === selectedBranch.trim().toLowerCase());
+  } else {
+    // Roster mode: explicitly map over all employees in the branch
+    finalLogs = branchEmployees.map((emp: any) => {
+      const eCode = String(emp.empCode || "").trim().toLowerCase();
+      const found = mapped.find(m => String(m['Emp ID'] || "").trim().toLowerCase() === eCode);
+      if (found) return found;
+      
+      // Inject missing employee as Absent
+      return {
+        'Emp ID': emp.empCode || '-',
+        Name: emp.empName || 'Unknown',
+        'Morning In': '-',
+        'Lunch Out': '-',
+        'Lunch In': '-',
+        'Evening Out': '-',
+        lateMinutes: '0',
+        graceType: '-',
+        attendanceStatus: 'Absent',
+        branch: emp.branch || selectedBranch
+      };
+    });
+  }
+
+  // ✅ Latest punch first
+  const sorted = [...finalLogs].sort((a, b) => {
+    const latest = (rec: AttendanceRecord) =>
+      SLOTS
+        .map(s => rec[s.key])
+        .filter(t => t && t !== "-")
+        .sort()
+        .reverse()[0] || "";
+
+    return latest(b).localeCompare(latest(a));
+  });
+
+  setSecurityLogs(sorted);
+}}
     } catch (err) {
       console.error("[AIAttendanceLog]", err);
     } finally {
@@ -274,12 +361,65 @@ const AIAttendanceLog: React.FC = () => {
             </p>
           </div>
           {effectiveMode === "security" && (
-            <div className="live-sync-indicator">
-              <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
-              <span className="sync-text">{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
-              <button className="sync-now-btn" onClick={() => fetchLogs(true)}>
-                <IonIcon icon={refreshOutline} />
+            <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ position: 'relative' }}>
+                <button
+                    className="branch-btn"
+                    onClick={() => setShowBranchDropdown(!showBranchDropdown)}
+                    style={{ background: 'var(--ion-color-primary, #0d9488)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
+                >
+                    {selectedBranch} 
+                    <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
+                </button>
+                {showBranchDropdown && (
+                    <div className="branch-dropdown" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '6px', zIndex: 100, minWidth: '140px', border: '1px solid #e2e8f0' }}>
+                        {branches.map((branch) => (
+                            <div
+                                key={branch}
+                                className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
+                                onClick={() => {
+                                    setSelectedBranch(branch);
+                                    setShowBranchDropdown(false);
+                                }}
+                                style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
+                            >
+                                {branch}
+                            </div>
+                        ))}
+                    </div>
+                )}
+              </div>
+
+              {/* Leave Report Button */}
+              <button
+                onClick={() => history.push('/leave-report')}
+                style={{
+                  background: 'var(--ion-color-primary, #0d9488)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '24px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <IonIcon icon={documentTextOutline} style={{ fontSize: '14px' }} />
+                Leave Report
               </button>
+
+              <div className="live-sync-indicator">
+                <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
+                <span className="sync-text">{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
+                <button className="sync-now-btn" onClick={() => fetchLogs(true)}>
+                  <IonIcon icon={refreshOutline} />
+                </button>
+              </div>
             </div>
           )}
         </div>
