@@ -21,7 +21,7 @@ import "@ionic/react/css/display.css";
 
 /* Theme */
 import "./theme/global.css";
-
+import Stock from "./pages/Stock";
 import Login from "./pages/Login";
 import Menu from "./components/Menu";
 import Tasks from "./pages/Tasks";
@@ -202,6 +202,7 @@ const App: React.FC = () => {
                   <Route exact path="/leave-action" component={LeaveAction} />
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
+                  <Route exact path="/stock" component={Stock} />
 
                 <Redirect from="*" to="/home" />
               </Switch>

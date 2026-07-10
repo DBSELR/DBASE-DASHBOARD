@@ -139,7 +139,7 @@ const Home: React.FC = () => {
     { id: "punctuality", label: "Punctuality", icon: "https://cdn.lordicon.com/kiqyrejq.json", path: null, colorClass: "home-card-punctuality" },
     { id: "requests", label: "Requests", icon: "https://cdn.lordicon.com/zpxybbhl.json", path: "/requests", colorClass: "home-card-requests" },
     { id: "transactions", label: "Transactions", icon: "https://cdn.lordicon.com/ynsswhvj.json", path: "/transactions/0", colorClass: "home-card-transactions" },
-    { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: null, colorClass: "home-card-stock" },
+    { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: "/stock", colorClass: "home-card-stock" },
     { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },
     { id: "maintenance", label: "Maintenance", icon: "https://cdn.lordicon.com/qawxkplz.json", path: null, colorClass: "home-card-maintenance" },
     { id: "scanner", label: "Scanner", icon: <Scan size={32} color="#ffffff" />, path: "/camera", colorClass: "home-card-scanner", isLucide: true },
