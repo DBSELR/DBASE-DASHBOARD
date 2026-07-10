@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">DBS OFFICE</string>
     <string name="title_activity_main">DBS OFFICE</string>
-    <string name="package_name">io.ionic.starter</string>
-    <string name="custom_url_scheme">io.ionic.starter</string>
+    <string name="package_name">com.dbase.office</string>
+    <string name="custom_url_scheme">com.dbase.office</string>
 </resources>
