@@ -38,8 +38,11 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [bleDeviceId,  setBleDeviceId]  = useState("");
   const [bleDeviceName,setBleDeviceName]= useState("");
   const [isBleScanning,setIsBleScanning]= useState(false);
+  const [allowedBeacons, setAllowedBeacons] = useState<{name: string, mac: string}[]>([]);
   const [message,      setMessage]      = useState("Initializing camera...");
   const [statusColor,  setStatusColor]  = useState("#8b5cf6");
+  const [matchCount,   setMatchCount]   = useState(0);
+  const [verifyingName,setVerifyingName]= useState("");
 
   const [userData,     setUserData]     = useState<any>(null);
   const [userProfile,  setUserProfile]  = useState<any>(null);
@@ -62,11 +65,15 @@ const SecurityAttendanceScanner: React.FC = () => {
   const bleVerifiedRef  = useRef(false);
   const bleDeviceNameRef= useRef("");
   const bleDeviceIdRef  = useRef("");
+  const allowedBeaconsRef = useRef<{name: string, mac: string}[]>([]);
   const cameraReadyRef  = useRef(false);
   const scanSuccessRef  = useRef(false);
   const processingRef   = useRef(false);
   const loopTimeoutRef  = useRef<any>(null);
   const bleTimeoutRef   = useRef<any>(null);
+  const matchCountRef   = useRef(0);
+  const lastMatchedEmpIdRef = useRef("");
+  const verifyingNameRef = useRef("");
 
   useEffect(() => { latitudeRef.current      = latitude;      }, [latitude]);
   useEffect(() => { longitudeRef.current     = longitude;     }, [longitude]);
@@ -74,9 +81,31 @@ const SecurityAttendanceScanner: React.FC = () => {
   useEffect(() => { bleVerifiedRef.current   = bleVerified;   }, [bleVerified]);
   useEffect(() => { bleDeviceNameRef.current = bleDeviceName; }, [bleDeviceName]);
   useEffect(() => { bleDeviceIdRef.current   = bleDeviceId;   }, [bleDeviceId]);
+  useEffect(() => { allowedBeaconsRef.current = allowedBeacons; }, [allowedBeacons]);
   useEffect(() => { cameraReadyRef.current   = cameraReady;   }, [cameraReady]);
   useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
   useEffect(() => { processingRef.current    = processing;    }, [processing]);
+  useEffect(() => { matchCountRef.current    = matchCount;    }, [matchCount]);
+  useEffect(() => { verifyingNameRef.current = verifyingName; }, [verifyingName]);
+
+  // Load Beacons on Mount
+  useEffect(() => {
+    const fetchBeacons = async () => {
+      try {
+        const response = await fetch(`${API_BASE}Checkin/GetActiveBluetoothDevices`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.devices)) {
+            setAllowedBeacons(data.devices);
+            logDebug(`Loaded ${data.devices.length} beacons from DB`);
+          }
+        }
+      } catch (err) {
+        logDebug("Failed to load beacons from DB");
+      }
+    };
+    fetchBeacons();
+  }, []);
 
   // ── Load User Profile ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -265,33 +294,85 @@ const SecurityAttendanceScanner: React.FC = () => {
         
         logDebug(`API POST: AISecurityAttendance`);
 
+        const isLastFrame = matchCountRef.current === 2;
         const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
-          body: JSON.stringify({ image, latitude: latitudeRef.current, longitude: longitudeRef.current, bluetoothConnected: bleVerifiedRef.current, bluetoothDeviceName: bleDeviceNameRef.current, bluetoothDeviceId: bleDeviceIdRef.current })
+          body: JSON.stringify({
+            image,
+            latitude: latitudeRef.current,
+            longitude: longitudeRef.current,
+            bluetoothConnected: bleVerifiedRef.current,
+            bluetoothDeviceName: bleDeviceNameRef.current,
+            bluetoothDeviceId: bleDeviceIdRef.current,
+            saveNeeded: isLastFrame
+          })
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
-        if (data.invalidLocation) { setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`); speakText(data.message || "You are not in office location"); scheduleNextScan(4000); return; }
-        if (data.invalidTime)     { setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);          speakText(data.message);                          scheduleNextScan(4000); return; }
+        
+        if (data.invalidLocation) {
+          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+          setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`);
+          speakText(data.message || "You are not in office location");
+          scheduleNextScan(4000);
+          return;
+        }
+        if (data.invalidTime) {
+          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+          setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);
+          speakText(data.message);
+          scheduleNextScan(4000);
+          return;
+        }
         if (data.alreadyMarked) {
+          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
           setScannedEmployee({ empName: data.empName || "Employee", empId: data.empId || "", isDuplicate: true, customMessage: data.message || "Attendance already marked." });
           setMessage(`⚠️ Cooldown: ${data.empName}`); speakText(`${data.empName} attendance already marked`);
-          scheduleNextScan(4500, true); return;
+          scheduleNextScan(4500, true);
+          return;
         }
         if (data.success) {
-          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
-          setScannedEmployee({ empName: data.empName || "Employee", empId: data.empId || "", status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false });
-          setMessage(`✅ Verified: ${data.empName}`); speakText(`${data.empName} attendance marked successfully`);
-          scheduleNextScan(5000, true);
+          const empId = data.empId || "";
+          const empName = data.empName || "Employee";
+
+          if (data.saveNeeded === false) {
+            // First or second matching frame (identify mode)
+            if (lastMatchedEmpIdRef.current === empId) {
+              const nextCount = matchCountRef.current + 1;
+              setMatchCount(nextCount);
+              setVerifyingName(empName);
+              setMessage(`Verifying: ${empName}...`);
+              setStatusColor(nextCount === 1 ? "#3b82f6" : "#eab308");
+            } else {
+              setMatchCount(1);
+              lastMatchedEmpIdRef.current = empId;
+              setVerifyingName(empName);
+              setMessage(`Analyzing: ${empName}...`);
+              setStatusColor("#3b82f6");
+            }
+            // Capture next frame very quickly to perform consensus check
+            scheduleNextScan(150);
+          } else {
+            // Third frame matched and successfully saved to DB
+            setMatchCount(3);
+            setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
+            setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false });
+            setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
+            setVerifyingName(""); lastMatchedEmpIdRef.current = "";
+            scheduleNextScan(5000, true);
+          }
         } else {
-          setStatusColor("#ef4444"); setMessage("❌ Face Not Recognized"); scheduleNextScan(2500);
+          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+          setStatusColor("#ef4444"); setMessage("❌ Face Not Recognized");
+          scheduleNextScan(1500);
         }
       } else { scheduleNextScan(1000); }
     } catch (err: any) {
       logDebug("Err: " + err.message);
+      setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
       setStatusColor("#ef4444"); setMessage("❌ Connection Timeout"); scheduleNextScan(3500);
     }
     finally { setProcessing(false); processingRef.current = false; }
@@ -313,10 +394,20 @@ const SecurityAttendanceScanner: React.FC = () => {
         try {
           const name = (result.device.name || "").trim().toUpperCase();
           const mac  = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
-          if (name === "ER2650001F" && mac === "EA2658F0001F") {
+          const isUuid = mac.length > 12;
+
+          const matched = allowedBeaconsRef.current.length > 0
+            ? allowedBeaconsRef.current.some(b => {
+                const dbName = b.name.trim().toUpperCase();
+                const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
+                return name === dbName && (mac === dbMac || isUuid);
+              })
+            : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
+
+          if (matched) {
             found = true; setBleVerified(true); bleVerifiedRef.current = true;
             setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
-            logDebug("Beacon verified!");
+            logDebug("Beacon verified: " + name);
             await BleClient.stopLEScan();
           }
         } catch {}
@@ -421,12 +512,34 @@ const SecurityAttendanceScanner: React.FC = () => {
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
 
                 <div className="sc-hud">
-                  <div className={`sc-ring ${processing ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
+                  {/* Glowing Circular Progress Ring */}
+                  <svg className="sc-progress-svg" viewBox="0 0 120 120">
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      className="sc-progress-track"
+                    />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      className="sc-progress-bar"
+                      strokeDasharray={2 * Math.PI * 50}
+                      strokeDashoffset={2 * Math.PI * 50 * (1 - (matchCount / 3))}
+                      style={{
+                        stroke: matchCount === 3 ? '#10b981' : matchCount === 2 ? '#f59e0b' : '#3b82f6',
+                        transition: 'stroke-dashoffset 0.15s ease-in-out, stroke 0.15s'
+                      }}
+                    />
+                  </svg>
+
+                  <div className={`sc-ring ${matchCount > 0 ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
                   <div className="sc-corners">
                     <span className="sc-cor tl" /><span className="sc-cor tr" />
                     <span className="sc-cor bl" /><span className="sc-cor br" />
                   </div>
-                  <div className={`sc-laser ${processing ? 'laser-on' : ''}`} />
+                  <div className={`sc-laser ${matchCount > 0 ? 'laser-on' : ''}`} />
                 </div>
 
                 <div className="sc-ind-row">

@@ -40,6 +40,7 @@ import Sources from "./pages/Sources";
 import Tickets from "./pages/Tickets/Tickets";
 import Salaries from "./pages/Salaries";
 import ClientDetails from "./pages/ClientDetails";
+import OfficeClientDocs from "./pages/OfficeClientDocs";
 import Home from "./pages/Home";
 import LeaveRequest from "./pages/LeaveRequest";
 import AdminWorkReport from "./pages/AdminWorkReport";
@@ -165,10 +166,11 @@ const App: React.FC = () => {
                   <Route exact path="/duties" component={OnDuties} />
                   <Route exact path="/tasks" component={Tasks} />
                   <Route exact path="/clientdetails" component={ClientDetails} />
+                  <Route exact path="/office-client-docs" component={OfficeClientDocs} />
                   <Route exact path="/camera" component={CameraPage} />
                   <Route exact path="/dashboard" component={TicketsDashboard} />
-                  <Route exact path="/policies" component={Policies} />
-                  <Route exact path="/polices" component={Policies} />
+                  <Route exact path="/policies" component={Policies} /> 
+                  <Route exact path="/polices" component={Policies} />  
                   <Route path="/tickets" exact component={Tickets} />
                   <Route path="/tickets/raisedticket" exact component={RaiseTicket} />
                   <Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />

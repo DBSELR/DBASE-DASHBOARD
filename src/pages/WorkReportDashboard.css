@@ -705,6 +705,7 @@
 .task-list-container {
   max-width: 950px;
   margin: auto;
+    padding-top: 50px;
 }
 
 /* New Filters Layout Styles */

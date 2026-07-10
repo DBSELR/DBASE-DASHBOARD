@@ -455,6 +455,7 @@ const Tasks: React.FC = () => {
     setActiveTask(task);
     setSelectedTaskHistory([]); // Reset history before fetching
     setActiveTaskTags([]); // Reset tags before fetching
+    setTrueCurrentAssignee(task.RecEName); // Set default assignee right away, in case fetch fails
     try {
       const history = await apiService.loadViewTask(task.TID);
       const mappedHistory = (history || []).map((item: any) => ({
@@ -479,6 +480,7 @@ const Tasks: React.FC = () => {
       console.error("Error fetching task view:", error);
       // Even if fetch fails (e.g., 400 Bad Request), we still want to show the modal with empty history
       setSelectedTaskHistory([]);
+      setTrueCurrentAssignee(task.RecEName); // Fallback to initial recipient
     } finally {
       setIsLoading(false);
       setDetailModalOpen(true); // Open modal regardless of success/failure
@@ -648,18 +650,26 @@ const Tasks: React.FC = () => {
   };
 
   const refreshTaskHistory = async (tid: string) => {
-    const history = await apiService.loadViewTask(tid);
-    const mappedHistory = (history || []).map((item: any) => ({
-      fromName: item[0],
-      toName: item[1],
-      status: item[5],
-      date: item[9],
-      message: item[10],
-    }));
-    setSelectedTaskHistory(mappedHistory);
-    if (activeTask) {
-      const trueAssignee = calculateTrueCurrentAssignee(mappedHistory, activeTask.RecEName);
-      setTrueCurrentAssignee(trueAssignee);
+    try {
+      const history = await apiService.loadViewTask(tid);
+      const mappedHistory = (history || []).map((item: any) => ({
+        fromName: item[0],
+        toName: item[1],
+        status: item[5],
+        date: item[9],
+        message: item[10],
+      }));
+      setSelectedTaskHistory(mappedHistory);
+      if (activeTask) {
+        const trueAssignee = calculateTrueCurrentAssignee(mappedHistory, activeTask.RecEName);
+        setTrueCurrentAssignee(trueAssignee);
+      }
+    } catch (error) {
+      console.error("Error refreshing task history:", error);
+      setSelectedTaskHistory([]);
+      if (activeTask) {
+        setTrueCurrentAssignee(activeTask.RecEName);
+      }
     }
   };
 

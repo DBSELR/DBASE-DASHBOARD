@@ -76,14 +76,21 @@ const AIAttendanceLog: React.FC = () => {
   const [isSyncing, setIsSyncing]       = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => todayStr());
 
+  function formatDateLocal(d: Date) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   function todayStr() {
-    return new Date().toISOString().split('T')[0];
+    return formatDateLocal(new Date());
   }
 
   function dateOffset(daysAgo: number) {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
-    return d.toISOString().split('T')[0];
+    return formatDateLocal(d);
   }
 
   function displayLabel(dateStr: string) {
@@ -99,7 +106,7 @@ const AIAttendanceLog: React.FC = () => {
   function shiftDay(delta: number) {
     const d = new Date(selectedDate + 'T00:00:00');
     d.setDate(d.getDate() + delta);
-    const next = d.toISOString().split('T')[0];
+    const next = formatDateLocal(d);
     if (next <= todayStr()) setSelectedDate(next);
   }
 
@@ -154,7 +161,7 @@ const AIAttendanceLog: React.FC = () => {
         for (let i = 0; i < 7; i++) {
           const d = new Date(base);
           d.setDate(base.getDate() - i);
-          dates.push(d.toISOString().split('T')[0]);
+          dates.push(formatDateLocal(d));
         }
         let empCode = "", empName = "";
         const stored = localStorage.getItem("user");
@@ -182,9 +189,9 @@ const AIAttendanceLog: React.FC = () => {
         const all = await Promise.all(dates.map(async date => {
           try {
             const res = await fetch(
-    `${API_BASE}Checkin/AIGetAttendanceByDate?date=${selectedDate}`,
-    { headers }
-);
+              `${API_BASE}Checkin/AIGetAttendanceByDate?date=${date}`,
+              { headers }
+            );
             if (!res.ok) return [];
             const d = await res.json();
             if (d.success && Array.isArray(d.data)) {
@@ -355,9 +362,12 @@ const AIAttendanceLog: React.FC = () => {
               {effectiveMode === "user" ? "MY ATTENDANCE" : "ATTENDANCE RECORDS"}
             </h1>
             <p className="subtitle-text">
-              {effectiveMode === "user"
-                ? `${currentUser?.empName || currentUser?.EmpName || "Employee"} — 7-Day Log`
-                : "Live verification console"}
+              <span className="subtitle-pulse-dot" />
+              <span>
+                {effectiveMode === "user"
+                  ? `${currentUser?.empName || currentUser?.EmpName || "Employee"} — 7-Day Log`
+                  : "Live verification console"}
+              </span>
             </p>
           </div>
           {effectiveMode === "security" && (

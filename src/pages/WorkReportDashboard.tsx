@@ -576,15 +576,12 @@ const [allWorkReports, setAllWorkReports] = useState<WorkReport[]>([]);
                   {item.Description}
                 </div>
 
-                {item.TLRemark &&
-                  item.TLRemark !== "-" && (
-                    <div className="wr-remark">
-                      TL Remark :
-                      <span>
-                        {item.TLRemark}
-                      </span>
-                    </div>
-                  )}
+                <div className="wr-remark">
+                  Date :
+                  <span>
+                    {item.WorkDate}
+                  </span>
+                </div>
               </div>
             </React.Fragment>
           ))}

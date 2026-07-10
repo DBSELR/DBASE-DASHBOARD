@@ -172,6 +172,27 @@
   to { transform: rotate(360deg); } 
 }
 
+/* Dynamic Biometric Circular Progress Ring */
+.sc-progress-svg {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  transform: rotate(-90deg);
+  z-index: 9;
+}
+
+.sc-progress-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 3;
+}
+
+.sc-progress-bar {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
 .sc-corners { 
   position: absolute; 
   width: 220px; 

@@ -27,7 +27,9 @@ import {
   Layout,
   Edit2,
   ChevronDown,
-  XCircle
+  XCircle,
+  Check,
+  X
 } from "lucide-react";
 import {
   personOutline,
@@ -101,6 +103,44 @@ const WorkReports: React.FC = () => {
   const triggerRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const [showTeamReports, setShowTeamReports] = useState(false);
+
+  // Client & Location Dropdown States
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const clientTriggerRef = useRef<HTMLDivElement>(null);
+
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [locationDropdownPos, setLocationDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const locationTriggerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isClientDropdownOpen && clientTriggerRef.current) {
+      const rect = clientTriggerRef.current.getBoundingClientRect();
+      setClientDropdownPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, [isClientDropdownOpen]);
+
+  useEffect(() => {
+    if (isLocationDropdownOpen && locationTriggerRef.current) {
+      const rect = locationTriggerRef.current.getBoundingClientRect();
+      setLocationDropdownPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, [isLocationDropdownOpen]);
+
+  // Filtering for Client Dropdown
+  const filteredClients = clients.filter(c =>
+    c.name.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    String(c.id).toLowerCase().includes(clientSearchTerm.toLowerCase())
+  );
 
   useEffect(() => {
     if (isEmployeeDropdownOpen && triggerRef.current) {
@@ -550,41 +590,167 @@ const canViewAllEmployees =
                   </div>
                 </div> */}
 
-                <div className="wr-input-group">
-                  <label className="wr-label">Client Name</label>
-                  <div className="wr-input-wrapper">
-                    <IonSelect
-                      className="wr-select-custom"
-                      interface="popover"
-                      value={selectedClient}
-                      placeholder="Choose Client"
-                      onIonChange={(e) => setSelectedClient(e.detail.value)}
-                    >
-                      {clients.map((client) => (
-                        <IonSelectOption
-                          key={`${client.id}-${client.name}`}
-                          value={client.id}
-                        >
-                          {client.name}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </div>
-                </div>
+                {/* Tab 2 Field 1: Client Name (Custom Dropdown) */}
+                {(() => {
+                  const selectedClientObj = clients.find(c => String(c.id) === String(selectedClient));
+                  return (
+                    <div className="ntv-form-group">
+                      <label className="ntv-form-label">Client Name</label>
+                      <div
+                        className={`ntv-form-input-wrapper ${isClientDropdownOpen ? 'active' : ''}`}
+                        ref={clientTriggerRef}
+                        onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                      >
+                        <User size={18} className="ntv-form-input-icon" />
+                        <span className="ntv-form-text-display">
+                          {selectedClientObj ? selectedClientObj.name : "Choose Client"}
+                        </span>
+                        <ChevronDown size={16} style={{ marginLeft: 'auto', opacity: 0.7 }} />
 
-                <div className="wr-input-group">
-                  <label className="wr-label">Work Location</label>
-                  <div className="wr-input-wrapper">
-                    <IonSelect
-                      className="wr-select-custom"
-                      interface="popover"
-                      value={workLocation}
-                      placeholder="Choose Location"
-                      onIonChange={(e) => setWorkLocation(e.detail.value)}
-                    >
-                      <IonSelectOption value="In-House">In-House</IonSelectOption>
-                      <IonSelectOption value="On-Site">On-Site</IonSelectOption>
-                    </IonSelect>
+                        {isClientDropdownOpen && createPortal(
+                          <>
+                            <div
+                              className="dropdown-outside-click-layer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsClientDropdownOpen(false);
+                              }}
+                            />
+                            <div
+                              className="custom-inline-dropdown"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: `${clientDropdownPos.top}px`,
+                                left: `${clientDropdownPos.left}px`,
+                                width: `${clientDropdownPos.width}px`
+                              }}
+                            >
+                              <div className="dropdown-search-sec">
+                                <Search size={16} className="dropdown-search-icon" />
+                                <input
+                                  type="text"
+                                  className="dropdown-pure-input"
+                                  placeholder="Search client name..."
+                                  value={clientSearchTerm}
+                                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                                  autoFocus
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                />
+                                {clientSearchTerm && (
+                                  <button
+                                    className="dropdown-clear-btn"
+                                    onClick={() => setClientSearchTerm("")}
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="dropdown-body">
+                                {filteredClients.length > 0 ? (
+                                  filteredClients.map((c, index) => {
+                                    const isSelected = String(selectedClient) === String(c.id);
+                                    const initials = (c.name.charAt(0) || "?").toUpperCase();
+                                    return (
+                                      <div
+                                        key={index}
+                                        className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedClient(String(c.id));
+                                          setIsClientDropdownOpen(false);
+                                          setClientSearchTerm("");
+                                        }}
+                                      >
+                                        <div className={`dr-avatar grad-${(c.id % 5) || 0}`}>
+                                          {initials}
+                                        </div>
+                                        <div className="dr-info">
+                                          <span className="dr-name">{c.name}</span>
+                                          <span className="dr-id">ID: {c.id}</span>
+                                        </div>
+                                        {isSelected && <Check size={18} className="dr-check" />}
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="dr-no-results">No clients found</div>
+                                )}
+                              </div>
+                            </div>
+                          </>,
+                          document.body
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Tab 2 Field 2: Work Location (Custom Dropdown) */}
+                <div className="ntv-form-group">
+                  <label className="ntv-form-label">Work Location</label>
+                  <div
+                    className={`ntv-form-input-wrapper ${isLocationDropdownOpen ? 'active' : ''}`}
+                    ref={locationTriggerRef}
+                    onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+                  >
+                    <MapPin size={18} className="ntv-form-input-icon" />
+                    <span className="ntv-form-text-display">
+                      {workLocation || "Choose Location"}
+                    </span>
+                    <ChevronDown size={16} style={{ marginLeft: 'auto', opacity: 0.7 }} />
+
+                    {isLocationDropdownOpen && createPortal(
+                      <>
+                        <div
+                          className="dropdown-outside-click-layer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsLocationDropdownOpen(false);
+                          }}
+                        />
+                        <div
+                          className="custom-inline-dropdown"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            top: `${locationDropdownPos.top}px`,
+                            left: `${locationDropdownPos.left}px`,
+                            width: `${locationDropdownPos.width}px`
+                          }}
+                        >
+                          <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
+                            {["In-House", "On-Site"].map((loc, index) => {
+                              const isSelected = workLocation === loc;
+                              const initials = loc.charAt(0);
+                              return (
+                                <div
+                                  key={index}
+                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setWorkLocation(loc);
+                                    setIsLocationDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>
+                                    {initials}
+                                  </div>
+                                  <div className="dr-info">
+                                    <span className="dr-name">{loc}</span>
+                                  </div>
+                                  {isSelected && <Check size={18} className="dr-check" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>,
+                      document.body
+                    )}
                   </div>
                 </div>
 

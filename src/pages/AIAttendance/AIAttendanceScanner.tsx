@@ -42,6 +42,7 @@ const AIAttendanceScanner: React.FC = () => {
   const [bleDeviceId,   setBleDeviceId]   = useState("");
   const [bleDeviceName, setBleDeviceName] = useState("");
   const [isBleScanning, setIsBleScanning] = useState(false);
+  const [allowedBeacons, setAllowedBeacons] = useState<{name: string, mac: string}[]>([]);
   const [isMobile,      setIsMobile]      = useState(window.innerWidth <= 768);
   const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
   const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
@@ -63,6 +64,7 @@ const AIAttendanceScanner: React.FC = () => {
   const bleVerifiedRef   = useRef(false);
   const bleDeviceNameRef = useRef("");
   const bleDeviceIdRef   = useRef("");
+  const allowedBeaconsRef = useRef<{name: string, mac: string}[]>([]);
   const userDataRef      = useRef<any>(null);
   const userProfileRef   = useRef<any>(null);
   const isCameraReadyRef = useRef(false);
@@ -77,11 +79,31 @@ const AIAttendanceScanner: React.FC = () => {
   useEffect(() => { bleVerifiedRef.current   = bleVerified;   }, [bleVerified]);
   useEffect(() => { bleDeviceNameRef.current = bleDeviceName; }, [bleDeviceName]);
   useEffect(() => { bleDeviceIdRef.current   = bleDeviceId;   }, [bleDeviceId]);
+  useEffect(() => { allowedBeaconsRef.current = allowedBeacons; }, [allowedBeacons]);
   useEffect(() => { userDataRef.current      = userData;      }, [userData]);
   useEffect(() => { userProfileRef.current   = userProfile;   }, [userProfile]);
   useEffect(() => { isCameraReadyRef.current = isCameraReady; }, [isCameraReady]);
   useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
   useEffect(() => { isProcessingRef.current  = isProcessing;  }, [isProcessing]);
+
+  // Load Beacons on Mount
+  useEffect(() => {
+    const fetchBeacons = async () => {
+      try {
+        const response = await fetch(`${API_BASE}Checkin/GetActiveBluetoothDevices`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.devices)) {
+            setAllowedBeacons(data.devices);
+            logDebug(`Loaded ${data.devices.length} beacons from DB`);
+          }
+        }
+      } catch (err) {
+        logDebug("Failed to load beacons from DB");
+      }
+    };
+    fetchBeacons();
+  }, []);
 
   // ── BLE ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -297,7 +319,7 @@ const AIAttendanceScanner: React.FC = () => {
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
           setAttendanceDetails({ empName, empId, status: data.status || "", isDuplicate: true, customMessage: data.message || "Already marked" });
           setResultMessage(`⚠️ ${empName}`); speakText(`${empName} attendance already marked`);
-          scheduleNextScan(4500, true); return;
+          return;
         }
         if (data.success) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
@@ -316,7 +338,6 @@ const AIAttendanceScanner: React.FC = () => {
           });
           setResultMessage(`✅ Welcome, ${empName}`);
           speakText(`${empName} attendance marked successfully`);
-          scheduleNextScan(5000, true);
         } else { setResultMessage("❌ Face Not Recognized"); setStatusColor("#ef4444"); scheduleNextScan(2500); }
       } else { scheduleNextScan(1000); }
     } catch (err: any) {
@@ -342,10 +363,20 @@ const AIAttendanceScanner: React.FC = () => {
         try {
           const name = (result.device.name || "").trim().toUpperCase();
           const mac  = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
-          if (name === "ER2650001F" && mac === "EA2658F0001F") {
+          const isUuid = mac.length > 12;
+
+          const matched = allowedBeaconsRef.current.length > 0
+            ? allowedBeaconsRef.current.some(b => {
+                const dbName = b.name.trim().toUpperCase();
+                const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
+                return name === dbName && (mac === dbMac || isUuid);
+              })
+            : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
+
+          if (matched) {
             found = true; setBleVerified(true); bleVerifiedRef.current = true;
             setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
-            logDebug("Beacon verified!");
+            logDebug("Beacon verified: " + name);
             await BleClient.stopLEScan();
           }
         } catch {}

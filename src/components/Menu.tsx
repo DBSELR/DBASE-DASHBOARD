@@ -231,13 +231,29 @@ const Menu: React.FC = () => {
                   <p className="ion-padding">No menu items found.</p>
                 )}
 
+                {/* Office Clint Docs Static Item */}
+                {/* <IonItem
+                  button
+                  lines="none"
+                  onClick={() => history.push("/office-client-docs")}
+                  className={location.pathname === "/office-client-docs" ? "item-active" : ""}
+                  style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
+                >
+                  <div className="menu-item-row">
+                    <div className="menu-icon-chip">
+                      <IonIcon icon={documentText} />
+                    </div>
+                    <span className="menu-item-label">Office Clint Docs</span>
+                  </div>
+                </IonItem> */}
+
                 {/* Logout Button */}
                 <IonItem
                   button
                   lines="none"
                   onClick={handleLogout}
                   className="logout-item"
-                  style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
+                  style={{ "--item-index": menuItems.length + 2 } as React.CSSProperties}
                 >
                   <div className="menu-item-row">
                     <div className="menu-icon-chip">
