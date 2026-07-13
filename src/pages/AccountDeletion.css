@@ -1,0 +1,186 @@
+/* AccountDeletion.css */
+
+.db-deletion-page-container {
+  --background: #f8fafc;
+}
+
+.db-deletion-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1e293b;
+}
+
+/* Header Styling */
+.db-deletion-header {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.db-deletion-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  color: #f57c00;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.db-deletion-back-btn:hover {
+  color: #ffab40;
+  transform: translateX(-4px);
+}
+
+.db-deletion-back-btn:active {
+  transform: translateX(-4px) scale(0.95);
+}
+
+.db-deletion-main-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  margin: 0 0 0.25rem 0;
+  background: linear-gradient(135deg, #f57c00 0%, #ffab40 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+.db-deletion-subtitle {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Main Content Card */
+.db-deletion-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.03), 0 8px 15px -6px rgba(0, 0, 0, 0.02);
+}
+
+/* Content Typography */
+.db-deletion-body {
+  line-height: 1.65;
+  font-size: 0.95rem;
+}
+
+.db-deletion-section {
+  margin-bottom: 2rem;
+}
+
+.db-deletion-section:last-child {
+  margin-bottom: 0;
+}
+
+.db-deletion-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 2rem 0 0.85rem 0;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 0.4rem;
+}
+
+.db-deletion-section h2:first-of-type {
+  margin-top: 0;
+}
+
+.db-deletion-section p {
+  color: #334155;
+  margin: 0 0 1rem 0;
+}
+
+.db-deletion-section strong {
+  color: #0f172a;
+}
+
+.db-deletion-section ul,
+.db-deletion-steps {
+  margin: 0 0 1rem 0;
+  padding-left: 1.25rem;
+}
+
+.db-deletion-section ul {
+  list-style-type: disc;
+}
+
+.db-deletion-steps {
+  list-style-type: decimal;
+}
+
+.db-deletion-section li {
+  color: #334155;
+  margin-bottom: 0.75rem;
+}
+
+.db-deletion-section li:last-child {
+  margin-bottom: 0;
+}
+
+/* Contact info sub-card */
+.db-deletion-contact-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+.db-deletion-contact-card strong {
+  display: block;
+  font-size: 1rem;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.db-deletion-contact-card p {
+  margin: 0.25rem 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+/* Responsive Media Queries */
+@media screen and (max-width: 768px) {
+  .db-deletion-wrapper {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  .db-deletion-main-title {
+    font-size: 1.75rem;
+  }
+
+  .db-deletion-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .db-deletion-section h2 {
+    font-size: 1.15rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .db-deletion-wrapper {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .db-deletion-main-title {
+    font-size: 1.5rem;
+  }
+
+  .db-deletion-card {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+}

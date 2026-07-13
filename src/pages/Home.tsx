@@ -24,7 +24,7 @@ declare global {
 import { FileWarning } from "lucide-react";
 
 
-const ADMIN_EMPCODES = ['1501', '1509', '1601'];
+const ADMIN_EMPCODES = ['1501', '1509', '1601','1508'];
 
 const Home: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");

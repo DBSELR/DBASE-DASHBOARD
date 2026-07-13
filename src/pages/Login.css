@@ -449,3 +449,45 @@
         padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
     }
 } */
+
+/* Footer Links styling in bottom-right corner */
+.db-login-footer-links-container {
+    position: absolute;
+    bottom: 16px;
+    right: 24px;
+    display: flex;
+    gap: 16px;
+    z-index: 100;
+}
+
+.db-login-footer-link-item {
+    font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    transition: var(--db-transition-smooth);
+}
+
+.db-login-footer-link-item:hover {
+    color: var(--db-primary);
+    text-decoration: underline;
+}
+
+@media screen and (max-width: 480px) {
+    .db-login-footer-links-container {
+        right: 0;
+        left: 0;
+        justify-content: center;
+        bottom: 12px;
+        gap: 20px;
+    }
+    
+    .db-login-footer-link-item {
+        font-size: 0.8rem;
+    }
+}

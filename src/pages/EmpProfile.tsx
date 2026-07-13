@@ -1362,115 +1362,51 @@ const EmpProfile: React.FC = () => {
             {/* ({userData.userType}) */}
           </p>
           <div className="ep-profile-status-row">
-            <span className="ep-user-code">ID: {userData.empCode}</span>
-            <span
-              className={`ep-status-pill ${userData.status?.toLowerCase()}`}
-            >
-              {userData.status}
-            </span>
-            <button
-              className="ep-status-pill active"
-              style={{
-                cursor: "pointer",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                background: "#3880ff", // Light blue (Ionic primary/secondary)
-                color: "#ffffff",
-                padding: "6px 16px",
-                borderRadius: "20px",
-                fontSize: "0.8rem",
-                fontWeight: "600",
-                transform: isNavigating ? "scale(0.9) opacity(0.8)" : "scale(1)",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                filter: isNavigating ? "brightness(0.8)" : "none"
-              }}
-              onMouseEnter={(e) => {
-                if (!isNavigating) {
-                  e.currentTarget.style.transform = "scale(1.05)";
-                  e.currentTarget.style.background = "#4c8dff";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isNavigating) {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.background = "#3880ff";
-                }
-              }}
-              onClick={() => {
-                setIsNavigating(true);
-                // Simulate 'opening' transition
-                setTimeout(() => {
-                  history.push("/policies");
-                }, 300);
-              }}
-            >
-              <FileText size={14} color="#ffffff" />
-              Policies
-            </button>
-            <button
-              className="ep-status-pill active"
-              style={{
-                cursor: "pointer",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                background: "#10b981",
-                color: "#ffffff",
-                padding: "6px 16px",
-                borderRadius: "20px",
-                fontSize: "0.8rem",
-                fontWeight: "600",
-                transform: isNavigating ? "scale(0.9) opacity(0.8)" : "scale(1)",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                filter: isNavigating ? "brightness(0.8)" : "none"
-              }}
-              onMouseEnter={(e) => {
-                if (!isNavigating) {
-                  e.currentTarget.style.transform = "scale(1.05)";
-                  e.currentTarget.style.background = "#34d399";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isNavigating) {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.background = "#10b981";
-                }
-              }}
-              onClick={() => {
-                setIsNavigating(true);
-                setTimeout(() => {
-                  history.push("/ai-attendance-register");
-                }, 300);
-              }}
-            >
-              <Camera size={14} color="#ffffff" />
-              Face Enrollement
-            </button>
+            <div className="ep-profile-badges">
+              <span className="ep-user-code">ID: {userData.empCode}</span>
+              <span
+                className={`ep-status-pill ${userData.status?.toLowerCase()}`}
+              >
+                {userData.status}
+              </span>
+            </div>
+            
+            <div className="ep-profile-actions">
+              <button
+                className={`ep-profile-action-btn ep-btn-policies ${isNavigating ? "navigating" : ""}`}
+                onClick={() => {
+                  setIsNavigating(true);
+                  setTimeout(() => {
+                    history.push("/policies");
+                  }, 300);
+                }}
+              >
+                <FileText size={14} />
+                <span>Policies</span>
+              </button>
+              
+              <button
+                className={`ep-profile-action-btn ep-btn-face ${isNavigating ? "navigating" : ""}`}
+                onClick={() => {
+                  setIsNavigating(true);
+                  setTimeout(() => {
+                    history.push("/ai-attendance-register");
+                  }, 300);
+                }}
+              >
+                <Camera size={14} />
+                <span>Face Enrollment</span>
+              </button>
 
-            <button
-  className="ep-status-pill active"
-  style={{
-    cursor: "pointer",
-    border: "none",
-    display: "flex",
-    alignItems: "center",
-    gap: "5px",
-    background: "#ef4444",
-    color: "#ffffff",
-    padding: "6px 16px",
-    borderRadius: "20px",
-    fontSize: "0.8rem",
-    fontWeight: "600"
-  }}
-  onClick={() => {
-    history.push("/change-password");
-  }}
->
-  🔒 Change Password
-</button>
+              <button
+                className="ep-profile-action-btn ep-btn-password"
+                onClick={() => {
+                  history.push("/change-password");
+                }}
+              >
+                <span>🔒 Change Password</span>
+              </button>
+            </div>
           </div>
 
           <div className="ep-header-actions">
@@ -1494,13 +1430,24 @@ const EmpProfile: React.FC = () => {
                 </>
               )}
             {!isManagementView && (
-              <button
-                className="ep-action-btn ep-btn-logout"
-                onClick={handleLogout}
-              >
-                <LogOut size={18} />
-                Logout
-              </button>
+              <>
+                <button
+                  type="button"
+                  // className="db-login-footer-link-item"
+
+                  className="ep-action-btn ep-btn-logout"
+                  onClick={() => history.push("/account-deletion")}
+                >
+                  Account Deletion
+                </button>
+                <button
+                  className="ep-action-btn ep-btn-logout"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={18} />
+                  Logout
+                </button>
+              </>
             )}
           </div>
         </div>

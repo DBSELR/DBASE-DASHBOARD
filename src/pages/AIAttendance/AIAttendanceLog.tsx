@@ -22,6 +22,22 @@ interface AttendanceRecord {
   graceType?: string;
   attendanceStatus?: string;
   branch?: string;
+
+  morningInLat?: number;
+  morningInLng?: number;
+  morningInCity?: string;
+
+  lunchOutLat?: number;
+  lunchOutLng?: number;
+  lunchOutCity?: string;
+
+  lunchInLat?: number;
+  lunchInLng?: number;
+  lunchInCity?: string;
+
+  eveningOutLat?: number;
+  eveningOutLng?: number;
+  eveningOutCity?: string;
 }
 
 
@@ -62,7 +78,7 @@ const AIAttendanceLog: React.FC = () => {
     return "";
   })();
 
-  const ADMIN_IDS = ["1501", "1509", "1601"];
+  const ADMIN_IDS = ["1501", "1509", "1601", "1508"];
   const isAdmin = ADMIN_IDS.includes(loggedInId);
   const effectiveMode = isAdmin ? "security" : "user";
   const history = useHistory();
@@ -184,6 +200,18 @@ const AIAttendanceLog: React.FC = () => {
           graceType: r.graceType || '',
           attendanceStatus: r.attendanceStatus || '',
           date,
+          morningInLat: r.morningInLat,
+          morningInLng: r.morningInLng,
+          morningInCity: r.morningInCity,
+          lunchOutLat: r.lunchOutLat,
+          lunchOutLng: r.lunchOutLng,
+          lunchOutCity: r.lunchOutCity,
+          lunchInLat: r.lunchInLat,
+          lunchInLng: r.lunchInLng,
+          lunchInCity: r.lunchInCity,
+          eveningOutLat: r.eveningOutLat,
+          eveningOutLng: r.eveningOutLng,
+          eveningOutCity: r.eveningOutCity,
         });
 
         const all = await Promise.all(dates.map(async date => {
@@ -256,6 +284,18 @@ const AIAttendanceLog: React.FC = () => {
     graceType: r.graceType || '-',
     attendanceStatus: r.attendanceStatus || '-',
     branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
+    morningInLat: r.morningInLat,
+    morningInLng: r.morningInLng,
+    morningInCity: r.morningInCity,
+    lunchOutLat: r.lunchOutLat,
+    lunchOutLng: r.lunchOutLng,
+    lunchOutCity: r.lunchOutCity,
+    lunchInLat: r.lunchInLat,
+    lunchInLng: r.lunchInLng,
+    lunchInCity: r.lunchInCity,
+    eveningOutLat: r.eveningOutLat,
+    eveningOutLng: r.eveningOutLng,
+    eveningOutCity: r.eveningOutCity,
   }));
 
   // ✅ Build final list based on the roster if a branch is selected
@@ -615,6 +655,15 @@ const AIAttendanceLog: React.FC = () => {
                           {SLOTS.map(({ key, short, color }) => {
                             const val = log[key];
                             const filled = val && val !== '-';
+
+                            let city = "";
+                            let lat = 0;
+                            let lng = 0;
+                            if (key === 'Morning In') { city = log.morningInCity || ""; lat = log.morningInLat || 0; lng = log.morningInLng || 0; }
+                            else if (key === 'Lunch Out') { city = log.lunchOutCity || ""; lat = log.lunchOutLat || 0; lng = log.lunchOutLng || 0; }
+                            else if (key === 'Lunch In') { city = log.lunchInCity || ""; lat = log.lunchInLat || 0; lng = log.lunchInLng || 0; }
+                            else if (key === 'Evening Out') { city = log.eveningOutCity || ""; lat = log.eveningOutLat || 0; lng = log.eveningOutLng || 0; }
+
                             return (
                               <div key={key} style={{ 
                                 display: 'flex', 
@@ -629,6 +678,11 @@ const AIAttendanceLog: React.FC = () => {
                                 <span style={{ fontSize: '11px', fontWeight: 800, color: filled ? color : '#cbd5e1', marginTop: '2px' }}>
                                   {filled ? cleanTime(val) : '--:--'}
                                 </span>
+                                {filled && city && (
+                                  <span style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', wordBreak: 'break-all' }} title={`${city} (${lat}, ${lng})`}>
+                                    📍 {city}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}
@@ -776,9 +830,18 @@ const AIAttendanceLog: React.FC = () => {
                             const val    = log[s.key];
                             const filled = val && val !== '-';
                             const isLast = si === SLOTS.length - 1;
+
+                            let city = "";
+                            let lat = 0;
+                            let lng = 0;
+                            if (s.key === 'Morning In') { city = log.morningInCity || ""; lat = log.morningInLat || 0; lng = log.morningInLng || 0; }
+                            else if (s.key === 'Lunch Out') { city = log.lunchOutCity || ""; lat = log.lunchOutLat || 0; lng = log.lunchOutLng || 0; }
+                            else if (s.key === 'Lunch In') { city = log.lunchInCity || ""; lat = log.lunchInLat || 0; lng = log.lunchInLng || 0; }
+                            else if (s.key === 'Evening Out') { city = log.eveningOutCity || ""; lat = log.eveningOutLat || 0; lng = log.eveningOutLng || 0; }
+
                             return (
                               <div key={s.key} className="att-slot-wrap">
-                                <div className="att-slot">
+                                <div className="att-slot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                   <div
                                     className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
                                     style={filled ? { background: s.color, borderColor: s.color } as any : {}}
@@ -792,6 +855,11 @@ const AIAttendanceLog: React.FC = () => {
                                     {cleanTime(val)}
                                   </div>
                                   <div className="att-slot-key">{s.short}</div>
+                                  {filled && city && (
+                                    <div style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', maxWidth: '80px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={`${city} (${lat}, ${lng})`}>
+                                      📍 {city}
+                                    </div>
+                                  )}
                                 </div>
                                 {!isLast && (
                                   <div

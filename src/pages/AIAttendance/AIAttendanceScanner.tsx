@@ -7,6 +7,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import { Camera } from "@capacitor/camera";
 import { BleClient, ScanResult } from "@capacitor-community/bluetooth-le";
+import axios from "axios";
 import "./AIAttendanceScanner.css";
 
 const speakText = (text: string) => {
@@ -45,6 +46,7 @@ const AIAttendanceScanner: React.FC = () => {
   const [allowedBeacons, setAllowedBeacons] = useState<{name: string, mac: string}[]>([]);
   const [isMobile,      setIsMobile]      = useState(window.innerWidth <= 768);
   const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
+  const [cityName,      setCityName]      = useState<string>("");
   const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
   const logDebug = (msg: string) => {
     console.log(`[DEBUG] ${msg}`);
@@ -85,6 +87,8 @@ const AIAttendanceScanner: React.FC = () => {
   useEffect(() => { isCameraReadyRef.current = isCameraReady; }, [isCameraReady]);
   useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
   useEffect(() => { isProcessingRef.current  = isProcessing;  }, [isProcessing]);
+  const cityNameRef      = useRef("");
+  useEffect(() => { cityNameRef.current      = cityName;      }, [cityName]);
 
   // Load Beacons on Mount
   useEffect(() => {
@@ -205,6 +209,30 @@ const AIAttendanceScanner: React.FC = () => {
     };
   }, []);
 
+  // Reverse Geocoding for City Name
+  useEffect(() => {
+    const fetchCityName = async () => {
+      if (latitude !== 0 && longitude !== 0 && !cityName) {
+        try {
+          const response = await axios.get(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          if (response.data && response.data.address) {
+            const addr = response.data.address;
+            const cityOrTown = addr.city || addr.town || addr.village || addr.suburb || addr.city_district || addr.municipality || addr.county || addr.state || "";
+            if (cityOrTown) {
+              setCityName(cityOrTown);
+              logDebug(`City geocoded: ${cityOrTown}`);
+            }
+          }
+        } catch (error) {
+          console.error("Reverse geocoding error:", error);
+        }
+      }
+    };
+    fetchCityName();
+  }, [latitude, longitude, cityName]);
+
   // ── Camera ────────────────────────────────────────────────────────────────
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -296,7 +324,17 @@ const AIAttendanceScanner: React.FC = () => {
         const response = await fetch(`${API_BASE}Checkin/AILogAttendance`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
-          body: JSON.stringify({ image: imageData, empId: finalEmpId, empName: userProfileRef.current?.EmpName || userDataRef.current?.empName || "", latitude: latitudeRef.current, longitude: longitudeRef.current, bluetoothConnected: bleVerifiedRef.current, bluetoothDeviceName: bleDeviceNameRef.current, bluetoothDeviceId: bleDeviceIdRef.current })
+          body: JSON.stringify({
+            image: imageData,
+            empId: finalEmpId,
+            empName: userProfileRef.current?.EmpName || userDataRef.current?.empName || "",
+            latitude: latitudeRef.current,
+            longitude: longitudeRef.current,
+            bluetoothConnected: bleVerifiedRef.current,
+            bluetoothDeviceName: bleDeviceNameRef.current,
+            bluetoothDeviceId: bleDeviceIdRef.current,
+            cityName: cityNameRef.current
+          })
         });
         if (!response.ok) {
           let errMsg = `HTTP ${response.status}`;

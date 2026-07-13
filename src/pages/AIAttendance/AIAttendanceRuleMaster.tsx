@@ -21,6 +21,7 @@ interface Employee {
   empName: string;
   designation: string;
   branch: string;
+  department?: string;
 }
 
 interface Override {
@@ -70,6 +71,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const [empSearchTerm, setEmpSearchTerm] = useState("");
+  const [selectedDept, setSelectedDept] = useState<string>("");
   const triggerRef = useRef<HTMLDivElement>(null);
 
   // Position logic
@@ -86,8 +88,18 @@ const AIAttendanceRuleMaster: React.FC = () => {
 
   const filteredEmployees = employees.filter(emp => {
     const term = empSearchTerm.toLowerCase();
-    return emp.empName.toLowerCase().includes(term) || emp.empCode.toLowerCase().includes(term);
+    const matchesSearch = emp.empName.toLowerCase().includes(term) || emp.empCode.toLowerCase().includes(term);
+    const matchesDept = !selectedDept || (emp.department || "").trim().toLowerCase() === selectedDept.toLowerCase();
+    return matchesSearch && matchesDept;
   });
+
+  const uniqueDepartments = Array.from(
+    new Set(
+      employees
+        .map(emp => (emp.department || "").trim())
+        .filter(dept => dept !== "")
+    )
+  ).sort();
 
   // --- Branch expand state ---
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
@@ -204,7 +216,10 @@ const AIAttendanceRuleMaster: React.FC = () => {
 
   function resetWizard() {
     setStep(1); setSelBranch('');
-    setEmployees([]); setSelIds([]);
+    if (ruleType !== 'MARKETING') {
+      setEmployees([]);
+    }
+    setSelIds([]);
     setBtOn(false); setGpsOn(false);
     setStartDate(''); setEndDate('');
   }
@@ -441,9 +456,11 @@ const AIAttendanceRuleMaster: React.FC = () => {
                         marginBottom: '16px'
                       }}>
                         <IonIcon icon={person} style={{ fontSize: '18px', color: '#64748b' }} />
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: selIds.length > 0 ? '#0f172a' : '#94a3b8' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: selIds.length > 0 ? '#0f172a' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '85%' }}>
                           {selIds.length > 0 
-                            ? (employees.find(e => e.empCode === selIds[0])?.empName || selIds[0]) 
+                            ? (selIds.length === 1 
+                                ? (employees.find(e => e.empCode === selIds[0])?.empName || selIds[0])
+                                : `${selIds.length} employees selected: ` + selIds.map(id => employees.find(e => e.empCode === id)?.empName || id).join(', '))
                             : "Select Employee"}
                         </span>
 
@@ -453,6 +470,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                             <div
                               className="custom-inline-dropdown"
                               onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
                               style={{
                                 position: 'absolute',
                                 top: `${dropdownPos.top}px`,
@@ -484,6 +502,111 @@ const AIAttendanceRuleMaster: React.FC = () => {
                                 )}
                               </div>
 
+                              {/* Department Filter Section */}
+                              <div className="dropdown-depts-sec" style={{
+                                padding: '8px 12px',
+                                borderBottom: '1px solid #e2e8f0',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '6px',
+                                maxHeight: '80px',
+                                overflowY: 'auto'
+                              }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDept("")}
+                                  style={{
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    border: '1.5px solid ' + (selectedDept === "" ? '#0d9488' : 'rgba(226, 232, 240, 0.8)'),
+                                    background: selectedDept === "" ? '#e6f4f1' : '#ffffff',
+                                    color: selectedDept === "" ? '#0d9488' : '#64748b',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  All
+                                </button>
+                                {uniqueDepartments.map(dept => (
+                                  <button
+                                    key={dept}
+                                    type="button"
+                                    onClick={() => setSelectedDept(dept)}
+                                    style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '8px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      border: '1.5px solid ' + (selectedDept === dept ? '#0d9488' : 'rgba(226, 232, 240, 0.8)'),
+                                      background: selectedDept === dept ? '#e6f4f1' : '#ffffff',
+                                      color: selectedDept === dept ? '#0d9488' : '#64748b',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    {dept}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Select All and Done controls */}
+                              {filteredEmployees.length > 0 && (
+                                <div style={{
+                                  padding: '8px 12px',
+                                  borderBottom: '1px solid #e2e8f0',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center'
+                                }}>
+                                  <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: '#0d9488',
+                                    cursor: 'pointer'
+                                  }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={filteredEmployees.every(emp => selIds.includes(emp.empCode))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          const toAdd = filteredEmployees.map(emp => emp.empCode);
+                                          setSelIds(prev => Array.from(new Set([...prev, ...toAdd])));
+                                        } else {
+                                          const toRemove = filteredEmployees.map(emp => emp.empCode);
+                                          setSelIds(prev => prev.filter(id => !toRemove.includes(id)));
+                                        }
+                                      }}
+                                      style={{ accentColor: '#0d9488', cursor: 'pointer' }}
+                                    />
+                                    Select All Filtered
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsEmployeeDropdownOpen(false);
+                                      setEmpSearchTerm("");
+                                    }}
+                                    style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '8px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      border: '1.5px solid #0d9488',
+                                      background: '#0d9488',
+                                      color: '#ffffff',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Done
+                                  </button>
+                                </div>
+                              )}
+
                               <div className="dropdown-body">
                                 {filteredEmployees.map((emp, index) => {
                                   const isSelected = selIds.includes(emp.empCode);
@@ -497,9 +620,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                                       onMouseDown={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setSelIds([emp.empCode]);
-                                        setIsEmployeeDropdownOpen(false);
-                                        setEmpSearchTerm("");
+                                        toggleEmp(emp.empCode);
                                       }}
                                     >
                                       <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`} style={{ width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d9488', color: '#ffffff', fontWeight: 800 }}>

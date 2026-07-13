@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { IonPage, IonContent } from "@ionic/react";
+import { useHistory } from "react-router-dom";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
 import { registerNativePush } from "../services/pushNotification";
@@ -7,6 +8,7 @@ import { registerNativePush } from "../services/pushNotification";
 import "./Login.css";
 
 const Login: React.FC = () => {
+  const history = useHistory();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -186,6 +188,24 @@ const Login: React.FC = () => {
               </form>
             </div>
           )}
+
+          {/* Footer Links */}
+          <div className="db-login-footer-links-container">
+            <button
+              type="button"
+              className="db-login-footer-link-item"
+              onClick={() => history.push("/terms")}
+            >
+              Terms & Conditions
+            </button>
+            <button
+              type="button"
+              className="db-login-footer-link-item"
+              onClick={() => history.push("/privacy")}
+            >
+              Privacy Policy
+            </button>
+          </div>
         </div>
       </IonContent>
     </IonPage>

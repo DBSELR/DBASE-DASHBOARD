@@ -81,6 +81,9 @@ import ApprovalDates from "./components/requests/ApprovalDates";
 import LeaveAction from "./pages/LeaveAction";
 import VisitTickets from "./pages/Tickets/components/VisitTickets";
 import LeaveReport from "./pages/AIAttendance/LeaveReport";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import AccountDeletion from "./pages/AccountDeletion";
 
 AnswerKeyImport
 
@@ -140,6 +143,9 @@ const App: React.FC = () => {
           <IonRouterOutlet>
             <Switch>
               <Route exact path="/login" component={Login} />
+              <Route exact path="/terms" component={TermsAndConditions} />
+              <Route exact path="/privacy" component={PrivacyPolicy} />
+              <Route exact path="/account-deletion" component={AccountDeletion} />
               <Redirect from="*" to="/login" />
             </Switch>
           </IonRouterOutlet>
@@ -203,6 +209,9 @@ const App: React.FC = () => {
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
                   <Route exact path="/stock" component={Stock} />
+                  <Route exact path="/terms" component={TermsAndConditions} />
+                  <Route exact path="/privacy" component={PrivacyPolicy} />
+                  <Route exact path="/account-deletion" component={AccountDeletion} />
 
                 <Redirect from="*" to="/home" />
               </Switch>

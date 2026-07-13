@@ -1,0 +1,188 @@
+/* TermsAndConditions.css */
+
+.db-terms-page-container {
+  --background: #f8fafc;
+}
+
+.db-terms-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1e293b;
+}
+
+/* Header Styling */
+.db-terms-header {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.db-terms-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  color: #f57c00;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.db-terms-back-btn:hover {
+  color: #ffab40;
+  transform: translateX(-4px);
+}
+
+.db-terms-back-btn:active {
+  transform: translateX(-4px) scale(0.95);
+}
+
+.db-terms-main-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  margin: 0 0 0.25rem 0;
+  background: linear-gradient(135deg, #f57c00 0%, #ffab40 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+.db-terms-subtitle {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Main Content Card */
+.db-terms-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.03), 0 8px 15px -6px rgba(0, 0, 0, 0.02);
+}
+
+.db-terms-meta {
+  margin-bottom: 1.75rem;
+}
+
+.db-terms-badge {
+  display: inline-block;
+  background: rgba(245, 124, 0, 0.08);
+  color: #f57c00;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Content Typography */
+.db-terms-body {
+  line-height: 1.65;
+  font-size: 0.95rem;
+}
+
+.db-terms-section {
+  margin-bottom: 2rem;
+}
+
+.db-terms-section:last-child {
+  margin-bottom: 0;
+}
+
+.db-terms-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.85rem 0;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 0.4rem;
+}
+
+.db-terms-section p {
+  color: #334155;
+  margin: 0 0 1rem 0;
+}
+
+.db-terms-section strong {
+  color: #0f172a;
+}
+
+.db-terms-section ul {
+  margin: 0 0 1rem 0;
+  padding-left: 1.25rem;
+  list-style-type: disc;
+}
+
+.db-terms-section li {
+  color: #334155;
+  margin-bottom: 0.75rem;
+}
+
+.db-terms-section li:last-child {
+  margin-bottom: 0;
+}
+
+/* Contact info sub-card */
+.db-terms-contact-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+.db-terms-contact-card strong {
+  display: block;
+  font-size: 1rem;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.db-terms-contact-card p {
+  margin: 0.25rem 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+/* Responsive Media Queries */
+@media screen and (max-width: 768px) {
+  .db-terms-wrapper {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  .db-terms-main-title {
+    font-size: 1.75rem;
+  }
+
+  .db-terms-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .db-terms-section h2 {
+    font-size: 1.15rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .db-terms-wrapper {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .db-terms-main-title {
+    font-size: 1.5rem;
+  }
+
+  .db-terms-card {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+}
