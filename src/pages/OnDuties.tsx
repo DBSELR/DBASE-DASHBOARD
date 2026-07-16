@@ -253,7 +253,7 @@ const OnDuties: React.FC = () => {
 
 
   const api = useMemo(() => {
-    return axios.create({ baseURL: API_BASE, timeout: 30000 });
+    return axios.create({ baseURL: API_BASE});
   }, []);
 
   const isAccountant = empCode === "1541";

@@ -809,13 +809,35 @@ const canAct = (item: any) => {
   const user = normalizeText(getUser()?.designation);
 
   // Permission -> RA1 and RA2 together
-  if (normalizeText(item.ltype) === "permission") {
-    return (
-      user === normalizeText(item.RA1) ||
-      user === normalizeText(item.RA2)
-    );
+  // if (normalizeText(item.ltype) === "permission") {
+  //   return (
+  //     user === normalizeText(item.RA1) ||
+  //     user === normalizeText(item.RA2)
+  //   );
+  // }
+if (normalizeText(item.ltype) === "permission") {
+
+  const ra1Approved =
+    normalizeText(item.RA1_Status) === "accepted";
+
+  // RA1 can approve only before approving
+  if (
+    user === normalizeText(item.RA1) &&
+    !ra1Approved
+  ) {
+    return true;
   }
 
+  // RA2 can approve only after RA1 approved
+  if (
+    user === normalizeText(item.RA2) &&
+    ra1Approved
+  ) {
+    return true;
+  }
+
+  return false;
+}
   // Existing flow
   const current = normalizeText(item?.CurrentRA);
   return current === user;
@@ -1352,8 +1374,10 @@ const loadTeamPermissionDashboard = async () => {
   <span className="lr-grid-label">Category</span>
   <span className="lr-grid-value">
     {item?.ltype?.toLowerCase() === "permission"
-      ? item.Leavemode
-      : `${item.Leavemode} (${item.LeaveCategory})`}
+  ? item.LeaveCategory === "LOP"
+    ? "Permission (LOP)"
+    : item.Leavemode
+  : `${item.Leavemode} (${item.LeaveCategory})`}
   </span>
 </div>
                     <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{item.AppliedOn}</span></div>
