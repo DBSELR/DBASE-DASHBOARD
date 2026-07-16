@@ -19,6 +19,8 @@ import {
   IonDatetimeButton,
   IonToast,
   IonTextarea,
+  IonSegment,
+  IonSegmentButton,
 } from "@ionic/react";
 import {
   calendarOutline,
@@ -26,6 +28,8 @@ import {
   timeOutline,
   pencilOutline,
   personCircleOutline,
+  checkmarkCircleOutline,
+  closeCircleOutline,
 } from "ionicons/icons";
 import axios from "axios";
 import "./OnDuties.css";
@@ -54,7 +58,7 @@ type DutyRow = {
 
   College: string;
   Description: string;
-  empNames?: string;   // ✅ FIX
+  empNames?: string;
   Mode_of_Trans: string;
 
   Start_Time?: string;
@@ -68,7 +72,29 @@ type DutyRow = {
   EmpCodes?: string;
   Location?: string;
 
-  dayTrips?: TripDayItem[];   // ✅ ADD THIS
+  // Multi-level approval matrix (from load_duties_full / load_my_duties).
+  // Semantics assumed: CurrentLevel/MaxLevel track how far the request has
+  // progressed through RA1..RA4; CurrentRA names whoever's turn it is next;
+  // RA{n}_Status is that level's own decision (Approved/Rejected/Pending).
+  CurrentLevel?: string;
+  MaxLevel?: string;
+  CurrentRA?: string;
+  MatrixType?: string;
+  RA1?: string;
+  RA2?: string;
+  RA3?: string;
+  RA4?: string;
+  RA1_Status?: string;
+  RA2_Status?: string;
+  RA3_Status?: string;
+  RA4_Status?: string;
+
+  // true = the logged-in user's own submitted duty; false = a team member's
+  // duty loaded in because the user can approve it. Used to split the list
+  // into "My Requests" / "Team Requests" sections.
+  isOwn?: boolean;
+
+  dayTrips?: TripDayItem[];
 };
 
 type OTrow = {
@@ -103,7 +129,7 @@ type VisitItem = {
   remarks: string,
 };
 type TripDayItem = {
-  dayTrip_Id?: number;   // ✅ ADD THIS
+  dayTrip_Id?: number;
   dutyDate: string;
   readingFrom: string;
   readingTo: string;
@@ -205,7 +231,14 @@ const emptyTripDay = (date: string): TripDayItem => ({
   visits: [emptyVisit()],
 });
 
-const OnDuties: React.FC = () => {
+type OnDutiesProps = {
+  // Passed down from the Requests page's All/Pending/Accepted/Rejected
+  // filter bar when this component is embedded there for the "My
+  // Requests" view - that filter bar previously had no effect here at all.
+  statusFilter?: string;
+};
+
+const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const [empCode, setEmpCode] = useState<string>("");
   const [empName, setEmpName] = useState<string>("");
   const [userDesig, setUserDesig] = useState<string>("");
@@ -288,6 +321,8 @@ const OnDuties: React.FC = () => {
   const [selectedDutyRow, setSelectedDutyRow] = useState<DutyRow | null>(null);
   const [selectedDutyId, setSelectedDutyId] = useState<string>("");
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
+  const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
+  const [activeDutyTab, setActiveDutyTab] = useState<"my" | "team">("my");
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -319,8 +354,6 @@ const loadUnlockRange = async () => {
   );
 
   const data = await res.json();
-
-  console.log("Unlock API Response:", data);
 
   setUnlockRange(data);
 };
@@ -390,40 +423,6 @@ useEffect(() => {
     return generateDaysBetween(fromDate, toDate);
   };
 
-  // const openAddDayTripModal = (row: DutyRow) => {
-  //   const allTripDates = getTripDatesForDuty(row);
-
-  //   const normalize = (d: string) =>
-  //     d ? new Date(d).toISOString().split("T")[0] : "";
-
-  //   const currentTrips = tripDaysByDuty[row.id] || [];
-
-  //   const existingDates = currentTrips.map((x) =>
-  //     normalize(x.dutyDate)
-  //   );
-
-  //   const nextDate = allTripDates.find(
-  //     (d) => !existingDates.includes(normalize(d))
-  //   );
-
-  //   if (!nextDate) {
-  //     notify("All day trips already added", "warning");
-  //     return;
-  //   }
-
-  //   const newTrip = emptyTripDay(normalize(nextDate));
-
-  //   setTripDaysByDuty((prev) => ({
-  //     ...prev,
-  //     [row.id]: [...(prev[row.id] || []), newTrip],
-  //   }));
-
-  //   setSelectedDutyRow(row);
-  //   setSelectedDutyId(row.id);
-  //   setEditingTripIndex((tripDaysByDuty[row.id] || []).length);
-  //   setShowDayTripModal(true);
-  // };
-
   const openAddDayTripModal = (row: DutyRow) => {
   setTripModalMode("add");
 
@@ -461,13 +460,6 @@ useEffect(() => {
   setEditingTripIndex(newIndex);
   setShowDayTripModal(true);
 };
-
-  // const openEditDayTripModal = (row: DutyRow, index: number) => {
-  //   setSelectedDutyRow(row);
-  //   setSelectedDutyId(row.id);
-  //   setEditingTripIndex(index);
-  //   setShowDayTripModal(true);
-  // };
 
   const openEditDayTripModal = (
   row: DutyRow,
@@ -664,26 +656,11 @@ useEffect(() => {
     }
   };
 
-  console.log("===== SAVE START =====");
-console.log("tripModalMode:", tripModalMode);
-console.log("selectedDutyId:", selectedDutyId);
-console.log("editingTripIndex:", editingTripIndex);
-console.log("tripDaysByDuty:", tripDaysByDuty);
-
-const trips = tripDaysByDuty[selectedDutyId] || [];
-console.log("trips:", trips);
-console.log("trips.length:", trips.length);
-
-const trip =
-  editingTripIndex != null &&
-  editingTripIndex >= 0 &&
-  editingTripIndex < trips.length
-    ? trips[editingTripIndex]
-    : null;
-
-console.log("trip:", trip);
+  const isSavingTrip = useRef(false);
 
   const saveDayTripModal = async () => {
+    if (isSavingTrip.current) return;
+    isSavingTrip.current = true;
     if (
       !selectedDutyId ||
       editingTripIndex === null ||
@@ -819,18 +796,10 @@ console.log("trip:", trip);
       });
     }
 
-    console.log("editingTripIndex", editingTripIndex);
-    console.log("selectedDutyId", selectedDutyId);
-    console.log("tripDaysByDuty", tripDaysByDuty);
-    console.log("trip", trip);
-
     try {
       const res = await api.post("Workreport/save_daytrip", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
-      console.log("SAVE RESPONSE:", res);
-      console.log("SAVE RESPONSE DATA:", res.data);
 
       notify("Trip Saved Successfully", "success");
       await loadDuties();
@@ -838,9 +807,6 @@ console.log("trip:", trip);
       closeDayTripModal();
 
     } catch (error: any) {
-      console.log("SAVE ERROR:", error);
-      console.log("SAVE ERROR RESPONSE:", error?.response);
-
       let errorMsg = "Save failed";
       if (error?.response?.data) {
         if (typeof error.response.data === "string") {
@@ -853,6 +819,8 @@ console.log("trip:", trip);
       }
 
       notify(errorMsg, "danger");
+    } finally {
+      isSavingTrip.current = false;
     }
   };
   useEffect(() => {
@@ -991,6 +959,53 @@ console.log("trip:", trip);
     setTripDaysByDuty(result);
   };
 
+  // The backend serializes these anonymous objects inconsistently (some
+  // camelCase, some PascalCase depending on the endpoint), so pick whichever
+  // casing shows up rather than assuming one.
+  const pick = (d: any, ...keys: string[]) => {
+    for (const k of keys) {
+      if (d[k] !== undefined && d[k] !== null && d[k] !== "") return d[k];
+    }
+    return undefined;
+  };
+
+  const mapDutyRows = (rawData: any[]): DutyRow[] =>
+    rawData.map((d: any) => ({
+      id: String(d.id),
+      College: d.college || "",
+      Description: d.description || "",
+      Mode_of_Trans: d.mode || "",
+      Vehicle_No: d.vehicle_No || "",
+      Location: d.location || "",
+      Status: d.status || "Pending",
+      DateFrom: d.dateFrom || "",
+      DateTo: d.dateTo || "",
+      empNames:
+        d.empNames ||
+        d.EmpNames ||
+        d.empnames ||
+        d.Empname ||
+        d.empname,
+      // Note: ASP.NET Core's default camelCase JSON policy only lowercases
+      // the FIRST letter of a property name, so "RA1" serializes as "rA1"
+      // (capital A kept) and "RA1_Status" as "rA1_Status" - not "ra1"/
+      // "ra1_Status" as you'd expect from a normal camelCase conversion.
+      // Checking all variants defensively since we've seen this backend mix
+      // casing conventions across endpoints.
+      CurrentLevel: pick(d, "currentLevel", "CurrentLevel"),
+      MaxLevel: pick(d, "maxLevel", "MaxLevel"),
+      CurrentRA: pick(d, "currentRA", "CurrentRA", "currentRa"),
+      MatrixType: pick(d, "matrixType", "MatrixType"),
+      RA1: pick(d, "rA1", "ra1", "RA1"),
+      RA2: pick(d, "rA2", "ra2", "RA2"),
+      RA3: pick(d, "rA3", "ra3", "RA3"),
+      RA4: pick(d, "rA4", "ra4", "RA4"),
+      RA1_Status: pick(d, "rA1_Status", "ra1_Status", "RA1_Status", "ra1Status", "rA1Status"),
+      RA2_Status: pick(d, "rA2_Status", "ra2_Status", "RA2_Status", "ra2Status", "rA2Status"),
+      RA3_Status: pick(d, "rA3_Status", "ra3_Status", "RA3_Status", "ra3Status", "rA3Status"),
+      RA4_Status: pick(d, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status"),
+    }));
+
   const loadDuties = async () => {
     try {
       const res = await api.get("Workreport/load_my_duties", {
@@ -998,26 +1013,38 @@ console.log("trip:", trip);
       });
 
       const rawData = Array.isArray(res.data) ? res.data : [];
-
-      const mapped: DutyRow[] = rawData.map((d: any) => ({
-        id: String(d.id),
-        College: d.college || "",
-        Description: d.description || "",
-        Mode_of_Trans: d.mode || "",
-        Vehicle_No: d.vehicle_No || "",
-        Location: d.location || "",
-        Status: d.status || "Pending",
-        DateFrom: d.dateFrom || "",
-        DateTo: d.dateTo || "",
-        empNames: 
-      d.empNames ||   // ✅ FIX
-      d.EmpNames ||
-      d.empnames ||
-      d.Empname ||
-      d.empname
-    ,
-
+      const mapped: DutyRow[] = mapDutyRows(rawData).map((row) => ({
+        ...row,
+        isOwn: true,
       }));
+
+      // Approvers (accountant / team leader / manager) also see their team's
+      // duty requests, with status, so they can act on them below. These are
+      // tagged isOwn: false and always appended after the user's own rows,
+      // so the render below can split them into a separate section.
+      if (canApprove) {
+        try {
+          const teamRes = await api.get("Workreport/load_duties_full", {
+            params: { EmpCode: empCode },
+          });
+
+          const teamRaw = Array.isArray(teamRes.data) ? teamRes.data : [];
+          const teamMapped = mapDutyRows(teamRaw).map((row) => ({
+            ...row,
+            isOwn: false,
+          }));
+
+          const seenIds = new Set(mapped.map((row) => row.id));
+          teamMapped.forEach((row) => {
+            if (!seenIds.has(row.id)) {
+              mapped.push(row);
+              seenIds.add(row.id);
+            }
+          });
+        } catch (teamErr) {
+          console.error("loadTeamDuties error:", teamErr);
+        }
+      }
 
       setDutiesList(mapped);
       await loadAllTrips(mapped);
@@ -1166,7 +1193,7 @@ console.log("trip:", trip);
   };
 
   const editOnDuty = async (id: string) => {
-    if (!canEdit) {
+    if (!canEdit && !canApprove) {
       notify("Permission Denied", "danger");
       return;
     }
@@ -1208,55 +1235,130 @@ console.log("trip:", trip);
         contentRef.current?.scrollToTop(500);
         notify("Record loaded for editing");
       }
-    } catch {
+    } catch (e) {
+      console.error("editOnDuty error:", e);
       notify("Failed to load record", "danger");
     }
   };
 
-  const approveOnDuty = async () => {
-    if (!editingId) return;
+  // Which RA slot (1-4), if any, belongs to the logged-in user. Matches by
+  // exact empCode first, falling back to a loose designation match since RA
+  // values may be stored as either employee codes or role names.
+  // Collapse whitespace and case so "Business  Manager" / "business manager"
+  // / "Business Manager" all compare equal.
+  const normalizeRole = (s: any) =>
+    (s || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 
-    const payload = {
-      _id: editingId,
-      _empcode: empCode,
-      _FromDate: moment(dutyFromDate).format("YYYY-MM-DD"),
-      _ToDate: moment(dutyToDate).format("YYYY-MM-DD"),
-      _Client: institution,
-      _Location: location,
-      _Description: dutiesDesc,
-      _TransportMode: transportMode,
-      _Starttime: startTime,
-      _Endtime: endTime,
-      _VehicleNo: vehicleNo,
-      _StartReading: sReading,
-      _EndReading: eReading,
-      _KMS: kms.replace("Kms", ""),
-    };
+  const roleMatchesUser = (ra: any) => {
+    const raNorm = normalizeRole(ra);
+    if (!raNorm || raNorm === "-") return false;
+    if (ra === empCode) return true;
 
+    const desigNorm = normalizeRole(userDesig);
+    if (!desigNorm) return false;
+
+    return (
+      raNorm === desigNorm ||
+      desigNorm.includes(raNorm) ||
+      raNorm.includes(desigNorm)
+    );
+  };
+
+  // A role title (e.g. "Business Manager") can appear in more than one RA
+  // slot, or the same person's decision can live at whichever slot number
+  // was assigned to them for THIS record - so we check every slot that
+  // matches the user's role, not just the first one, and treat the row as
+  // "already decided by me" if any of those matched slots has a verdict.
+  const getMyDecisionStatus = (row: DutyRow): string => {
+    const raSlots = [row.RA1, row.RA2, row.RA3, row.RA4];
+    const statuses = [row.RA1_Status, row.RA2_Status, row.RA3_Status, row.RA4_Status];
+
+    for (let i = 0; i < raSlots.length; i++) {
+      if (!roleMatchesUser(raSlots[i])) continue;
+
+      const s = normalizeRole(statuses[i]);
+      if (s === "approved" || s === "rejected") return s;
+    }
+
+    return "";
+  };
+
+  // Builds the "Approved By: Business Manager → HR" trail - one entry per
+  // populated RA1..RA4 slot, colored by that slot's own status (approved =
+  // green, rejected = red, still pending = blue).
+  const getDutyChain = (row: DutyRow) => {
+    const slots = [
+      { role: row.RA1, status: row.RA1_Status },
+      { role: row.RA2, status: row.RA2_Status },
+      { role: row.RA3, status: row.RA3_Status },
+      { role: row.RA4, status: row.RA4_Status },
+    ];
+
+    return slots
+      .filter((s) => {
+        const roleNorm = normalizeRole(s.role);
+        return roleNorm && roleNorm !== "-";
+      })
+      .map((s) => {
+        const st = normalizeRole(s.status);
+        const color =
+          st === "approved" || st === "accepted"
+            ? "approved"
+            : st === "rejected"
+            ? "rejected"
+            : "pending";
+        return { role: String(s.role).trim(), color };
+      });
+  };
+
+  // Whether it's currently the logged-in user's turn: CurrentLevel names a
+  // slot number, and that specific slot's RA value must match the user -
+  // matching some OTHER slot doesn't make it their turn.
+  const isMyTurn = (row: DutyRow): boolean => {
+    const currentLevel = row.CurrentLevel ? parseInt(String(row.CurrentLevel), 10) : null;
+    if (!currentLevel || currentLevel < 1 || currentLevel > 4) return false;
+
+    const raSlots = [row.RA1, row.RA2, row.RA3, row.RA4];
+    return roleMatchesUser(raSlots[currentLevel - 1]);
+  };
+
+  const isFinalStatus = (row: DutyRow) => {
+    const s = (row.Status || "").toLowerCase();
+    return s === "approved" || s === "rejected";
+  };
+
+  // Per-card approve/reject for the team-duties list. Reject only needs the
+  // id, but approve's stored proc expects the full duty payload, so we fetch
+  // it fresh from edit_onduties rather than relying on the top form's state
+  // (which may hold an unrelated record the user is mid-editing).
+  // approve_onduty is the RA-chain-aware endpoint: it advances CurrentLevel/
+  // RA{n}_Status server-side based on _empcode's position in RA1..RA4,
+  // rather than force-completing the whole request like SaveDuties_Approve
+  // does. The controller only ever returns Ok(...) on success and throws
+  // (caught below) on failure, so reaching past the await means it worked.
+  const approveDutyRow = async (row: DutyRow) => {
     try {
-      const res = await postWithFallback("Workreport/SaveDuties_Approve", payload);
-      if (isSaveOk(res.data)) {
-        notify("Approved successfully", "success");
-        clearOnDutyForm();
-        loadDuties();
-      }
+      await postWithFallback("Workreport/approve_onduty", {
+        _id: row.id,
+        Status: "Approve",
+        _empcode: empCode,
+      });
+      notify("Approved successfully", "success");
+      loadDuties();
     } catch {
       notify("Approval failed", "danger");
     }
   };
 
-  const rejectOnDuty = async () => {
-    if (!editingId) return;
-
+  const rejectDutyRow = async (row: DutyRow) => {
     try {
-      const res = await postWithFallback("Workreport/onduty_rejected", {
-        _id: editingId,
+      await postWithFallback("Workreport/approve_onduty", {
+        _id: row.id,
+        Status: "Reject",
+        _empcode: empCode,
       });
-      if (isSaveOk(res.data)) {
-        notify("Request rejected", "warning");
-        clearOnDutyForm();
-        loadDuties();
-      }
+      notify("Request rejected", "warning");
+      loadDuties();
     } catch {
       notify("Rejection failed", "danger");
     }
@@ -1374,7 +1476,6 @@ console.log("trip:", trip);
   const history = useHistory();
   return (
     <div className="onduties-page">
-      {/* <div className="onduties-content"  fullscreen={false} ref={contentRef} scrollEvents>  */}
       <div className="onduties-content">
         <div style={{ display: "flex", gap: "1px", marginTop: "5px" }}>
         </div>
@@ -1382,13 +1483,6 @@ console.log("trip:", trip);
 
         <div className="page-container">
           <h2 style={{ margin: 0, fontWeight: 700 }}>Duty Manager</h2>
-          {/* <IonButton
-  expand="block"
-  color="primary"
-  onClick={() => history.push("/OverTime")}
->
-  Go To Overtime
-</IonButton> */}
           <div>
 
             <IonGrid className="ion-no-padding compact-duty-grid">
@@ -1492,7 +1586,7 @@ console.log("trip:", trip);
   isDateEnabled={(dateString) => {
     const date = dateString.split("T")[0];
 
-    // ✅ allow already selected date (THIS IS THE FIX)
+    // allow the already-selected date even if outside the normal enabled range
     if (date === dutyFromDate) {
       return true;
     }
@@ -1693,44 +1787,78 @@ console.log("trip:", trip);
                 >
                   Submit Report
                 </IonButton>
-
-                {isAccountant && editingId && (
-                  <>
-                    <IonButton
-                      color="success"
-                      className="compact-duty-approve"
-                      onClick={approveOnDuty}
-                    >
-                      Approve
-                    </IonButton>
-
-                    <IonButton
-                      color="danger"
-                      className="compact-duty-reject"
-                      onClick={rejectOnDuty}
-                    >
-                      Reject
-                    </IonButton>
-                  </>
-                )}
               </div>
             </IonGrid>
           </div>
           <div className="history-section-title">On Duty Logs</div>
-          {dutiesList.map((row, idx) => (
+
+          {canApprove && (
+            <IonSegment
+              value={activeDutyTab}
+              onIonChange={(e) =>
+                setActiveDutyTab((e.detail.value as "my" | "team") || "my")
+              }
+              style={{ marginBottom: "14px" }}
+            >
+              <IonSegmentButton value="my">
+                <IonLabel>My Requests</IonLabel>
+              </IonSegmentButton>
+              <IonSegmentButton value="team">
+                <IonLabel>Team Requests</IonLabel>
+              </IonSegmentButton>
+            </IonSegment>
+          )}
+
+          {dutiesList
+            .filter((row) =>
+              !canApprove
+                ? true
+                : activeDutyTab === "team"
+                  ? row.isOwn === false
+                  : row.isOwn !== false
+            )
+            .filter((row) => {
+              const selected = (statusFilter || "all").toLowerCase();
+              if (selected === "all") return true;
+
+              // On Duty Logs is based on the request's overall/final
+              // outcome (all RA levels done), unlike the Requests page's
+              // Team Requests tab which is viewer-centric.
+              const approved = isFinalStatus(row) && row.Status?.toLowerCase() === "approved";
+              const rejected = isFinalStatus(row) && row.Status?.toLowerCase() === "rejected";
+
+              if (selected === "pending") return !approved && !rejected;
+              if (selected === "accepted") return approved;
+              if (selected === "rejected") return rejected;
+              return true;
+            })
+            .map((row, idx) => {
+              const rowApproved = isFinalStatus(row) && row.Status?.toLowerCase() === "approved";
+              const rowRejected = isFinalStatus(row) && row.Status?.toLowerCase() === "rejected";
+              const rowChain = getDutyChain(row);
+
+              return (
             <div key={`${row.id}-${idx}`} className="premium-card">
-              <div className="card-accent"></div>
-              <div className="card-header">
+              <span
+                className={`dm-side-flag ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
+              />
+              <div
+                className="card-header"
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
+              >
                 <div style={{ flex: 1 }}>
-                  <div>
-                    <span className="college-name">{row.College}</span>
-                    <span className={`badge-pill pill-${row.Status?.toLowerCase()}`}>
-                      {" "}
-                      {row.Status}
-                    </span>
+                  <div className="college-name">
+                    {row.College || "Party"}
+                    <span className="dm-id-badge">#{row.id}</span>
                   </div>
-                  <span >{row.Description}</span>
+                  <div className="duty-subtitle">{row.Description}</div>
                 </div>
+
+                <span
+                  className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
+                >
+                  {rowApproved ? "Approved" : rowRejected ? "Rejected" : "Pending"}
+                </span>
               </div>
               <div
                 style={{
@@ -1744,59 +1872,55 @@ console.log("trip:", trip);
                   marginTop: "14px",
                 }}
               >
-                <div className="lr-grid-item full-width">
-  <span className="lr-grid-label">Employees</span>
+                <div className="duty-info-box full-width">
+                  <span className="item-label">Employees</span>
 
-  <div
-    style={{
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "8px",
-      marginTop: "6px",
-    }}
-  >
-    {formatEmployeeNames(row.empNames).map(
-      (emp: any, idx: number) => (
-        <div
-          key={idx}
-          style={{
-            background: "#eef2ff",
-            color: "#3730a3",
-            padding: "6px 10px",
-            borderRadius: "20px",
-            fontSize: "12px",
-            fontWeight: 600,
-            border: "1px solid #c7d2fe",
-          }}
-        >
-          {emp.name}
-          {emp.code && (
-            <span style={{ opacity: 0.7 }}>
-              {" "}
-              ({emp.code})
-            </span>
-          )}
-        </div>
-      )
-    )}
-  </div>
-</div>
-                <div className="footer-item" style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                      marginTop: "6px",
+                    }}
+                  >
+                    {formatEmployeeNames(row.empNames).map(
+                      (emp: any, idx: number) => (
+                        <div
+                          key={idx}
+                          style={{
+                            background: "#eef2ff",
+                            color: "#3730a3",
+                            padding: "6px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            border: "1px solid #c7d2fe",
+                          }}
+                        >
+                          {emp.name}
+                          {emp.code && (
+                            <span style={{ opacity: 0.7 }}> ({emp.code})</span>
+                          )}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="duty-info-box" style={{ minWidth: 0 }}>
                   <span className="item-label">Transport</span>
                   <span
                     className="item-value"
                     style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
                   >
-                    <span className="item-value">
-                      {row.Mode_of_Trans}
-                      {row.Vehicle_No && (
-                        <span style={{ color: "#64748b" }}> • {row.Vehicle_No}</span>
-                      )}
-                    </span>
+                    {row.Mode_of_Trans}
+                    {row.Vehicle_No && (
+                      <span style={{ color: "#64748b" }}> • {row.Vehicle_No}</span>
+                    )}
                   </span>
                 </div>
 
-                <div className="footer-item" style={{ minWidth: 0 }}>
+                <div className="duty-info-box" style={{ minWidth: 0 }}>
                   <span className="item-label">Timeline</span>
                   <span
                     className="item-value"
@@ -1808,7 +1932,7 @@ console.log("trip:", trip);
                   </span>
                 </div>
 
-                <div className="footer-item" style={{ minWidth: 0 }}>
+                <div className="duty-info-box" style={{ minWidth: 0 }}>
                   <span className="item-label">Location</span>
                   <span
                     className="item-value"
@@ -1818,40 +1942,38 @@ console.log("trip:", trip);
                   </span>
                 </div>
 
-                <div
-                  className="footer-item"
-                  style={{
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    alignItems: window.innerWidth <= 768 ? "flex-start" : "center",
-                    gap: "8px",
-                  }}
-                >
-                  <span className="item-label"> ADD </span>
+                <div className="duty-info-box" style={{ minWidth: 0 }}>
+                  <span className="item-label">Details</span>
                   <a
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      openAddDayTripModal(row);
+                      setExpandedTrips((prev) => ({
+                        ...prev,
+                        [row.id]: !prev[row.id],
+                      }));
                     }}
-                    style={{
-                      color: "#2563eb",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      whiteSpace: "nowrap",
-                    }}
+                    className="duty-view-link"
                   >
-                    + Add Duty Days
+                    {expandedTrips[row.id] ? "Hide" : "View"}
                   </a>
-
                 </div>
               </div>
 
+              {expandedTrips[row.id] && (
               <div style={{ marginTop: "16px", marginBottom: "12px" }}>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openAddDayTripModal(row);
+                  }}
+                  className="duty-view-link"
+                  style={{ display: "inline-block", marginBottom: "10px" }}
+                >
+                  + Add Duty Day
+                </a>
+
                 {(tripDaysByDuty[row.id] || []).length > 0 && (
                   <div
                     style={{
@@ -2066,7 +2188,6 @@ console.log("trip:", trip);
                               </div>
 
                               {/* Location */}
-                              {/* Location */}
                               <div>
                                 <strong>Location :</strong>{" "}
                                 {visit.latitude && visit.longitude ? (
@@ -2146,7 +2267,42 @@ console.log("trip:", trip);
                   </div>
                 )}
               </div>
-              {canEdit && (
+              )}
+              {/* Approval trail instead of a pill - the status dot up top
+                  already shows the overall outcome, so this just lists who
+                  acted (or still needs to), colored per RA slot. */}
+              {rowChain.length > 0 && (
+                <div className="dm-chain">
+                  <span className="dm-chain-label">Approval Status:</span>{" "}
+                  {rowChain.map((step, idx) => (
+                    <React.Fragment key={idx}>
+                      <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
+                      {idx < rowChain.length - 1 && (
+                        <span className="dm-chain-arrow"> → </span>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+
+              {canApprove && isMyTurn(row) && (
+                <div className="duty-action-row">
+                  <IonButton className="compact-duty-approve" onClick={() => approveDutyRow(row)}>
+                    Approve
+                  </IonButton>
+                  <IonButton className="compact-duty-reject" onClick={() => rejectDutyRow(row)}>
+                    Reject
+                  </IonButton>
+                </div>
+              )}
+
+              {/* edit_onduties looks the record up by the VIEWER's own
+                  empCode + id, so it only ever finds rows that viewer
+                  actually owns - showing the pencil on a team member's card
+                  (row.isOwn === false) let approvers click it and always hit
+                  "Failed to load record". Admin roles (Accountant/Director)
+                  are the exception and can edit any record. */}
+              {(canEdit || (canApprove && row.isOwn !== false)) && (
                 <IonButton
                   fill="clear"
                   color="primary"
@@ -2157,8 +2313,8 @@ console.log("trip:", trip);
                 </IonButton>
               )}
             </div>
-
-          ))}
+              );
+            })}
 
         </div>
 
@@ -2377,115 +2533,6 @@ console.log("trip:", trip);
 />
                         </div>
 
-                        {/* <div
-                          style={{
-                            border: "1px solid #d8dee8",
-                            borderRadius: "16px",
-                            padding: "12px",
-                            background: "#ffffff",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "10px",
-                            justifyContent: "flex-start",
-                            alignSelf: "start",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              justifyContent: "space-between",
-                              gap: "8px",
-                              minHeight: "24px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "flex-start",
-                                gap: "8px",
-                                minWidth: 0,
-                                flex: 1,
-                              }}
-                            >
-                              <label
-                                style={{
-                                  fontSize: "14px",
-                                  fontWeight: 700,
-                                  color: "#334155",
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                  lineHeight: "20px",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                }}
-                              >
-                                Reading To
-                                <input
-                                  hidden
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) =>
-                                    updateTripDay(
-                                      editingTripIndex,
-                                      "readingToImage",
-                                      e.target.files?.[0] || null
-                                    )
-                                  }
-                                />
-                              </label>
-
-                              {trip.readingToImage && (
-                                <span
-                                  style={{
-                                    fontSize: "12px",
-                                    color: "#0f172a",
-                                    fontWeight: 500,
-                                    lineHeight: "20px",
-                                    cursor: "pointer",
-                                    textDecoration: "underline",
-                                  }}
-                                  onClick={() => openFilePreview(trip.readingToImage)}
-                                >
-                                  {getFileLabel(trip.readingToImage)}
-                                </span>
-                              )}
-                            </div>
-
-
-                          </div>
-
-                          <input
-                            value={trip.readingTo}
-                            disabled={!trip.readingToImage}
-                            placeholder={
-                              trip.readingToImage
-                                ? "Reading To"
-                                : "Upload image to enable"
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              updateTripDay(editingTripIndex, "readingTo", value);
-                              autoFillDistance(
-                                editingTripIndex,
-                                trip.readingFrom,
-                                value
-                              );
-                            }}
-                            style={{
-                              width: "100%",
-                              height: "46px",
-                              border: "1px solid #cbd5e1",
-                              borderRadius: "12px",
-                              padding: "0 14px",
-                              fontSize: "14px",
-                              background: trip.readingToImage
-                                ? "#fff"
-                                : "#f1f5f9",
-                            }}
-                          />
-                        </div> */}
                       {tripModalMode === "edit" && (
   <div
     style={{
@@ -3496,7 +3543,12 @@ updateTripDay(
                           minHeight: "46px",
                           fontSize: "12px",
                         }}
-                        onClick={saveDayTripModal}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          saveDayTripModal();
+                        }}
+                        disabled={isSavingTrip.current}
                       >
                         Save Trip
                       </IonButton>

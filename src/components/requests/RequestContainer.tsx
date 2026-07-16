@@ -117,7 +117,7 @@ return (
 
 {normalizedType === "onduty" ? (
   <>
-    {view === "my" && <OnDuties />}
+    {view === "my" && <OnDuties statusFilter={status} />}
 
     <RequestList type="onduty" view={view} status={status} />
   </>

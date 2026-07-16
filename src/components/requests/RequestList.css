@@ -1586,3 +1586,298 @@ ion-datetime {
   --wheel-highlight-background: rgba(0, 0, 0, 0.05);
   font-size: 14px;
 }
+
+/* ==========================================================
+   On Duty cards (Team Requests) — matched to the "premium-card"
+   look used for My Requests on the Duty Manager page. Namespaced
+   with a "dm-" prefix so it can't collide with styles already
+   defined elsewhere for classes like .premium-card/.item-label.
+   ========================================================== */
+.dm-card {
+  /* The Requests page sits on a grayer background (#f0f2f8) with a colored
+     hero banner above it, unlike the Duty Manager page's near-white
+     background - the same translucent glass value from there would let
+     that different backdrop bleed through and look "off" here, so this is
+     a bit more opaque to render as a clean, consistent white card. */
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(15px);
+  border-radius: 24px;
+  padding: 20px;
+  margin: 0 14px 20px;
+  box-shadow: 0 12px 28px rgba(226, 113, 29, 0.18);
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Vertical flag flush against the card's left edge, colored by status -
+   copied from the Tasks page's .priority-marker (same card family this
+   whole design is based on): flush left, vertically centered, rounded only
+   on the outward side so it reads as a tab embedded in the card edge
+   rather than a badge floating outside it. */
+.dm-side-flag {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 50%;
+  border-radius: 0 4px 4px 0;
+}
+
+.dm-side-flag.approved {
+  background: #22c55e;
+}
+
+/* ID badge - copied from the Tasks page's .tid-badge so it uses the same
+   themed color (var(--premium-gradient) follows the app's active color
+   theme) instead of a fixed color. */
+.dm-id-badge {
+  background: var(--premium-gradient, #1f2937);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  margin-left: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.dm-side-flag.pending {
+  background: #3b82f6;
+}
+
+.dm-side-flag.rejected {
+  background: #ef4444;
+}
+
+.dm-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.dm-college-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.dm-subtitle {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.dm-status-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.dm-status-tag.pending {
+  color: #c2410c;
+}
+
+.dm-status-tag.approved {
+  color: #166534;
+}
+
+.dm-status-tag.rejected {
+  color: #991b1b;
+}
+
+/* Compact pill-shaped status badge, replacing the text tag - solid color
+   fill with small bold white text, like the "#4459" ID badge style. */
+.dm-status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.dm-status-dot.approved {
+  background: #22c55e;
+}
+
+.dm-status-dot.pending {
+  background: #3b82f6;
+}
+
+.dm-status-dot.rejected {
+  background: #ef4444;
+}
+
+.dm-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+@media screen and (max-width: 768px) {
+  .dm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dm-info-box {
+  background: #f1f5f9;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dm-info-box.dm-full-width {
+  grid-column: 1 / -1;
+}
+
+.dm-item-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.dm-item-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.dm-view-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.dm-emp-chip {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #c7d2fe;
+}
+
+.dm-final-pill {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-top: 16px;
+}
+
+.dm-final-pill.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dm-final-pill.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dm-action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.dm-approve-btn,
+.dm-reject-btn {
+  flex: 1;
+  height: 46px;
+  border-radius: 14px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.dm-approve-btn {
+  background: #15803d;
+  box-shadow: 0 6px 18px rgba(21, 128, 61, 0.18);
+}
+
+.dm-approve-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.dm-reject-btn {
+  background: #b91c1c;
+  box-shadow: 0 6px 18px rgba(185, 28, 28, 0.18);
+}
+
+@media screen and (max-width: 768px) {
+  .dm-action-row {
+    flex-direction: column;
+  }
+}
+
+/* Approval trail: "Approved By: Business Manager → HR", each role colored
+   by its own status instead of a single approved/rejected pill. */
+.dm-chain {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.dm-chain-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.dm-chain-role {
+  font-weight: 800;
+}
+
+.dm-chain-role.approved {
+  color: #15803d;
+}
+
+.dm-chain-role.pending {
+  color: #2563eb;
+}
+
+.dm-chain-role.rejected {
+  color: #b91c1c;
+}
+
+.dm-chain-arrow {
+  color: #94a3b8;
+  font-weight: 600;
+}

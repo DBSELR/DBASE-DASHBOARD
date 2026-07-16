@@ -32,7 +32,11 @@ interface Props {
 
 const getUser = () => {
   try {
-    return JSON.parse(localStorage.getItem("user") || "{}");
+    const stored =
+      localStorage.getItem("storedUser") ||
+      localStorage.getItem("user") ||
+      localStorage.getItem("userData");
+    return stored ? JSON.parse(stored) : {};
   } catch {
     return {};
   }
@@ -50,6 +54,18 @@ const safeText = (val: any) => {
   if (val === null || val === undefined) return "";
   if (typeof val === "object") return JSON.stringify(val);
   return String(val);
+};
+
+// Workreport/load_duties_full and load_my_duties serialize these fields
+// with inconsistent casing (ASP.NET Core's default camelCase policy only
+// lowercases the FIRST letter, so "CurrentRA" becomes "currentRA" but
+// "RA1_Status" can come through as "rA1_Status" depending on the endpoint) -
+// check every casing variant we've seen rather than trusting one.
+const pick = (d: any, ...keys: string[]) => {
+  for (const k of keys) {
+    if (d[k] !== undefined && d[k] !== null && d[k] !== "") return d[k];
+  }
+  return undefined;
 };
 
 
@@ -113,6 +129,12 @@ const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
 const triggerRef = useRef<HTMLDivElement>(null);
 
+// Remembers on-screen card order across reloads so that approving/rejecting
+// one item doesn't reshuffle the whole list - the backend can return a
+// different order on refetch (e.g. sorted by status/updated time), which
+// otherwise made the just-actioned card jump to the first slot.
+const prevOrderRef = useRef<string[]>([]);
+
 const [dropdownPos, setDropdownPos] = useState({
   top: 0,
   left: 0,
@@ -136,6 +158,8 @@ const [permissionModal, setPermissionModal] = useState(false);
 
 const [permissionData, setPermissionData] = useState<any[]>([]);
 const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string }>({});
+// tracks per-item onduty action: 'approved' | 'rejected' | undefined
+const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved' | 'rejected'>>({});
 
   const normalize = (x: any) => {
     if (!x) return null;
@@ -165,21 +189,26 @@ const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string 
     DateFrom: x.dateFrom,
     DateTo: x.dateTo,
 
-    L_status: safeText(x.status),
+    // load_duties_full/load_my_duties often leave Status blank while a
+    // request is still pending (it only gets set once a decision is made)
+    // - default it to "Pending" like the Duty Manager page does, otherwise
+    // the Pending filter tab's substring check finds nothing and the card
+    // silently disappears from that tab.
+    L_status: safeText(x.status) || "Pending",
 
-    CurrentLevel: x.currentLevel,
-    MaxLevel: x.maxLevel,
-    CurrentRA: x.currentRA,
+    CurrentLevel: pick(x, "currentLevel", "CurrentLevel"),
+    MaxLevel: pick(x, "maxLevel", "MaxLevel"),
+    CurrentRA: pick(x, "currentRA", "CurrentRA", "currentRa"),
 
-    RA1: x.rA1,
-    RA2: x.rA2,
-    RA3: x.rA3,
-    RA4: x.rA4,
+    RA1: pick(x, "rA1", "ra1", "RA1"),
+    RA2: pick(x, "rA2", "ra2", "RA2"),
+    RA3: pick(x, "rA3", "ra3", "RA3"),
+    RA4: pick(x, "rA4", "ra4", "RA4"),
 
-    RA1_Status: x.rA1_Status,
-    RA2_Status: x.rA2_Status,
-    RA3_Status: x.rA3_Status,
-    RA4_Status: x.rA4_Status,
+    RA1_Status: pick(x, "rA1_Status", "ra1_Status", "RA1_Status", "ra1Status", "rA1Status"),
+    RA2_Status: pick(x, "rA2_Status", "ra2_Status", "RA2_Status", "ra2Status", "rA2Status"),
+    RA3_Status: pick(x, "rA3_Status", "ra3_Status", "RA3_Status", "ra3Status", "rA3Status"),
+    RA4_Status: pick(x, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status"),
 
     dayTrips: x.dayTrips || [],
   };
@@ -415,7 +444,12 @@ const loadEmployees = async () => {
 
 
 
-const loadData = async () => {
+// `silent` skips the loading placeholder so a background refresh (e.g.
+// right after approving/rejecting a card) doesn't unmount the whole card
+// list - that swap-to-"Loading..."-and-back is what made the page jump to
+// the top card, since the list collapses to a single line and the browser
+// doesn't restore the old scroll position once it re-expands.
+const loadData = async (silent: boolean = false) => {
   const empCode = getUser()?.empCode;
 
  
@@ -434,7 +468,7 @@ else if (
   leaveType = ""; // 👈 IMPORTANT: do NOT filter Half Day here
 }
 
-  setLoading(true);
+  if (!silent) setLoading(true);
 
 
 
@@ -472,17 +506,41 @@ try {
       .map(normalize)
       .filter(Boolean);
 
-    setData(result);
-    setFiltered(result);
+    // Preserve the previous card order: keep items where they were, and
+    // append any newly-seen items at the end in the order the server sent
+    // them, instead of trusting the server's (possibly re-sorted) order.
+    const byId = new Map(result.map((it: any) => [String(it.lid), it]));
+    const orderedResult: any[] = [];
+
+    prevOrderRef.current.forEach((id) => {
+      const item = byId.get(id);
+      if (item) {
+        orderedResult.push(item);
+        byId.delete(id);
+      }
+    });
+
+    result.forEach((it: any) => {
+      if (byId.has(String(it.lid))) {
+        orderedResult.push(it);
+      }
+    });
+
+    prevOrderRef.current = orderedResult.map((it: any) => String(it.lid));
+
+    setData(orderedResult);
+    setFiltered(orderedResult);
     if (type === "onduty") {
   //loadTripDays(result);
 }
   } catch (e) {
     console.error(e);
-    setData([]);
-    setFiltered([]);
+    if (!silent) {
+      setData([]);
+      setFiltered([]);
+    }
   } finally {
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 };
 
@@ -492,16 +550,33 @@ const filterByStatus = (item: any) => {
 
   if (selected === "all") return true;
 
+  const approved = raw.includes("approved") || raw.includes("accepted");
+  const rejected = raw.includes("rejected");
+
+  // On Duty's tabs are viewer-centric rather than overall-status-based:
+  // "Pending" means it's pending AT ME right now (my turn to act), not
+  // just that the request overall isn't finished; "Accepted"/"Rejected"
+  // mean *I* approved/rejected it at my RA level, regardless of whether
+  // later levels have since finished the chain.
+  if (type === "onduty") {
+    const myDecision = getOnDutyMyDecision(item);
+
+    if (selected === "pending") return isOnDutyMyTurn(item);
+    if (selected === "accepted") return myDecision === "approved" || myDecision === "accepted";
+    if (selected === "rejected") return myDecision === "rejected";
+    return true;
+  }
+
   if (selected === "pending") {
     return raw.includes("pending");
   }
 
   if (selected === "accepted") {
-    return raw.includes("approved") || raw.includes("accepted");
+    return approved;
   }
 
   if (selected === "rejected") {
-    return raw.includes("rejected");
+    return rejected;
   }
 
   return true;
@@ -518,39 +593,48 @@ const finalData = filtered
 //  const finalData = filtered.filter(Boolean).filter(filterByStatus);
 const updateOnDuty = async (item: any, status: string) => {
   try {
-   const payload = {
-  _id: String(item.lid),
-  _empcode: getUser()?.empCode,
+    const payload = {
+      _id: String(item.lid),
+      Status: status === "Accepted" ? "APPROVE" : "REJECT",
+      // @ActionBy is compared to CurrentRA (designation) in the stored procedure
+      _empcode: getUser()?.designation || getUser()?.Designation || "",
+    };
 
-  _date: moment(item.DateFrom).format("YYYY-MM-DD"),
-
-  _Client: item.College,
-  _Location: item.Location,
-  _Description: item.Description,
-
-  _TransportMode: item.Mode_of_Trans,
-
-  _Starttime: item.Starttime || null,
-  _Endtime: item.Endtime || null,
-
-  _VehicleNo: item.Vehicle_No || null,
-
-  _StartReading: item.StartReading || null,
-  _EndReading: item.EndReading || null,
-  _KMS: item.KMS || null,
-
-  Status: status,
-};
-console.log("ONDUTY PAYLOAD:", payload);
-    await axios.post(
-      `${baseUrl}Workreport/SaveDuties_Approve`,
+    const res = await axios.post(
+      `${baseUrl}Workreport/approve_onduty`,
       payload,
       { headers: getAuthHeaders() }
     );
 
-    loadData();
-  } catch (e) {
-    console.error(e);
+    // SP returns rows serialized as [[Success, Message, id, Status, ...], ...]
+    // Message is at index [1] of the first row
+    let displayMsg = status === "Accepted"
+      ? "On Duty request approved successfully."
+      : "On Duty request rejected successfully.";
+
+    try {
+      const rows = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
+        displayMsg = String(rows[0][1]);
+      }
+    } catch { /* keep default msg */ }
+
+    alert(displayMsg);
+    // Mark this item locally so buttons update immediately without waiting for reload
+    setOndutyActionMap(prev => ({
+      ...prev,
+      [String(item.lid)]: status === "Accepted" ? "approved" : "rejected",
+    }));
+    loadData(true);
+  } catch (e: any) {
+    const msg =
+      e?.response?.data?.message ||
+      e?.response?.data?.title ||
+      (typeof e?.response?.data === "string" ? e.response.data : null) ||
+      e?.message ||
+      "Action failed. Please try again.";
+    alert(`Error: ${msg}`);
+    console.error("updateOnDuty error:", e?.response ?? e);
   }
 };
 
@@ -572,7 +656,7 @@ const formatTime = (time:any) => {
         { headers: getAuthHeaders() }
       );
 
-      loadData();
+      loadData(true);
     } catch (e) {
       console.error(e);
     }
@@ -589,7 +673,7 @@ const handleApprove = async (item: any) => {
       EmpCode: getUser()?.empCode,
     });
 
-    loadData();
+    loadData(true);
   } catch (e) {
     console.error(e);
   }
@@ -604,7 +688,7 @@ const handleReject = async (item: any) => {
       EmpCode: getUser()?.empCode,
     });
 
-    loadData();
+    loadData(true);
   } catch (e) {
     console.error(e);
   }
@@ -623,7 +707,7 @@ const handleAssignEquipment = async (item: any) => {
       }
     );
 
-    loadData();
+    loadData(true);
 
   } catch (e) {
     console.error(e);
@@ -642,7 +726,7 @@ const handleReceiveEquipment = async (item: any) => {
       }
     );
 
-    loadData();
+    loadData(true);
 
   } catch (e) {
     console.error(e);
@@ -658,7 +742,7 @@ const updateOvertime = async (item: any, status: string) => {
       FinMinDiff: item.MinDiff
     });
 
-    loadData();
+    loadData(true);
   } catch (e) {
     console.error(e);
   }
@@ -731,7 +815,7 @@ console.log("SAVE OT PAYLOAD", payload);
 
     setEditOtModal(false);
 
-    loadData();
+    loadData(true);
 
     alert("Overtime updated successfully");
   } catch (e: any) {
@@ -758,7 +842,7 @@ console.log("SAVE OT PAYLOAD", payload);
   };
 
   await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, payload);
-  loadData();
+  loadData(true);
 };
 const getStatusLabel = (item: any) => {
   // 🔥 SHOW EXACT BACKEND VALUE
@@ -789,9 +873,15 @@ const getStatusLabel = (item: any) => {
   return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
 };
 
-const normalizeText = (val: any) =>
-  safeText(val).toLowerCase().replace(/\s/g, "");
-
+// Hoisted function declarations (not `const`) on purpose: filterByStatus /
+// finalData - defined earlier in this component - call these during
+// render, and a `const` here would leave them in the temporal dead zone
+// at that point since JS doesn't hoist `const` initializers, only the
+// binding. Function declarations are fully hoisted, so this works
+// regardless of where in the file they're written.
+function normalizeText(val: any) {
+  return safeText(val).toLowerCase().replace(/\s/g, "");
+}
 
 const canAct = (item: any) => {
   if (!item) return false;
@@ -806,42 +896,97 @@ const canAct = (item: any) => {
     return false;
   }
 
+  // ✅ OnDuty: any team-view manager/TL can approve pending items
+  if (type === "onduty") {
+    return status.includes("pending") || status === "";
+  }
+
   const user = normalizeText(getUser()?.designation);
 
-  // Permission -> RA1 and RA2 together
-  // if (normalizeText(item.ltype) === "permission") {
-  //   return (
-  //     user === normalizeText(item.RA1) ||
-  //     user === normalizeText(item.RA2)
-  //   );
-  // }
-if (normalizeText(item.ltype) === "permission") {
+  if (normalizeText(item.ltype) === "permission") {
+    const ra1Approved = normalizeText(item.RA1_Status) === "accepted";
 
-  const ra1Approved =
-    normalizeText(item.RA1_Status) === "accepted";
-
-  // RA1 can approve only before approving
-  if (
-    user === normalizeText(item.RA1) &&
-    !ra1Approved
-  ) {
-    return true;
+    if (user === normalizeText(item.RA1) && !ra1Approved) {
+      return true;
+    }
+    if (user === normalizeText(item.RA2) && ra1Approved) {
+      return true;
+    }
+    return false;
   }
 
-  // RA2 can approve only after RA1 approved
-  if (
-    user === normalizeText(item.RA2) &&
-    ra1Approved
-  ) {
-    return true;
-  }
-
-  return false;
-}
-  // Existing flow
+  // Existing flow for leave/permission
   const current = normalizeText(item?.CurrentRA);
   return current === user;
 };
+
+// OnDuty team-view: has the logged-in user's own designation already
+// recorded a decision (Approved/Rejected) at any RA1..RA4 level for this
+// request? Needed because canAct()/the overall L_status only reflect the
+// FINAL outcome once every level has acted - a Business Manager who already
+// approved at RA1 would otherwise still see Approve/Reject buttons while the
+// request sits pending at RA2/RA3/RA4, including cases where "Business
+// Manager" happens to be listed at more than one RA slot for the same
+// request. Matching is by designation text, same as the rest of this file.
+function getOnDutyMyDecision(item: any): string {
+  const userDesig = normalizeText(getUser()?.designation);
+  if (!userDesig) return "";
+
+  const raSlots = [item?.RA1, item?.RA2, item?.RA3, item?.RA4];
+  const raStatuses = [
+    item?.RA1_Status,
+    item?.RA2_Status,
+    item?.RA3_Status,
+    item?.RA4_Status,
+  ];
+
+  for (let i = 0; i < raSlots.length; i++) {
+    const raNorm = normalizeText(raSlots[i]);
+    if (!raNorm || raNorm === "-") continue;
+    if (raNorm !== userDesig) continue;
+
+    const s = normalizeText(raStatuses[i]);
+    if (s === "approved" || s === "accepted" || s === "rejected") return s;
+  }
+
+  return "";
+}
+
+// Builds the "Approved By: Business Manager → HR" trail for an On Duty
+// team-view card - one entry per populated RA1..RA4 slot, colored by that
+// slot's own status (approved = green, rejected = red, still pending =
+// blue), independent of the other status flags used elsewhere.
+function getOnDutyChain(item: any) {
+  const slots = [
+    { role: item?.RA1, status: item?.RA1_Status },
+    { role: item?.RA2, status: item?.RA2_Status },
+    { role: item?.RA3, status: item?.RA3_Status },
+    { role: item?.RA4, status: item?.RA4_Status },
+  ];
+
+  return slots
+    .filter((s) => {
+      const roleNorm = normalizeText(s.role);
+      return roleNorm && roleNorm !== "-";
+    })
+    .map((s) => {
+      const st = normalizeText(s.status);
+      const color =
+        st === "approved" || st === "accepted"
+          ? "approved"
+          : st === "rejected"
+          ? "rejected"
+          : "pending";
+      return { role: String(s.role).trim(), color };
+    });
+}
+
+// Is it currently this viewer's own turn to act on this On Duty request -
+// i.e. the "PENDING AT" role matches their own designation. Shared between
+// the card's button gating and the status filter's "Pending" tab.
+function isOnDutyMyTurn(item: any) {
+  return !!item?.CurrentRA && normalizeText(item.CurrentRA) === normalizeText(getUser()?.designation);
+}
 
 // const canAct = (item: any) => {
 //   if (!item) return false;
@@ -974,7 +1119,7 @@ const loadTeamPermissionDashboard = async () => {
   }
 };
   return (
-    <div style={{ overflowX: 'hidden', width: '100%' }}>
+    <div style={{ width: '100%' }}>
      
      
 
@@ -1243,6 +1388,143 @@ const loadTeamPermissionDashboard = async () => {
       {!loading &&
         finalData
          .map((item) => {
+          // On Duty (Team Requests) uses the same "premium-card" look as
+          // the Duty Manager page's My Requests cards, rather than the
+          // generic lr-history-card layout used by the other request types.
+          if (type === 'onduty') {
+            const localAction = ondutyActionMap[String(item.lid)];
+            const serverStatus = (item.L_status || '').toLowerCase();
+            const myDecision = getOnDutyMyDecision(item);
+
+            // Overall outcome of the whole approval chain - drives the
+            // top-right status tag ONLY. This must stay independent of
+            // whether the current viewer personally already acted, since
+            // other RA levels can still be pending after that.
+            const overallApproved = serverStatus.includes('approved') || serverStatus.includes('accepted');
+            const overallRejected = serverStatus.includes('rejected');
+
+            // Has the current viewer already acted (personally, or via a
+            // matching RA slot)? Drives the Approve/Reject buttons vs. the
+            // pill underneath - separate from the overall tag above.
+            const isApproved =
+              localAction === 'approved' ||
+              myDecision === 'approved' ||
+              myDecision === 'accepted' ||
+              (!localAction && !myDecision && overallApproved);
+
+            const isRejected =
+              localAction === 'rejected' ||
+              myDecision === 'rejected' ||
+              (!localAction && !myDecision && overallRejected);
+
+            // Only show Approve/Reject when the "PENDING AT" role actually
+            // matches the viewer's own designation - being an approver
+            // somewhere in the chain isn't enough, it has to be their turn.
+            const isMyTurn = isOnDutyMyTurn(item);
+
+            const approvalChain = getOnDutyChain(item);
+
+            return (
+              <div key={`${item.lid}-${item.empcode}`} className="dm-card">
+                <span
+                  className={`dm-side-flag ${
+                    overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
+                  }`}
+                />
+                <div className="dm-card-header">
+                  <div style={{ flex: 1 }}>
+                    <div className="dm-college-name">
+                      {item.College || "Party"}
+                      <span className="dm-id-badge">#{item.lid}</span>
+                    </div>
+                    <div className="dm-subtitle">{item.Description}</div>
+                  </div>
+
+                  <span
+                    className={`dm-status-dot ${
+                      overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
+                    }`}
+                  >
+                    {overallApproved ? "Approved" : overallRejected ? "Rejected" : "Pending"}
+                  </span>
+                </div>
+
+                <div className="dm-grid">
+                  <div className="dm-info-box dm-full-width">
+                    <span className="dm-item-label">Employees</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "6px" }}>
+                      {formatEmployeeNames(item.empNames).map((emp: any, idx: number) => (
+                        <div key={idx} className="dm-emp-chip">
+                          {emp.name}
+                          {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="dm-info-box">
+                    <span className="dm-item-label">Transport</span>
+                    <span className="dm-item-value">
+                      {item.Mode_of_Trans}
+                      {item.Vehicle_No && <span style={{ color: "#64748b" }}> • {item.Vehicle_No}</span>}
+                    </span>
+                  </div>
+
+                  <div className="dm-info-box">
+                    <span className="dm-item-label">Timeline</span>
+                    <span className="dm-item-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span>
+                  </div>
+
+                  <div className="dm-info-box">
+                    <span className="dm-item-label">Location</span>
+                    <span className="dm-item-value">{item.Location}</span>
+                  </div>
+
+                  <div className="dm-info-box">
+                    <span className="dm-item-label">Details</span>
+                    <a
+                      href="#"
+                      className="dm-view-link"
+                      onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }}
+                    >
+                      View
+                    </a>
+                  </div>
+                </div>
+
+                {/* Approval trail: one role per RA slot, colored by that
+                    slot's own status - approved (green) / rejected (red) /
+                    still pending (blue) - instead of a single pill. */}
+                {approvalChain.length > 0 && (
+                  <div className="dm-chain">
+                    <span className="dm-chain-label">Approval Status:</span>{" "}
+                    {approvalChain.map((step, idx) => (
+                      <React.Fragment key={idx}>
+                        <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
+                        {idx < approvalChain.length - 1 && (
+                          <span className="dm-chain-arrow"> → </span>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+
+                {/* Approve/Reject only when it's actually this viewer's
+                    turn - being an approver in the chain isn't enough. */}
+                {view !== 'my' && isMyTurn && !isApproved && !isRejected && (
+                  <div className="dm-action-row">
+                    <button className="dm-approve-btn" onClick={() => updateOnDuty(item, 'Accepted')}>
+                      Approve
+                    </button>
+                    <button className="dm-reject-btn" onClick={() => updateOnDuty(item, 'Rejected')}>
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card themed-bg status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
               <div className="lr-card-inner">
@@ -1424,13 +1706,65 @@ const loadTeamPermissionDashboard = async () => {
                 <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>Approved By: {getApprovedBy(item)}</p>
               )}
 
-            {((view !== "my" && canAct(item)) || (type === "overtime" && view === "my")) && (
+            {/* ── OnDuty team-view: always show status-driven action buttons ── */}
+            {type === 'onduty' && view !== 'my' && (() => {
+              // Priority: local optimistic state → then server L_status
+              const localAction = ondutyActionMap[String(item.lid)];
+              const serverStatus = (item.L_status || '').toLowerCase();
+
+              // Already decided by the logged-in user's own designation at
+              // an RA1..RA4 level (e.g. a Business Manager slot already
+              // approved) - hide the buttons even if L_status is still
+              // pending at a later level.
+              const myDecision = getOnDutyMyDecision(item);
+
+              const isApproved =
+                localAction === 'approved' ||
+                myDecision === 'approved' ||
+                myDecision === 'accepted' ||
+                (!localAction && (serverStatus.includes('approved') || serverStatus.includes('accepted')));
+
+              const isRejected =
+                localAction === 'rejected' ||
+                myDecision === 'rejected' ||
+                (!localAction && serverStatus.includes('rejected'));
+
+              const isPending = !isApproved && !isRejected;
+
+              return (
+                <div className="lr-card-actions">
+                  <button
+                    className="lr-action-btn approve"
+                    disabled={isApproved}
+                    style={isApproved ? { opacity: 0.65, cursor: 'not-allowed' } : {}}
+                    onClick={() => !isApproved && updateOnDuty(item, 'Accepted')}
+                  >
+                    {isApproved ? '✅ Approved' : '✅ Approve'}
+                  </button>
+
+                  {isPending && (
+                    <button
+                      className="lr-action-btn reject"
+                      onClick={() => updateOnDuty(item, 'Rejected')}
+                    >
+                      ❌ Reject
+                    </button>
+                  )}
+
+                  {isRejected && (
+                    <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600, alignSelf: 'center' }}>
+                      ❌ Rejected
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── All other types: standard canAct gate ── */}
+            {((type !== 'onduty' && view !== "my" && canAct(item)) || (type === "overtime" && view === "my")) && (
                 <div className="lr-card-actions">
                   {type === 'onduty' ? (
-                    <>
-                      <button className="lr-action-btn approve" onClick={() => updateOnDuty(item, 'Accepted')}>✅ Approve</button>
-                      <button className="lr-action-btn reject"  onClick={() => updateOnDuty(item, 'Rejected')}>❌ Reject</button>
-                    </>
+                    <></>
               ) : type === 'equipment' ? (
   <>
 

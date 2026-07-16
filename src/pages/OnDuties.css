@@ -321,6 +321,107 @@
   /* box-shadow: var(--premium-shadow); */
   transition: all 0.4s ease;
   position: relative;
+  overflow: hidden;
+}
+
+/* Vertical flag flush against the card's left edge, colored by status -
+   same treatment as the Tasks page's .priority-marker, and shared with the
+   Requests page's Team Requests cards for consistency. */
+.dm-side-flag {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 50%;
+  border-radius: 0 4px 4px 0;
+}
+
+.dm-side-flag.approved {
+  background: #22c55e;
+}
+
+.dm-side-flag.pending {
+  background: #3b82f6;
+}
+
+.dm-side-flag.rejected {
+  background: #ef4444;
+}
+
+/* ID badge - same themed pill as the Tasks page's .tid-badge. */
+.dm-id-badge {
+  background: var(--premium-gradient, #1f2937);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  margin-left: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Compact pill-shaped status badge, replacing the old text tag. */
+.dm-status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.dm-status-dot.approved {
+  background: #22c55e;
+}
+
+.dm-status-dot.pending {
+  background: #3b82f6;
+}
+
+.dm-status-dot.rejected {
+  background: #ef4444;
+}
+
+/* Approval trail: "Approval Status: Business Manager → HR". */
+.dm-chain {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.dm-chain-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.dm-chain-role {
+  font-weight: 800;
+}
+
+.dm-chain-role.approved {
+  color: #15803d;
+}
+
+.dm-chain-role.pending {
+  color: #2563eb;
+}
+
+.dm-chain-role.rejected {
+  color: #b91c1c;
+}
+
+.dm-chain-arrow {
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 .card-accent {
@@ -419,6 +520,91 @@
   background: #fee2e2;
   color: #991b1b;
   box-shadow: 0 4px 10px rgba(153, 27, 27, 0.1);
+}
+
+/* Duty card (approver view) */
+.duty-subtitle {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.duty-status-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.duty-status-tag.pending {
+  color: #c2410c;
+}
+
+.duty-status-tag.approved {
+  color: #166534;
+}
+
+.duty-status-tag.rejected {
+  color: #991b1b;
+}
+
+.duty-info-box {
+  background: #f1f5f9;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.duty-info-box.full-width {
+  grid-column: 1 / -1;
+}
+
+.duty-view-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.duty-final-pill {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-top: 16px;
+}
+
+.duty-final-pill.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.duty-final-pill.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.duty-action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.duty-action-row .compact-duty-approve,
+.duty-action-row .compact-duty-reject {
+  flex: 1;
+  height: 46px;
 }
 
 /* Modal Bottom Sheet */
@@ -575,10 +761,14 @@
 
 .compact-duty-approve {
   flex: 1;
+  --background: #15803d;
+  --box-shadow: 0 6px 18px rgba(21, 128, 61, 0.18);
 }
 
 .compact-duty-reject {
   flex: 1;
+  --background: #b91c1c;
+  --box-shadow: 0 6px 18px rgba(185, 28, 28, 0.18);
 }
 
 @media screen and (max-width: 768px) {
@@ -639,4 +829,34 @@
 /* Tight heading */
 .history-section-title {
   margin: 6px 0 !important;
-}/* HEADER */
+}
+
+/* Final pass: the gap between "Submit Report" and "On Duty Logs" kept
+   coming back because ion-button carries its own internal top/bottom
+   padding beyond the 46px height set on .compact-duty-submit, and
+   .compact-duty-buttons/.page-container were each adding a bit more on
+   top of that. Pin all of it down together instead of another partial
+   override. */
+.compact-duty-buttons {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.compact-duty-submit {
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-height: 40px;
+  height: 40px;
+}
+
+.page-container {
+  gap: 8px !important;
+}
+
+/* Pull the title up past the page-container's own gap, rather than
+   removing that gap everywhere (which would also flatten the space above
+   the form, between the "Duty Manager" heading and the first field). */
+.history-section-title {
+  margin: -6px 0 0 !important;
+}
+/* HEADER */
