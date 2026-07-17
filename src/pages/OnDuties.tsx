@@ -350,7 +350,7 @@ const [fromModal, setFromModal] = useState(false);
 const [toModal, setToModal] = useState(false);
 const loadUnlockRange = async () => {
   const res = await fetch(
-    `${API_BASE}Leave/Leave/GetApprovedUnlockRequest?empCode=${empCode}&requestType=On%20Duty`
+    `${API_BASE}ApprovalRequest/GetApprovedUnlockRequest?empCode=${empCode}&requestType=On%20Duty`
   );
 
   const data = await res.json();
@@ -637,7 +637,7 @@ useEffect(() => {
 
   const loadDayTrips = async (dutyId: string) => {
     try {
-      const res = await api.get("Workreport/get_daytrips", {
+      const res = await api.get("OnDuty/get_daytrips", {
         params: { dutyId },
       });
 
@@ -797,7 +797,7 @@ useEffect(() => {
     }
 
     try {
-      const res = await api.post("Workreport/save_daytrip", formData, {
+      const res = await api.post("OnDuty/save_daytrip", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -848,7 +848,7 @@ useEffect(() => {
 
   const loadTeam = async () => {
     try {
-      const res = await api.get("Workreport/load_employees_duties", {
+      const res = await api.get("OnDuty/load_employees_duties", {
         params: { empCode, designation: userDesig },
       });
 
@@ -879,7 +879,7 @@ useEffect(() => {
     // saved visit -> delete from DB
     if (visit.visit_Id && visit.visit_Id > 0) {
       try {
-        await api.delete("Workreport/delete_visit", {
+        await api.delete("OnDuty/delete_visit", {
           params: { visitId: visit.visit_Id },
         });
 
@@ -941,7 +941,7 @@ useEffect(() => {
     await Promise.all(
       duties.map(async (duty) => {
         try {
-          const res = await api.get("Workreport/get_daytrips", {
+          const res = await api.get("OnDuty/get_daytrips", {
             params: { dutyId: duty.id },
           });
 
@@ -1008,7 +1008,7 @@ useEffect(() => {
 
   const loadDuties = async () => {
     try {
-      const res = await api.get("Workreport/load_my_duties", {
+      const res = await api.get("OnDuty/load_my_duties", {
         params: { EmpCode: empCode },
       });
 
@@ -1024,7 +1024,7 @@ useEffect(() => {
       // so the render below can split them into a separate section.
       if (canApprove) {
         try {
-          const teamRes = await api.get("Workreport/load_duties_full", {
+          const teamRes = await api.get("OnDuty/load_duties_full", {
             params: { EmpCode: empCode },
           });
 
@@ -1110,7 +1110,7 @@ useEffect(() => {
     }
 
     try {
-      await api.delete("Workreport/delete_daytrip", {
+      await api.delete("OnDuty/delete_daytrip", {
         params: { dayTripId: trip.dayTrip_Id },
       });
 
@@ -1181,7 +1181,7 @@ useEffect(() => {
     };
 
     try {
-      const res = await postWithFallback("Workreport/saveduties", payload);
+      const res = await postWithFallback("OnDuty/saveduties", payload);
       if (isSaveOk(res.data)) {
         notify("On-Duty request submitted successfully", "success");
         clearOnDutyForm();
@@ -1199,7 +1199,7 @@ useEffect(() => {
     }
 
     try {
-      const res = await api.get("Workreport/edit_onduties", {
+      const res = await api.get("OnDuty/edit_onduties", {
         params: { EmpCode: empCode, id },
       });
 
@@ -1338,7 +1338,7 @@ useEffect(() => {
   // (caught below) on failure, so reaching past the await means it worked.
   const approveDutyRow = async (row: DutyRow) => {
     try {
-      await postWithFallback("Workreport/approve_onduty", {
+      await postWithFallback("OnDuty/approve_onduty", {
         _id: row.id,
         Status: "Approve",
         _empcode: empCode,
@@ -1352,7 +1352,7 @@ useEffect(() => {
 
   const rejectDutyRow = async (row: DutyRow) => {
     try {
-      await postWithFallback("Workreport/approve_onduty", {
+      await postWithFallback("OnDuty/approve_onduty", {
         _id: row.id,
         Status: "Reject",
         _empcode: empCode,

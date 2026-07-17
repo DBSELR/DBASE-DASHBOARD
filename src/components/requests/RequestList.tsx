@@ -478,13 +478,13 @@ try {
     if (type === "onduty") {
         url =
           view === "my"
-            ? `${baseUrl}Workreport/load_my_duties?empCode=${empCode}`
-            : `${baseUrl}Workreport/load_duties_full?empCode=${empCode}`;
+            ? `${baseUrl}OnDuty/load_my_duties?empCode=${empCode}`
+            : `${baseUrl}OnDuty/load_duties_full?empCode=${empCode}`;
       } else if (type === "overtime") {
         url =
           view === "my"
-            ? `${baseUrl}Workreport/load_overtime_duties?EmpCode=${empCode}`
-            : `${baseUrl}Workreport/load_team_overtime_duties?EmpCode=${empCode}`;
+            ? `${baseUrl}OverTime/load_overtime_duties?EmpCode=${empCode}`
+            : `${baseUrl}OverTime/load_team_overtime_duties?EmpCode=${empCode}`;
       }
 
       //  EQUIPMENT API
@@ -494,10 +494,11 @@ try {
       ? `${baseUrl}EquipmentRequests/MyRequests?empCode=${empCode}`
       : `${baseUrl}EquipmentRequests/TeamRequests?empCode=${empCode}`;
 } else {
+      const controller = type === "permission" ? "Permission" : "Leave";
       url =
         view === "my"
-          ? `${baseUrl}Leave/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`
-          : `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`;
+          ? `${baseUrl}${controller}/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`
+          : `${baseUrl}${controller}/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`;
     }
 
     const res = await axios.get(url, { headers: getAuthHeaders() });
@@ -601,7 +602,7 @@ const updateOnDuty = async (item: any, status: string) => {
     };
 
     const res = await axios.post(
-      `${baseUrl}Workreport/approve_onduty`,
+      `${baseUrl}OnDuty/approve_onduty`,
       payload,
       { headers: getAuthHeaders() }
     );
@@ -646,8 +647,9 @@ const formatTime = (time:any) => {
 
   const updateStatus = async (id: string, status: string) => {
     try {
+      const controller = type === "permission" ? "Permission" : "Leave";
       await axios.post(
-        `${baseUrl}Leave/update_Leave_Permission`,
+        `${baseUrl}${controller}/update_Leave_Permission`,
         {
           RequestId: String(id),
           Status: status,
@@ -1079,7 +1081,7 @@ const loadPermissionDashboard = async (empcode?: string) => {
     }
 
     const res = await axios.get(
-      `${baseUrl}Leave/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
+      `${baseUrl}Permission/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
       {
         headers: getAuthHeaders(),
       }
@@ -1104,7 +1106,7 @@ const loadTeamPermissionDashboard = async () => {
       moment(selectedMonth, "MMM-YYYY").year();
 
     const res = await axios.get(
-      `${baseUrl}Leave/GetTeamPermissionDashboard?EmpCode=${getUser()?.empCode}&Month=${m}&Year=${y}`,
+      `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=${getUser()?.empCode}&Month=${m}&Year=${y}`,
       {
         headers: getAuthHeaders(),
       }

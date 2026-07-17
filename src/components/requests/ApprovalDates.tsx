@@ -158,7 +158,7 @@ const ApprovalDates: React.FC = () => {
       console.log("EmpCode:", empCode);
 
       const res = await axios.get(
-        `${API_BASE}Leave/Leave/Load_ApprovalRequests`,
+        `${API_BASE}ApprovalRequest/Load_ApprovalRequests`,
         {
           params: { empCode },
           headers: getAuthHeaders(),
@@ -222,7 +222,7 @@ const ApprovalDates: React.FC = () => {
       };
 
       await axios.post(
-        `${API_BASE}Leave/SaveApprovalRequest`,
+        `${API_BASE}ApprovalRequest/SaveApprovalRequest`,
         payload,
         { headers: getAuthHeaders() }
       );
@@ -260,7 +260,7 @@ const ApprovalDates: React.FC = () => {
       console.log("Update Payload:", payload);
 
       const res = await axios.post(
-        `${API_BASE}Leave/Leave/UpdateApprovalRequest`,
+        `${API_BASE}ApprovalRequest/UpdateApprovalRequest`,
         payload,
         { headers: getAuthHeaders() }
       );

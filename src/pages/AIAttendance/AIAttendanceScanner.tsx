@@ -43,6 +43,7 @@ const AIAttendanceScanner: React.FC = () => {
   const [bleDeviceId,   setBleDeviceId]   = useState("");
   const [bleDeviceName, setBleDeviceName] = useState("");
   const [isBleScanning, setIsBleScanning] = useState(false);
+  const [bleSignalStrength, setBleSignalStrength] = useState<number | null>(null);
   const [allowedBeacons, setAllowedBeacons] = useState<{name: string, mac: string}[]>([]);
   const [isMobile,      setIsMobile]      = useState(window.innerWidth <= 768);
   const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
@@ -282,6 +283,7 @@ const AIAttendanceScanner: React.FC = () => {
         setScanSuccess(false); scanSuccessRef.current = false;
         setAttendanceDetails(null); setResultMessage("Align your face in the frame"); setStatusColor("#6366f1");
         setCapturedImg(null);
+        setBleSignalStrength(null);
       }
       captureAndScan();
     }, delay);
@@ -402,6 +404,9 @@ const AIAttendanceScanner: React.FC = () => {
           const name = (result.device.name || "").trim().toUpperCase();
           const mac  = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
           const isUuid = mac.length > 12;
+          const rssi = result.rssi ?? -100;
+
+          logDebug(`Scanned: ${name} (${rssi} dBm)`);
 
           const matched = allowedBeaconsRef.current.length > 0
             ? allowedBeaconsRef.current.some(b => {
@@ -412,10 +417,17 @@ const AIAttendanceScanner: React.FC = () => {
             : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
 
           if (matched) {
-            found = true; setBleVerified(true); bleVerifiedRef.current = true;
-            setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
-            logDebug("Beacon verified: " + name);
-            await BleClient.stopLEScan();
+            setBleSignalStrength(rssi);
+            const isCloseEnough = rssi >= -80;
+
+            if (isCloseEnough) {
+              found = true; setBleVerified(true); bleVerifiedRef.current = true;
+              setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
+              logDebug(`Beacon verified: ${name} (${rssi} dBm)`);
+              await BleClient.stopLEScan();
+            } else {
+              logDebug(`Beacon found but too far: ${name} (${rssi} dBm)`);
+            }
           }
         } catch {}
       });
@@ -532,9 +544,20 @@ const AIAttendanceScanner: React.FC = () => {
                     <IonIcon icon={pinOutline} />
                     <span>{locationReady ? 'GPS ✓' : 'GPS…'}</span>
                   </div>
-                  <div className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}>
+                  <div 
+                    className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
+                    style={
+                      !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
+                        ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
+                        : {}
+                    }
+                  >
                     <IonIcon icon={bluetoothOutline} />
-                    <span>{bleVerified ? 'BLE ✓' : 'BLE…'}</span>
+                    <span>{bleVerified 
+                      ? 'BLE ✓' 
+                      : bleSignalStrength !== null && bleSignalStrength < -80
+                        ? 'BLE Weak'
+                        : 'BLE…'}</span>
                   </div>
                 </div>
 
@@ -729,12 +752,26 @@ const AIAttendanceScanner: React.FC = () => {
                           <div style={{ textAlign: 'left' }}>
                             <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
                             <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {bleVerified ? `Found: ${bleDeviceName}` : 'Scanning BLE signals...'}
+                              {bleVerified 
+                                ? `Found: ${bleDeviceName} (${bleSignalStrength} dBm)` 
+                                : bleSignalStrength !== null && bleSignalStrength < -80
+                                  ? `Too far: ${bleSignalStrength} dBm (Must be on 4th floor)`
+                                  : 'Scanning BLE signals...'}
                             </div>
                           </div>
                         </div>
-                        <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}>
-                          {bleVerified ? 'CONNECTED' : 'SCANNING'}
+                        <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}
+                          style={
+                            !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
+                              ? { backgroundColor: '#ef4444', color: '#ffffff' }
+                              : {}
+                          }
+                        >
+                          {bleVerified 
+                            ? 'CONNECTED' 
+                            : bleSignalStrength !== null && bleSignalStrength < -80
+                              ? 'TOO FAR' 
+                              : 'SCANNING'}
                         </span>
                       </div>
 

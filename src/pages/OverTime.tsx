@@ -240,8 +240,8 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
     try {
       const res = await api.get(
         view === "my"
-          ? "Workreport/load_overtime_duties"
-          : "Workreport/load_team_overtime_duties",
+          ? "OverTime/load_overtime_duties"
+          : "OverTime/load_team_overtime_duties",
         {
           params: { EmpCode: empCode },
         }
@@ -272,7 +272,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
     try {
       // Need to include headers for the GetApprovedUnlockRequest which requires [Authorize]
       const token = localStorage.getItem("token")?.replace(/"/g, "");
-      const res = await api.get("Leave/Leave/GetApprovedUnlockRequest", {
+      const res = await api.get("ApprovalRequest/GetApprovedUnlockRequest", {
         params: { empCode, requestType: "OverTime" },
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -352,7 +352,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
 
     try {
       const res = await postWithFallback(
-        "Workreport/save_overtime_duties",
+        "OverTime/save_overtime_duties",
         payload
       );
 
@@ -368,7 +368,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
 
   const editOT = async (id: string) => {
     try {
-      const res = await api.get("Workreport/edit_OverTime", {
+      const res = await api.get("OverTime/edit_OverTime", {
         params: { id, EmpCode: empCode },
       });
 
@@ -402,7 +402,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
 
     try {
       const res = await postWithFallback(
-        "Workreport/approve_overtime",
+        "OverTime/approve_overtime",
         payload
       );
 

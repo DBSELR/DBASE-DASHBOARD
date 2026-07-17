@@ -129,7 +129,7 @@ const Timings: React.FC = () => {
   // ---------- API CALLS ----------
   const loadPermissions = async () => {
     setLoading(true);
-    const url = `${baseUrl}/Leave/Load_Permissions?Empcode=${empCode}`;
+    const url = `${baseUrl}/Permission/Load_Permissions?Empcode=${empCode}`;
     try {
       const res = await axios.get(url, { headers: getAuthHeaders() });
       setPermissions(normalizePermissions(res.data));

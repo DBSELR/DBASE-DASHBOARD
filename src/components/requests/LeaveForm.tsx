@@ -62,7 +62,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       const empCode = getUser()?.empCode;
 
       const res = await axios.get(
-        `${API_BASE}Leave/Leave/GetApprovedUnlockRequest`,
+        `${API_BASE}ApprovalRequest/GetApprovedUnlockRequest`,
         {
           params: {
             empCode,
@@ -106,7 +106,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
     try {
       await axios.post(
-        `${API_BASE}Leave/SaveApprovalRequest`,
+        `${API_BASE}ApprovalRequest/SaveApprovalRequest`,
         null,
         {
           params: {
@@ -362,8 +362,11 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     };
 
     try {
+      const saveUrl = requestType === "Permission"
+        ? `${API_BASE}Permission/savepermissionrequest`
+        : `${API_BASE}Leave/saveleaverequest`;
       const res = await axios.post(
-        `${API_BASE}Leave/saveleaverequest`,
+        saveUrl,
         payload
       );
       console.log("================================");

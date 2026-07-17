@@ -134,9 +134,8 @@ const AdminRequests: React.FC = () => {
 
   const fetchLeaveData = async (empCode: string, month: string, tab: string) => {
     if (!month) return;
-    const leaveType = tab === "permissions" ? "Permission" : "Leave";
-    const loggedInEmpCode = getUser()?.empCode || "";
-    const url = `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${loggedInEmpCode}&Seachdate=${month}&LType=${leaveType}`;
+    const controller = tab === "permissions" ? "Permission" : "Leave";
+    const url = `${baseUrl}${controller}/loadrequests_leave_permission?Empcode=${loggedInEmpCode}&Seachdate=${month}&LType=${leaveType}`;
     console.log("[AdminRequests] Fetching leave data:", { url, empCode, month, tab });
 
     try {
@@ -177,7 +176,8 @@ const AdminRequests: React.FC = () => {
       Status: status.charAt(0).toUpperCase() + status.slice(1),
     };
 
-    const url = `${baseUrl}Leave/update_Leave_Permission`;
+    const controller = selectedTab === "permissions" ? "Permission" : "Leave";
+    const url = `${baseUrl}${controller}/update_Leave_Permission`;
     console.log("[AdminRequests] Updating leave status:", { url, payload });
 
     try {

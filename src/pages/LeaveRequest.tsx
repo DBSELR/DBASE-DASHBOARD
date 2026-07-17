@@ -202,7 +202,7 @@ const LeaveRequest: React.FC = () => {
 
     const dateStr = retryFormat === "YMD" ? fmtYMD(pickedISO) : fmtDMY(pickedISO);
     try {
-      const url = `${API_BASE}Leave/Load_Perm_BalMin?Empcode=${empCode}&Pdate=${dateStr}`;
+      const url = `${API_BASE}Permission/Load_Perm_BalMin?Empcode=${empCode}&Pdate=${dateStr}`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
       const raw = r.data;
       // Correct extraction for [[value]] structure
@@ -231,7 +231,7 @@ const LeaveRequest: React.FC = () => {
     if (!empCode) return [];
     const dmy = fmtDMY(pickedISO);
     try {
-      const url = `${API_BASE}Leave/Load_Pending_Permission?Empcode=${empCode}&PDate=${dmy}`;
+      const url = `${API_BASE}Permission/Load_Pending_Permission?Empcode=${empCode}&PDate=${dmy}`;
       const r = await axios.get(url, { headers: getAuthHeaders() });
       console.log("[API][GET] Pending Permission Check:", r.data);
       return Array.isArray(r.data) ? r.data : [];
@@ -283,7 +283,10 @@ const LeaveRequest: React.FC = () => {
 
     try {
       console.log("[API][POST] Submitting Leave Request Payload:", payload);
-      const res = await axios.post(`${API_BASE}Leave/saveleaverequest`, payload, {
+      const saveUrl = reason === "Permission"
+        ? `${API_BASE}Permission/savepermissionrequest`
+        : `${API_BASE}Leave/saveleaverequest`;
+      const res = await axios.post(saveUrl, payload, {
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
       console.log("[API][POST] saveleaverequest Response:", res.data);
