@@ -907,6 +907,7 @@ function normalizeText(val: any) {
   return safeText(val).toLowerCase().replace(/\s/g, "");
 }
 
+
 const canAct = (item: any) => {
   if (!item) return false;
 
