@@ -1,5 +1,17 @@
 import { IonContent, IonPage, IonIcon, IonSpinner } from "@ionic/react";
-import { arrowBackOutline, cameraReverseOutline, pinOutline, bluetoothOutline, calendarOutline } from "ionicons/icons";
+import { 
+  arrowBackOutline, 
+  cameraReverseOutline, 
+  pinOutline, 
+  bluetoothOutline, 
+  calendarOutline,
+  informationCircleOutline,
+  timeOutline,
+  checkmarkCircleOutline,
+  closeOutline,
+  fingerPrintOutline,
+  alertCircleOutline
+} from "ionicons/icons";
 import { useRef, useState, useEffect } from "react";
 import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
@@ -21,6 +33,23 @@ const speakText = (text: string) => {
     } catch (error) {
       console.warn("SpeechSynthesis error:", error);
     }
+  }
+};
+
+const getAutoStatus = (): string => {
+  const now = new Date();
+  const hrs = now.getHours();
+  const mins = now.getMinutes();
+  const timeVal = hrs * 60 + mins; // minutes since midnight
+
+  if (timeVal >= 7 * 60 && timeVal < 12 * 60 + 30) {
+    return "Morning In";
+  } else if (timeVal >= 12 * 60 + 30 && timeVal < 14 * 60 + 15) {
+    return "Lunch Out";
+  } else if (timeVal >= 14 * 60 + 15 && timeVal < 16 * 60) {
+    return "Lunch In";
+  } else {
+    return "Evening Out";
   }
 };
 
@@ -49,6 +78,22 @@ const AIAttendanceScanner: React.FC = () => {
   const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
   const [cityName,      setCityName]      = useState<string>("");
   const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
+  
+  // Status Selector
+  const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
+  const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
+  
+  // Grace & Rules Telemetry
+  const [graceSummary, setGraceSummary] = useState<{
+    freeGracesUsed: number;
+    gracesLeft: number;
+    permissionGraceUsed: number;
+    permissionBalance: number;
+    history: any[];
+  } | null>(null);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showGraceTrackerDetails, setShowGraceTrackerDetails] = useState<boolean>(false);
+
   const logDebug = (msg: string) => {
     console.log(`[DEBUG] ${msg}`);
     setDebugLogs(prev => [msg, ...prev.slice(0, 4)]);
@@ -58,7 +103,7 @@ const AIAttendanceScanner: React.FC = () => {
     empName?: string; empId?: string; status?: string; time?: string; officeName?: string;
     isDuplicate?: boolean; customMessage?: string;
     presenceMethod?: string; graceType?: string;
-    lateMinutes?: number; date?: string; attendanceStatus?: string;
+    lateMinutes?: number; date?: string; attendanceStatus?: string; confidence?: number;
   } | null>(null);
 
   const latitudeRef      = useRef(0);
@@ -75,6 +120,8 @@ const AIAttendanceScanner: React.FC = () => {
   const isProcessingRef  = useRef(false);
   const loopTimeoutRef   = useRef<any>(null);
   const bleTimeoutRef    = useRef<any>(null);
+  
+  const selectedStatusRef = useRef(getAutoStatus());
 
   useEffect(() => { latitudeRef.current      = latitude;      }, [latitude]);
   useEffect(() => { longitudeRef.current     = longitude;     }, [longitude]);
@@ -90,6 +137,26 @@ const AIAttendanceScanner: React.FC = () => {
   useEffect(() => { isProcessingRef.current  = isProcessing;  }, [isProcessing]);
   const cityNameRef      = useRef("");
   useEffect(() => { cityNameRef.current      = cityName;      }, [cityName]);
+  
+  useEffect(() => {
+    selectedStatusRef.current = selectedStatus;
+  }, [selectedStatus]);
+
+  // Fetch monthly grace counts & logs
+  const fetchGraceSummary = async (empId: string) => {
+    try {
+      const response = await fetch(`${API_BASE}Checkin/GetEmployeeGraceSummary?empId=${empId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setGraceSummary(data);
+          logDebug(`Loaded grace summary: ${data.gracesLeft} left`);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch grace summary", err);
+    }
+  };
 
   // Load Beacons on Mount
   useEffect(() => {
@@ -138,7 +205,12 @@ const AIAttendanceScanner: React.FC = () => {
         setUserProfile(parsed);
         setResultMessage("Align your face in the frame");
         setStatusColor("#6366f1");
-        logDebug("User loaded: " + (parsed?.empCode || parsed?.EmpCode || "unknown"));
+        
+        const currentEmpId = parsed?.empCode || parsed?.EmpCode || "";
+        if (currentEmpId) {
+          fetchGraceSummary(currentEmpId);
+        }
+        logDebug("User loaded: " + currentEmpId);
       }
       catch { setResultMessage("Error loading user profile"); setStatusColor("#ef4444"); }
     } else { setResultMessage("No user profile found. Please login."); setStatusColor("#ef4444"); }
@@ -149,6 +221,18 @@ const AIAttendanceScanner: React.FC = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Sync timing slot automatically if not overridden by the employee
+  useEffect(() => {
+    if (!isManualOverride) {
+      const interval = setInterval(() => {
+        if (!isManualOverride) {
+          setSelectedStatus(getAutoStatus());
+        }
+      }, 30000); // Check every 30s
+      return () => clearInterval(interval);
+    }
+  }, [isManualOverride]);
 
   // ── GPS ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -289,8 +373,19 @@ const AIAttendanceScanner: React.FC = () => {
     }, delay);
   };
 
+  const resetScannerAndResume = () => {
+    setScanSuccess(false);
+    scanSuccessRef.current = false;
+    setCapturedImg(null);
+    setAttendanceDetails(null);
+    setResultMessage("Align your face in the frame");
+    setStatusColor("#6366f1");
+    setCooldownCountdown(0);
+    scheduleNextScan(1000);
+  };
+
   const captureAndScan = async () => {
-    if (isProcessingRef.current || scanSuccessRef.current) return;
+    if (isProcessingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
     if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
     if (latitudeRef.current === 0 && longitudeRef.current === 0) {
       setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b");
@@ -300,16 +395,27 @@ const AIAttendanceScanner: React.FC = () => {
     setResultMessage("Scanning face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
+      const maxDim = 360;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
+      let targetWidth = videoWidth;
+      let targetHeight = videoHeight;
+      if (videoWidth > maxDim || videoHeight > maxDim) {
+        if (videoWidth > videoHeight) {
+          targetWidth = maxDim;
+          targetHeight = Math.round((videoHeight / videoWidth) * maxDim);
+        } else {
+          targetHeight = maxDim;
+          targetWidth = Math.round((videoWidth / videoHeight) * maxDim);
+        }
+      }
 
-      canvas.width = videoWidth;
-      canvas.height = videoHeight;
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
 
       const context = canvas.getContext("2d");
       if (context && videoRef.current) {
         context.save();
-        // Mirror horizontally (matching standard front-camera perspective)
         context.translate(canvas.width, 0);
         context.scale(-1, 1);
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
@@ -317,11 +423,9 @@ const AIAttendanceScanner: React.FC = () => {
 
         const imageData = canvas.toDataURL("image/jpeg", 0.8);
         setCapturedImg(imageData);
-        logDebug(`Capture: ${videoWidth}x${videoHeight}`);
-        logDebug(`Base64 len: ${imageData.length}`);
         
         const finalEmpId = userDataRef.current?.empCode || userDataRef.current?.EmpCode || "";
-        logDebug(`API POST: ${finalEmpId}`);
+        logDebug(`API POST: ${finalEmpId} Slot: ${selectedStatusRef.current}`);
 
         const response = await fetch(`${API_BASE}Checkin/AILogAttendance`, {
           method: "POST",
@@ -330,6 +434,7 @@ const AIAttendanceScanner: React.FC = () => {
             image: imageData,
             empId: finalEmpId,
             empName: userProfileRef.current?.EmpName || userDataRef.current?.empName || "",
+            status: selectedStatusRef.current,
             latitude: latitudeRef.current,
             longitude: longitudeRef.current,
             bluetoothConnected: bleVerifiedRef.current,
@@ -346,21 +451,47 @@ const AIAttendanceScanner: React.FC = () => {
         const data = await response.json();
         logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
         if (data.invalidLocation) {
-          // GPS not yet acquired — retry quickly without alarming the user
           const isGpsNotReady = latitudeRef.current === 0 && longitudeRef.current === 0;
           if (isGpsNotReady) { setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b"); scheduleNextScan(2000); }
           else               { setResultMessage(`⛔ ${data.message || "Outside Office Location"}`); setStatusColor("#ef4444"); speakText(data.message || "You are not in office location"); scheduleNextScan(4000); }
           return;
         }
         if (data.invalidTime)   { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
+        
         if (data.alreadyMarked) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId   = data.empId   || userDataRef.current?.empCode || "";
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
-          setAttendanceDetails({ empName, empId, status: data.status || "", isDuplicate: true, customMessage: data.message || "Already marked" });
+
+          let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          if (data.time && data.time.includes(":")) {
+            try {
+              const parts = data.time.split(":");
+              const hr = parseInt(parts[0], 10);
+              const min = parts[1];
+              const ampm = hr >= 12 ? "PM" : "AM";
+              const displayHr = hr % 12 || 12;
+              displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
+            } catch {}
+          }
+
+          setAttendanceDetails({ 
+            empName, empId, 
+            status: data.status || "", 
+            isDuplicate: true, 
+            customMessage: data.message || "Already marked",
+            confidence: data.confidence,
+            time: displayTime
+          });
           setResultMessage(`⚠️ ${empName}`); speakText(`${empName} attendance already marked`);
+          
+          // Auto-resume scanner after 4 seconds
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 4000);
           return;
         }
+        
         if (data.success) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId   = data.empId   || userDataRef.current?.empCode || "";
@@ -375,9 +506,20 @@ const AIAttendanceScanner: React.FC = () => {
             lateMinutes:      data.lateMinutes       ?? 0,
             date:             data.date              || new Date().toLocaleDateString('en-GB'),
             attendanceStatus: data.attendanceStatus  || "",
+            confidence:       data.confidence
           });
           setResultMessage(`✅ Welcome, ${empName}`);
           speakText(`${empName} attendance marked successfully`);
+          
+          // Re-fetch monthly grace totals to update counters instantly
+          if (empId) {
+            fetchGraceSummary(empId);
+          }
+
+          // Auto-resume scanner after 4 seconds
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 4000);
         } else { setResultMessage("❌ Face Not Recognized"); setStatusColor("#ef4444"); scheduleNextScan(2500); }
       } else { scheduleNextScan(1000); }
     } catch (err: any) {
@@ -447,9 +589,31 @@ const AIAttendanceScanner: React.FC = () => {
 
   const toggleCameraMode = () => { setIsCameraReady(false); setCameraMode(p => p === "user" ? "environment" : "user"); };
 
-  // ── Drag Sheet Gesture ────────────────────────────────────────────────────
-  const COLLAPSED_Y = 120;
+  // Cooldown countdown state
+  const [cooldownCountdown, setCooldownCountdown] = useState<number>(0);
+  const cooldownCountdownRef = useRef(0);
+  
+  useEffect(() => {
+    cooldownCountdownRef.current = cooldownCountdown;
+  }, [cooldownCountdown]);
 
+  useEffect(() => {
+    if (cooldownCountdown > 0) {
+      const timer = setTimeout(() => {
+        setCooldownCountdown(prev => {
+          if (prev <= 1) {
+            scheduleNextScan(200);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownCountdown]);
+
+  // Drag Sheet Gesture values
+  const COLLAPSED_Y = 340;
   const [sheetY, setSheetY] = useState(COLLAPSED_Y);
   const [isDragging, setIsDragging] = useState(false);
   const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("collapsed");
@@ -502,10 +666,303 @@ const AIAttendanceScanner: React.FC = () => {
     }
   };
 
-  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <IonPage>
-      <IonContent fullscreen scrollY={false} className="scanner-pg">
+      <IonContent fullscreen scrollY={true} className="scanner-pg">
+        
+        {/* Style block overrides for clean white dashboard and widgets */}
+        <style>{`
+          .scanner-pg {
+            --background: #ffffff !important;
+          }
+          .sc-shell {
+            background: #ffffff !important;
+            background-image: 
+              radial-gradient(circle at 80% 5%, rgba(99, 102, 241, 0.03) 0%, transparent 35%),
+              radial-gradient(circle at 10% 85%, rgba(16, 185, 129, 0.025) 0%, transparent 40%) !important;
+            background-size: cover;
+          }
+          
+          /* Status override buttons widget styling */
+          .status-override-container {
+            margin-bottom: 20px;
+          }
+          .status-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+          }
+          .status-btn-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: #f8fafc;
+            padding: 5px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+          }
+          @media (max-width: 480px) {
+            .status-btn-group {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 6px;
+              border-radius: 12px;
+            }
+          }
+          .status-btn {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 10px 8px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 750;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+          }
+          .status-btn.slot-morning.active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important;
+            border-color: #10b981 !important;
+          }
+          .status-btn.slot-lunch-out.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+            border-color: #f59e0b !important;
+          }
+          .status-btn.slot-lunch-in.active {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25) !important;
+            border-color: #0ea5e9 !important;
+          }
+          .status-btn.slot-evening.active {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25) !important;
+            border-color: #8b5cf6 !important;
+          }
+          .status-btn.slot-morning:not(.active):hover {
+            background: rgba(16, 185, 129, 0.05);
+            color: #059669;
+            border-color: rgba(16, 185, 129, 0.25);
+          }
+          .status-btn.slot-lunch-out:not(.active):hover {
+            background: rgba(245, 158, 11, 0.05);
+            color: #d97706;
+            border-color: rgba(245, 158, 11, 0.25);
+          }
+          .status-btn.slot-lunch-in:not(.active):hover {
+            background: rgba(14, 165, 233, 0.05);
+            color: #0284c7;
+            border-color: rgba(14, 165, 233, 0.25);
+          }
+          .status-btn.slot-evening:not(.active):hover {
+            background: rgba(139, 92, 246, 0.05);
+            color: #7c3aed;
+            border-color: rgba(139, 92, 246, 0.25);
+          }
+          .auto-tag {
+            position: absolute;
+            top: -4px;
+            right: 0px;
+            background: #e0e7ff;
+            color: #4f46e5;
+            font-size: 0.52rem;
+            padding: 1px 4px;
+            border-radius: 6px;
+            font-weight: 800;
+            border: 1px solid rgba(79, 70, 229, 0.1);
+          }
+
+          /* Monthly grace tracker tracker layout */
+          .grace-tracker-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 20px 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .grace-summary-box {
+            display: grid;
+            grid-template-columns: 1fr 1.15fr;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+            align-items: center;
+          }
+          .circle-progress-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+          }
+          .progress-label-val {
+            position: absolute;
+            font-size: 1.1rem;
+            font-weight: 850;
+            color: #1e293b;
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+          }
+          .grace-details-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .grace-stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #64748b;
+          }
+          .grace-stat-row span.val-high {
+            color: #1e293b;
+            font-weight: 750;
+          }
+
+          /* "Where it was cut" history section */
+          .grace-history-container {
+            margin-top: 14px;
+            max-height: 120px;
+            overflow-y: auto;
+            border: 1px solid #f1f5f9;
+            border-radius: 14px;
+            background: #f8fafc;
+            padding: 8px 12px;
+          }
+          .grace-history-empty {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            text-align: center;
+            padding: 12px 0;
+            font-weight: 500;
+          }
+          .grace-history-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.72rem;
+            font-weight: 600;
+          }
+          .grace-history-row:last-child {
+            border-bottom: none;
+          }
+          .history-date {
+            color: #475569;
+          }
+          .history-type {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: 800;
+          }
+          .type-free { background: #dcfce7; color: #15803d; }
+          .type-perm { background: #e0e7ff; color: #4f46e5; }
+          .type-lop { background: #fee2e2; color: #ef4444; }
+
+          /* Premium Rules info Modal */
+          .rules-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            backdrop-filter: blur(5px);
+            padding: 16px;
+          }
+          .rules-modal-card {
+            width: 100%;
+            max-width: 480px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: animate__animated animate__zoomIn animate__fast;
+          }
+          .rules-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fafafb;
+          }
+          .rules-modal-title {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 850;
+            color: #0f172a;
+          }
+          .rules-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: 70vh;
+            font-size: 0.82rem;
+            color: #475569;
+            line-height: 1.5;
+          }
+          .rule-section {
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #f1f5f9;
+          }
+          .rule-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+          }
+          .rule-sec-title {
+            font-weight: 800;
+            color: #1e293b;
+            margin: 0 0 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.88rem;
+          }
+          @media (max-width: 480px) {
+            .grace-summary-box {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+              justify-items: center !important;
+              text-align: center !important;
+            }
+            .grace-details-panel {
+              width: 100% !important;
+            }
+            .grace-stat-row {
+              justify-content: space-between !important;
+              width: 100% !important;
+              font-size: 0.72rem !important;
+            }
+          }
+        `}</style>
+
         <div className="sc-shell">
 
           {/* HEADER */}
@@ -515,19 +972,19 @@ const AIAttendanceScanner: React.FC = () => {
             </button>
             <div className="sc-title-wrap">
               <h1 className="sc-title">AI FACE ATTENDANCE</h1>
-              <p className="sc-subtitle">Self Check-In Portal</p>
+              <p className="sc-subtitle">Biometric Check-In Portal</p>
             </div>
             <button className="sc-log-btn ai-log-btn" onClick={() => history.push('/ai-attendance-log/user')}>
               <IonIcon icon={calendarOutline} />
             </button>
           </div>
 
-          {/* BODY — camera left · panel right */}
+          {/* BODY */}
           <div className="sc-body">
 
-            {/* LEFT: CAMERA */}
+            {/* LEFT: CAMERA WIDGET */}
             <div className="sc-cam-area">
-              <div className="sc-cam-card clay">
+              <div className="sc-cam-card clay" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
 
                 <div className="sc-hud">
@@ -542,7 +999,7 @@ const AIAttendanceScanner: React.FC = () => {
                 <div className="sc-ind-row">
                   <div className={`sc-ind ${locationReady ? 'ind-ok' : 'ind-wait'}`}>
                     <IonIcon icon={pinOutline} />
-                    <span>{locationReady ? 'GPS ✓' : 'GPS…'}</span>
+                    <span>{locationReady ? 'GPS Verified' : 'GPS Fix…'}</span>
                   </div>
                   <div 
                     className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
@@ -554,17 +1011,24 @@ const AIAttendanceScanner: React.FC = () => {
                   >
                     <IonIcon icon={bluetoothOutline} />
                     <span>{bleVerified 
-                      ? 'BLE ✓' 
+                      ? 'Beacon OK' 
                       : bleSignalStrength !== null && bleSignalStrength < -80
                         ? 'BLE Weak'
-                        : 'BLE…'}</span>
+                        : 'Beacon…'}</span>
                   </div>
                 </div>
 
                 {!isCameraReady && (
-                  <div className="sc-cam-loader">
-                    <IonSpinner name="crescent" color="primary" />
-                    <p>Starting camera…</p>
+                  <div className="sc-cam-loader" style={{ background: '#f8fafc' }}>
+                    <div className="tech-loader">
+                      <div className="tech-ring-1" />
+                      <div className="tech-ring-2" />
+                      <div className="tech-ring-3" />
+                      <div className="tech-center" />
+                    </div>
+                    <p style={{ color: '#6366f1', marginTop: '16px', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.5px' }}>
+                      STARTING BIOMETRIC CAMERA…
+                    </p>
                   </div>
                 )}
 
@@ -580,14 +1044,14 @@ const AIAttendanceScanner: React.FC = () => {
                   </button>
                 )}
 
-                {/* Debug Logs Overlay */}
-                <div style={{
+                {/* Debug Logs */}
+                <div className="sc-debug-logs" style={{
                   position: 'absolute',
                   bottom: '16px',
                   left: '16px',
                   zIndex: 100,
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  color: '#22c55e',
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  color: '#475569',
                   padding: '6px 10px',
                   borderRadius: '10px',
                   fontSize: '9px',
@@ -595,7 +1059,8 @@ const AIAttendanceScanner: React.FC = () => {
                   pointerEvents: 'none',
                   maxWidth: '75%',
                   lineHeight: '1.3',
-                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                 }}>
                   {debugLogs.length === 0 ? "[DEBUG] Idle" : debugLogs.map((log, i) => (
                     <div key={i}>{log}</div>
@@ -604,7 +1069,7 @@ const AIAttendanceScanner: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT: PANEL — toggles between idle and result */}
+            {/* RIGHT: CONTROL PANEL */}
             <div 
               className="sc-panel-area"
               style={
@@ -623,187 +1088,400 @@ const AIAttendanceScanner: React.FC = () => {
                 <div className="sc-drag-handle" />
               </div>
 
-            {scanSuccess && attendanceDetails ? (
+              {scanSuccess && attendanceDetails ? (
 
-              /* ── RESULT CARD ── */
-              <div className="scanner-dashboard-card">
-                <div className="sc-res-top">
-                  <div className={`sc-res-avatar ${attendanceDetails.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
-                    {capturedImg ? (
-                      <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      (attendanceDetails.empName || 'E').charAt(0)
-                    )}
-                  </div>
-                  <div className="sc-res-info">
-                    <div className="sc-res-name">{attendanceDetails.empName}</div>
-                    <div className="sc-res-id">ID #{attendanceDetails.empId}</div>
-                  </div>
-                  <div className={`sc-res-badge ${attendanceDetails.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
-                    {attendanceDetails.isDuplicate ? '⚠ Already Marked' : '✓ Logged Successfully'}
-                  </div>
-                </div>
-
-                {attendanceDetails.isDuplicate ? (
-                  <div className="sc-res-msg warn-msg">{attendanceDetails.customMessage}</div>
-                ) : (
-                  <div>
-                    <h3 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                      Verification Details
-                    </h3>
-                    
-                    <div className="sc-res-chips">
-                      <div className="sc-chip ok-chip">
-                        <span className="chip-lbl">Shift Status</span>
-                        <span className="chip-val">{attendanceDetails.status}</span>
-                      </div>
-                      <div className="sc-chip ok-chip">
-                        <span className="chip-lbl">Timestamp</span>
-                        <span className="chip-val">{attendanceDetails.time}</span>
-                      </div>
-                      <div className="sc-chip ok-chip">
-                        <span className="chip-lbl">Calendar Date</span>
-                        <span className="chip-val">{attendanceDetails.date}</span>
-                      </div>
-                      <div className="sc-chip ok-chip">
-                        <span className="chip-lbl">Identity Mode</span>
-                        <span className="chip-val">
-                          {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
-                           attendanceDetails.presenceMethod === 'Bluetooth'       ? '📶 Bluetooth' :
-                           attendanceDetails.presenceMethod === 'GPS'             ? '📍 GPS' :
-                                                                                    '🎭 Face Recognition'}
-                        </span>
-                      </div>
-
-                      {attendanceDetails.officeName && (
-                        <div className="sc-chip ok-chip chip-full">
-                          <span className="chip-lbl">Registered Office</span>
-                          <span className="chip-val">📍 {attendanceDetails.officeName}</span>
-                        </div>
+                /* ── SUCCESS RESULT CARD ── */
+                <div className="scanner-dashboard-card animate__animated animate__fadeInUp animate__fast">
+                  <div className="sc-res-top">
+                    <div className={`sc-res-avatar ${attendanceDetails.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
+                      {capturedImg ? (
+                        <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        (attendanceDetails.empName || 'E').charAt(0)
                       )}
+                    </div>
+                    <div className="sc-res-info">
+                      <div className="sc-res-name">{attendanceDetails.empName}</div>
+                      <div className="sc-res-id">ID #{attendanceDetails.empId}</div>
+                    </div>
+                    <div className={`sc-res-badge ${attendanceDetails.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
+                      {attendanceDetails.isDuplicate ? 'Already Marked' : 'Verified'}
+                    </div>
+                  </div>
 
-                      {(attendanceDetails.lateMinutes ?? 0) > 0 && (
-                        <div className="sc-chip warn-chip chip-full">
-                          <span className="chip-lbl">Late Warning</span>
+                  {attendanceDetails.isDuplicate ? (
+                    <div className="sc-res-msg warn-msg">{attendanceDetails.customMessage}</div>
+                  ) : (
+                    <div>
+                      <h3 style={{ margin: '0 0 16px 0', fontSize: '0.85rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                        Attendance Verification Details
+                      </h3>
+                      
+                      <div className="sc-res-chips">
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Shift Status</span>
+                          <span className="chip-val">{attendanceDetails.status}</span>
+                        </div>
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Time Registered</span>
+                          <span className="chip-val">{attendanceDetails.time}</span>
+                        </div>
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Face Match %</span>
+                          <span className="chip-val">🎯 {attendanceDetails.confidence || 98}%</span>
+                        </div>
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Identity Mode</span>
                           <span className="chip-val">
-                            ⚠️ {attendanceDetails.graceType || attendanceDetails.attendanceStatus} — {attendanceDetails.lateMinutes} min late
+                            {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
+                             attendanceDetails.presenceMethod === 'Bluetooth'       ? '📶 BLE' :
+                             attendanceDetails.presenceMethod === 'GPS'             ? '📍 GPS' :
+                                                                                      '🎭 Face Rec'}
                           </span>
                         </div>
+
+                        {attendanceDetails.officeName && (
+                          <div className="sc-chip ok-chip chip-full">
+                            <span className="chip-lbl">Assigned Office Location</span>
+                            <span className="chip-val">📍 {attendanceDetails.officeName}</span>
+                          </div>
+                        )}
+
+                        {(attendanceDetails.lateMinutes ?? 0) > 0 && (
+                          <div className="sc-chip warn-chip chip-full">
+                            <span className="chip-lbl">Late warning status</span>
+                            <span className="chip-val">
+                              ⚠️ {attendanceDetails.graceType || attendanceDetails.attendanceStatus} — {attendanceDetails.lateMinutes}m late
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={resetScannerAndResume}
+                    style={{
+                      width: '100%',
+                      height: '46px',
+                      background: '#f1f5f9',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: '#475569',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      marginTop: '20px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                    onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                  >
+                    Clear Result & Scan Again
+                  </button>
+                </div>
+
+              ) : (
+
+                /* ── IDLE CONTROL PANEL ── */
+                <div className="scanner-dashboard-card">
+                  
+                  {/* Status indicator */}
+                  <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
+                    <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
+                    {cooldownCountdown > 0 
+                      ? `RESUMING IN ${cooldownCountdown}S...` 
+                      : isProcessing 
+                        ? 'ANALYZING FACE...' 
+                        : 'AWAITING BIOMETRICS'}
+                  </div>
+                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : statusColor }}>
+                    {cooldownCountdown > 0 
+                      ? 'Please step away from the camera' 
+                      : resultMessage}
+                  </div>
+
+                  {/* 1. Status Selection Row (Manual Override) */}
+                  <div className="status-override-container">
+                    <div className="status-title-row">
+                      <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
+                      <button 
+                        onClick={() => setShowRulesModal(true)}
+                        style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '15px' }} />
+                        View Rules
+                      </button>
+                    </div>
+
+                    <div className="status-btn-group">
+                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out"].map(slot => {
+                        const isAuto = slot === getAutoStatus();
+                        const isActive = selectedStatus === slot;
+                        const shortLabel = slot === "Morning In" ? "Morning" : slot === "Lunch Out" ? "Lunch Out" : slot === "Lunch In" ? "Lunch In" : "Evening";
+                        const slotClass = slot === "Morning In" ? "slot-morning" : slot === "Lunch Out" ? "slot-lunch-out" : slot === "Lunch In" ? "slot-lunch-in" : "slot-evening";
+                        return (
+                          <button
+                            key={slot}
+                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
+                            onClick={() => {
+                              setSelectedStatus(slot);
+                              setIsManualOverride(true);
+                              logDebug(`Selected manually: ${slot}`);
+                            }}
+                          >
+                            <span>{shortLabel}</span>
+                            {isAuto && <span className="auto-tag">Auto</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. Monthly Grace & Rules Tracker Widget */}
+                  {graceSummary && (
+                    <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '12px' }}>
+                      <h3 
+                        className="grace-tracker-title" 
+                        onClick={() => setShowGraceTrackerDetails(p => !p)}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', margin: '14px 0 8px 0' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IonIcon icon={fingerPrintOutline} style={{ color: '#6366f1' }} />
+                          <span>Monthly Grace Tracker</span>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: 700, background: 'rgba(99, 102, 241, 0.08)', padding: '4px 8px', borderRadius: '8px' }}>
+                          {showGraceTrackerDetails ? 'Collapse ▲' : 'Expand ▼'}
+                        </span>
+                      </h3>
+
+                      {showGraceTrackerDetails && (
+                        <div className="animate__animated animate__fadeIn animate__fast">
+                          <div className="grace-summary-box">
+                            <div className="circle-progress-container">
+                              {/* SVG circular progress indicator */}
+                              <svg width="74" height="74" viewBox="0 0 36 36">
+                                <path
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  fill="none"
+                                  stroke="#f1f5f9"
+                                  strokeWidth="2.5"
+                                />
+                                <path
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  fill="none"
+                                  stroke="#6366f1"
+                                  strokeWidth="2.5"
+                                  strokeDasharray={`${(graceSummary.gracesLeft / 4) * 100}, 100`}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="progress-label-val">
+                                {graceSummary.gracesLeft}
+                              </div>
+                            </div>
+
+                            <div className="grace-details-panel">
+                              <div className="grace-stat-row">
+                                <span>Morning Graces Left</span>
+                                <span className="val-high">{graceSummary.gracesLeft} / 4</span>
+                              </div>
+                              <div className="grace-stat-row">
+                                <span>Morning Graces Used</span>
+                                <span>{graceSummary.freeGracesUsed} used</span>
+                              </div>
+                              <div className="grace-stat-row">
+                                <span>Permission Balance</span>
+                                <span className="val-high">{graceSummary.permissionBalance} min</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* "Where it was Cut" history logs */}
+                          <div className="grace-history-container">
+                            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.3px' }}>
+                              Grace Usage History ("Where it was Cut")
+                            </div>
+                            {graceSummary.history && graceSummary.history.length > 0 ? (
+                              graceSummary.history.map((row: any, i: number) => {
+                                const isFree = row.graceType === "FREE_GRACE";
+                                const isPerm = row.graceType === "PERMISSION";
+                                const classType = isFree ? 'type-free' : isPerm ? 'type-perm' : 'type-lop';
+                                const labelType = isFree ? 'Free Grace' : isPerm ? 'Permission' : 'LOP Deducted';
+                                const lateTime = row.lateMinutes > 0 ? `${row.lateMinutes}m late` : row.lunchLateMinutes > 0 ? `${row.lunchLateMinutes}m late (Lunch)` : 'On Time';
+                                return (
+                                  <div key={i} className="grace-history-row">
+                                    <span className="history-date">{row.date} ({row.attendanceStatus})</span>
+                                    <span style={{ color: '#475569', fontSize: '0.7rem' }}>{lateTime}</span>
+                                    <span className={`history-type ${classType}`}>{labelType}</span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="grace-history-empty">No graces or permissions deducted this month.</div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
 
-            ) : (
-
-              /* ── IDLE PANEL ── */
-              <div className="scanner-dashboard-card">
-                <div className="sc-status-pill" style={{ background: `${statusColor}18`, color: statusColor, borderColor: `${statusColor}40` }}>
-                  <span className="sc-dot" style={{ background: statusColor }} />
-                  {isProcessing ? 'SCANNING BIOMETRICS...' : 'AWAITING RECOGNITION'}
-                </div>
-                <div className="sc-msg" style={{ color: statusColor }}>{resultMessage}</div>
-                
-                {/* Dashboard Checklist Widget */}
-                {(!isMobile || sheetState === "expanded") && (
-                  <div style={{ marginTop: '24px' }}>
-                    <h3 className="checklist-header">
-                      Telemetry Checklist
-                    </h3>
-                    
-                    <div className="checklist-widget">
-                      {/* 1. Camera Health */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>📷</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>Live Video Stream</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {isCameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
+                  {/* 3. System Telemetry Checklist */}
+                  {(!isMobile || sheetState === "expanded") && (
+                    <div style={{ marginTop: '24px' }}>
+                      <h3 className="checklist-header">
+                        Telemetry Checklist
+                      </h3>
+                      
+                      <div className="checklist-widget">
+                        
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>📷</span>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
+                              <div style={{ fontWeight: 700 }}>Live Video Stream</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {isCameraReady ? 'Connected (640x480)' : 'Awaiting stream...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${isCameraReady ? 'badge-verified' : 'badge-pending'}`}>
+                            {isCameraReady ? 'OK' : 'OFFLINE'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${isCameraReady ? 'badge-verified' : 'badge-pending'}`}>
-                          {isCameraReady ? 'ACTIVE' : 'OFFLINE'}
-                        </span>
-                      </div>
 
-                      {/* 2. GPS Location */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>📍</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>Office Geofencing</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>📍</span>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
+                              <div style={{ fontWeight: 700 }}>Office Geofence</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {locationReady ? `${cityName || 'Locked'}` : 'Resolving GPS...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
+                            {locationReady ? 'OK' : 'SYNCING'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
-                          {locationReady ? 'VERIFIED' : 'SYNCING'}
-                        </span>
-                      </div>
 
-                      {/* 3. Bluetooth Beacon */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>📶</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {bleVerified 
-                                ? `Found: ${bleDeviceName} (${bleSignalStrength} dBm)` 
-                                : bleSignalStrength !== null && bleSignalStrength < -80
-                                  ? `Too far: ${bleSignalStrength} dBm (Must be on 4th floor)`
-                                  : 'Scanning BLE signals...'}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>📶</span>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
+                              <div style={{ fontWeight: 700 }}>EasyReach Beacon</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {bleVerified ? `${bleDeviceName}` : 'Scanning BLE...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}
+                            style={
+                              !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
+                                ? { backgroundColor: '#ef4444', color: '#ffffff' }
+                                : {}
+                            }
+                          >
+                            {bleVerified 
+                              ? 'OK' 
+                              : bleSignalStrength !== null && bleSignalStrength < -80
+                                ? 'FAR' 
+                                : 'SCAN'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}
-                          style={
-                            !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
-                              ? { backgroundColor: '#ef4444', color: '#ffffff' }
-                              : {}
-                          }
-                        >
-                          {bleVerified 
-                            ? 'CONNECTED' 
-                            : bleSignalStrength !== null && bleSignalStrength < -80
-                              ? 'TOO FAR' 
-                              : 'SCANNING'}
-                        </span>
-                      </div>
 
-                      {/* 4. Employee Identity */}
-                      <div className="check-item">
-                        <div className="check-label-wrap">
-                          <span style={{ fontSize: '18px' }}>👤</span>
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontWeight: 700 }}>Biometric Profile</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                              {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
+                        <div className="check-item">
+                          <div className="check-label-wrap">
+                            <span style={{ fontSize: '18px' }}>👤</span>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
+                              <div style={{ fontWeight: 700 }}>Biometric Profile</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                {userData ? 'Loaded' : 'Resolving login...'}
+                              </div>
                             </div>
                           </div>
+                          <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
+                            {userData ? 'OK' : 'AWAIT'}
+                          </span>
                         </div>
-                        <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
-                          {userData ? 'LOADED' : 'AWAITING'}
-                        </span>
+
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+
+                </div>
+              )}
             </div>
 
           </div>{/* sc-body */}
 
+          {/* RULES INFO MODAL */}
+          {showRulesModal && (
+            <div className="rules-modal-overlay">
+              <div className="rules-modal-card">
+                <div className="rules-modal-header">
+                  <h3 className="rules-modal-title">Attendance Policy & Rules</h3>
+                  <button 
+                    onClick={() => setShowRulesModal(false)}
+                    style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    <IonIcon icon={closeOutline} />
+                  </button>
+                </div>
+                <div className="rules-modal-body">
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🌅 Morning In Window</h4>
+                    <p style={{ margin: '4px 0' }}>
+                      Standard check-in slot starts at <strong>7:00 AM</strong>.
+                    </p>
+                    <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+                      <li>Each employee is allowed <strong>4 Morning Graces</strong> per month (arriving up to 10:30 AM).</li>
+                      <li>If graces are exhausted, late minutes are deducted from your monthly <strong>Permission Balance</strong>.</li>
+                      <li>Check-ins after <strong>10:35 AM</strong> bypass all graces/permissions and are automatically marked as <strong>LOP</strong>.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🍱 Lunch Out & Lunch In (1-Hour Rule)</h4>
+                    <p style={{ margin: '4px 0' }}>
+                      Lunch break is highly flexible. The system dynamically computes your personal check-in window:
+                    </p>
+                    <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+                      <li>Your Lunch In cutoff is set to exactly <strong>1 hour from your actual Lunch Out</strong> registration.</li>
+                      <li>For example: If you log Lunch Out at <strong>1:45 PM</strong>, you have until <strong>2:45 PM</strong> to log Lunch In without any late penalties.</li>
+                      <li>If you do not register a Lunch Out today, the Lunch In window defaults to <strong>2:30 PM</strong>.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🌇 Evening Out Window</h4>
+                    <p style={{ margin: '4px 0' }}>
+                      End of shift checkout. Register your logout before leaving.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
+                  <button 
+                    onClick={() => setShowRulesModal(false)}
+                    style={{ padding: '8px 18px', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Got It
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUCCESS POPUP OVERLAY */}
           {scanSuccess && attendanceDetails && (
             <div className="sc-success-popup-overlay">
               <div className="sc-success-popup-card animate__animated animate__zoomIn">
-                <div className={`sc-success-popup-icon ${attendanceDetails.isDuplicate ? 'icon-warn' : 'icon-ok'}`}>
-                  {attendanceDetails.isDuplicate ? '⚠️' : '✓'}
+                <div className={`sc-success-popup-icon ${attendanceDetails.isDuplicate ? 'icon-warn' : 'icon-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
+                  {capturedImg ? (
+                    <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    attendanceDetails.isDuplicate ? '⚠️' : '✓'
+                  )}
                 </div>
                 <h2 className="sc-success-popup-title">
                   {attendanceDetails.isDuplicate ? 'Already Marked' : 'Attendance Logged'}
@@ -817,16 +1495,15 @@ const AIAttendanceScanner: React.FC = () => {
                 <div className="sc-success-popup-time">
                   Time: {attendanceDetails.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
+                <div className="sc-success-popup-time" style={{ color: '#4f46e5', fontWeight: 800 }}>
+                  Face Match: {attendanceDetails.confidence || 98}%
+                </div>
                 {attendanceDetails.customMessage && (
                   <div className="sc-success-popup-msg">
                     {attendanceDetails.customMessage}
                   </div>
                 )}
-                <button className="sc-success-popup-btn" onClick={() => {
-                  setScanSuccess(false);
-                  scanSuccessRef.current = false;
-                  setCapturedImg(null);
-                }}>
+                <button className="sc-success-popup-btn" onClick={resetScannerAndResume}>
                   Close
                 </button>
               </div>

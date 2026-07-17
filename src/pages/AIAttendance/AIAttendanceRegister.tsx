@@ -1,36 +1,106 @@
-import { IonContent, IonPage, IonButton, IonSpinner, IonIcon } from '@ionic/react';
+import { IonContent, IonPage, IonSpinner, IonIcon } from '@ionic/react';
 import { useState, useEffect, useRef } from 'react';
 import { useHistory } from 'react-router';
 import { 
   arrowBackOutline, 
   cameraOutline, 
-  refreshOutline, 
   checkmarkCircleOutline, 
   alertCircleOutline, 
   personOutline, 
   idCardOutline, 
-  trashOutline,
-  shieldCheckmarkOutline
+  shieldCheckmarkOutline,
+  lockClosedOutline,
+  volumeHighOutline
 } from 'ionicons/icons';
 import { AI_API_KEY } from './ai_config';
 import { API_BASE } from "../../config";
 
+const POSES = [
+  { key: 'straight', label: 'Look Straight', voice: 'Please look straight at the camera.' },
+  { key: 'left', label: 'Turn Left', voice: 'Please turn your head slightly left.' },
+  { key: 'right', label: 'Turn Right', voice: 'Please turn your head slightly right.' },
+  { key: 'up', label: 'Tilt Up', voice: 'Please tilt your head slightly up.' },
+  { key: 'down', label: 'Tilt Down', voice: 'Please tilt your head slightly down.' }
+];
+
 const AIAttendanceRegister: React.FC = () => {
+  const renderStraightSvg = () => (
+    <svg viewBox="0 0 100 100" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M50 15 C32 15 28 25 28 45 C28 65 32 75 50 75 C68 75 72 65 72 45 C72 25 68 15 50 15 Z" />
+      <path d="M40 73 L40 85 M60 73 L60 85" strokeWidth="2.5" />
+      <circle cx="41" cy="42" r="1.5" fill="#6366f1" />
+      <circle cx="59" cy="42" r="1.5" fill="#6366f1" />
+      <path d="M50 42 L50 50 L53 50" strokeWidth="2.5" />
+      <path d="M44 60 Q50 63 56 60" strokeWidth="2.5" />
+    </svg>
+  );
+
+  const renderLeftSvg = () => (
+    <svg viewBox="0 0 100 100" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M53 15 C35 15 32 25 32 45 C32 65 35 75 53 75 C63 75 67 70 67 45 C67 20 63 15 53 15 Z" />
+      <path d="M67 40 C70 40 72 43 72 46 C72 49 70 52 67 52" />
+      <circle cx="41" cy="42" r="1.5" fill="#6366f1" />
+      <path d="M32 45 L22 48 L32 51" strokeWidth="2.5" />
+      <path d="M36 60 Q40 61 44 60" strokeWidth="2.5" />
+      <path d="M86 45 L74 45 M74 45 L79 40 M74 45 L79 50" strokeWidth="3" />
+    </svg>
+  );
+
+  const renderRightSvg = () => (
+    <svg viewBox="0 0 100 100" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M47 15 C37 15 33 20 33 45 C33 70 37 75 47 75 C65 75 68 65 68 45 C68 25 65 15 47 15 Z" />
+      <path d="M33 40 C30 40 28 43 28 46 C28 49 30 52 33 52" />
+      <circle cx="59" cy="42" r="1.5" fill="#6366f1" />
+      <path d="M68 45 L78 48 L68 51" strokeWidth="2.5" />
+      <path d="M56 60 Q60 61 64 60" strokeWidth="2.5" />
+      <path d="M14 45 L26 45 M26 45 L21 40 M26 45 L21 50" strokeWidth="3" />
+    </svg>
+  );
+
+  const renderUpSvg = () => (
+    <svg viewBox="0 0 100 100" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M50 12 C32 12 28 22 28 42 C28 62 32 72 50 72 C68 72 72 62 72 42 C72 22 68 12 50 12 Z" />
+      <path d="M42 68 L42 80 M58 68 L58 80" strokeWidth="2.5" />
+      <circle cx="41" cy="33" r="1.5" fill="#6366f1" />
+      <circle cx="59" cy="33" r="1.5" fill="#6366f1" />
+      <path d="M50 33 L50 40 L53 39" strokeWidth="2.5" />
+      <path d="M44 54 Q50 57 56 54" strokeWidth="2.5" />
+      <path d="M50 88 L50 78 M50 78 L45 83 M50 78 L55 83" strokeWidth="3" />
+    </svg>
+  );
+
+  const renderDownSvg = () => (
+    <svg viewBox="0 0 100 100" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M50 18 C32 18 28 28 28 48 C28 68 32 78 50 78 C68 78 72 68 72 48 C72 28 68 18 50 18 Z" />
+      <path d="M42 74 L42 86 M58 74 L58 86" strokeWidth="2.5" />
+      <circle cx="41" cy="49" r="1.5" fill="#6366f1" />
+      <circle cx="59" cy="49" r="1.5" fill="#6366f1" />
+      <path d="M50 49 L50 61 L53 59" strokeWidth="2.5" />
+      <path d="M44 67 Q50 70 56 67" strokeWidth="2.5" />
+      <path d="M50 12 L50 22 M50 22 L45 17 M50 22 L55 17" strokeWidth="3" />
+    </svg>
+  );
+
   const [name, setName] = useState('');
   const [empId, setEmpId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
   const [userData, setUserData] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const history = useHistory();
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Pose states
+  const [currentPoseIndex, setCurrentPoseIndex] = useState<number>(-1); // -1 = idle, 0-4 = active, -2 = completed
+  const [countdown, setCountdown] = useState<number>(0);
+  const [capturedPhotos, setCapturedPhotos] = useState<Record<string, string>>({});
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+
   // Camera states
   const [cameraActive, setCameraActive] = useState(false);
-  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
+  const [isValidatingPose, setIsValidatingPose] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -40,36 +110,52 @@ const AIAttendanceRegister: React.FC = () => {
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
       setUserData(parsed);
-      setUserProfile(parsed);
-      
-      // AUTO FILL
       setEmpId(parsed?.empCode || "");
       setName(parsed?.EmpName || parsed?.empName || "");
     }
   }, []);
 
-  // Manage camera streaming lifecycle
+  // Clean up camera on unmount
   useEffect(() => {
     return () => {
       stopCamera();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
+
+  // Speaks instructions to employee
+  const speakInstruction = (text: string) => {
+    if (!voiceEnabled || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.05;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("Speech synthesis failed", e);
+    }
+  };
 
   const showPopup = (msg: string) => {
     setPopupMessage(msg);
     setTimeout(() => {
       setPopupMessage('');
-    }, 4000);
+    }, 4500);
   };
 
-  // Start video camera feed
-  const startCamera = async () => {
+  // Start enrollment capture sequence
+  const startEnrollment = async () => {
     setCameraError(null);
-    setCapturedPhoto(null);
+    setCapturedPhotos({});
     setIsCameraLoading(true);
+    setCurrentPoseIndex(-1);
+
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Your browser or device does not support camera access.");
+        throw new Error("Camera device access is not supported by your browser.");
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
@@ -81,29 +167,29 @@ const AIAttendanceRegister: React.FC = () => {
       });
       
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = async () => {
-          try {
-            await videoRef.current?.play();
-            setCameraActive(true);
-            setIsCameraLoading(false);
-          } catch (err) {
-            console.error("Video play failed:", err);
-            setCameraError("Failed to initiate live video feed.");
-            setIsCameraLoading(false);
-          }
-        };
-      }
+      setCameraActive(true);
+      setIsCameraLoading(false);
+      setCurrentPoseIndex(0); // Trigger first pose
+
+      // Slight timeout to let the DOM paint and ensure videoRef is bound to the element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(err => {
+            console.error("Video playback start failed:", err);
+          });
+        }
+      }, 80);
+
     } catch (err: any) {
       console.error("Camera access failed:", err);
-      setCameraError(err.message || "Unable to access camera. Please check permissions.");
+      setCameraError(err.message || "Failed to start camera. Please verify permissions.");
       setCameraActive(false);
       setIsCameraLoading(false);
     }
   };
 
-  // Stop video camera feed
+  // Stop camera feed
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -116,14 +202,31 @@ const AIAttendanceRegister: React.FC = () => {
     setIsCameraLoading(false);
   };
 
-  // Capture frame from the video stream
-  const capturePhoto = () => {
-    if (!videoRef.current || !cameraActive) {
-      showPopup("Camera stream is not ready.");
-      return;
+  // Handle pose changes and speak guidance
+  useEffect(() => {
+    if (currentPoseIndex >= 0 && currentPoseIndex < 5 && cameraActive) {
+      speakInstruction(POSES[currentPoseIndex].voice);
+      setCountdown(3);
     }
+  }, [currentPoseIndex, cameraActive]);
+
+  // Countdown timer logic
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0 && currentPoseIndex >= 0 && currentPoseIndex < 5 && cameraActive) {
+      capturePosePhoto();
+    }
+  }, [countdown]);
+
+  // Capture frame for current pose and validate in real-time
+  const capturePosePhoto = async () => {
+    if (!videoRef.current || !cameraActive || isValidatingPose) return;
+    setIsValidatingPose(true);
     try {
-      // Determine camera stream's native dimensions dynamically to prevent scaling/stretching on mobile screens
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
       
@@ -133,8 +236,6 @@ const AIAttendanceRegister: React.FC = () => {
       const ctx = canvas.getContext("2d");
       
       if (ctx) {
-        // Mirror the canvas context horizontally so the captured photo 
-        // matches the mirror preview shown to the user on screen.
         ctx.save();
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
@@ -142,17 +243,80 @@ const AIAttendanceRegister: React.FC = () => {
         ctx.restore();
         
         const photoData = canvas.toDataURL("image/jpeg", 0.95);
-        setCapturedPhoto(photoData);
-        stopCamera();
+        const currentKey = POSES[currentPoseIndex].key;
+
+        // Call backend real-time pose validation API
+        const response = await fetch(`${API_BASE}Checkin/ValidateFacePose`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": "dbase-ai-master-key-2026"
+          },
+          body: JSON.stringify({
+            Image: photoData,
+            ExpectedPose: currentKey
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Pose verified successfully!
+          setCapturedPhotos(prev => ({
+            ...prev,
+            [currentKey]: photoData
+          }));
+
+          // Flash visual cue
+          const scannerFrame = document.querySelector(".scanner-frame");
+          if (scannerFrame) {
+            scannerFrame.classList.add("flash-shutter");
+            setTimeout(() => scannerFrame.classList.remove("flash-shutter"), 180);
+          }
+
+          speakInstruction("Correct");
+
+          if (currentPoseIndex < 4) {
+            setCurrentPoseIndex(prev => prev + 1);
+          } else {
+            stopCamera();
+            setCurrentPoseIndex(-2); // Enrollment Poses Finished
+            speakInstruction("Perfect! All poses captured correctly. Please submit to complete your enrollment.");
+          }
+        } else {
+          // Pose was incorrect! Show correction toast, speak it, and restart countdown
+          showPopup(result.message || "Incorrect pose. Please try again.");
+          speakInstruction(result.message || "Incorrect pose. Please follow the guidance.");
+          
+          // Restart countdown for the SAME pose
+          setTimeout(() => {
+            setCountdown(3);
+          }, 1500);
+        }
       }
-    } catch (err) {
-      console.error("Capture photo failed:", err);
-      showPopup("Failed to capture picture. Please try again.");
+    } catch (err: any) {
+      console.error("Capture and validate pose failed:", err);
+      showPopup("Verification failed: " + (err.message || "Connection error"));
+      
+      // Retry same pose
+      setTimeout(() => {
+        setCountdown(3);
+      }, 2000);
+    } finally {
+      setIsValidatingPose(false);
     }
   };
 
-  const retakePhoto = () => {
-    startCamera();
+  const resetEnrollment = () => {
+    stopCamera();
+    setCapturedPhotos({});
+    setCurrentPoseIndex(-1);
+    setCountdown(0);
+    setCameraError(null);
   };
 
   const handleSubmit = async () => {
@@ -160,8 +324,8 @@ const AIAttendanceRegister: React.FC = () => {
       showPopup('Employee name is required.');
       return;
     }
-    if (!capturedPhoto) {
-      showPopup('Please capture a live photo before submitting.');
+    if (Object.keys(capturedPhotos).length < 5) {
+      showPopup('Please register all 5 face poses.');
       return;
     }
 
@@ -172,15 +336,14 @@ const AIAttendanceRegister: React.FC = () => {
     formData.append('name', finalName);
 
     try {
-      // Convert captured photo (data URI) to binary Blob
-      const responseBlob = await fetch(capturedPhoto);
-      const blob = await responseBlob.blob();
-      
-      // Package the blob as a File object mimicking user uploaded image
-      const file = new File([blob], 'captured_face.jpg', { type: 'image/jpeg' });
-      formData.append("images[]", file);
-
-      console.log("Uploading Captured File:", file.name);
+      // Append all 5 poses
+      for (const pose of POSES) {
+        const photoData = capturedPhotos[pose.key];
+        const res = await fetch(photoData);
+        const blob = await res.blob();
+        const file = new File([blob], `face_${pose.key}.jpg`, { type: 'image/jpeg' });
+        formData.append("images[]", file);
+      }
 
       const response = await fetch(`${API_BASE}Checkin/UploadModel`, {
         method: 'POST',
@@ -191,19 +354,11 @@ const AIAttendanceRegister: React.FC = () => {
       });
 
       const data = await response.json();
-      console.log("Upload response:", data);
-
       if (response.ok && data.success) {
-        setSuccessMessage(
-          `${data.uploadedFaces || 1} face(s) registered successfully`
-        );
+        setSuccessMessage("Your biometric profile has been successfully registered with 5 multi-angle references.");
         setShowSuccessPopup(true);
       } else {
-        if (data.errors && data.errors.length > 0) {
-          showPopup(data.errors[0]);
-        } else {
-          showPopup(data.message || "Face registration failed");
-        }
+        showPopup(data.message || "Face registration failed");
       } 
     } catch (error: any) {
       console.error(error);
@@ -215,151 +370,371 @@ const AIAttendanceRegister: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent fullscreen style={{ "--background": "#f8fafc" }}>
-        {/* Style block for live scan animation overlay */}
+      <IonContent fullscreen style={{ "--background": "#ffffff" }}>
+        {/* Style block for premium white dashboard and visual animations */}
         <style>{`
-          @keyframes scan-glow {
-            0% { top: 5%; opacity: 0.8; }
-            50% { top: 90%; opacity: 0.8; }
-            100% { top: 5%; opacity: 0.8; }
-          }
-          @keyframes pulse-ring {
-            0% { transform: scale(0.95); opacity: 0.5; }
-            50% { transform: scale(1.02); opacity: 0.9; }
-            100% { transform: scale(0.95); opacity: 0.5; }
-          }
-          .scanner-frame {
-            position: relative;
-            width: 100%;
-            height: 350px;
-            background: #0f172a;
-            border-radius: 20px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
-          }
-          @media (max-width: 768px) {
-            .scanner-frame {
-              height: 280px;
-              border-radius: 16px;
-            }
-          }
-          .video-feed {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-          }
-          .scan-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            z-index: 10;
-          }
-          .scan-oval {
-            width: 220px;
-            height: 280px;
-            border-radius: 50% / 45%;
-            border: 2px dashed rgba(99, 102, 241, 0.6);
-            box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.65);
-            position: relative;
-            animation: pulse-ring 3s infinite ease-in-out;
-          }
-          @media (max-width: 768px) {
-            .scan-oval {
-              width: 170px;
-              height: 220px;
-            }
-          }
-          .scan-line {
-            position: absolute;
-            left: 5%;
-            right: 5%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, #6366f1, transparent);
-            box-shadow: 0 0 12px #6366f1;
-            animation: scan-glow 4s infinite linear;
-          }
-          .terminal-badge {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(8px);
-            padding: 6px 12px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 0.78rem;
-            color: #ffffff;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            z-index: 20;
-          }
-          .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background: #22c55e;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #22c55e;
-          }
-          .pulse-dot-inactive {
-            width: 8px;
-            height: 8px;
-            background: #ef4444;
-            border-radius: 50%;
-          }
-          .preview-photo {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
-
-          /* Responsive Layout Styles */
-          .register-wrapper {
+          .white-bg-visuals {
+            background-color: #ffffff;
+            background-image: 
+              radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.02) 0%, transparent 25%),
+              radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.02) 0%, transparent 30%),
+              radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+            background-size: cover, cover, 24px 24px;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 24px;
+            padding: 32px 16px;
             box-sizing: border-box;
           }
-          @media (max-width: 768px) {
-            .register-wrapper {
-              padding: 12px;
-              align-items: flex-start;
-            }
-          }
 
-          .register-card {
+          .dashboard-container {
             width: 100%;
-            max-width: 1050px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 28px;
+            max-width: 1100px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 32px;
             overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01);
+            box-shadow: 0 25px 60px rgba(99, 102, 241, 0.05), 0 2px 8px rgba(0, 0, 0, 0.01);
             position: relative;
             box-sizing: border-box;
           }
-          @media (max-width: 768px) {
-            .register-card {
-              border-radius: 16px;
+
+          .header-banner {
+            padding: 32px 40px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.02) 0%, rgba(168,85,247,0.02) 100%);
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+          }
+
+          .back-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            color: #475569;
+          }
+          .back-btn:hover {
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+            color: #0f172a;
+          }
+
+          .enrollment-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 40px;
+            padding: 40px;
+            box-sizing: border-box;
+          }
+
+          .scanner-frame {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            background: #f8fafc;
+            border-radius: 24px;
+            overflow: hidden;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.02);
+            transition: all 0.3s;
+          }
+          .scanner-frame.active-scan {
+            border-color: #6366f1;
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.15);
+          }
+
+          .flash-shutter {
+            animation: shutter-flash-anim 0.18s ease-out;
+          }
+          @keyframes shutter-flash-anim {
+            0% { filter: brightness(2); }
+            100% { filter: brightness(1); }
+          }
+
+          /* AI Cyber Focus Corners */
+          .cyber-corner {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-color: #6366f1;
+            border-style: solid;
+            pointer-events: none;
+            z-index: 15;
+            transition: border-color 0.3s;
+          }
+          .scanner-frame.active-scan .cyber-corner {
+            border-color: #6366f1;
+          }
+          .cyber-corner.top-left { top: 16px; left: 16px; border-width: 3px 0 0 3px; border-top-left-radius: 8px; }
+          .cyber-corner.top-right { top: 16px; right: 16px; border-width: 3px 3px 0 0; border-top-right-radius: 8px; }
+          .cyber-corner.bottom-left { bottom: 16px; left: 16px; border-width: 0 0 3px 3px; border-bottom-left-radius: 8px; }
+          .cyber-corner.bottom-right { bottom: 16px; right: 16px; border-width: 0 3px 3px 0; border-bottom-right-radius: 8px; }
+
+          /* Interactive scan beam line */
+          .cyber-beam {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #6366f1, transparent);
+            box-shadow: 0 0 12px #6366f1;
+            z-index: 10;
+            animation: beamMove 3.5s infinite linear;
+          }
+          @keyframes beamMove {
+            0% { top: 5%; }
+            50% { top: 95%; }
+            100% { top: 5%; }
+          }
+
+          .scan-guide-oval {
+            width: 210px;
+            height: 270px;
+            border-radius: 50% / 45%;
+            border: 2px dashed rgba(99, 102, 241, 0.45);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 0 9999px rgba(255, 255, 255, 0.45);
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .pose-outline-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 170px;
+            height: 170px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.28;
+            z-index: 6;
+            pointer-events: none;
+            transition: all 0.3s ease;
+          }
+          .pose-outline-guide svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.4));
+          }
+          @media (min-width: 320px) and (max-width: 480px) {
+            .pose-outline-guide {
+              width: 110px;
+              height: 110px;
             }
+          }
+
+          .countdown-circle {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.95);
+            color: #ffffff;
+            font-size: 2.2rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+            animation: pop-pulse 1s infinite alternate;
+            z-index: 10;
+          }
+          @keyframes pop-pulse {
+            0% { transform: scale(0.9); }
+            100% { transform: scale(1.05); }
+          }
+
+          .status-instruction-pill {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-size: 0.92rem;
+            font-weight: 750;
+            color: #0f172a;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            z-index: 12;
+            text-align: center;
+            width: max-content;
+            max-width: 80%;
+            letter-spacing: 0.3px;
+          }
+
+          .pose-thumb-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+          }
+
+          .pose-thumb-card {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+          }
+          .pose-thumb-card.active {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.02);
+            box-shadow: 0 0 10px rgba(99,102,241,0.15);
+          }
+          .pose-thumb-card.success {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.02);
+          }
+
+          .pose-thumb-image {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #f1f5f9;
+          }
+          .pose-thumb-placeholder {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+          }
+          .pose-thumb-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #64748b;
+            margin-top: 6px;
+            text-align: center;
+            white-space: nowrap;
+          }
+
+          .btn-voice-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 650;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s;
+          }
+          .btn-voice-toggle.active {
+            border-color: #6366f1;
+            color: #6366f1;
+            background: rgba(99,102,241,0.02);
+            animation: voicePulse 2.5s infinite;
+          }
+          @keyframes voicePulse {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.2); }
+            70% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+          }
+
+          .btn-enroll-start {
+            width: 100%;
+            height: 56px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.22);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          .btn-enroll-start:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.3);
+          }
+
+          .btn-enroll-reset {
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            color: #475569;
+            height: 52px;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            width: 100%;
+          }
+          .btn-enroll-reset:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+          }
+
+          .btn-enroll-submit {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            height: 52px;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            width: 100%;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+          }
+          .btn-enroll-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(16, 185, 129, 0.28);
+          }
+
+          .rules-alert {
+            background: rgba(99, 102, 241, 0.03);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 24px;
           }
 
           .popup-toast {
@@ -380,171 +755,21 @@ const AIAttendanceRegister: React.FC = () => {
             max-width: calc(100% - 40px);
             box-sizing: border-box;
           }
-          @media (max-width: 768px) {
-            .popup-toast {
-              top: 16px;
-              right: 16px;
-              left: 16px;
-              padding: 12px 16px;
-              font-size: 0.85rem;
-              border-radius: 12px;
-            }
-          }
-
-          .register-header {
-            padding: 30px 40px;
-            background: linear-gradient(135deg, rgba(99,102,241,0.02) 0%, rgba(139,92,246,0.02) 100%);
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            box-sizing: border-box;
-          }
-          @media (max-width: 768px) {
-            .register-header {
-              padding: 16px 20px;
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 12px;
-            }
-          }
-
-          .register-header-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-          }
-          @media (max-width: 768px) {
-            .register-header-left {
-              gap: 12px;
-              width: 100%;
-            }
-          }
-
-          .btn-back {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            transition: all 0.2s;
-            flex-shrink: 0;
-          }
-          @media (max-width: 768px) {
-            .btn-back {
-              width: 38px;
-              height: 38px;
-              border-radius: 10px;
-            }
-          }
-
-          .register-title {
-            margin: 0;
-            color: #0f172a;
-            font-size: 1.8rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-          }
-          @media (max-width: 768px) {
-            .register-title {
-              font-size: 1.25rem;
-            }
-          }
-
-          .register-subtitle {
-            margin-top: 6px;
-            color: #64748b;
-            font-size: 0.95rem;
-            line-height: 1.4;
-            max-width: 600px;
-          }
-          @media (max-width: 768px) {
-            .register-subtitle {
-              font-size: 0.8rem;
-              margin-top: 4px;
-            }
-          }
-
-          .register-secure-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(99, 102, 241, 0.06);
-            padding: 10px 16px;
-            border-radius: 14px;
-            border: 1px solid rgba(99, 102, 241, 0.12);
-            flex-shrink: 0;
-          }
-          @media (max-width: 768px) {
-            .register-secure-badge {
-              padding: 6px 10px;
-              border-radius: 10px;
-              font-size: 0.75rem;
-            }
-          }
-
-          .register-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 36px;
-            padding: 40px;
-            box-sizing: border-box;
-          }
-          @media (max-width: 768px) {
-            .register-grid {
-              grid-template-columns: 1fr;
-              gap: 24px;
-              padding: 20px;
-            }
-          }
 
           .employee-info-card {
-            background: #f8fafc;
+            background: rgba(251, 252, 254, 0.8);
             border: 1px solid #e2e8f0;
             border-radius: 20px;
             padding: 24px;
             box-sizing: border-box;
           }
-          @media (max-width: 768px) {
-            .employee-info-card {
-              padding: 16px;
-              border-radius: 16px;
-            }
-          }
-
-          .section-title {
-            margin: 0 0 18px 0;
-            color: #1e293b;
-            font-size: 1.1rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          @media (max-width: 768px) {
-            .section-title {
-              font-size: 0.95rem;
-              margin-bottom: 12px;
-            }
-          }
 
           .detail-label {
             color: #64748b;
-            font-weight: 600;
-            font-size: 0.82rem;
+            font-weight: 700;
+            font-size: 0.78rem;
             margin-bottom: 6px;
             display: block;
-          }
-          @media (max-width: 768px) {
-            .detail-label {
-              font-size: 0.75rem;
-            }
           }
 
           .detail-value {
@@ -558,15 +783,8 @@ const AIAttendanceRegister: React.FC = () => {
             background: #ffffff;
             color: #334155;
             font-size: 0.95rem;
-            font-weight: 600;
+            font-weight: 650;
             box-sizing: border-box;
-          }
-          @media (max-width: 768px) {
-            .detail-value {
-              padding: 10px 12px;
-              font-size: 0.85rem;
-              border-radius: 10px;
-            }
           }
 
           .guidelines-card {
@@ -574,153 +792,179 @@ const AIAttendanceRegister: React.FC = () => {
             border: 1px solid #e2e8f0;
             border-radius: 20px;
             padding: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.01);
             box-sizing: border-box;
           }
-          @media (max-width: 768px) {
-            .guidelines-card {
-              padding: 16px;
-              border-radius: 16px;
-            }
-          }
 
-          .guidelines-text {
+          .section-title {
             margin: 0 0 18px 0;
-            color: #64748b;
-            font-size: 0.88rem;
-            line-height: 1.4;
-          }
-          @media (max-width: 768px) {
-            .guidelines-text {
-              font-size: 0.78rem;
-              margin-bottom: 12px;
-            }
-          }
-
-          .guidelines-list {
-            color: #475569;
-            line-height: 1.7;
-            font-size: 0.88rem;
-            padding-left: 20px;
-            margin: 0 0 20px 0;
-          }
-          @media (max-width: 768px) {
-            .guidelines-list {
-              font-size: 0.78rem;
-              margin-bottom: 12px;
-              padding-left: 15px;
-            }
-          }
-
-          .rec-avoid-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-          }
-          @media (max-width: 480px) {
-            .rec-avoid-grid {
-              grid-template-columns: 1fr;
-              gap: 8px;
-            }
-          }
-
-          .rec-box {
-            background: rgba(34, 197, 94, 0.04);
-            border: 1px solid rgba(34, 197, 94, 0.15);
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-          }
-          .avoid-box {
-            background: rgba(239, 68, 68, 0.04);
-            border: 1px solid rgba(239, 68, 68, 0.15);
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-          }
-          @media (max-width: 768px) {
-            .rec-box, .avoid-box {
-              padding: 8px;
-            }
-          }
-
-          .rec-avoid-title {
-            font-weight: 700;
-            font-size: 0.78rem;
-            margin-bottom: 4px;
-          }
-          .rec-avoid-desc {
-            margin: 0;
-            font-size: 0.72rem;
-            line-height: 1.3;
-          }
-
-          .btn-container {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-          }
-          @media (max-width: 768px) {
-            .btn-container {
-              gap: 12px;
-            }
-          }
-
-          .photo-controls-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-          }
-          @media (max-width: 480px) {
-            .photo-controls-grid {
-              grid-template-columns: 1fr;
-              gap: 10px;
-            }
-          }
-
-          .btn-action {
-            height: 56px;
-            border-radius: 16px;
+            color: #1e293b;
             font-size: 1.05rem;
-            font-weight: 700;
-            cursor: pointer;
+            font-weight: 800;
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
-            transition: all 0.2s;
-            box-sizing: border-box;
           }
-          @media (max-width: 768px) {
-            .btn-action {
+
+          /* ── RESPONSIVE MEDIA QUERIES FROM 320PX ONWARDS ── */
+          
+          /* Ultra small / Small Phones (320px to 480px) */
+          @media (min-width: 320px) and (max-width: 480px) {
+            .white-bg-visuals {
+              padding: 12px 8px;
+              align-items: flex-start;
+              background-size: cover, cover, 18px 18px;
+            }
+            .dashboard-container {
+              border-radius: 20px;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+            }
+            .header-banner {
+              padding: 20px 14px;
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 12px;
+            }
+            .back-btn {
+              width: 38px;
+              height: 38px;
+              border-radius: 10px;
+            }
+            .register-title {
+              font-size: 1.2rem;
+              font-weight: 800;
+            }
+            .register-subtitle {
+              font-size: 0.72rem;
+              margin-top: 4px;
+              line-height: 1.35;
+            }
+            .btn-voice-toggle {
+              padding: 6px 10px;
+              font-size: 0.72rem;
+              border-radius: 8px;
+            }
+            .register-secure-badge {
+              padding: 5px 8px;
+              border-radius: 8px;
+              font-size: 0.72rem;
+            }
+            .enrollment-grid {
+              grid-template-columns: 1fr;
+              gap: 20px;
+              padding: 16px 12px;
+            }
+            .employee-info-card {
+              padding: 14px;
+              border-radius: 16px;
+            }
+            .employee-info-card .detail-grid-override {
+              grid-template-columns: 1fr !important; /* Stack columns */
+              gap: 12px !important;
+            }
+            .detail-value {
+              padding: 10px 12px;
+              font-size: 0.85rem;
+              border-radius: 10px;
+            }
+            .guidelines-card {
+              padding: 14px;
+              border-radius: 16px;
+            }
+            .rules-alert {
+              padding: 12px;
+              margin-bottom: 16px;
+            }
+            .pose-thumb-grid {
+              grid-template-columns: repeat(3, 1fr) !important; /* Wrap to 3 columns on small screens */
+              gap: 8px;
+            }
+            .pose-thumb-card {
+              padding: 6px;
+              border-radius: 10px;
+            }
+            .pose-thumb-label {
+              font-size: 0.58rem;
+              margin-top: 4px;
+            }
+            .scanner-frame {
+              height: 260px;
+              border-radius: 16px;
+            }
+            .scan-guide-oval {
+              width: 140px;
+              height: 190px;
+            }
+            .countdown-circle {
+              width: 54px;
+              height: 54px;
+              font-size: 1.5rem;
+            }
+            .status-instruction-pill {
+              font-size: 0.75rem;
+              padding: 6px 16px;
+              bottom: 16px;
+            }
+            .btn-enroll-start {
               height: 48px;
+              font-size: 0.92rem;
               border-radius: 12px;
-              font-size: 0.9rem;
+            }
+            .btn-enroll-reset, .btn-enroll-submit {
+              height: 44px;
+              font-size: 0.88rem;
+              border-radius: 10px;
             }
           }
-          
-          .btn-action-primary {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            color: #ffffff;
-            border: none;
-            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.25);
+
+          /* Medium Phones / Phablets (481px to 768px) */
+          @media (min-width: 481px) and (max-width: 768px) {
+            .white-bg-visuals {
+              padding: 20px 12px;
+            }
+            .header-banner {
+              padding: 24px 20px;
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 16px;
+            }
+            .register-title {
+              font-size: 1.45rem;
+            }
+            .enrollment-grid {
+              grid-template-columns: 1fr;
+              gap: 24px;
+              padding: 24px 20px;
+            }
+            .pose-thumb-grid {
+              grid-template-columns: repeat(5, 1fr);
+              gap: 10px;
+            }
+            .scanner-frame {
+              height: 310px;
+            }
+            .scan-guide-oval {
+              width: 170px;
+              height: 230px;
+            }
           }
-          .btn-action-success {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: #ffffff;
-            border: none;
-            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.25);
-          }
-          .btn-action-secondary {
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
-            color: #475569;
+
+          /* Tablets & Medium Screens (769px to 1024px) */
+          @media (min-width: 769px) and (max-width: 1024px) {
+            .enrollment-grid {
+              grid-template-columns: 1.1fr 0.9fr;
+              gap: 24px;
+              padding: 30px;
+            }
+            .scanner-frame {
+              height: 340px;
+            }
           }
         `}</style>
 
-        <div className="register-wrapper">
-          <div className="register-card">
-            {/* POPUP ALERT */}
+        <div className="white-bg-visuals">
+          <div className="dashboard-container">
+            
+            {/* POPUP TOAST */}
             {popupMessage && (
               <div className="popup-toast animate__animated animate__fadeInRight">
                 <IonIcon icon={alertCircleOutline} style={{ color: "#ef4444", fontSize: "20px" }} />
@@ -729,339 +973,259 @@ const AIAttendanceRegister: React.FC = () => {
             )}
 
             {/* HEADER AREA */}
-            <div className="register-header">
-              <div className="register-header-left">
+            <div className="header-banner">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <button
                   onClick={() => history.push("/home")}
-                  className="btn-back"
+                  className="back-btn"
                   title="Back to Dashboard"
                 >
-                  <IonIcon icon={arrowBackOutline} style={{ fontSize: "20px", color: "#475569" }} />
+                  <IonIcon icon={arrowBackOutline} style={{ fontSize: "20px" }} />
                 </button>
-
                 <div>
-                  <h1 className="register-title">
-                    Biometric Face Enrollment
-                  </h1>
+                  <h1 className="register-title">Biometric Face Enrollment</h1>
                   <p className="register-subtitle">
-                    Register direct camera pictures to secure verification. AI-generated or heavily edited photos are prohibited.
+                    Create a secure 5-pose reference profile. Guided voice and visual telemetry check.
                   </p>
                 </div>
               </div>
 
-              <div className="register-secure-badge">
-                <IonIcon icon={shieldCheckmarkOutline} style={{ color: "#6366f1", fontSize: "18px" }} />
-                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#4f46e5" }}>Secure Link</span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button 
+                  className={`btn-voice-toggle ${voiceEnabled ? 'active' : ''}`}
+                  onClick={() => {
+                    setVoiceEnabled(!voiceEnabled);
+                    speakInstruction("Voice assistant " + (!voiceEnabled ? "activated" : "deactivated"));
+                  }}
+                  title="Toggle Voice Guide"
+                >
+                  <IonIcon icon={volumeHighOutline} style={{ fontSize: '15px' }} />
+                  {voiceEnabled ? 'Voice ON' : 'Voice OFF'}
+                </button>
+
+                <div className="register-secure-badge" style={{ margin: 0 }}>
+                  <IonIcon icon={shieldCheckmarkOutline} style={{ color: "#6366f1", fontSize: "15px" }} />
+                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#4f46e5" }}>Secure Enrollment</span>
+                </div>
               </div>
             </div>
 
-            {/* TWO-COLUMN GRID LAYOUT */}
-            <div className="register-grid">
-              {/* LEFT COLUMN: GUIDELINES & EMP INFO */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+            {/* GRID CONTENT */}
+            <div className="enrollment-grid">
+              
+              {/* LEFT COLUMN: GUIDELINES & STEP CARDS */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 
-                {/* EMPLOYEE INFO CARD */}
+                {/* DETAILS CARD */}
                 <div className="employee-info-card">
-                  <h3 className="section-title">
-                    <IonIcon icon={personOutline} style={{ color: "#6366f1" }} />
+                  <h3 className="section-title" style={{ marginBottom: '14px' }}>
+                    <IonIcon icon={personOutline} style={{ color: '#6366f1' }} />
                     Employee Details
                   </h3>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div className="detail-grid-override" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div>
-                      <label className="detail-label">
-                        FULL NAME
-                      </label>
+                      <label className="detail-label">FULL NAME</label>
                       <div className="detail-value">
-                        <IonIcon icon={personOutline} style={{ color: "#94a3b8" }} />
-                        <span>{name || "Loading name..."}</span>
+                        <IonIcon icon={personOutline} style={{ color: '#94a3b8' }} />
+                        <span>{name || "Loading..."}</span>
                       </div>
                     </div>
-
                     <div>
-                      <label className="detail-label">
-                        EMPLOYEE ID / CODE
-                      </label>
+                      <label className="detail-label">EMPLOYEE ID</label>
                       <div className="detail-value">
-                        <IonIcon icon={idCardOutline} style={{ color: "#94a3b8" }} />
-                        <span>{empId || "Loading ID..."}</span>
+                        <IonIcon icon={idCardOutline} style={{ color: '#94a3b8' }} />
+                        <span>{empId || "Loading..."}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* CAMERA GUIDELINES */}
+                {/* VISUAL POSES TRACKER */}
                 <div className="guidelines-card">
                   <h3 className="section-title">
-                    📸 Enrollment Guidelines
+                    📸 Multi-Angle Profile Reference
                   </h3>
-                  <p className="guidelines-text">
-                    Live camera capture ensures maximum registration accuracy.
-                  </p>
-
-                  <ul className="guidelines-list">
-                    <li style={{ marginBottom: "6px" }}>Capture 1 clear, front-facing live photo.</li>
-                    <li style={{ marginBottom: "6px" }}>Align your face inside the overlay oval marker.</li>
-                    <li style={{ marginBottom: "6px" }}>Position yourself in well-lit surroundings.</li>
-                    <li style={{ marginBottom: "6px" }}>Remove masks, glasses, caps, or headwear.</li>
-                    <li style={{ marginBottom: "6px" }}>Make sure no other faces are visible in the stream.</li>
-                  </ul>
-
-                  {/* RECOMMEND VS AVOID CHECKS */}
-                  <div className="rec-avoid-grid">
-                    <div className="rec-box">
-                      <div style={{ fontSize: "24px", marginBottom: "4px" }}>👤</div>
-                      <div className="rec-avoid-title" style={{ color: "#166534" }}>RECOMMENDED</div>
-                      <p className="rec-avoid-desc" style={{ color: "#15803d" }}>
-                        Front-facing view under natural light.
-                      </p>
+                  
+                  <div className="rules-alert">
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '18px' }}>💡</span>
+                      <div style={{ fontSize: '0.76rem', color: '#4f46e5', fontWeight: 600, lineHeight: 1.4 }}>
+                        Keep camera stable. The assistant will guide you to tilt your head in 5 directions. Each angle is captured automatically after a 3-second countdown.
+                      </div>
                     </div>
+                  </div>
 
-                    <div className="avoid-box">
-                      <div style={{ fontSize: "24px", marginBottom: "4px" }}>🧢🕶️</div>
-                      <div className="rec-avoid-title" style={{ color: "#991b1b" }}>AVOID</div>
-                      <p className="rec-avoid-desc" style={{ color: "#b91c1c" }}>
-                        Hats, sunglasses, filters, dark shadows.
-                      </p>
-                    </div>
+                  <div className="pose-thumb-grid">
+                    {POSES.map((pose, index) => {
+                      const photo = capturedPhotos[pose.key];
+                      const isActive = index === currentPoseIndex;
+                      const isDone = !!photo;
+                      
+                      return (
+                        <div 
+                          key={pose.key} 
+                          className={`pose-thumb-card ${isActive ? 'active' : ''} ${isDone ? 'success' : ''}`}
+                        >
+                          {photo ? (
+                            <img src={photo} className="pose-thumb-image" alt={pose.label} />
+                          ) : (
+                            <div className="pose-thumb-placeholder">
+                              <IonIcon icon={isActive ? cameraOutline : lockClosedOutline} style={{ fontSize: '16px' }} />
+                            </div>
+                          )}
+                          <span className="pose-thumb-label">{pose.label}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
               </div>
 
-              {/* RIGHT COLUMN: CAMERA TERMINAL CONTAINER */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {/* RIGHT COLUMN: CAMERA VIEWPORT */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
-                {/* VIDEO FEED TERMINAL */}
                 <div>
-                  <label className="detail-label" style={{ color: "#334155", fontWeight: 700, fontSize: "0.95rem", marginBottom: "12px" }}>
-                    Live Biometric Camera Capture
+                  <label className="detail-label" style={{ color: '#0f172a', fontWeight: 800, fontSize: '0.9rem', marginBottom: '12px' }}>
+                    Biometric Telemetry Viewport
                   </label>
 
-                  <div className="scanner-frame">
-                    {/* TOP BADGE STATUS */}
-                    <div className="terminal-badge">
-                      <span className={cameraActive && !capturedPhoto ? "pulse-dot" : "pulse-dot-inactive"} />
-                      <span>
-                        {capturedPhoto 
-                          ? "PHOTO CAPTURED" 
-                          : cameraActive 
-                            ? "LIVE CAMERA ACTIVE" 
-                            : "CAMERA INACTIVE"
-                        }
-                      </span>
-                    </div>
+                  <div className={`scanner-frame ${cameraActive ? 'active-scan' : ''}`}>
+                    {/* Cyber focus corner indicators */}
+                    <div className="cyber-corner top-left"></div>
+                    <div className="cyber-corner top-right"></div>
+                    <div className="cyber-corner bottom-left"></div>
+                    <div className="cyber-corner bottom-right"></div>
 
-                    {/* LIVE STREAM FEED */}
-                    {!capturedPhoto && (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="video-feed"
-                        style={{ display: cameraActive ? "block" : "none" }}
-                      />
+                    {/* Laser scan beam */}
+                    {cameraActive && currentPoseIndex >= 0 && (
+                      <div className="cyber-beam"></div>
                     )}
 
-                    {/* CAPTURED PREVIEW FEED */}
-                    {capturedPhoto && (
-                      <img
-                        src={capturedPhoto}
-                        alt="Captured Face"
-                        className="preview-photo"
-                      />
-                    )}
+                    {/* VIDEO FEED */}
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover', 
+                        transform: 'scaleX(-1)',
+                        display: (cameraActive && currentPoseIndex !== -2) ? 'block' : 'none'
+                      }}
+                    />
 
-                    {/* LIVE TARGET OVERLAY */}
-                    {cameraActive && !capturedPhoto && (
-                      <div className="scan-overlay">
-                        <div className="scan-oval">
-                          <div className="scan-line" />
+                    {/* OVERLAYS */}
+                    {cameraActive && currentPoseIndex >= 0 && currentPoseIndex < 5 && (
+                      <>
+                        {/* Target Outline Guide Shape */}
+                        <div className="pose-outline-guide">
+                          {currentPoseIndex === 0 && renderStraightSvg()}
+                          {currentPoseIndex === 1 && renderLeftSvg()}
+                          {currentPoseIndex === 2 && renderRightSvg()}
+                          {currentPoseIndex === 3 && renderUpSvg()}
+                          {currentPoseIndex === 4 && renderDownSvg()}
                         </div>
+
+                        {/* Target Oval */}
+                        <div className="scan-guide-oval">
+                          {isValidatingPose ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.92)', padding: '12px 16px', borderRadius: '16px', border: '1px solid rgba(99,102,241,0.15)', boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }}>
+                              <IonSpinner name="crescent" color="primary" style={{ transform: 'scale(0.8)' }} />
+                              <span style={{ fontSize: '0.68rem', color: '#4f46e5', fontWeight: 800, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Verifying...</span>
+                            </div>
+                          ) : (
+                            countdown > 0 && (
+                              <div className="countdown-circle">
+                                {countdown}
+                              </div>
+                            )
+                          )}
+                        </div>
+
+                        {/* Pose instructions */}
+                        <div className="status-instruction-pill animate__animated animate__pulse animate__infinite">
+                          Step {currentPoseIndex + 1}/5: {POSES[currentPoseIndex].label.toUpperCase()}
+                        </div>
+                      </>
+                    )}
+
+                    {/* COMPLETED ENROLLMENT STATE PREVIEW */}
+                    {currentPoseIndex === -2 && (
+                      <div style={{ position: 'absolute', inset: 0, background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                        <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '64px', color: '#10b981', marginBottom: '12px' }} />
+                        <h3 style={{ margin: 0, fontWeight: 800, color: '#0f172a', fontSize: '1.15rem' }}>All Poses Captured</h3>
+                        <p style={{ color: '#64748b', fontSize: '0.8rem', textAlign: 'center', maxWidth: '260px', marginTop: '6px', lineHeight: 1.4 }}>
+                          5 directional references registered. Click submit below to save database profile.
+                        </p>
                       </div>
                     )}
 
-                    {/* CAMERA ERROR / INACTIVE SCREEN */}
-                    {!cameraActive && !capturedPhoto && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: "24px",
-                          color: "#94a3b8",
-                          zIndex: 10,
-                          textAlign: "center",
-                          background: "#0f172a",
-                        }}
-                      >
-                        <IonIcon icon={cameraOutline} style={{ fontSize: "56px", color: "#475569", marginBottom: "16px" }} />
+                    {/* CAMERA INACTIVE SCREEN */}
+                    {!cameraActive && currentPoseIndex !== -2 && (
+                      <div style={{ position: 'absolute', inset: 0, background: '#fafbfc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
+                        <IonIcon icon={cameraOutline} style={{ fontSize: '56px', color: '#cbd5e1', marginBottom: '16px' }} />
+                        
                         {cameraError ? (
                           <>
-                            <p style={{ color: "#ef4444", fontSize: "0.9rem", margin: "0 0 16px 0", fontWeight: 600 }}>{cameraError}</p>
-                            <button
-                              onClick={startCamera}
-                              style={{
-                                background: "#6366f1",
-                                color: "#ffffff",
-                                border: "none",
-                                borderRadius: "12px",
-                                padding: "10px 20px",
-                                fontSize: "0.85rem",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                boxShadow: "0 4px 10px rgba(99,102,241,0.2)",
-                              }}
-                            >
-                              Retry Access
+                            <p style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 650, margin: '0 0 16px 0' }}>{cameraError}</p>
+                            <button className="btn-enroll-reset" onClick={startEnrollment} style={{ width: 'max-content', padding: '0 20px', height: '40px' }}>
+                              Retry Camera
                             </button>
                           </>
                         ) : isCameraLoading ? (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                             <IonSpinner name="crescent" color="secondary" />
-                            <p style={{ fontSize: "0.88rem", margin: 0, color: "#94a3b8" }}>Accessing camera device...</p>
+                            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Initializing face scanner...</span>
                           </div>
                         ) : (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
-                            <h3 style={{ color: "#ffffff", margin: "0 0 4px 0", fontSize: "1.1rem", fontWeight: 700 }}>Camera Stream Offline</h3>
-                            <p style={{ color: "#64748b", fontSize: "0.85rem", margin: "0 0 16px 0", maxWidth: "260px", lineHeight: 1.4 }}>
-                              Biometric live camera feed is currently off. Click below to start scanner.
+                          <>
+                            <h4 style={{ margin: '0 0 4px 0', color: '#1e293b', fontWeight: 800, fontSize: '0.95rem' }}>Camera Disconnected</h4>
+                            <p style={{ color: '#64748b', fontSize: '0.8rem', maxWidth: '280px', lineHeight: 1.4, margin: '0 0 20px 0' }}>
+                              Start the biometric scanner to begin the guided 5-pose registration.
                             </p>
-                            <button
-                              onClick={startCamera}
-                              style={{
-                                background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                                color: "#ffffff",
-                                border: "none",
-                                borderRadius: "12px",
-                                padding: "10px 20px",
-                                fontSize: "0.88rem",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                boxShadow: "0 6px 15px rgba(99, 102, 241, 0.25)",
-                              }}
-                            >
-                              <IonIcon icon={cameraOutline} style={{ fontSize: "16px" }} />
-                              Open Camera
+                            <button className="btn-enroll-start" onClick={startEnrollment} style={{ width: 'max-content', padding: '0 24px', height: '46px' }}>
+                              <IonIcon icon={cameraOutline} style={{ fontSize: '18px' }} />
+                              Start Guided Enrollment
                             </button>
-                          </div>
+                          </>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* CONTROLS */}
-                <div className="btn-container">
-                  {/* SCENARIO 1: Live camera active, ready to snap */}
-                  {cameraActive && !capturedPhoto && (
-                    <button
-                      onClick={capturePhoto}
-                      className="btn-action btn-action-primary"
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.transform = "translateY(-1px)";
-                        e.currentTarget.style.boxShadow = "0 12px 24px rgba(99, 102, 241, 0.3)";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.transform = "none";
-                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(99, 102, 241, 0.25)";
-                      }}
-                    >
-                      <IonIcon icon={cameraOutline} style={{ fontSize: "20px" }} />
-                      Capture Live Picture
+                {/* DYNAMIC ACTIONS BAR */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {currentPoseIndex >= 0 && (
+                    <button className="btn-enroll-reset" onClick={resetEnrollment}>
+                      Cancel Enrollment
                     </button>
                   )}
 
-                  {/* SCENARIO 2: Picture has been captured, ready to submit or retake */}
-                  {capturedPhoto && (
-                    <div className="photo-controls-grid">
-                      <button
-                        onClick={retakePhoto}
-                        disabled={isProcessing}
-                        className="btn-action btn-action-secondary"
-                        onMouseOver={(e) => {
-                          if (!isProcessing) e.currentTarget.style.background = "#f8fafc";
-                        }}
-                        onMouseOut={(e) => {
-                          if (!isProcessing) e.currentTarget.style.background = "#ffffff";
-                        }}
-                      >
-                        <IonIcon icon={refreshOutline} style={{ fontSize: "18px" }} />
-                        Retake Photo
+                  {currentPoseIndex === -2 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <button className="btn-enroll-reset" onClick={resetEnrollment} disabled={isProcessing}>
+                        Restart
                       </button>
-
-                      <button
-                        onClick={handleSubmit}
-                        disabled={isProcessing}
-                        className="btn-action btn-action-success"
-                        onMouseOver={(e) => {
-                          if (!isProcessing) {
-                            e.currentTarget.style.transform = "translateY(-1px)";
-                            e.currentTarget.style.boxShadow = "0 12px 24px rgba(16, 185, 129, 0.3)";
-                          }
-                        }}
-                        onMouseOut={(e) => {
-                          if (!isProcessing) {
-                            e.currentTarget.style.transform = "none";
-                            e.currentTarget.style.boxShadow = "0 10px 20px rgba(16, 185, 129, 0.25)";
-                          }
-                        }}
-                      >
+                      <button className="btn-enroll-submit" onClick={handleSubmit} disabled={isProcessing}>
                         {isProcessing ? (
                           <IonSpinner name="bubbles" color="light" />
                         ) : (
                           <>
-                            <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: "18px" }} />
-                            Submit Enrollment
+                            <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '18px' }} />
+                            Submit Profile
                           </>
                         )}
                       </button>
                     </div>
                   )}
-
-                  {/* SCENARIO 3: Camera is disabled / error state */}
-                  {!cameraActive && !capturedPhoto && (
-                    <button
-                      onClick={startCamera}
-                      className="btn-action btn-action-primary"
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.transform = "translateY(-1px)";
-                        e.currentTarget.style.boxShadow = "0 12px 24px rgba(99, 102, 241, 0.25)";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.transform = "none";
-                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(99, 102, 241, 0.25)";
-                      }}
-                    >
-                      <IonIcon icon={cameraOutline} style={{ fontSize: "20px" }} />
-                      Open Camera
-                    </button>
-                  )}
-
-                  <IonButton
-                    expand="block"
-                    fill="clear"
-                    onClick={() => history.push("/ai-attendance-admin-dashboard")}
-                    style={{
-                      height: "44px",
-                      fontSize: "0.95rem",
-                      fontWeight: 600,
-                      "--color": "#64748b",
-                      marginTop: "4px",
-                    }}
-                  >
-                    Back to Admin Dashboard
-                  </IonButton>
                 </div>
 
               </div>
+
             </div>
 
           </div>
@@ -1078,7 +1242,7 @@ const AIAttendanceRegister: React.FC = () => {
               alignItems: "center",
               justifyContent: "center",
               zIndex: 999999,
-              backdropFilter: "blur(4px)",
+              backdropFilter: "blur(6px)",
             }}
           >
             <div
@@ -1087,10 +1251,10 @@ const AIAttendanceRegister: React.FC = () => {
                 maxWidth: "400px",
                 background: "#ffffff",
                 border: "1px solid #e2e8f0",
-                borderRadius: "24px",
+                borderRadius: "28px",
                 padding: "36px",
                 textAlign: "center",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.08)",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.1)",
                 animation: "animate__animated animate__zoomIn animate__fast",
               }}
             >
@@ -1098,7 +1262,7 @@ const AIAttendanceRegister: React.FC = () => {
                 style={{
                   width: "72px",
                   height: "72px",
-                  background: "rgba(16, 185, 129, 0.1)",
+                  background: "rgba(16, 185, 129, 0.08)",
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
@@ -1109,26 +1273,11 @@ const AIAttendanceRegister: React.FC = () => {
                 <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: "40px", color: "#10b981" }} />
               </div>
 
-              <h2
-                style={{
-                  color: "#0f172a",
-                  fontWeight: 800,
-                  fontSize: "1.4rem",
-                  margin: "0 0 10px 0",
-                  letterSpacing: "-0.3px",
-                }}
-              >
+              <h2 style={{ color: "#0f172a", fontWeight: 800, fontSize: "1.4rem", margin: "0 0 10px 0", letterSpacing: "-0.3px" }}>
                 Enrollment Complete
               </h2>
 
-              <p
-                style={{
-                  color: "#64748b",
-                  lineHeight: 1.5,
-                  fontSize: "0.92rem",
-                  margin: "0 0 28px 0",
-                }}
-              >
+              <p style={{ color: "#64748b", lineHeight: 1.5, fontSize: "0.92rem", margin: "0 0 28px 0" }}>
                 {successMessage}
               </p>
 
@@ -1157,7 +1306,7 @@ const AIAttendanceRegister: React.FC = () => {
                   e.currentTarget.style.background = "#10b981";
                 }}
               >
-                Return to Home
+                Return to Dashboard
               </button>
             </div>
           </div>

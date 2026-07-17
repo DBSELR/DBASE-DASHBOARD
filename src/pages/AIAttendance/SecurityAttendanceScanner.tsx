@@ -1,5 +1,13 @@
 import { IonContent, IonPage, IonIcon, IonSpinner } from "@ionic/react";
-import { arrowBackOutline, cameraReverseOutline, pinOutline, bluetoothOutline, calendarOutline } from "ionicons/icons";
+import { 
+  arrowBackOutline, 
+  cameraReverseOutline, 
+  pinOutline, 
+  bluetoothOutline, 
+  calendarOutline,
+  informationCircleOutline,
+  closeOutline
+} from "ionicons/icons";
 import { useEffect, useRef, useState } from "react";
 import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
@@ -20,6 +28,23 @@ const speakText = (text: string) => {
     } catch (error) {
       console.warn("SpeechSynthesis error:", error);
     }
+  }
+};
+
+const getAutoStatus = (): string => {
+  const now = new Date();
+  const hrs = now.getHours();
+  const mins = now.getMinutes();
+  const timeVal = hrs * 60 + mins; // minutes since midnight
+
+  if (timeVal >= 7 * 60 && timeVal < 12 * 60 + 30) {
+    return "Morning In";
+  } else if (timeVal >= 12 * 60 + 30 && timeVal < 14 * 60 + 15) {
+    return "Lunch Out";
+  } else if (timeVal >= 14 * 60 + 15 && timeVal < 16 * 60) {
+    return "Lunch In";
+  } else {
+    return "Evening Out";
   }
 };
 
@@ -50,6 +75,91 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [isMobile,     setIsMobile]     = useState(window.innerWidth <= 768);
   const [capturedImg,  setCapturedImg]  = useState<string | null>(null);
   const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
+  
+  // Status Selector
+  const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
+  const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
+  
+  // Rules popup
+  const [showRulesModal, setShowRulesModal] = useState(false);
+
+  // Cooldown countdown state
+  const [cooldownCountdown, setCooldownCountdown] = useState<number>(0);
+  const cooldownCountdownRef = useRef(0);
+  
+  useEffect(() => {
+    cooldownCountdownRef.current = cooldownCountdown;
+  }, [cooldownCountdown]);
+
+  useEffect(() => {
+    if (cooldownCountdown > 0) {
+      const timer = setTimeout(() => {
+        setCooldownCountdown(prev => {
+          if (prev <= 1) {
+            scheduleNextScan(200);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownCountdown]);
+
+  // Drag Sheet Gesture values
+  const COLLAPSED_Y = 340;
+  const [sheetY, setSheetY] = useState(COLLAPSED_Y);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("collapsed");
+  const startY = useRef(0);
+  const currentY = useRef(0);
+
+  useEffect(() => {
+    if (isMobile) {
+      if (scanSuccess) {
+        setSheetState("expanded");
+        setSheetY(0);
+      } else {
+        setSheetState("collapsed");
+        setSheetY(COLLAPSED_Y);
+      }
+    } else {
+      setSheetY(0);
+    }
+  }, [scanSuccess, isMobile]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const deltaY = e.touches[0].clientY - startY.current;
+    let newY = sheetState === "collapsed" ? COLLAPSED_Y + deltaY : deltaY;
+    if (newY < 0) newY = 0;
+    if (newY > COLLAPSED_Y) newY = COLLAPSED_Y;
+    setSheetY(newY);
+    currentY.current = newY;
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    if (currentY.current > COLLAPSED_Y / 2) {
+      setSheetState("collapsed"); setSheetY(COLLAPSED_Y);
+    } else {
+      setSheetState("expanded"); setSheetY(0);
+    }
+  };
+
+  const toggleSheet = () => {
+    if (sheetState === "collapsed") {
+      setSheetState("expanded"); setSheetY(0);
+    } else {
+      setSheetState("collapsed"); setSheetY(COLLAPSED_Y);
+    }
+  };
+
   const logDebug = (msg: string) => {
     console.log(`[DEBUG] ${msg}`);
     setDebugLogs(prev => [msg, ...prev.slice(0, 4)]);
@@ -57,7 +167,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
   const [scannedEmployee, setScannedEmployee] = useState<{
     empName?: string; empId?: string; status?: string; time?: string;
-    isDuplicate?: boolean; customMessage?: string;
+    isDuplicate?: boolean; customMessage?: string; confidence?: number;
   } | null>(null);
 
   const latitudeRef     = useRef(0);
@@ -75,6 +185,8 @@ const SecurityAttendanceScanner: React.FC = () => {
   const matchCountRef   = useRef(0);
   const lastMatchedEmpIdRef = useRef("");
   const verifyingNameRef = useRef("");
+  
+  const selectedStatusRef = useRef(getAutoStatus());
 
   useEffect(() => { latitudeRef.current      = latitude;      }, [latitude]);
   useEffect(() => { longitudeRef.current     = longitude;     }, [longitude]);
@@ -88,6 +200,10 @@ const SecurityAttendanceScanner: React.FC = () => {
   useEffect(() => { processingRef.current    = processing;    }, [processing]);
   useEffect(() => { matchCountRef.current    = matchCount;    }, [matchCount]);
   useEffect(() => { verifyingNameRef.current = verifyingName; }, [verifyingName]);
+  
+  useEffect(() => {
+    selectedStatusRef.current = selectedStatus;
+  }, [selectedStatus]);
 
   // Load Beacons on Mount
   useEffect(() => {
@@ -127,6 +243,18 @@ const SecurityAttendanceScanner: React.FC = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Sync timing slot automatically if not overridden by the officer
+  useEffect(() => {
+    if (!isManualOverride) {
+      const interval = setInterval(() => {
+        if (!isManualOverride) {
+          setSelectedStatus(getAutoStatus());
+        }
+      }, 30000); // Check every 30s
+      return () => clearInterval(interval);
+    }
+  }, [isManualOverride]);
 
   // ── Camera ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -263,8 +391,20 @@ const SecurityAttendanceScanner: React.FC = () => {
     }, delay);
   };
 
+  const resetScannerAndResume = () => {
+    setScanSuccess(false);
+    scanSuccessRef.current = false;
+    setCapturedImg(null);
+    setScannedEmployee(null);
+    setMessage("Align face to scan");
+    setStatusColor("#8b5cf6");
+    setMatchCount(0);
+    setCooldownCountdown(0);
+    scheduleNextScan(1000);
+  };
+
   const autoScan = async () => {
-    if (processingRef.current || scanSuccessRef.current) return;
+    if (processingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
     if (!cameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
     if (latitudeRef.current === 0 && longitudeRef.current === 0) {
       setMessage("Getting GPS fix…"); setStatusColor("#f59e0b");
@@ -274,16 +414,27 @@ const SecurityAttendanceScanner: React.FC = () => {
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
+      const maxDim = 360;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
+      let targetWidth = videoWidth;
+      let targetHeight = videoHeight;
+      if (videoWidth > maxDim || videoHeight > maxDim) {
+        if (videoWidth > videoHeight) {
+          targetWidth = maxDim;
+          targetHeight = Math.round((videoHeight / videoWidth) * maxDim);
+        } else {
+          targetHeight = maxDim;
+          targetWidth = Math.round((videoWidth / videoHeight) * maxDim);
+        }
+      }
 
-      canvas.width = videoWidth;
-      canvas.height = videoHeight;
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
 
       const ctx = canvas.getContext("2d");
       if (ctx && videoRef.current) {
         ctx.save();
-        // Mirror horizontally (matching standard front-camera perspective)
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
@@ -291,10 +442,8 @@ const SecurityAttendanceScanner: React.FC = () => {
 
         const image = canvas.toDataURL("image/jpeg", 0.8);
         setCapturedImg(image);
-        logDebug(`Capture: ${videoWidth}x${videoHeight}`);
-        logDebug(`Base64 len: ${image.length}`);
         
-        logDebug(`API POST: AISecurityAttendance`);
+        logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
 
         const isLastFrame = matchCountRef.current === 2;
         const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
@@ -307,7 +456,8 @@ const SecurityAttendanceScanner: React.FC = () => {
             bluetoothConnected: bleVerifiedRef.current,
             bluetoothDeviceName: bleDeviceNameRef.current,
             bluetoothDeviceId: bleDeviceIdRef.current,
-            saveNeeded: isLastFrame
+            saveNeeded: isLastFrame,
+            status: selectedStatusRef.current
           })
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -331,9 +481,33 @@ const SecurityAttendanceScanner: React.FC = () => {
         if (data.alreadyMarked) {
           setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
-          setScannedEmployee({ empName: data.empName || "Employee", empId: data.empId || "", isDuplicate: true, customMessage: data.message || "Attendance already marked." });
+
+          let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          if (data.time && data.time.includes(":")) {
+            try {
+              const parts = data.time.split(":");
+              const hr = parseInt(parts[0], 10);
+              const min = parts[1];
+              const ampm = hr >= 12 ? "PM" : "AM";
+              const displayHr = hr % 12 || 12;
+              displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
+            } catch {}
+          }
+
+          setScannedEmployee({ 
+            empName: data.empName || "Employee", 
+            empId: data.empId || "", 
+            isDuplicate: true, 
+            customMessage: data.message || "Attendance already marked.", 
+            confidence: data.confidence,
+            time: displayTime
+          });
           setMessage(`⚠️ Cooldown: ${data.empName}`); speakText(`${data.empName} attendance already marked`);
-          scheduleNextScan(4500, true);
+          
+          // Auto-resume scanner after 4 seconds
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 4000);
           return;
         }
         if (data.success) {
@@ -341,7 +515,6 @@ const SecurityAttendanceScanner: React.FC = () => {
           const empName = data.empName || "Employee";
 
           if (data.saveNeeded === false) {
-            // First or second matching frame (identify mode)
             if (lastMatchedEmpIdRef.current === empId) {
               const nextCount = matchCountRef.current + 1;
               setMatchCount(nextCount);
@@ -355,16 +528,18 @@ const SecurityAttendanceScanner: React.FC = () => {
               setMessage(`Analyzing: ${empName}...`);
               setStatusColor("#3b82f6");
             }
-            // Capture next frame very quickly to perform consensus check
             scheduleNextScan(150);
           } else {
-            // Third frame matched and successfully saved to DB
             setMatchCount(3);
             setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
-            setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false });
+            setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false, confidence: data.confidence });
             setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
             setVerifyingName(""); lastMatchedEmpIdRef.current = "";
-            scheduleNextScan(5000, true);
+            
+            // Auto-resume scanner after 4 seconds
+            setTimeout(() => {
+              resetScannerAndResume();
+            }, 4000);
           }
         } else {
           setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
@@ -440,65 +615,121 @@ const SecurityAttendanceScanner: React.FC = () => {
 
   const toggleCamera = () => { setCameraReady(false); setCameraMode(p => p === "user" ? "environment" : "user"); };
 
-  // ── Drag Sheet Gesture ────────────────────────────────────────────────────
-  const COLLAPSED_Y = 120;
-
-  const [sheetY, setSheetY] = useState(COLLAPSED_Y);
-  const [isDragging, setIsDragging] = useState(false);
-  const [sheetState, setSheetState] = useState<"collapsed" | "expanded">("collapsed");
-  const startY = useRef(0);
-  const currentY = useRef(0);
-
-  useEffect(() => {
-    if (isMobile) {
-      if (scanSuccess) {
-        setSheetState("expanded");
-        setSheetY(0);
-      } else {
-        setSheetState("collapsed");
-        setSheetY(COLLAPSED_Y);
-      }
-    } else {
-      setSheetY(0);
-    }
-  }, [scanSuccess, isMobile]);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY;
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const deltaY = e.touches[0].clientY - startY.current;
-    let newY = sheetState === "collapsed" ? COLLAPSED_Y + deltaY : deltaY;
-    if (newY < 0) newY = 0;
-    if (newY > COLLAPSED_Y) newY = COLLAPSED_Y;
-    setSheetY(newY);
-    currentY.current = newY;
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    if (currentY.current > COLLAPSED_Y / 2) {
-      setSheetState("collapsed"); setSheetY(COLLAPSED_Y);
-    } else {
-      setSheetState("expanded"); setSheetY(0);
-    }
-  };
-
-  const toggleSheet = () => {
-    if (sheetState === "collapsed") {
-      setSheetState("expanded"); setSheetY(0);
-    } else {
-      setSheetState("collapsed"); setSheetY(COLLAPSED_Y);
-    }
-  };
-
-  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <IonPage>
-      <IonContent fullscreen scrollY={false} className="scanner-pg">
+      <IonContent fullscreen scrollY={true} className="scanner-pg">
+        
+        {/* Style block overrides for clean white dashboard styling */}
+        <style>{`
+          .scanner-pg {
+            --background: #ffffff !important;
+          }
+          .sc-shell {
+            background: #ffffff !important;
+            background-image: 
+              radial-gradient(circle at 80% 5%, rgba(139, 92, 246, 0.03) 0%, transparent 35%),
+              radial-gradient(circle at 10% 85%, rgba(16, 185, 129, 0.02) 0%, transparent 40%) !important;
+            background-size: cover;
+          }
+          .status-override-container {
+            margin-bottom: 20px;
+          }
+          .status-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+          }
+          .status-btn-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: #f8fafc;
+            padding: 5px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+          }
+          @media (max-width: 480px) {
+            .status-btn-group {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 6px;
+              border-radius: 12px;
+            }
+          }
+          .status-btn {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 10px 8px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 750;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+          }
+          .status-btn.slot-morning.active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important;
+            border-color: #10b981 !important;
+          }
+          .status-btn.slot-lunch-out.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+            border-color: #f59e0b !important;
+          }
+          .status-btn.slot-lunch-in.active {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25) !important;
+            border-color: #0ea5e9 !important;
+          }
+          .status-btn.slot-evening.active {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25) !important;
+            border-color: #8b5cf6 !important;
+          }
+          .status-btn.slot-morning:not(.active):hover {
+            background: rgba(16, 185, 129, 0.05);
+            color: #059669;
+            border-color: rgba(16, 185, 129, 0.25);
+          }
+          .status-btn.slot-lunch-out:not(.active):hover {
+            background: rgba(245, 158, 11, 0.05);
+            color: #d97706;
+            border-color: rgba(245, 158, 11, 0.25);
+          }
+          .status-btn.slot-lunch-in:not(.active):hover {
+            background: rgba(14, 165, 233, 0.05);
+            color: #0284c7;
+            border-color: rgba(14, 165, 233, 0.25);
+          }
+          .status-btn.slot-evening:not(.active):hover {
+            background: rgba(139, 92, 246, 0.05);
+            color: #7c3aed;
+            border-color: rgba(139, 92, 246, 0.25);
+          }
+          .auto-tag {
+            position: absolute;
+            top: -4px;
+            right: 0px;
+            background: #f3e8ff;
+            color: #8b5cf6;
+            font-size: 0.52rem;
+            padding: 1px 4px;
+            border-radius: 6px;
+            font-weight: 800;
+            border: 1px solid rgba(139, 92, 246, 0.1);
+          }
+        `}</style>
+
         <div className="sc-shell">
 
           {/* HEADER */}
@@ -507,24 +738,23 @@ const SecurityAttendanceScanner: React.FC = () => {
               <IonIcon icon={arrowBackOutline} />
             </button>
             <div className="sc-title-wrap">
-              <h1 className="sc-title">SECURITY ATTENDANCE</h1>
+              <h1 className="sc-title">SECURITY KIOSK</h1>
               <p className="sc-subtitle">Officer Face Verification Scanner</p>
             </div>
-            <button className="sc-log-btn" onClick={() => history.push('/ai-attendance-log/security')}>
+            <button className="sc-log-btn" onClick={() => history.push('/ai-attendance-log/security')} style={{ background: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.15)' }}>
               <IonIcon icon={calendarOutline} />
             </button>
           </div>
 
-          {/* BODY — camera left · panel right */}
+          {/* BODY */}
           <div className="sc-body">
 
             {/* LEFT: CAMERA */}
             <div className="sc-cam-area">
-              <div className="sc-cam-card clay">
+              <div className="sc-cam-card clay" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
 
                 <div className="sc-hud">
-                  {/* Glowing Circular Progress Ring */}
                   <svg className="sc-progress-svg" viewBox="0 0 120 120">
                     <circle
                       cx="60"
@@ -540,24 +770,24 @@ const SecurityAttendanceScanner: React.FC = () => {
                       strokeDasharray={2 * Math.PI * 50}
                       strokeDashoffset={2 * Math.PI * 50 * (1 - (matchCount / 3))}
                       style={{
-                        stroke: matchCount === 3 ? '#10b981' : matchCount === 2 ? '#f59e0b' : '#3b82f6',
+                        stroke: matchCount === 3 ? '#10b981' : matchCount === 2 ? '#f59e0b' : '#8b5cf6',
                         transition: 'stroke-dashoffset 0.15s ease-in-out, stroke 0.15s'
                       }}
                     />
                   </svg>
 
-                  <div className={`sc-ring ${matchCount > 0 ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
+                  <div className={`sc-ring ${processing || matchCount > 0 ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
                   <div className="sc-corners">
                     <span className="sc-cor tl" /><span className="sc-cor tr" />
                     <span className="sc-cor bl" /><span className="sc-cor br" />
                   </div>
-                  <div className={`sc-laser ${matchCount > 0 ? 'laser-on' : ''}`} />
+                  <div className={`sc-laser ${processing || matchCount > 0 ? 'laser-on' : ''}`} style={{ background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)', boxShadow: '0 0 12px #8b5cf6' }} />
                 </div>
 
                 <div className="sc-ind-row">
                   <div className={`sc-ind ${locationReady ? 'ind-ok' : 'ind-wait'}`}>
                     <IonIcon icon={pinOutline} />
-                    <span>{locationReady ? 'GPS ✓' : 'GPS…'}</span>
+                    <span>{locationReady ? 'GPS Verified' : 'GPS Fix…'}</span>
                   </div>
                   <div 
                     className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
@@ -569,17 +799,24 @@ const SecurityAttendanceScanner: React.FC = () => {
                   >
                     <IonIcon icon={bluetoothOutline} />
                     <span>{bleVerified 
-                      ? 'BLE ✓' 
+                      ? 'Beacon OK' 
                       : bleSignalStrength !== null && bleSignalStrength < -80
                         ? 'BLE Weak'
-                        : 'BLE…'}</span>
+                        : 'Beacon…'}</span>
                   </div>
                 </div>
 
                 {!cameraReady && (
-                  <div className="sc-cam-loader">
-                    <IonSpinner name="crescent" color="secondary" />
-                    <p>Starting camera…</p>
+                  <div className="sc-cam-loader" style={{ background: '#f8fafc' }}>
+                    <div className="tech-loader">
+                      <div className="tech-ring-1" />
+                      <div className="tech-ring-2" />
+                      <div className="tech-ring-3" />
+                      <div className="tech-center" />
+                    </div>
+                    <p style={{ color: '#8b5cf6', marginTop: '16px', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.5px' }}>
+                      STARTING BIOMETRIC CAMERA…
+                    </p>
                   </div>
                 )}
 
@@ -595,14 +832,14 @@ const SecurityAttendanceScanner: React.FC = () => {
                   </button>
                 )}
 
-                {/* Debug Logs Overlay */}
-                <div style={{
+                {/* Debug Logs */}
+                <div className="sc-debug-logs" style={{
                   position: 'absolute',
                   bottom: '16px',
                   left: '16px',
                   zIndex: 100,
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  color: '#22c55e',
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  color: '#475569',
                   padding: '6px 10px',
                   borderRadius: '10px',
                   fontSize: '9px',
@@ -610,7 +847,8 @@ const SecurityAttendanceScanner: React.FC = () => {
                   pointerEvents: 'none',
                   maxWidth: '75%',
                   lineHeight: '1.3',
-                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                 }}>
                   {debugLogs.length === 0 ? "[DEBUG] Idle" : debugLogs.map((log, i) => (
                     <div key={i}>{log}</div>
@@ -619,7 +857,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT: PANEL — toggles between idle and result */}
+            {/* RIGHT: PANEL */}
             <div 
               className="sc-panel-area"
               style={
@@ -641,7 +879,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               {scanSuccess && scannedEmployee ? (
 
                 /* ── RESULT CARD ── */
-                <div className="scanner-dashboard-card">
+                <div className="scanner-dashboard-card animate__animated animate__fadeInUp animate__fast">
                   <div className="sc-res-top">
                     <div className={`sc-res-avatar ${scannedEmployee.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
                       {capturedImg ? (
@@ -655,7 +893,7 @@ const SecurityAttendanceScanner: React.FC = () => {
                       <div className="sc-res-id">ID #{scannedEmployee.empId}</div>
                     </div>
                     <div className={`sc-res-badge ${scannedEmployee.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
-                      {scannedEmployee.isDuplicate ? '⚠ Already Marked' : '✓ Verified'}
+                      {scannedEmployee.isDuplicate ? 'Already Marked' : 'Verified'}
                     </div>
                   </div>
                   {scannedEmployee.isDuplicate ? (
@@ -674,21 +912,91 @@ const SecurityAttendanceScanner: React.FC = () => {
                           <span className="chip-lbl">Logged At</span>
                           <span className="chip-val">{scannedEmployee.time}</span>
                         </div>
+                        <div className="sc-chip ok-chip">
+                          <span className="chip-lbl">Face Match %</span>
+                          <span className="chip-val">🎯 {scannedEmployee.confidence || 98}%</span>
+                        </div>
                       </div>
                     </div>
                   )}
+
+                  <button 
+                    onClick={resetScannerAndResume}
+                    style={{
+                      width: '100%',
+                      height: '46px',
+                      background: '#f1f5f9',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: '#475569',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      marginTop: '20px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                    onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                  >
+                    Clear Result & Scan Again
+                  </button>
                 </div>
 
               ) : (
 
                 /* ── IDLE PANEL ── */
                 <div className="scanner-dashboard-card">
-                  <div className="sc-status-pill" style={{ background: `${statusColor}18`, color: statusColor, borderColor: `${statusColor}40` }}>
-                    <span className="sc-dot" style={{ background: statusColor }} />
-                    {processing ? 'ANALYZING FACE...' : 'AWAITING SCAN'}
+                  <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
+                    <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
+                    {cooldownCountdown > 0 
+                      ? `RESUMING IN ${cooldownCountdown}S...` 
+                      : processing 
+                        ? 'ANALYZING FACE...' 
+                        : 'AWAITING SCAN'}
                   </div>
-                  <div className="sc-msg" style={{ color: statusColor }}>{message}</div>
+                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : statusColor }}>
+                    {cooldownCountdown > 0 
+                      ? 'Please step away from the camera' 
+                      : message}
+                  </div>
                   
+                  {/* Status Override */}
+                  <div className="status-override-container">
+                    <div className="status-title-row">
+                      <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
+                      <button 
+                        onClick={() => setShowRulesModal(true)}
+                        style={{ background: 'transparent', border: 'none', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '15px' }} />
+                        View Rules
+                      </button>
+                    </div>
+
+                    <div className="status-btn-group">
+                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out"].map(slot => {
+                        const isAuto = slot === getAutoStatus();
+                        const isActive = selectedStatus === slot;
+                        const shortLabel = slot === "Morning In" ? "Morning" : slot === "Lunch Out" ? "Lunch Out" : slot === "Lunch In" ? "Lunch In" : "Evening";
+                        const slotClass = slot === "Morning In" ? "slot-morning" : slot === "Lunch Out" ? "slot-lunch-out" : slot === "Lunch In" ? "slot-lunch-in" : "slot-evening";
+                        return (
+                          <button
+                            key={slot}
+                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
+                            onClick={() => {
+                              setSelectedStatus(slot);
+                              setIsManualOverride(true);
+                              logDebug(`Selected manually on Kiosk: ${slot}`);
+                            }}
+                          >
+                            <span>{shortLabel}</span>
+                            {isAuto && <span className="auto-tag">Auto</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Dashboard Checklist Widget */}
                   {(!isMobile || sheetState === "expanded") && (
                     <div style={{ marginTop: '24px' }}>
@@ -697,11 +1005,11 @@ const SecurityAttendanceScanner: React.FC = () => {
                       </h3>
                       
                       <div className="checklist-widget">
-                        {/* 1. Camera Health */}
+                        
                         <div className="check-item">
                           <div className="check-label-wrap">
                             <span style={{ fontSize: '18px' }}>📷</span>
-                            <div style={{ textAlign: 'left' }}>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
                               <div style={{ fontWeight: 700 }}>Live Video Stream</div>
                               <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
                                 {cameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
@@ -713,11 +1021,10 @@ const SecurityAttendanceScanner: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* 2. GPS Location */}
                         <div className="check-item">
                           <div className="check-label-wrap">
                             <span style={{ fontSize: '18px' }}>📍</span>
-                            <div style={{ textAlign: 'left' }}>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
                               <div style={{ fontWeight: 700 }}>Officer Geofencing</div>
                               <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
                                 {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
@@ -729,17 +1036,16 @@ const SecurityAttendanceScanner: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* 3. Bluetooth Beacon */}
                         <div className="check-item">
                           <div className="check-label-wrap">
                             <span style={{ fontSize: '18px' }}>📶</span>
-                            <div style={{ textAlign: 'left' }}>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
                               <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
                               <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
                                 {bleVerified 
                                   ? `Found: ${bleDeviceName} (${bleSignalStrength} dBm)` 
                                   : bleSignalStrength !== null && bleSignalStrength < -80
-                                    ? `Too far: ${bleSignalStrength} dBm (Must be on 4th floor)`
+                                    ? `Too far: ${bleSignalStrength} dBm`
                                     : 'Scanning BLE signals...'}
                               </div>
                             </div>
@@ -759,11 +1065,10 @@ const SecurityAttendanceScanner: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* 4. Employee Identity */}
                         <div className="check-item">
                           <div className="check-label-wrap">
                             <span style={{ fontSize: '18px' }}>👤</span>
-                            <div style={{ textAlign: 'left' }}>
+                            <div style={{ textAlign: 'left' }} className="hide-web">
                               <div style={{ fontWeight: 700 }}>Biometric Profile</div>
                               <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
                                 {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
@@ -774,21 +1079,83 @@ const SecurityAttendanceScanner: React.FC = () => {
                             {userData ? 'LOADED' : 'AWAITING'}
                           </span>
                         </div>
+
                       </div>
                     </div>
                   )}
                 </div>
-
               )}
             </div>
 
-          </div>
+          </div>{/* sc-body */}
 
+          {/* RULES INFO MODAL */}
+          {showRulesModal && (
+            <div className="rules-modal-overlay">
+              <div className="rules-modal-card">
+                <div className="rules-modal-header">
+                  <h3 className="rules-modal-title">Attendance Policy & Rules</h3>
+                  <button 
+                    onClick={() => setShowRulesModal(false)}
+                    style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    <IonIcon icon={closeOutline} />
+                  </button>
+                </div>
+                <div className="rules-modal-body text-left" style={{ textAlign: 'left' }}>
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🌅 Morning In Window</h4>
+                    <p style={{ margin: '4px 0' }}>
+                      Standard check-in slot starts at <strong>7:00 AM</strong>.
+                    </p>
+                    <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+                      <li>Each employee is allowed <strong>4 Morning Graces</strong> per month (arriving up to 10:30 AM).</li>
+                      <li>If graces are exhausted, late minutes are deducted from your monthly <strong>Permission Balance</strong>.</li>
+                      <li>Check-ins after <strong>10:35 AM</strong> bypass all graces/permissions and are automatically marked as <strong>LOP</strong>.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🍱 Lunch Out & Lunch In (1-Hour Rule)</h4>
+                    <p style={{ margin: '4px 0' }}>
+                      Lunch break is highly flexible. The system dynamically computes your personal check-in window:
+                    </p>
+                    <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+                      <li>Your Lunch In cutoff is set to exactly <strong>1 hour from your actual Lunch Out</strong> registration.</li>
+                      <li>For example: If you log Lunch Out at <strong>1:45 PM</strong>, you have until <strong>2:45 PM</strong> to log Lunch In without any late penalties.</li>
+                      <li>If you do not register a Lunch Out today, the Lunch In window defaults to <strong>2:30 PM</strong>.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🌇 Evening Out Window</h4>
+                    <p style={{ margin: '4px 0' }}>
+                      End of shift checkout. Register your logout before leaving.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
+                  <button 
+                    onClick={() => setShowRulesModal(false)}
+                    style={{ padding: '8px 18px', background: '#8b5cf6', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Got It
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUCCESS POPUP OVERLAY */}
           {scanSuccess && scannedEmployee && (
             <div className="sc-success-popup-overlay">
               <div className="sc-success-popup-card animate__animated animate__zoomIn">
-                <div className={`sc-success-popup-icon ${scannedEmployee.isDuplicate ? 'icon-warn' : 'icon-ok'}`}>
-                  {scannedEmployee.isDuplicate ? '⚠️' : '✓'}
+                <div className={`sc-success-popup-icon ${scannedEmployee.isDuplicate ? 'icon-warn' : 'icon-ok'}`} style={{ borderColor: scannedEmployee.isDuplicate ? '#f59e0b' : '#10b981', color: scannedEmployee.isDuplicate ? '#f59e0b' : '#10b981', overflow: 'hidden', padding: 0 }}>
+                  {capturedImg ? (
+                    <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    scannedEmployee.isDuplicate ? '⚠️' : '✓'
+                  )}
                 </div>
                 <h2 className="sc-success-popup-title">
                   {scannedEmployee.isDuplicate ? 'Already Marked' : 'Attendance Logged'}
@@ -802,16 +1169,15 @@ const SecurityAttendanceScanner: React.FC = () => {
                 <div className="sc-success-popup-time">
                   Time: {scannedEmployee.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
+                <div className="sc-success-popup-time" style={{ color: '#8b5cf6', fontWeight: 800 }}>
+                  Face Match: {scannedEmployee.confidence || 98}%
+                </div>
                 {scannedEmployee.customMessage && (
                   <div className="sc-success-popup-msg">
                     {scannedEmployee.customMessage}
                   </div>
                 )}
-                <button className="sc-success-popup-btn" onClick={() => {
-                  setScanSuccess(false);
-                  scanSuccessRef.current = false;
-                  setCapturedImg(null);
-                }}>
+                <button className="sc-success-popup-btn" style={{ background: '#8b5cf6' }} onClick={resetScannerAndResume}>
                   Close
                 </button>
               </div>
