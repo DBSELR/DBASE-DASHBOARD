@@ -98,16 +98,16 @@ const getRejectionInfo = (item: any) => {
   return null;
 };
 const RequestList: React.FC<Props> = ({ type, view, status }) => {
-    const [presentAlert] = useIonAlert();
-    const [amountMap, setAmountMap] = useState<{ [key: string]: string }>({});
-const [commentMap, setCommentMap] = useState<{ [key: string]: string }>({});
-const handleAmountChange = (id: string, value: string) => {
-  setAmountMap((prev) => ({ ...prev, [id]: value }));
-};
+  const [presentAlert] = useIonAlert();
+  const [amountMap, setAmountMap] = useState<{ [key: string]: string }>({});
+  const [commentMap, setCommentMap] = useState<{ [key: string]: string }>({});
+  const handleAmountChange = (id: string, value: string) => {
+    setAmountMap((prev) => ({ ...prev, [id]: value }));
+  };
 
-const handleCommentChange = (id: string, value: string) => {
-  setCommentMap((prev) => ({ ...prev, [id]: value }));
-};
+  const handleCommentChange = (id: string, value: string) => {
+    setCommentMap((prev) => ({ ...prev, [id]: value }));
+  };
   const baseUrl = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
 
   const [data, setData] = useState<any[]>([]);
@@ -121,105 +121,105 @@ const handleCommentChange = (id: string, value: string) => {
   );
   const [tripDaysByDuty, setTripDaysByDuty] = useState<{ [key: number]: any[] }>({});
   const [viewModalOpen, setViewModalOpen] = useState(false);
-const [selectedDuty, setSelectedDuty] = useState<any>(null);
+  const [selectedDuty, setSelectedDuty] = useState<any>(null);
 
-const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
-const [selectedEmpCode, setSelectedEmpCode] = useState<string>("0");
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+  const [selectedEmpCode, setSelectedEmpCode] = useState<string>("0");
 
-const [searchTerm, setSearchTerm] = useState("");
-const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
-const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-// Remembers on-screen card order across reloads so that approving/rejecting
-// one item doesn't reshuffle the whole list - the backend can return a
-// different order on refetch (e.g. sorted by status/updated time), which
-// otherwise made the just-actioned card jump to the first slot.
-const prevOrderRef = useRef<string[]>([]);
+  // Remembers on-screen card order across reloads so that approving/rejecting
+  // one item doesn't reshuffle the whole list - the backend can return a
+  // different order on refetch (e.g. sorted by status/updated time), which
+  // otherwise made the just-actioned card jump to the first slot.
+  const prevOrderRef = useRef<string[]>([]);
 
-const [dropdownPos, setDropdownPos] = useState({
-  top: 0,
-  left: 0,
-  width: 0
-});
+  const [dropdownPos, setDropdownPos] = useState({
+    top: 0,
+    left: 0,
+    width: 0
+  });
 
-const [editOtModal, setEditOtModal] = useState(false);
+  const [editOtModal, setEditOtModal] = useState(false);
 
-const [editOT, setEditOT] = useState<any>({
-  lid: "",
-  empcode: "",
-  date: "",
-  client: "",
-  fromtime: "",
-  totime: "",
-  description: "",
-  minDiff: 0,
-  finMinDiff: 0,
-});
-const [permissionModal, setPermissionModal] = useState(false);
+  const [editOT, setEditOT] = useState<any>({
+    lid: "",
+    empcode: "",
+    date: "",
+    client: "",
+    fromtime: "",
+    totime: "",
+    description: "",
+    minDiff: 0,
+    finMinDiff: 0,
+  });
+  const [permissionModal, setPermissionModal] = useState(false);
 
-const [permissionData, setPermissionData] = useState<any[]>([]);
-const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key:string]: string }>({});
-// tracks per-item onduty action: 'approved' | 'rejected' | undefined
-const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved' | 'rejected'>>({});
+  const [permissionData, setPermissionData] = useState<any[]>([]);
+  const [equipmentCodeMap, setEquipmentCodeMap] = useState<{ [key: string]: string }>({});
+  // tracks per-item onduty action: 'approved' | 'rejected' | undefined
+  const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved' | 'rejected'>>({});
 
   const normalize = (x: any) => {
     if (!x) return null;
 
     // ✅ ONDUTY
-   if (type === "onduty") {
-  return {
-    id: x.id,
-    lid: x.id,
+    if (type === "onduty") {
+      return {
+        id: x.id,
+        lid: x.id,
 
-    empNames: safeText(
-      x.empNames ||   // ✅ FIX
-      x.EmpNames ||
-      x.empnames ||
-      x.Empname ||
-      x.empname
-    ),
+        empNames: safeText(
+          x.empNames ||   // ✅ FIX
+          x.EmpNames ||
+          x.empnames ||
+          x.Empname ||
+          x.empname
+        ),
 
-    empcode: safeText(x.empcode),
+        empcode: safeText(x.empcode),
 
-    College: x.college,
-    Description: x.description,
-    Mode_of_Trans: x.mode || x.mode_of_Trans,
-    Vehicle_No: x.vehicle_No,
-    Location: x.location,
+        College: x.college,
+        Description: x.description,
+        Mode_of_Trans: x.mode || x.mode_of_Trans,
+        Vehicle_No: x.vehicle_No,
+        Location: x.location,
 
-    DateFrom: x.dateFrom,
-    DateTo: x.dateTo,
+        DateFrom: x.dateFrom,
+        DateTo: x.dateTo,
 
-    // load_duties_full/load_my_duties often leave Status blank while a
-    // request is still pending (it only gets set once a decision is made)
-    // - default it to "Pending" like the Duty Manager page does, otherwise
-    // the Pending filter tab's substring check finds nothing and the card
-    // silently disappears from that tab.
-    L_status: safeText(x.status) || "Pending",
+        // load_duties_full/load_my_duties often leave Status blank while a
+        // request is still pending (it only gets set once a decision is made)
+        // - default it to "Pending" like the Duty Manager page does, otherwise
+        // the Pending filter tab's substring check finds nothing and the card
+        // silently disappears from that tab.
+        L_status: safeText(x.status) || "Pending",
 
-    CurrentLevel: pick(x, "currentLevel", "CurrentLevel"),
-    MaxLevel: pick(x, "maxLevel", "MaxLevel"),
-    CurrentRA: pick(x, "currentRA", "CurrentRA", "currentRa"),
+        CurrentLevel: pick(x, "currentLevel", "CurrentLevel"),
+        MaxLevel: pick(x, "maxLevel", "MaxLevel"),
+        CurrentRA: pick(x, "currentRA", "CurrentRA", "currentRa"),
 
-    RA1: pick(x, "rA1", "ra1", "RA1"),
-    RA2: pick(x, "rA2", "ra2", "RA2"),
-    RA3: pick(x, "rA3", "ra3", "RA3"),
-    RA4: pick(x, "rA4", "ra4", "RA4"),
+        RA1: pick(x, "rA1", "ra1", "RA1"),
+        RA2: pick(x, "rA2", "ra2", "RA2"),
+        RA3: pick(x, "rA3", "ra3", "RA3"),
+        RA4: pick(x, "rA4", "ra4", "RA4"),
 
-    RA1_Status: pick(x, "rA1_Status", "ra1_Status", "RA1_Status", "ra1Status", "rA1Status"),
-    RA2_Status: pick(x, "rA2_Status", "ra2_Status", "RA2_Status", "ra2Status", "rA2Status"),
-    RA3_Status: pick(x, "rA3_Status", "ra3_Status", "RA3_Status", "ra3Status", "rA3Status"),
-    RA4_Status: pick(x, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status"),
+        RA1_Status: pick(x, "rA1_Status", "ra1_Status", "RA1_Status", "ra1Status", "rA1Status"),
+        RA2_Status: pick(x, "rA2_Status", "ra2_Status", "RA2_Status", "ra2Status", "rA2Status"),
+        RA3_Status: pick(x, "rA3_Status", "ra3_Status", "RA3_Status", "ra3Status", "rA3Status"),
+        RA4_Status: pick(x, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status"),
 
-    dayTrips: x.dayTrips || [],
-  };
-}
+        dayTrips: x.dayTrips || [],
+      };
+    }
 
     // ✅ OVERTIME
     if (type === "overtime") {
       return {
-        
+
         lid: x[0],
         empcode: x[1],
         Empname: x[2],
@@ -231,18 +231,18 @@ const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved'
         MinDiff: x[8],
 
         CurrentLevel: x[11],
-    MaxLevel: x[12],
-    CurrentRA: x[13],
+        MaxLevel: x[12],
+        CurrentRA: x[13],
 
-    RA1: x[15],
-    RA2: x[16],
-    RA3: x[17],
-    RA4: x[18],
+        RA1: x[15],
+        RA2: x[16],
+        RA3: x[17],
+        RA4: x[18],
 
-    RA1_Status: x[19],
-    RA2_Status: x[20],
-    RA3_Status: x[21],
-    RA4_Status: x[22],
+        RA1_Status: x[19],
+        RA2_Status: x[20],
+        RA3_Status: x[21],
+        RA4_Status: x[22],
         L_status: x[23] || "Pending",
       };
     }
@@ -286,48 +286,48 @@ const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved'
 
     // ✅ LEAVE / PERMISSION
     return {
-         lid: x.lid || x.Id,
-    empcode: x.empcode || x.EmpCode,
-    Empname: safeText(x.Empname || x.empname || x.EmpCode),
-    InTime: safeText(x.InTime || x.InTime),
+      lid: pick(x, "lid", "Id", "id"),
+      empcode: pick(x, "empcode", "EmpCode", "empCode"),
+      Empname: safeText(pick(x, "Empname", "empname", "EmpCode", "empName", "empCode")),
+      InTime: safeText(pick(x, "InTime", "inTime")),
 
-    // ✅ EQUIPMENT FIX
-    Remarks: safeText(x.Remarks || x.Purpose),
-    Priority: x.Priority,
-    FilePath: x.FilePath,
-    Amount: x.Amount,
+      // ✅ EQUIPMENT FIX
+      Remarks: safeText(pick(x, "Remarks", "Purpose", "remarks", "purpose")),
+      Priority: pick(x, "Priority", "priority"),
+      FilePath: pick(x, "FilePath", "filePath"),
+      Amount: pick(x, "Amount", "amount"),
 
-    // ✅ DATE
-    lfrom: safeText(x.lfrom),
-    ltype: safeText(x.ltype || x.LType),
-    lto: safeText(x.lto),
-    AppliedOn: safeText(x.AppliedOn),
-    // ✅ STATUS FIX
-    L_status: safeText(x.L_status || x.Status),
-     LeaveCategory: safeText(x.LeaveCategory),
-     Leavemode: safeText(x.Leavemode),
-   ptime: safeText(x.ptime),
-    // ✅ APPROVAL
-    RA1_Status: x.RA1_Status,
-    RA2_Status: x.RA2_Status,
-    RA3_Status: x.RA3_Status,
-    RA4_Status: x.RA4_Status,
+      // ✅ DATE
+      lfrom: safeText(pick(x, "lfrom", "lFrom", "LFrom")),
+      ltype: safeText(pick(x, "ltype", "LType", "lType")),
+      lto: safeText(pick(x, "lto", "lTo", "LTo")),
+      AppliedOn: safeText(pick(x, "AppliedOn", "appliedOn")),
+      // ✅ STATUS FIX
+      L_status: safeText(pick(x, "L_status", "Status", "l_status", "status")),
+      LeaveCategory: safeText(pick(x, "LeaveCategory", "leaveCategory")),
+      Leavemode: safeText(pick(x, "Leavemode", "leavemode", "LeaveMode", "leaveMode")),
+      ptime: safeText(pick(x, "ptime", "pTime")),
+      // ✅ APPROVAL
+      RA1_Status: pick(x, "RA1_Status", "ra1_Status", "rA1_Status", "ra1Status", "rA1Status"),
+      RA2_Status: pick(x, "RA2_Status", "ra2_Status", "rA2_Status", "ra2Status", "rA2Status"),
+      RA3_Status: pick(x, "RA3_Status", "ra3_Status", "rA3_Status", "ra3Status", "rA3Status"),
+      RA4_Status: pick(x, "RA4_Status", "ra4_Status", "rA4_Status", "ra4Status", "rA4Status"),
 
-    CurrentLevel: x.CurrentLevel,
-    MaxLevel: x.MaxLevel,
-    CurrentRA: x.CurrentRA,
+      CurrentLevel: pick(x, "CurrentLevel", "currentLevel"),
+      MaxLevel: pick(x, "MaxLevel", "maxLevel"),
+      CurrentRA: pick(x, "CurrentRA", "currentRA", "currentRa"),
 
-    Slip : x.Slip,
+      Slip: pick(x, "Slip", "slip"),
 
-    RA1: x.RA1,
-    RA2: x.RA2,
-    RA3: x.RA3,
-    RA4: x.RA4,
+      RA1: pick(x, "RA1", "rA1", "ra1"),
+      RA2: pick(x, "RA2", "rA2", "ra2"),
+      RA3: pick(x, "RA3", "rA3", "ra3"),
+      RA4: pick(x, "RA4", "rA4", "ra4"),
 
-    RA1_Comment: x.RA1_Comment,
-    RA2_Comment: x.RA2_Comment,
-    RA3_Comment: x.RA3_Comment,
-    RA4_Comment: x.RA4_Comment,
+      RA1_Comment: pick(x, "RA1_Comment", "ra1_Comment", "rA1_Comment", "ra1Comment", "rA1Comment"),
+      RA2_Comment: pick(x, "RA2_Comment", "ra2_Comment", "rA2_Comment", "ra2Comment", "rA2Comment"),
+      RA3_Comment: pick(x, "RA3_Comment", "ra3_Comment", "rA3_Comment", "ra3Comment", "rA3Comment"),
+      RA4_Comment: pick(x, "RA4_Comment", "ra4_Comment", "rA4_Comment", "ra4Comment", "rA4Comment"),
     };
   };
 
@@ -336,10 +336,10 @@ const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved'
   }, [type, view, selectedMonth]);
 
   useEffect(() => {
-  loadEmployees();
-}, []);
+    loadEmployees();
+  }, []);
 
-useEffect(() => {
+  useEffect(() => {
     const refreshList = () => {
       loadData();
     };
@@ -357,74 +357,74 @@ useEffect(() => {
     };
   }, []);
 
-useEffect(() => {
-  if (isSearchModalOpen && triggerRef.current) {
-    const rect = triggerRef.current.getBoundingClientRect();
+  useEffect(() => {
+    if (isSearchModalOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
 
-    setDropdownPos({
-      top: rect.bottom + window.scrollY + 8,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-    });
-  }
-}, [isSearchModalOpen]);
+      setDropdownPos({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, [isSearchModalOpen]);
 
-const formatEmployeeNames = (value: any) => {
-  if (!value) return [];
+  const formatEmployeeNames = (value: any) => {
+    if (!value) return [];
 
-  const str = String(value);
+    const str = String(value);
 
-  return str
-    .split(",")
-    .map((x) => {
-      const parts = x.split("-");
+    return str
+      .split(",")
+      .map((x) => {
+        const parts = x.split("-");
 
-      if (parts.length >= 2) {
-        const empCode = parts[0]?.trim();
+        if (parts.length >= 2) {
+          const empCode = parts[0]?.trim();
 
-        const empNames = parts
-          .slice(1)
-          .join("-")
-          .trim();
+          const empNames = parts
+            .slice(1)
+            .join("-")
+            .trim();
+
+          return {
+            code: empCode,
+            name:
+              empNames.charAt(0).toUpperCase() +
+              empNames.slice(1).toLowerCase(),
+          };
+        }
 
         return {
-          code: empCode,
-          name:
-            empNames.charAt(0).toUpperCase() +
-            empNames.slice(1).toLowerCase(),
+          code: "",
+          name: x.trim(),
         };
-      }
+      })
+      .filter((x) => x.name);
+  };
 
-      return {
-        code: "",
-        name: x.trim(),
-      };
-    })
-    .filter((x) => x.name);
-};
+  const loadEmployees = async () => {
+    try {
+      const res = await axios.get(
+        `${baseUrl}Employee/Load_Employees?SearchEmp=`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
 
-const loadEmployees = async () => {
-  try {
-    const res = await axios.get(
-      `${baseUrl}Employee/Load_Employees?SearchEmp=`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
+      const mapped = (res.data || []).map((emp: any[]) => ({
+        id: emp[0]?.toString(),
+        name: emp[1],
+      }));
 
-    const mapped = (res.data || []).map((emp: any[]) => ({
-      id: emp[0]?.toString(),
-      name: emp[1],
-    }));
-
-    setEmployees([
-      { id: "0", name: "All Employees" },
-      ...mapped,
-    ]);
-  } catch (err) {
-    console.error(err);
-  }
-};
+      setEmployees([
+        { id: "0", name: "All Employees" },
+        ...mapped,
+      ]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     if (!search) {
@@ -446,38 +446,38 @@ const loadEmployees = async () => {
 
 
 
-// `silent` skips the loading placeholder so a background refresh (e.g.
-// right after approving/rejecting a card) doesn't unmount the whole card
-// list - that swap-to-"Loading..."-and-back is what made the page jump to
-// the top card, since the list collapses to a single line and the browser
-// doesn't restore the old scroll position once it re-expands.
-const loadData = async (silent: boolean = false) => {
-  const empCode = getUser()?.empCode;
-
- 
-const normalizedType = (type || "").toLowerCase().trim();
-
-let leaveType = "";
-
-if (normalizedType === "permission") {
-  leaveType = "Permission";
-} 
-else if (
-  normalizedType === "leave" ||
-  normalizedType === "half day" ||
-  normalizedType === "halfday"
-) {
-  leaveType = ""; // 👈 IMPORTANT: do NOT filter Half Day here
-}
-
-  if (!silent) setLoading(true);
+  // `silent` skips the loading placeholder so a background refresh (e.g.
+  // right after approving/rejecting a card) doesn't unmount the whole card
+  // list - that swap-to-"Loading..."-and-back is what made the page jump to
+  // the top card, since the list collapses to a single line and the browser
+  // doesn't restore the old scroll position once it re-expands.
+  const loadData = async (silent: boolean = false) => {
+    const empCode = getUser()?.empCode;
 
 
+    const normalizedType = (type || "").toLowerCase().trim();
 
-try {
-    let url = "";
+    let leaveType = "";
 
-    if (type === "onduty") {
+    if (normalizedType === "permission") {
+      leaveType = "Permission";
+    }
+    else if (
+      normalizedType === "leave" ||
+      normalizedType === "half day" ||
+      normalizedType === "halfday"
+    ) {
+      leaveType = ""; // 👈 IMPORTANT: do NOT filter Half Day here
+    }
+
+    if (!silent) setLoading(true);
+
+
+
+    try {
+      let url = "";
+
+      if (type === "onduty") {
         url =
           view === "my"
             ? `${baseUrl}OnDuty/load_my_duties?empCode=${empCode}`
@@ -491,169 +491,169 @@ try {
 
       //  EQUIPMENT API
       else if (type === "equipment") {
-  url =
-    view === "my"
-      ? `${baseUrl}EquipmentRequests/MyRequests?empCode=${empCode}`
-      : `${baseUrl}EquipmentRequests/TeamRequests?empCode=${empCode}`;
-} else {
-      const controller = type === "permission" ? "Permission" : "Leave";
-      url =
-        view === "my"
-          ? `${baseUrl}${controller}/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`
-          : `${baseUrl}${controller}/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`;
+        url =
+          view === "my"
+            ? `${baseUrl}EquipmentRequests/MyRequests?empCode=${empCode}`
+            : `${baseUrl}EquipmentRequests/TeamRequests?empCode=${empCode}`;
+      } else {
+        const controller = type === "permission" ? "Permission" : "Leave";
+        url =
+          view === "my"
+            ? `${baseUrl}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`
+            : `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`;
+      }
+
+      const res = await axios.get(url, { headers: getAuthHeaders() });
+
+      const result = (Array.isArray(res.data) ? res.data : [])
+        .map(normalize)
+        .filter(Boolean);
+
+      // Preserve the previous card order: keep items where they were, and
+      // append any newly-seen items at the end in the order the server sent
+      // them, instead of trusting the server's (possibly re-sorted) order.
+      const byId = new Map(result.map((it: any) => [String(it.lid), it]));
+      const orderedResult: any[] = [];
+
+      prevOrderRef.current.forEach((id) => {
+        const item = byId.get(id);
+        if (item) {
+          orderedResult.push(item);
+          byId.delete(id);
+        }
+      });
+
+      result.forEach((it: any) => {
+        if (byId.has(String(it.lid))) {
+          orderedResult.push(it);
+        }
+      });
+
+      prevOrderRef.current = orderedResult.map((it: any) => String(it.lid));
+
+      setData(orderedResult);
+      setFiltered(orderedResult);
+      if (type === "onduty") {
+        //loadTripDays(result);
+      }
+    } catch (e) {
+      console.error(e);
+      if (!silent) {
+        setData([]);
+        setFiltered([]);
+      }
+    } finally {
+      if (!silent) setLoading(false);
     }
+  };
 
-    const res = await axios.get(url, { headers: getAuthHeaders() });
+  const filterByStatus = (item: any) => {
+    const selected = (status || "all").toLowerCase();
+    const raw = (item?.L_status || "").toLowerCase();
 
-    const result = (Array.isArray(res.data) ? res.data : [])
-      .map(normalize)
-      .filter(Boolean);
+    if (selected === "all") return true;
 
-    // Preserve the previous card order: keep items where they were, and
-    // append any newly-seen items at the end in the order the server sent
-    // them, instead of trusting the server's (possibly re-sorted) order.
-    const byId = new Map(result.map((it: any) => [String(it.lid), it]));
-    const orderedResult: any[] = [];
+    const approved = raw.includes("approved") || raw.includes("accepted");
+    const rejected = raw.includes("rejected");
 
-    prevOrderRef.current.forEach((id) => {
-      const item = byId.get(id);
-      if (item) {
-        orderedResult.push(item);
-        byId.delete(id);
-      }
-    });
-
-    result.forEach((it: any) => {
-      if (byId.has(String(it.lid))) {
-        orderedResult.push(it);
-      }
-    });
-
-    prevOrderRef.current = orderedResult.map((it: any) => String(it.lid));
-
-    setData(orderedResult);
-    setFiltered(orderedResult);
+    // On Duty's tabs are viewer-centric rather than overall-status-based:
+    // "Pending" means it's pending AT ME right now (my turn to act), not
+    // just that the request overall isn't finished; "Accepted"/"Rejected"
+    // mean *I* approved/rejected it at my RA level, regardless of whether
+    // later levels have since finished the chain.
     if (type === "onduty") {
-  //loadTripDays(result);
-}
-  } catch (e) {
-    console.error(e);
-    if (!silent) {
-      setData([]);
-      setFiltered([]);
+      const myDecision = getOnDutyMyDecision(item);
+
+      if (selected === "pending") return isOnDutyMyTurn(item);
+      if (selected === "accepted") return myDecision === "approved" || myDecision === "accepted";
+      if (selected === "rejected") return myDecision === "rejected";
+      return true;
     }
-  } finally {
-    if (!silent) setLoading(false);
-  }
-};
 
-const filterByStatus = (item: any) => {
-  const selected = (status || "all").toLowerCase();
-  const raw = (item?.L_status || "").toLowerCase();
+    if (selected === "pending") {
+      return raw.includes("pending");
+    }
 
-  if (selected === "all") return true;
+    if (selected === "accepted") {
+      return approved;
+    }
 
-  const approved = raw.includes("approved") || raw.includes("accepted");
-  const rejected = raw.includes("rejected");
+    if (selected === "rejected") {
+      return rejected;
+    }
 
-  // On Duty's tabs are viewer-centric rather than overall-status-based:
-  // "Pending" means it's pending AT ME right now (my turn to act), not
-  // just that the request overall isn't finished; "Accepted"/"Rejected"
-  // mean *I* approved/rejected it at my RA level, regardless of whether
-  // later levels have since finished the chain.
-  if (type === "onduty") {
-    const myDecision = getOnDutyMyDecision(item);
-
-    if (selected === "pending") return isOnDutyMyTurn(item);
-    if (selected === "accepted") return myDecision === "approved" || myDecision === "accepted";
-    if (selected === "rejected") return myDecision === "rejected";
     return true;
-  }
+  };
 
-  if (selected === "pending") {
-    return raw.includes("pending");
-  }
+  const finalData = filtered
+    .filter(Boolean)
+    .filter(filterByStatus)
+    .filter((x) => {
+      if (selectedEmpCode === "0") return true;
 
-  if (selected === "accepted") {
-    return approved;
-  }
-
-  if (selected === "rejected") {
-    return rejected;
-  }
-
-  return true;
-};
-
-const finalData = filtered
-  .filter(Boolean)
-  .filter(filterByStatus)
-  .filter((x) => {
-    if (selectedEmpCode === "0") return true;
-
-    return String(x.empcode) === String(selectedEmpCode);
-  });
-//  const finalData = filtered.filter(Boolean).filter(filterByStatus);
-const updateOnDuty = async (item: any, status: string) => {
-  try {
-    const payload = {
-      _id: String(item.lid),
-      Status: status === "Accepted" ? "APPROVE" : "REJECT",
-      // @ActionBy is compared to CurrentRA (designation) in the stored procedure
-      _empcode: getUser()?.designation || getUser()?.Designation || "",
-    };
-
-    const res = await axios.post(
-      `${baseUrl}OnDuty/approve_onduty`,
-      payload,
-      { headers: getAuthHeaders() }
-    );
-
-    // SP returns rows serialized as [[Success, Message, id, Status, ...], ...]
-    // Message is at index [1] of the first row
-    let displayMsg = status === "Accepted"
-      ? "On Duty request approved successfully."
-      : "On Duty request rejected successfully.";
-
+      return String(x.empcode) === String(selectedEmpCode);
+    });
+  //  const finalData = filtered.filter(Boolean).filter(filterByStatus);
+  const updateOnDuty = async (item: any, status: string) => {
     try {
-      const rows = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-      if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
-        displayMsg = String(rows[0][1]);
-      }
-    } catch { /* keep default msg */ }
+      const payload = {
+        _id: String(item.lid),
+        Status: status === "Accepted" ? "APPROVE" : "REJECT",
+        // @ActionBy is compared to CurrentRA (designation) in the stored procedure
+        _empcode: getUser()?.designation || getUser()?.Designation || "",
+      };
 
-    presentAlert({
-      header: "Status Update",
-      message: displayMsg,
-      buttons: ["OK"],
-    });
-    // Mark this item locally so buttons update immediately without waiting for reload
-    setOndutyActionMap(prev => ({
-      ...prev,
-      [String(item.lid)]: status === "Accepted" ? "approved" : "rejected",
-    }));
-    loadData(true);
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.title ||
-      (typeof e?.response?.data === "string" ? e.response.data : null) ||
-      e?.message ||
-      "Action failed. Please try again.";
-    presentAlert({
-      header: "Error",
-      message: msg,
-      buttons: ["OK"],
-    });
-    console.error("updateOnDuty error:", e?.response ?? e);
-  }
-};
+      const res = await axios.post(
+        `${baseUrl}OnDuty/approve_onduty`,
+        payload,
+        { headers: getAuthHeaders() }
+      );
 
-const formatTime = (time:any) => {
-  if (!time) return "";
+      // SP returns rows serialized as [[Success, Message, id, Status, ...], ...]
+      // Message is at index [1] of the first row
+      let displayMsg = status === "Accepted"
+        ? "On Duty request approved successfully."
+        : "On Duty request rejected successfully.";
 
-  return moment(time, "HH:mm:ss.SSSSSSS").format("hh:mm A");
-};
+      try {
+        const rows = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
+          displayMsg = String(rows[0][1]);
+        }
+      } catch { /* keep default msg */ }
+
+      presentAlert({
+        header: "Status Update",
+        message: displayMsg,
+        buttons: ["OK"],
+      });
+      // Mark this item locally so buttons update immediately without waiting for reload
+      setOndutyActionMap(prev => ({
+        ...prev,
+        [String(item.lid)]: status === "Accepted" ? "approved" : "rejected",
+      }));
+      loadData(true);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.title ||
+        (typeof e?.response?.data === "string" ? e.response.data : null) ||
+        e?.message ||
+        "Action failed. Please try again.";
+      presentAlert({
+        header: "Error",
+        message: msg,
+        buttons: ["OK"],
+      });
+      console.error("updateOnDuty error:", e?.response ?? e);
+    }
+  };
+
+  const formatTime = (time: any) => {
+    if (!time) return "";
+
+    return moment(time, "HH:mm:ss.SSSSSSS").format("hh:mm A");
+  };
 
   const updateStatus = async (id: string, status: string) => {
     try {
@@ -674,1167 +674,1162 @@ const formatTime = (time:any) => {
     }
   };
 
-  
-const handleApprove = async (item: any) => {
-  try {
-    await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, {
-      RequestId: item.lid,
-      Status: "Accepted",
-      Amount: amountMap[item.lid] || 0,
-      Comment: commentMap[item.lid] || "",
-      EmpCode: getUser()?.empCode,
-    });
 
-    loadData(true);
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const handleReject = async (item: any) => {
-  try {
-    await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, {
-      RequestId: item.lid,
-      Status: "Rejected",
-      Comment: commentMap[item.lid] || "",
-      EmpCode: getUser()?.empCode,
-    });
-
-    loadData(true);
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const handleAssignEquipment = async (item: any) => {
-  try {
-
-    await axios.post(
-      `${baseUrl}EquipmentRequests/UpdateStatus`,
-      {
+  const handleApprove = async (item: any) => {
+    try {
+      await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, {
         RequestId: item.lid,
-        Status: "Assigned",
+        Status: "Accepted",
+        Amount: amountMap[item.lid] || 0,
+        Comment: commentMap[item.lid] || "",
         EmpCode: getUser()?.empCode,
-        ECode: equipmentCodeMap[item.lid]
-      }
-    );
-
-    loadData(true);
-
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const handleReceiveEquipment = async (item: any) => {
-  try {
-
-    await axios.post(
-      `${baseUrl}EquipmentRequests/UpdateStatus`,
-      {
-        RequestId: item.lid,
-        Status: "Received",
-        EmpCode: getUser()?.empCode
-      }
-    );
-
-    loadData(true);
-
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const updateOvertime = async (item: any, status: string) => {
-  try {
-    await axios.post(`${baseUrl}Workreport/UpdateOvertimeStatus`, {
-      Id: item.lid,
-      Status: status,
-      EmpCode: getUser()?.empCode,
-      FinMinDiff: item.MinDiff
-    });
-
-    loadData(true);
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const openOvertimeEdit = (item: any) => {
-  const fromMinutes =
-    Number(item.Fromtime.split(":")[0]) * 60 +
-    Number(item.Fromtime.split(":")[1]);
-
-  const toMinutes =
-    Number(item.Totime.split(":")[0]) * 60 +
-    Number(item.Totime.split(":")[1]);
-
-  const diff = toMinutes - fromMinutes;
-
-  setEditOT({
-    lid: item.lid,
-    empcode: item.empcode,
-     date: moment(item.lfrom).format("YYYY-MM-DD"),
-    client: item.College,
-    fromtime: item.Fromtime,
-    totime: item.Totime,
-    description: item.Remarks,
-    minDiff: diff,
-    finMinDiff: diff,
-  });
-
-  setEditOtModal(true);
-};
-
-const saveEditedOvertime = async () => {
-  try {
-    const fromMinutes =
-      Number(editOT.fromtime.split(":")[0]) * 60 +
-      Number(editOT.fromtime.split(":")[1]);
-
-    const toMinutes =
-      Number(editOT.totime.split(":")[0]) * 60 +
-      Number(editOT.totime.split(":")[1]);
-
-    if (toMinutes <= fromMinutes) {
-      presentAlert({
-        header: "Validation Error",
-        message: "To time should be greater than From time",
-        buttons: ["OK"],
       });
-      return;
+
+      loadData(true);
+    } catch (e) {
+      console.error(e);
     }
-
-    const totalMinutes = toMinutes - fromMinutes;
-
-    const payload = {
-      _empcode: editOT.empcode,
-      _date: editOT.date,
-      _Client: editOT.client,
-      _Fromtime: editOT.fromtime,
-      _Totime: editOT.totime,
-      _Description: editOT.description,
-      _minDiff: String(totalMinutes),
-      _FinMinDiff: String(totalMinutes),
-      _Otid: String(editOT.lid),
-    };
-    console.log("BASE URL", baseUrl);
-
-console.log("SAVE OT PAYLOAD", payload);
-    await axios.post(
-      `${baseUrl}Workreport/save_overtime_duties`,
-      payload,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
-
-    setEditOtModal(false);
-
-    loadData(true);
-
-    presentAlert({
-      header: "Success",
-      message: "Overtime updated successfully",
-      buttons: ["OK"],
-    });
-  } catch (e: any) {
-  console.error("SAVE OT ERROR", e);
-
-  console.log("Response:", e?.response?.data);
-
-  const errorMsg =
-    e?.response?.data?.errors?.["$._Otid"]?.[0] ||
-    e?.response?.data?.title ||
-    "Failed to update overtime";
-
-  presentAlert({
-    header: "Error",
-    message: errorMsg,
-    buttons: ["OK"],
-  });
-}
-};
-
-  const updateEquipment = async (item: any, status: string) => {
-  const payload = {
-    RequestId: item.lid,
-    Status: status,
-    EmpCode: getUser()?.empCode,
-    Amount: amountMap[item.lid] || 0,
-    Comment: commentMap[item.lid] || "",
   };
 
-  await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, payload);
-  loadData(true);
-};
-const getStatusLabel = (item: any) => {
-  // 🔥 SHOW EXACT BACKEND VALUE
-  return item?.L_status || "";
-};
+  const handleReject = async (item: any) => {
+    try {
+      await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, {
+        RequestId: item.lid,
+        Status: "Rejected",
+        Comment: commentMap[item.lid] || "",
+        EmpCode: getUser()?.empCode,
+      });
 
- const getApprovedBy = (item: any) => {
-  if (!item) return null;
-
-  if (item?.L_status?.toLowerCase().includes("rejected")) {
-    return null;
-  }
-
-  const list: string[] = [];
-
-  if (item?.RA1_Status === "Accepted" && item?.RA1)
-    list.push(item.RA1);
-
-  if (item?.RA2_Status === "Accepted" && item?.RA2)
-    list.push(item.RA2);
-
-  if (item?.RA3_Status === "Accepted" && item?.RA3)
-    list.push(item.RA3);
-
-  if (item?.RA4_Status === "Accepted" && item?.RA4)
-    list.push(item.RA4);
-
-  return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
-};
-
-// Hoisted function declarations (not `const`) on purpose: filterByStatus /
-// finalData - defined earlier in this component - call these during
-// render, and a `const` here would leave them in the temporal dead zone
-// at that point since JS doesn't hoist `const` initializers, only the
-// binding. Function declarations are fully hoisted, so this works
-// regardless of where in the file they're written.
-function normalizeText(val: any) {
-  return safeText(val).toLowerCase().replace(/\s/g, "");
-}
-
-
-const canAct = (item: any) => {
-  if (!item) return false;
-
-  const status = normalizeText(item.L_status);
-
-  if (
-    status.includes("approved") ||
-    status.includes("accepted") ||
-    status.includes("rejected")
-  ) {
-    return false;
-  }
-
-  // ✅ OnDuty: any team-view manager/TL can approve pending items
-  if (type === "onduty") {
-    return status.includes("pending") || status === "";
-  }
-
-  const user = normalizeText(getUser()?.designation);
-
-  if (normalizeText(item.ltype) === "permission") {
-    const ra1Approved = normalizeText(item.RA1_Status) === "accepted";
-
-    if (user === normalizeText(item.RA1) && !ra1Approved) {
-      return true;
+      loadData(true);
+    } catch (e) {
+      console.error(e);
     }
-    if (user === normalizeText(item.RA2) && ra1Approved) {
-      return true;
+  };
+
+  const handleAssignEquipment = async (item: any) => {
+    try {
+
+      await axios.post(
+        `${baseUrl}EquipmentRequests/UpdateStatus`,
+        {
+          RequestId: item.lid,
+          Status: "Assigned",
+          EmpCode: getUser()?.empCode,
+          ECode: equipmentCodeMap[item.lid]
+        }
+      );
+
+      loadData(true);
+
+    } catch (e) {
+      console.error(e);
     }
-    return false;
-  }
+  };
 
-  // Existing flow for leave/permission
-  const current = normalizeText(item?.CurrentRA);
-  return current === user;
-};
+  const handleReceiveEquipment = async (item: any) => {
+    try {
 
-// OnDuty team-view: has the logged-in user's own designation already
-// recorded a decision (Approved/Rejected) at any RA1..RA4 level for this
-// request? Needed because canAct()/the overall L_status only reflect the
-// FINAL outcome once every level has acted - a Business Manager who already
-// approved at RA1 would otherwise still see Approve/Reject buttons while the
-// request sits pending at RA2/RA3/RA4, including cases where "Business
-// Manager" happens to be listed at more than one RA slot for the same
-// request. Matching is by designation text, same as the rest of this file.
-function getOnDutyMyDecision(item: any): string {
-  const userDesig = normalizeText(getUser()?.designation);
-  if (!userDesig) return "";
+      await axios.post(
+        `${baseUrl}EquipmentRequests/UpdateStatus`,
+        {
+          RequestId: item.lid,
+          Status: "Received",
+          EmpCode: getUser()?.empCode
+        }
+      );
 
-  const raSlots = [item?.RA1, item?.RA2, item?.RA3, item?.RA4];
-  const raStatuses = [
-    item?.RA1_Status,
-    item?.RA2_Status,
-    item?.RA3_Status,
-    item?.RA4_Status,
-  ];
+      loadData(true);
 
-  for (let i = 0; i < raSlots.length; i++) {
-    const raNorm = normalizeText(raSlots[i]);
-    if (!raNorm || raNorm === "-") continue;
-    if (raNorm !== userDesig) continue;
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-    const s = normalizeText(raStatuses[i]);
-    if (s === "approved" || s === "accepted" || s === "rejected") return s;
-  }
+  const updateOvertime = async (item: any, status: string) => {
+    try {
+      await axios.post(`${baseUrl}Workreport/UpdateOvertimeStatus`, {
+        Id: item.lid,
+        Status: status,
+        EmpCode: getUser()?.empCode,
+        FinMinDiff: item.MinDiff
+      });
 
-  return "";
-}
+      loadData(true);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-// Builds the "Approved By: Business Manager → HR" trail for an On Duty
-// team-view card - one entry per populated RA1..RA4 slot, colored by that
-// slot's own status (approved = green, rejected = red, still pending =
-// blue), independent of the other status flags used elsewhere.
-function getOnDutyChain(item: any) {
-  const slots = [
-    { role: item?.RA1, status: item?.RA1_Status },
-    { role: item?.RA2, status: item?.RA2_Status },
-    { role: item?.RA3, status: item?.RA3_Status },
-    { role: item?.RA4, status: item?.RA4_Status },
-  ];
+  const openOvertimeEdit = (item: any) => {
+    const fromMinutes =
+      Number(item.Fromtime.split(":")[0]) * 60 +
+      Number(item.Fromtime.split(":")[1]);
 
-  return slots
-    .filter((s) => {
-      const roleNorm = normalizeText(s.role);
-      return roleNorm && roleNorm !== "-";
-    })
-    .map((s) => {
-      const st = normalizeText(s.status);
-      const color =
-        st === "approved" || st === "accepted"
-          ? "approved"
-          : st === "rejected"
-          ? "rejected"
-          : "pending";
-      return { role: String(s.role).trim(), color };
+    const toMinutes =
+      Number(item.Totime.split(":")[0]) * 60 +
+      Number(item.Totime.split(":")[1]);
+
+    const diff = toMinutes - fromMinutes;
+
+    setEditOT({
+      lid: item.lid,
+      empcode: item.empcode,
+      date: moment(item.lfrom).format("YYYY-MM-DD"),
+      client: item.College,
+      fromtime: item.Fromtime,
+      totime: item.Totime,
+      description: item.Remarks,
+      minDiff: diff,
+      finMinDiff: diff,
     });
-}
 
-// Is it currently this viewer's own turn to act on this On Duty request -
-// i.e. the "PENDING AT" role matches their own designation. Shared between
-// the card's button gating and the status filter's "Pending" tab.
-function isOnDutyMyTurn(item: any) {
-  return !!item?.CurrentRA && normalizeText(item.CurrentRA) === normalizeText(getUser()?.designation);
-}
+    setEditOtModal(true);
+  };
 
-// const canAct = (item: any) => {
-//   if (!item) return false;
+  const saveEditedOvertime = async () => {
+    try {
+      const fromMinutes =
+        Number(editOT.fromtime.split(":")[0]) * 60 +
+        Number(editOT.fromtime.split(":")[1]);
 
-//   const status = normalizeText(item.L_status);
+      const toMinutes =
+        Number(editOT.totime.split(":")[0]) * 60 +
+        Number(editOT.totime.split(":")[1]);
 
-//   // ❌ already completed
-//   if (
-//     status.includes("approved") ||
-//     status.includes("accepted") ||
-//     status.includes("rejected")
-//   ) {
-//     return false;
-//   }
+      if (toMinutes <= fromMinutes) {
+        presentAlert({
+          header: "Validation Error",
+          message: "To time should be greater than From time",
+          buttons: ["OK"],
+        });
+        return;
+      }
 
-//   const user = normalizeText(getUser()?.designation);
-//   const current = normalizeText(item?.CurrentRA);
+      const totalMinutes = toMinutes - fromMinutes;
 
-//   return current === user;
-// };
+      const payload = {
+        _empcode: editOT.empcode,
+        _date: editOT.date,
+        _Client: editOT.client,
+        _Fromtime: editOT.fromtime,
+        _Totime: editOT.totime,
+        _Description: editOT.description,
+        _minDiff: String(totalMinutes),
+        _FinMinDiff: String(totalMinutes),
+        _Otid: String(editOT.lid),
+      };
+      console.log("BASE URL", baseUrl);
+
+      console.log("SAVE OT PAYLOAD", payload);
+      await axios.post(
+        `${baseUrl}Workreport/save_overtime_duties`,
+        payload,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
+
+      setEditOtModal(false);
+
+      loadData(true);
+
+      presentAlert({
+        header: "Success",
+        message: "Overtime updated successfully",
+        buttons: ["OK"],
+      });
+    } catch (e: any) {
+      console.error("SAVE OT ERROR", e);
+
+      console.log("Response:", e?.response?.data);
+
+      const errorMsg =
+        e?.response?.data?.errors?.["$._Otid"]?.[0] ||
+        e?.response?.data?.title ||
+        "Failed to update overtime";
+
+      presentAlert({
+        header: "Error",
+        message: errorMsg,
+        buttons: ["OK"],
+      });
+    }
+  };
+
+  const updateEquipment = async (item: any, status: string) => {
+    const payload = {
+      RequestId: item.lid,
+      Status: status,
+      EmpCode: getUser()?.empCode,
+      Amount: amountMap[item.lid] || 0,
+      Comment: commentMap[item.lid] || "",
+    };
+
+    await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, payload);
+    loadData(true);
+  };
+  const getStatusLabel = (item: any) => {
+    // 🔥 SHOW EXACT BACKEND VALUE
+    return item?.L_status || "";
+  };
+
+  const getApprovedBy = (item: any) => {
+    if (!item) return null;
+
+    if (item?.L_status?.toLowerCase().includes("rejected")) {
+      return null;
+    }
+
+    const list: string[] = [];
+
+    if (item?.RA1_Status === "Accepted" && item?.RA1)
+      list.push(item.RA1);
+
+    if (item?.RA2_Status === "Accepted" && item?.RA2)
+      list.push(item.RA2);
+
+    if (item?.RA3_Status === "Accepted" && item?.RA3)
+      list.push(item.RA3);
+
+    if (item?.RA4_Status === "Accepted" && item?.RA4)
+      list.push(item.RA4);
+
+    return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
+  };
+
+  // Hoisted function declarations (not `const`) on purpose: filterByStatus /
+  // finalData - defined earlier in this component - call these during
+  // render, and a `const` here would leave them in the temporal dead zone
+  // at that point since JS doesn't hoist `const` initializers, only the
+  // binding. Function declarations are fully hoisted, so this works
+  // regardless of where in the file they're written.
+  function normalizeText(val: any) {
+    return safeText(val).toLowerCase().replace(/\s/g, "");
+  }
+
+
+  const canAct = (item: any) => {
+    if (!item) return false;
+
+    const status = normalizeText(item.L_status);
+
+    if (
+      status.includes("approved") ||
+      status.includes("accepted") ||
+      status.includes("rejected")
+    ) {
+      return false;
+    }
+
+    // ✅ OnDuty: any team-view manager/TL can approve pending items
+    if (type === "onduty") {
+      return status.includes("pending") || status === "";
+    }
+
+    const user = normalizeText(getUser()?.designation);
+
+    if (normalizeText(item.ltype) === "permission") {
+      const ra1Approved = normalizeText(item.RA1_Status) === "accepted";
+
+      if (user === normalizeText(item.RA1) && !ra1Approved) {
+        return true;
+      }
+      if (user === normalizeText(item.RA2) && ra1Approved) {
+        return true;
+      }
+      return false;
+    }
+
+    // Existing flow for leave/permission
+    const current = normalizeText(item?.CurrentRA);
+    return current === user;
+  };
+
+  // OnDuty team-view: has the logged-in user's own designation already
+  // recorded a decision (Approved/Rejected) at any RA1..RA4 level for this
+  // request? Needed because canAct()/the overall L_status only reflect the
+  // FINAL outcome once every level has acted - a Business Manager who already
+  // approved at RA1 would otherwise still see Approve/Reject buttons while the
+  // request sits pending at RA2/RA3/RA4, including cases where "Business
+  // Manager" happens to be listed at more than one RA slot for the same
+  // request. Matching is by designation text, same as the rest of this file.
+  function getOnDutyMyDecision(item: any): string {
+    const userDesig = normalizeText(getUser()?.designation);
+    if (!userDesig) return "";
+
+    const raSlots = [item?.RA1, item?.RA2, item?.RA3, item?.RA4];
+    const raStatuses = [
+      item?.RA1_Status,
+      item?.RA2_Status,
+      item?.RA3_Status,
+      item?.RA4_Status,
+    ];
+
+    for (let i = 0; i < raSlots.length; i++) {
+      const raNorm = normalizeText(raSlots[i]);
+      if (!raNorm || raNorm === "-") continue;
+      if (raNorm !== userDesig) continue;
+
+      const s = normalizeText(raStatuses[i]);
+      if (s === "approved" || s === "accepted" || s === "rejected") return s;
+    }
+
+    return "";
+  }
+
+  // Builds the "Approved By: Business Manager → HR" trail for an On Duty
+  // team-view card - one entry per populated RA1..RA4 slot, colored by that
+  // slot's own status (approved = green, rejected = red, still pending =
+  // blue), independent of the other status flags used elsewhere.
+  function getOnDutyChain(item: any) {
+    const slots = [
+      { role: item?.RA1, status: item?.RA1_Status },
+      { role: item?.RA2, status: item?.RA2_Status },
+      { role: item?.RA3, status: item?.RA3_Status },
+      { role: item?.RA4, status: item?.RA4_Status },
+    ];
+
+    return slots
+      .filter((s) => {
+        const roleNorm = normalizeText(s.role);
+        return roleNorm && roleNorm !== "-";
+      })
+      .map((s) => {
+        const st = normalizeText(s.status);
+        const color =
+          st === "approved" || st === "accepted"
+            ? "approved"
+            : st === "rejected"
+              ? "rejected"
+              : "pending";
+        return { role: String(s.role).trim(), color };
+      });
+  }
+
+  // Is it currently this viewer's own turn to act on this On Duty request -
+  // i.e. the "PENDING AT" role matches their own designation. Shared between
+  // the card's button gating and the status filter's "Pending" tab.
+  function isOnDutyMyTurn(item: any) {
+    return !!item?.CurrentRA && normalizeText(item.CurrentRA) === normalizeText(getUser()?.designation);
+  }
+
+  // const canAct = (item: any) => {
+  //   if (!item) return false;
+
+  //   const status = normalizeText(item.L_status);
+
+  //   // ❌ already completed
+  //   if (
+  //     status.includes("approved") ||
+  //     status.includes("accepted") ||
+  //     status.includes("rejected")
+  //   ) {
+  //     return false;
+  //   }
+
+  //   const user = normalizeText(getUser()?.designation);
+  //   const current = normalizeText(item?.CurrentRA);
+
+  //   return current === user;
+  // };
   const cleanDate = (val: any) => {
-  if (!val) return "";
+    if (!val) return "";
 
-  // if object → invalid backend junk
-  if (typeof val === "object") return "";
+    // if object → invalid backend junk
+    if (typeof val === "object") return "";
 
-  const str = String(val).trim();
+    const str = String(val).trim();
 
-  if (str === "{}" || str === "null" || str === "undefined") return "";
+    if (str === "{}" || str === "null" || str === "undefined") return "";
 
-  return str;
-};
+    return str;
+  };
 
-const fmtDate = (val?: string) => {
-  if (!val) return "";
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return String(val);
-  return moment(d).format("DD-MM-YYYY");
-};
+  const fmtDate = (val?: string) => {
+    if (!val) return "";
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return moment(d).format("DD-MM-YYYY");
+  };
 
-const formatLeaveCategory = (value: any) => {
-  if (!value) return "-";
+  const formatLeaveCategory = (value: any) => {
+    if (!value) return "-";
 
-  const v = String(value).trim();
+    const v = String(value).trim();
 
-  if (v.toLowerCase() === "forenoon") {
-    return "Casual (Forenoon)";
-  }
-
-  if (v.toLowerCase() === "afternoon") {
-    return "Casual (Afternoon)";
-  }
-
-  return v;
-};
-
-if (type === "onduty" && view === "my") {
-  return null; // 🔥 completely hide OnDuty in My Requests
-}
-
-const loadPermissionDashboard = async (empcode?: string) => {
-  try {
-    const m =
-      moment(selectedMonth, "MMM-YYYY").month() + 1;
-
-    const y =
-      moment(selectedMonth, "MMM-YYYY").year();
-
-    let finalEmp = "";
-
-    // ✅ MY REQUESTS
-    if (view === "my") {
-      finalEmp = getUser()?.empCode;
+    if (v.toLowerCase() === "forenoon") {
+      return "Casual (Forenoon)";
     }
 
-    // ✅ TEAM REQUESTS
-    else {
-      // selected employee
-      if (
-        selectedEmpCode &&
-        selectedEmpCode !== "0"
-      ) {
-        finalEmp = selectedEmpCode;
+    if (v.toLowerCase() === "afternoon") {
+      return "Casual (Afternoon)";
+    }
+
+    return v;
+  };
+
+  if (type === "onduty" && view === "my") {
+    return null; // 🔥 completely hide OnDuty in My Requests
+  }
+
+  const loadPermissionDashboard = async (empcode?: string) => {
+    try {
+      const m =
+        moment(selectedMonth, "MMM-YYYY").month() + 1;
+
+      const y =
+        moment(selectedMonth, "MMM-YYYY").year();
+
+      let finalEmp = "";
+
+      // ✅ MY REQUESTS
+      if (view === "my") {
+        finalEmp = getUser()?.empCode;
       }
 
-      // all reporting employees
+      // ✅ TEAM REQUESTS
       else {
-        finalEmp = "";
+        // selected employee
+        if (
+          selectedEmpCode &&
+          selectedEmpCode !== "0"
+        ) {
+          finalEmp = selectedEmpCode;
+        }
+
+        // all reporting employees
+        else {
+          finalEmp = "";
+        }
       }
+
+      const res = await axios.get(
+        `${baseUrl}Permission/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
+
+      setPermissionData(res.data || []);
+
+      setPermissionModal(true);
+
+    } catch (e) {
+      console.error(e);
     }
+  };
 
-    const res = await axios.get(
-      `${baseUrl}Permission/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
+  const loadTeamPermissionDashboard = async () => {
+    try {
 
-    setPermissionData(res.data || []);
+      const m =
+        moment(selectedMonth, "MMM-YYYY").month() + 1;
 
-    setPermissionModal(true);
+      const y =
+        moment(selectedMonth, "MMM-YYYY").year();
 
-  } catch (e) {
-    console.error(e);
-  }
-};
+      const res = await axios.get(
+        `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=${getUser()?.empCode}&Month=${m}&Year=${y}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
 
-const loadTeamPermissionDashboard = async () => {
-  try {
+      setPermissionData(res.data || []);
 
-    const m =
-      moment(selectedMonth, "MMM-YYYY").month() + 1;
+      setPermissionModal(true);
 
-    const y =
-      moment(selectedMonth, "MMM-YYYY").year();
-
-    const res = await axios.get(
-      `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=${getUser()?.empCode}&Month=${m}&Year=${y}`,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
-
-    setPermissionData(res.data || []);
-
-    setPermissionModal(true);
-
-  } catch (e) {
-    console.error(e);
-  }
-};
+    } catch (e) {
+      console.error(e);
+    }
+  };
   return (
     <div style={{ width: '100%' }}>
-     
-     
 
-    {/* FILTERS */}
-{view !== "my" ? (
-  <div className="filters-grid">
 
-    {/* EMPLOYEE FILTER */}
-    <div className="custom-dropdown-container" ref={triggerRef}>
-      <div
-        className={`premium-filter-trigger ${
-          isSearchModalOpen ? "active" : ""
-        }`}
-        onClick={() => setIsSearchModalOpen(!isSearchModalOpen)}
-      >
-        <div className="trigger-content">
-          <div className="trigger-icon-box">
-            <IonIcon icon={personOutline} />
+
+      {/* FILTERS */}
+      {view !== "my" ? (
+        <div className="filters-grid">
+
+          {/* EMPLOYEE FILTER */}
+          <div className="custom-dropdown-container" ref={triggerRef}>
+            <div
+              className={`premium-filter-trigger ${isSearchModalOpen ? "active" : ""
+                }`}
+              onClick={() => setIsSearchModalOpen(!isSearchModalOpen)}
+            >
+              <div className="trigger-content">
+                <div className="trigger-icon-box">
+                  <IonIcon icon={personOutline} />
+                </div>
+
+                <div className="trigger-text-sec">
+                  <span className="trigger-sub">Employee</span>
+
+                  <span className="trigger-main">
+                    {employees.find((e) => e.id === selectedEmpCode)?.name ||
+                      "Select Employee"}
+                  </span>
+                </div>
+              </div>
+
+              <IonIcon
+                icon={layersOutline}
+                className="trigger-icon-arrow"
+              />
+            </div>
+
+            {isSearchModalOpen &&
+              createPortal(
+                <>
+                  <div
+                    className="dropdown-outside-click-layer"
+                    onClick={() => setIsSearchModalOpen(false)}
+                  />
+
+                  <div
+                    className="custom-inline-dropdown"
+                    style={{
+                      position: "absolute",
+                      top: `${dropdownPos.top}px`,
+                      left: `${dropdownPos.left}px`,
+                      width: `${dropdownPos.width}px`,
+                    }}
+                  >
+                    <div className="dropdown-search-sec">
+                      <IonIcon
+                        icon={searchOutline}
+                        className="dropdown-search-icon"
+                      />
+
+                      <input
+                        type="text"
+                        className="dropdown-pure-input"
+                        placeholder="Search employee..."
+                        value={searchTerm}
+                        onChange={(e) =>
+                          setSearchTerm(e.target.value)
+                        }
+                        autoFocus
+                      />
+
+                      {searchTerm && (
+                        <button
+                          className="dropdown-clear-btn"
+                          onClick={() => setSearchTerm("")}
+                        >
+                          <IonIcon icon={closeCircle} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="dropdown-body">
+                      {employees
+                        .filter(
+                          (emp) =>
+                            emp.name
+                              .toLowerCase()
+                              .includes(searchTerm.toLowerCase()) ||
+                            emp.id
+                              .toLowerCase()
+                              .includes(searchTerm.toLowerCase())
+                        )
+                        .map((emp) => {
+                          const isSelected =
+                            selectedEmpCode === emp.id;
+
+                          const nameWithoutId = emp.name.includes("-")
+                            ? emp.name.split("-")[1].trim()
+                            : emp.name;
+
+                          const initials =
+                            nameWithoutId.charAt(0).toUpperCase();
+
+                          return (
+                            <div
+                              key={emp.id}
+                              className={`dropdown-emp-item ${isSelected ? "selected" : ""
+                                }`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                setSelectedEmpCode(emp.id);
+
+                                setIsSearchModalOpen(false);
+
+                                setSearchTerm("");
+                              }}
+                            >
+                              <div
+                                className={`dr-avatar grad-${(parseInt(emp.id) % 5) || 0
+                                  }`}
+                              >
+                                {emp.id === "0" ? (
+                                  <IonIcon icon={layersOutline} />
+                                ) : (
+                                  initials
+                                )}
+                              </div>
+
+                              <div className="dr-info">
+                                <span className="dr-name">
+                                  {emp.name}
+                                </span>
+
+                                <span className="dr-id">
+                                  {emp.id === "0"
+                                    ? "Global"
+                                    : `ID: ${emp.id}`}
+                                </span>
+                              </div>
+
+                              {isSelected && (
+                                <IonIcon
+                                  icon={checkmarkCircle}
+                                  className="dr-check"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </>,
+                document.body
+              )}
           </div>
 
-          <div className="trigger-text-sec">
-            <span className="trigger-sub">Employee</span>
+          {/* MONTH FILTER */}
+          <div className="custom-dropdown-container">
+            <div className="premium-filter-trigger">
+              <div className="trigger-content">
+                <div className="trigger-icon-box">
+                  <IonIcon icon={calendarOutline} />
+                </div>
 
-            <span className="trigger-main">
-              {employees.find((e) => e.id === selectedEmpCode)?.name ||
-                "Select Employee"}
-            </span>
+                <div className="trigger-text-sec">
+                  <span className="trigger-sub">Period</span>
+                  <span className="trigger-main">
+                    {selectedMonth}
+                  </span>
+                </div>
+              </div>
+
+              <IonIcon
+                icon={layersOutline}
+                className="trigger-icon-arrow"
+              />
+
+              <IonSelect
+                className="hidden-select-overlay"
+                interface="popover"
+                toggleIcon={undefined}
+                value={selectedMonth}
+                onIonChange={(e) =>
+                  setSelectedMonth(e.detail.value)
+                }
+              >
+                {months.map((m) => (
+                  <IonSelectOption key={m} value={m}>
+                    {m}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
+            </div>
           </div>
-        </div>
-
-        <IonIcon
-          icon={layersOutline}
-          className="trigger-icon-arrow"
-        />
-      </div>
-
-      {isSearchModalOpen &&
-        createPortal(
-          <>
-            <div
-              className="dropdown-outside-click-layer"
-              onClick={() => setIsSearchModalOpen(false)}
-            />
-
-            <div
-              className="custom-inline-dropdown"
-              style={{
-                position: "absolute",
-                top: `${dropdownPos.top}px`,
-                left: `${dropdownPos.left}px`,
-                width: `${dropdownPos.width}px`,
+          {type === "permission" && (
+            <button
+              className="permission-dashboard-btn top-dashboard-btn"
+              onClick={() => {
+                if (view === "my") {
+                  loadPermissionDashboard();
+                } else {
+                  loadTeamPermissionDashboard();
+                }
               }}
             >
-              <div className="dropdown-search-sec">
-                <IonIcon
-                  icon={searchOutline}
-                  className="dropdown-search-icon"
-                />
+              <IonIcon icon={speedometerOutline} />
+            </button>
+          )}
+        </div>
+      ) : (
+        /* ONLY MONTH FILTER FOR "my" VIEW */
+        <div className="filters-grid">
 
-                <input
-                  type="text"
-                  className="dropdown-pure-input"
-                  placeholder="Search employee..."
-                  value={searchTerm}
-                  onChange={(e) =>
-                    setSearchTerm(e.target.value)
-                  }
-                  autoFocus
-                />
+          <div className="custom-dropdown-container">
+            <div className="premium-filter-trigger">
+              <div className="trigger-content">
+                <div className="trigger-icon-box">
+                  <IonIcon icon={calendarOutline} />
+                </div>
 
-                {searchTerm && (
-                  <button
-                    className="dropdown-clear-btn"
-                    onClick={() => setSearchTerm("")}
-                  >
-                    <IonIcon icon={closeCircle} />
-                  </button>
-                )}
+                <div className="trigger-text-sec">
+                  <span className="trigger-sub">Period</span>
+                  <span className="trigger-main">
+                    {selectedMonth}
+                  </span>
+                </div>
               </div>
 
-              <div className="dropdown-body">
-                {employees
-                  .filter(
-                    (emp) =>
-                      emp.name
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase()) ||
-                      emp.id
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase())
-                  )
-                  .map((emp) => {
-                    const isSelected =
-                      selectedEmpCode === emp.id;
+              <IonIcon
+                icon={layersOutline}
+                className="trigger-icon-arrow"
+              />
 
-                    const nameWithoutId = emp.name.includes("-")
-                      ? emp.name.split("-")[1].trim()
-                      : emp.name;
-
-                    const initials =
-                      nameWithoutId.charAt(0).toUpperCase();
-
-                    return (
-                      <div
-                        key={emp.id}
-                        className={`dropdown-emp-item ${
-                          isSelected ? "selected" : ""
-                        }`}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-
-                          setSelectedEmpCode(emp.id);
-
-                          setIsSearchModalOpen(false);
-
-                          setSearchTerm("");
-                        }}
-                      >
-                        <div
-                          className={`dr-avatar grad-${
-                            (parseInt(emp.id) % 5) || 0
-                          }`}
-                        >
-                          {emp.id === "0" ? (
-                            <IonIcon icon={layersOutline} />
-                          ) : (
-                            initials
-                          )}
-                        </div>
-
-                        <div className="dr-info">
-                          <span className="dr-name">
-                            {emp.name}
-                          </span>
-
-                          <span className="dr-id">
-                            {emp.id === "0"
-                              ? "Global"
-                              : `ID: ${emp.id}`}
-                          </span>
-                        </div>
-
-                        {isSelected && (
-                          <IonIcon
-                            icon={checkmarkCircle}
-                            className="dr-check"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
+              <IonSelect
+                className="hidden-select-overlay"
+                interface="popover"
+                toggleIcon="none"
+                value={selectedMonth}
+                onIonChange={(e) =>
+                  setSelectedMonth(e.detail.value)
+                }
+              >
+                {months.map((m) => (
+                  <IonSelectOption key={m} value={m}>
+                    {m}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
             </div>
-          </>,
-          document.body
-        )}
-    </div>
-
-    {/* MONTH FILTER */}
-    <div className="custom-dropdown-container">
-      <div className="premium-filter-trigger">
-        <div className="trigger-content">
-          <div className="trigger-icon-box">
-            <IonIcon icon={calendarOutline} />
           </div>
-
-          <div className="trigger-text-sec">
-            <span className="trigger-sub">Period</span>
-            <span className="trigger-main">
-              {selectedMonth}
-            </span>
-          </div>
+          {type === "permission" && (
+            <button
+              className="permission-dashboard-btn top-dashboard-btn"
+              onClick={() => loadPermissionDashboard()}
+            >
+              <IonIcon icon={speedometerOutline} />
+            </button>
+          )}
         </div>
-
-        <IonIcon
-          icon={layersOutline}
-          className="trigger-icon-arrow"
-        />
-
-        <IonSelect
-          className="hidden-select-overlay"
-          interface="popover"
-         toggleIcon={undefined}
-          value={selectedMonth}
-          onIonChange={(e) =>
-            setSelectedMonth(e.detail.value)
-          }
-        >
-          {months.map((m) => (
-            <IonSelectOption key={m} value={m}>
-              {m}
-            </IonSelectOption>
-          ))}
-        </IonSelect>
-      </div>
-    </div>
-    {type === "permission" && (
-  <button
-    className="permission-dashboard-btn top-dashboard-btn"
-    onClick={() => {
-      if (view === "my") {
-        loadPermissionDashboard();
-      } else {
-        loadTeamPermissionDashboard();
-      }
-    }}
-  >
-    <IonIcon icon={speedometerOutline} />
-  </button>
-)}
-  </div>
-) : (
-  /* ONLY MONTH FILTER FOR "my" VIEW */
-  <div className="filters-grid">
-
-    <div className="custom-dropdown-container">
-      <div className="premium-filter-trigger">
-        <div className="trigger-content">
-          <div className="trigger-icon-box">
-            <IonIcon icon={calendarOutline} />
-          </div>
-
-          <div className="trigger-text-sec">
-            <span className="trigger-sub">Period</span>
-            <span className="trigger-main">
-              {selectedMonth}
-            </span>
-          </div>
-        </div>
-
-        <IonIcon
-          icon={layersOutline}
-          className="trigger-icon-arrow"
-        />
-
-        <IonSelect
-          className="hidden-select-overlay"
-          interface="popover"
-          toggleIcon="none"
-          value={selectedMonth}
-          onIonChange={(e) =>
-            setSelectedMonth(e.detail.value)
-          }
-        >
-          {months.map((m) => (
-            <IonSelectOption key={m} value={m}>
-              {m}
-            </IonSelectOption>
-          ))}
-        </IonSelect>
-      </div>
-    </div>
-{type === "permission" && (
-  <button
-    className="permission-dashboard-btn top-dashboard-btn"
-    onClick={() => loadPermissionDashboard()}
-  >
-    <IonIcon icon={speedometerOutline} />
-  </button>
-)}
-  </div>
-)}
+      )}
       {loading && <p>Loading...</p>}
 
       {!loading &&
         finalData
-         .map((item) => {
-          // On Duty (Team Requests) uses the same "premium-card" look as
-          // the Duty Manager page's My Requests cards, rather than the
-          // generic lr-history-card layout used by the other request types.
-          if (type === 'onduty') {
-            const localAction = ondutyActionMap[String(item.lid)];
-            const serverStatus = (item.L_status || '').toLowerCase();
-            const myDecision = getOnDutyMyDecision(item);
-
-            // Overall outcome of the whole approval chain - drives the
-            // top-right status tag ONLY. This must stay independent of
-            // whether the current viewer personally already acted, since
-            // other RA levels can still be pending after that.
-            const overallApproved = serverStatus.includes('approved') || serverStatus.includes('accepted');
-            const overallRejected = serverStatus.includes('rejected');
-
-            // Has the current viewer already acted (personally, or via a
-            // matching RA slot)? Drives the Approve/Reject buttons vs. the
-            // pill underneath - separate from the overall tag above.
-            const isApproved =
-              localAction === 'approved' ||
-              myDecision === 'approved' ||
-              myDecision === 'accepted' ||
-              (!localAction && !myDecision && overallApproved);
-
-            const isRejected =
-              localAction === 'rejected' ||
-              myDecision === 'rejected' ||
-              (!localAction && !myDecision && overallRejected);
-
-            // Only show Approve/Reject when the "PENDING AT" role actually
-            // matches the viewer's own designation - being an approver
-            // somewhere in the chain isn't enough, it has to be their turn.
-            const isMyTurn = isOnDutyMyTurn(item);
-
-            const approvalChain = getOnDutyChain(item);
-
-            return (
-              <div key={`${item.lid}-${item.empcode}`} className="dm-card">
-                <span
-                  className={`dm-side-flag ${
-                    overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
-                  }`}
-                />
-                <div className="dm-card-header">
-                  <div style={{ flex: 1 }}>
-                    <div className="dm-college-name">
-                      {item.College || "Party"}
-                      <span className="dm-id-badge">#{item.lid}</span>
-                    </div>
-                    <div className="dm-subtitle">{item.Description}</div>
-                  </div>
-
-                  <span
-                    className={`dm-status-dot ${
-                      overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
-                    }`}
-                  >
-                    {overallApproved ? "Approved" : overallRejected ? "Rejected" : "Pending"}
-                  </span>
-                </div>
-
-                <div className="dm-grid">
-                  <div className="dm-info-box dm-full-width">
-                    <span className="dm-item-label">Employees</span>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "6px" }}>
-                      {formatEmployeeNames(item.empNames).map((emp: any, idx: number) => (
-                        <div key={idx} className="dm-emp-chip">
-                          {emp.name}
-                          {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="dm-info-box">
-                    <span className="dm-item-label">Transport</span>
-                    <span className="dm-item-value">
-                      {item.Mode_of_Trans}
-                      {item.Vehicle_No && <span style={{ color: "#64748b" }}> • {item.Vehicle_No}</span>}
-                    </span>
-                  </div>
-
-                  <div className="dm-info-box">
-                    <span className="dm-item-label">Timeline</span>
-                    <span className="dm-item-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span>
-                  </div>
-
-                  <div className="dm-info-box">
-                    <span className="dm-item-label">Location</span>
-                    <span className="dm-item-value">{item.Location}</span>
-                  </div>
-
-                  <div className="dm-info-box">
-                    <span className="dm-item-label">Details</span>
-                    <a
-                      href="#"
-                      className="dm-view-link"
-                      onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }}
-                    >
-                      View
-                    </a>
-                  </div>
-                </div>
-
-                {/* Approval trail: one role per RA slot, colored by that
-                    slot's own status - approved (green) / rejected (red) /
-                    still pending (blue) - instead of a single pill. */}
-                {approvalChain.length > 0 && (
-                  <div className="dm-chain">
-                    <span className="dm-chain-label">Approval Status:</span>{" "}
-                    {approvalChain.map((step, idx) => (
-                      <React.Fragment key={idx}>
-                        <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
-                        {idx < approvalChain.length - 1 && (
-                          <span className="dm-chain-arrow"> → </span>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                )}
-
-                {/* Approve/Reject only when it's actually this viewer's
-                    turn - being an approver in the chain isn't enough. */}
-                {view !== 'my' && isMyTurn && !isApproved && !isRejected && (
-                  <div className="dm-action-row">
-                    <button className="dm-approve-btn" onClick={() => updateOnDuty(item, 'Accepted')}>
-                      Approve
-                    </button>
-                    <button className="dm-reject-btn" onClick={() => updateOnDuty(item, 'Rejected')}>
-                      Reject
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          return (
-            <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card themed-bg status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
-              <div className="lr-card-inner">
-              <div className="lr-card-header-row">
-                <div className="lr-card-main">
-                  {/* <div className="lr-card-title">
-                    {type === 'equipment' ? item.Remarks : type === 'overtime' ? item.Empname : type === 'onduty' ? item.College : (item.empcode + ' : ' + item.Empname)}
-                  </div> */}
-                  <div className="lr-card-title">
-  {type === "equipment"
-    ? item.Remarks
-    : type === "overtime"
-    ? item.Empname
-    : type === "onduty"
-    ? item. College : (item.empcode + ' : ' + item.Empname)}
-
-</div>
-                  <div className="lr-card-subtitle">
-                    {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-
-
-    <div
-      className={`lr-status-indicator lr-status-${(item.L_status || '')
-        .toLowerCase()
-        .replace(/\s/g, '')}`}
-    >
-      {item.L_status}
-    </div>
-
-  </div>
-               
-              </div>
-
-              <div className="lr-card-grid">
-                {type === 'equipment' && (
-                  <>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Priority</span><span className="lr-grid-value priority">{item.Priority}</span></div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{cleanDate(item.lfrom)}</span></div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Amount</span><span className="lr-grid-value">{item.Amount ? '₹ ' + item.Amount : '-'}</span></div>
-                    {item.FilePath && (
-                      <div className="lr-grid-item">
-                        <span className="lr-grid-label">File</span>
-                        <a href={item.FilePath} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>Download</a>
-                      </div>
-                    )}
-                    <div className="lr-grid-item">
-  <span className="lr-grid-label">Equipment Code</span>
-  <span className="lr-grid-value">
-    {item.ECode || "-"}
-  </span>
-</div>
-
-<div className="lr-grid-item">
-  <span className="lr-grid-label">Assign Status</span>
-  <span className="lr-grid-value">
-    {item.AssignStatus || "Pending"}
-  </span>
-</div>
-
-<div className="lr-grid-item">
-  <span className="lr-grid-label">Receive Status</span>
-  <span className="lr-grid-value">
-    {item.ReceiveStatus || "Pending"}
-  </span>
-</div>
-                  </>
-                )}
-                {type === 'overtime' && (
-                  <>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Date</span><span className="lr-grid-value">{item.lfrom}</span></div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Time</span><span className="lr-grid-value">{item.Fromtime} → {item.Totime}</span></div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Duration</span><span className="lr-grid-value">{item.MinDiff} mins</span></div>
-                  </>
-                )}
-                {type === 'onduty' && (
-                  <>
-                  <div className="lr-grid-item full-width">
-  <span className="lr-grid-label">Employees</span>
-
-  <div
-    style={{
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "8px",
-      marginTop: "6px",
-    }}
-  >
-    {formatEmployeeNames(item.empNames).map(
-      (emp: any, idx: number) => (
-        <div
-          key={idx}
-          style={{
-            background: "#eef2ff",
-            color: "#3730a3",
-            padding: "6px 10px",
-            borderRadius: "20px",
-            fontSize: "12px",
-            fontWeight: 600,
-            border: "1px solid #c7d2fe",
-          }}
-        >
-          {emp.name}
-          {emp.code && (
-            <span style={{ opacity: 0.7 }}>
-              {" "}
-              ({emp.code})
-            </span>
-          )}
-        </div>
-      )
-    )}
-  </div>
-</div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Transport</span><span className="lr-grid-value">{item.Mode_of_Trans} {item.Vehicle_No && `• ${item.Vehicle_No}`}</span></div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Timeline</span><span className="lr-grid-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span></div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Location</span><span className="lr-grid-value">{item.Location}</span></div>
-                    <div className="lr-grid-item">
-                      <span className="lr-grid-label">Details</span>
-                      <a href="#" onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }} style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>View</a>
-                    </div>
-                  </>
-                )}
-                {(type !== 'equipment' && type !== 'overtime' && type !== 'onduty') && (
-                  <>
-                  <div className="lr-grid-item">
-  <span className="lr-grid-label">Category</span>
-  <span className="lr-grid-value">
-    {item?.ltype?.toLowerCase() === "permission"
-  ? item.LeaveCategory === "LOP"
-    ? "Permission (LOP)"
-    : item.Leavemode
-  : `${item.Leavemode} (${item.LeaveCategory})`}
-  </span>
-</div>
-                    <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{item.AppliedOn}</span></div>
-                    {item?.ltype?.toLowerCase() === 'permission' ? (
-<>
-  <div className="lr-row">
-    <div className="lr-grid-item">
-      <span className="lr-grid-label">Permission Time</span>
-     <span className="lr-grid-value permission-time">
- {cleanDate(item.lfrom)}
-{item.InTime ? ` (${formatTime(item.InTime)})` : ""}
-{item.ptime ? ` (${item.ptime})` : ""}
-</span>
-    </div>
-
-    {typeof item.Slip === "string" &&
-      item.Slip.trim() !== "" && (
-        <div className="lr-grid-item">
-          <span className="lr-grid-label">Slip</span>
-          <span className="lr-grid-value">{item.Slip}</span>
-        </div>
-      )}
-  </div>
-</>
-                    ) : (
-                      <div className="lr-grid-item"><span className="lr-grid-label">Leave Dates</span><span className="lr-grid-value">{cleanDate(item.lfrom)} {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom) ? `- ${cleanDate(item.lto)}` : ''}</span></div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {((item.RA1_Comment || item.RA2_Comment || item.RA3_Comment || item.RA4_Comment) && type === 'equipment') && (
-                <div style={{ marginTop: '14px', fontSize: '13px' }}>
-                  <b style={{ color: '#64748b' }}>Comments</b>
-                  {item.RA1_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA1}: {item.RA1_Comment}</p>}
-                  {item.RA2_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA2}: {item.RA2_Comment}</p>}
-                  {item.RA3_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA3}: {item.RA3_Comment}</p>}
-                  {item.RA4_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA4}: {item.RA4_Comment}</p>}
-                </div>
-              )}
-
-              {getRejectionInfo(item) && <p style={{ color: 'red', fontWeight: 'bold', fontSize: '12px', marginTop: '8px' }}>{getRejectionInfo(item)}</p>}
-              {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'overtime' && type !== 'onduty' && (
-                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>Approved By: {getApprovedBy(item)}</p>
-              )}
-
-            {/* ── OnDuty team-view: always show status-driven action buttons ── */}
-            {type === 'onduty' && view !== 'my' && (() => {
-              // Priority: local optimistic state → then server L_status
+          .map((item) => {
+            // On Duty (Team Requests) uses the same "premium-card" look as
+            // the Duty Manager page's My Requests cards, rather than the
+            // generic lr-history-card layout used by the other request types.
+            if (type === 'onduty') {
               const localAction = ondutyActionMap[String(item.lid)];
               const serverStatus = (item.L_status || '').toLowerCase();
-
-              // Already decided by the logged-in user's own designation at
-              // an RA1..RA4 level (e.g. a Business Manager slot already
-              // approved) - hide the buttons even if L_status is still
-              // pending at a later level.
               const myDecision = getOnDutyMyDecision(item);
 
+              // Overall outcome of the whole approval chain - drives the
+              // top-right status tag ONLY. This must stay independent of
+              // whether the current viewer personally already acted, since
+              // other RA levels can still be pending after that.
+              const overallApproved = serverStatus.includes('approved') || serverStatus.includes('accepted');
+              const overallRejected = serverStatus.includes('rejected');
+
+              // Has the current viewer already acted (personally, or via a
+              // matching RA slot)? Drives the Approve/Reject buttons vs. the
+              // pill underneath - separate from the overall tag above.
               const isApproved =
                 localAction === 'approved' ||
                 myDecision === 'approved' ||
                 myDecision === 'accepted' ||
-                (!localAction && (serverStatus.includes('approved') || serverStatus.includes('accepted')));
+                (!localAction && !myDecision && overallApproved);
 
               const isRejected =
                 localAction === 'rejected' ||
                 myDecision === 'rejected' ||
-                (!localAction && serverStatus.includes('rejected'));
+                (!localAction && !myDecision && overallRejected);
 
-              const isPending = !isApproved && !isRejected;
+              // Only show Approve/Reject when the "PENDING AT" role actually
+              // matches the viewer's own designation - being an approver
+              // somewhere in the chain isn't enough, it has to be their turn.
+              const isMyTurn = isOnDutyMyTurn(item);
+
+              const approvalChain = getOnDutyChain(item);
 
               return (
-                <div className="lr-card-actions">
-                  <button
-                    className="lr-action-btn approve"
-                    disabled={isApproved}
-                    style={isApproved ? { opacity: 0.65, cursor: 'not-allowed' } : {}}
-                    onClick={() => !isApproved && updateOnDuty(item, 'Accepted')}
-                  >
-                    {isApproved ? '✅ Approved' : '✅ Approve'}
-                  </button>
+                <div key={`${item.lid}-${item.empcode}`} className="dm-card">
+                  <span
+                    className={`dm-side-flag ${overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
+                      }`}
+                  />
+                  <div className="dm-card-header">
+                    <div style={{ flex: 1 }}>
+                      <div className="dm-college-name">
+                        {item.College || "Party"}
+                        <span className="dm-id-badge">#{item.lid}</span>
+                      </div>
+                      <div className="dm-subtitle">{item.Description}</div>
+                    </div>
 
-                  {isPending && (
-                    <button
-                      className="lr-action-btn reject"
-                      onClick={() => updateOnDuty(item, 'Rejected')}
+                    <span
+                      className={`dm-status-dot ${overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
+                        }`}
                     >
-                      ❌ Reject
-                    </button>
+                      {overallApproved ? "Approved" : overallRejected ? "Rejected" : "Pending"}
+                    </span>
+                  </div>
+
+                  <div className="dm-grid">
+                    <div className="dm-info-box dm-full-width">
+                      <span className="dm-item-label">Employees</span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "6px" }}>
+                        {formatEmployeeNames(item.empNames).map((emp: any, idx: number) => (
+                          <div key={idx} className="dm-emp-chip">
+                            {emp.name}
+                            {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="dm-info-box">
+                      <span className="dm-item-label">Transport</span>
+                      <span className="dm-item-value">
+                        {item.Mode_of_Trans}
+                        {item.Vehicle_No && <span style={{ color: "#64748b" }}> • {item.Vehicle_No}</span>}
+                      </span>
+                    </div>
+
+                    <div className="dm-info-box">
+                      <span className="dm-item-label">Timeline</span>
+                      <span className="dm-item-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span>
+                    </div>
+
+                    <div className="dm-info-box">
+                      <span className="dm-item-label">Location</span>
+                      <span className="dm-item-value">{item.Location}</span>
+                    </div>
+
+                    <div className="dm-info-box">
+                      <span className="dm-item-label">Details</span>
+                      <a
+                        href="#"
+                        className="dm-view-link"
+                        onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }}
+                      >
+                        View
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Approval trail: one role per RA slot, colored by that
+                    slot's own status - approved (green) / rejected (red) /
+                    still pending (blue) - instead of a single pill. */}
+                  {approvalChain.length > 0 && (
+                    <div className="dm-chain">
+                      <span className="dm-chain-label">Approval Status:</span>{" "}
+                      {approvalChain.map((step, idx) => (
+                        <React.Fragment key={idx}>
+                          <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
+                          {idx < approvalChain.length - 1 && (
+                            <span className="dm-chain-arrow"> → </span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
                   )}
 
-                  {isRejected && (
-                    <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600, alignSelf: 'center' }}>
-                      ❌ Rejected
-                    </span>
+                  {/* Approve/Reject only when it's actually this viewer's
+                    turn - being an approver in the chain isn't enough. */}
+                  {view !== 'my' && isMyTurn && !isApproved && !isRejected && (
+                    <div className="dm-action-row">
+                      <button className="dm-approve-btn" onClick={() => updateOnDuty(item, 'Accepted')}>
+                        Approve
+                      </button>
+                      <button className="dm-reject-btn" onClick={() => updateOnDuty(item, 'Rejected')}>
+                        Reject
+                      </button>
+                    </div>
                   )}
                 </div>
               );
-            })()}
-
-            {/* ── All other types: standard canAct gate ── */}
-            {((type !== 'onduty' && view !== "my" && canAct(item)) || (type === "overtime" && view === "my")) && (
-                <div className="lr-card-actions">
-                  {type === 'onduty' ? (
-                    <></>
-              ) : type === 'equipment' ? (
-  <>
-
-    {/* NORMAL APPROVAL FLOW */}
-
-    {canAct(item) && (
-      <>
-       {item.CurrentLevel === 1 &&
- item.RequestType !== "Replacement" && (
-          <input
-            type="number"
-            placeholder="Amount"
-            value={amountMap[item.lid] || ''}
-            onChange={(e) =>
-              handleAmountChange(item.lid, e.target.value)
             }
-          />
-        )}
 
-        <input
-          type="text"
-          placeholder="Comment"
-          value={commentMap[item.lid] || ''}
-          onChange={(e) =>
-            handleCommentChange(item.lid, e.target.value)
-          }
-        />
+            return (
+              <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card themed-bg status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
+                <div className="lr-card-inner">
+                  <div className="lr-card-header-row">
+                    <div className="lr-card-main">
+                      {/* <div className="lr-card-title">
+                    {type === 'equipment' ? item.Remarks : type === 'overtime' ? item.Empname : type === 'onduty' ? item.College : (item.empcode + ' : ' + item.Empname)}
+                  </div> */}
+                      <div className="lr-card-title">
+                        {type === "equipment"
+                          ? item.Remarks
+                          : type === "overtime"
+                            ? item.Empname
+                            : type === "onduty"
+                              ? item.College : (item.empcode + ' : ' + item.Empname)}
 
-        <button
-          className="lr-action-btn approve"
-          onClick={() => handleApprove(item)}
-        >
-          ✅ Approve
-        </button>
+                      </div>
+                      <div className="lr-card-subtitle">
+                        {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px" }}>
 
-        <button
-          className="lr-action-btn reject"
-          onClick={() => handleReject(item)}
-        >
-          ❌ Reject
-        </button>
-      </>
-    )}
 
-{/* 
+                      <div
+                        className={`lr-status-indicator lr-status-${(item.L_status || '')
+                          .toLowerCase()
+                          .replace(/\s/g, '')}`}
+                      >
+                        {item.L_status}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="lr-card-grid">
+                    {type === 'equipment' && (
+                      <>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Priority</span><span className="lr-grid-value priority">{item.Priority}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{cleanDate(item.lfrom)}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Amount</span><span className="lr-grid-value">{item.Amount ? '₹ ' + item.Amount : '-'}</span></div>
+                        {item.FilePath && (
+                          <div className="lr-grid-item">
+                            <span className="lr-grid-label">File</span>
+                            <a href={item.FilePath} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>Download</a>
+                          </div>
+                        )}
+                        <div className="lr-grid-item">
+                          <span className="lr-grid-label">Equipment Code</span>
+                          <span className="lr-grid-value">
+                            {item.ECode || "-"}
+                          </span>
+                        </div>
+
+                        <div className="lr-grid-item">
+                          <span className="lr-grid-label">Assign Status</span>
+                          <span className="lr-grid-value">
+                            {item.AssignStatus || "Pending"}
+                          </span>
+                        </div>
+
+                        <div className="lr-grid-item">
+                          <span className="lr-grid-label">Receive Status</span>
+                          <span className="lr-grid-value">
+                            {item.ReceiveStatus || "Pending"}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {type === 'overtime' && (
+                      <>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Date</span><span className="lr-grid-value">{item.lfrom}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Time</span><span className="lr-grid-value">{item.Fromtime} → {item.Totime}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Duration</span><span className="lr-grid-value">{item.MinDiff} mins</span></div>
+                      </>
+                    )}
+                    {type === 'onduty' && (
+                      <>
+                        <div className="lr-grid-item full-width">
+                          <span className="lr-grid-label">Employees</span>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "8px",
+                              marginTop: "6px",
+                            }}
+                          >
+                            {formatEmployeeNames(item.empNames).map(
+                              (emp: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    background: "#eef2ff",
+                                    color: "#3730a3",
+                                    padding: "6px 10px",
+                                    borderRadius: "20px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    border: "1px solid #c7d2fe",
+                                  }}
+                                >
+                                  {emp.name}
+                                  {emp.code && (
+                                    <span style={{ opacity: 0.7 }}>
+                                      {" "}
+                                      ({emp.code})
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Transport</span><span className="lr-grid-value">{item.Mode_of_Trans} {item.Vehicle_No && `• ${item.Vehicle_No}`}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Timeline</span><span className="lr-grid-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Location</span><span className="lr-grid-value">{item.Location}</span></div>
+                        <div className="lr-grid-item">
+                          <span className="lr-grid-label">Details</span>
+                          <a href="#" onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }} style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>View</a>
+                        </div>
+                      </>
+                    )}
+                    {(type !== 'equipment' && type !== 'overtime' && type !== 'onduty') && (
+                      <>
+                        <div className="lr-grid-item">
+                          <span className="lr-grid-label">Category</span>
+                          <span className="lr-grid-value">
+                            {item?.ltype?.toLowerCase() === "permission"
+                              ? item.LeaveCategory === "LOP"
+                                ? "Permission (LOP)"
+                                : item.Leavemode
+                              : `${item.Leavemode} (${item.LeaveCategory})`}
+                          </span>
+                        </div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{item.AppliedOn}</span></div>
+                        {item?.ltype?.toLowerCase() === 'permission' ? (
+                          <>
+                            <div className="lr-row">
+                              <div className="lr-grid-item">
+                                <span className="lr-grid-label">Permission Time</span>
+                                <span className="lr-grid-value permission-time">
+                                  {cleanDate(item.lfrom)}
+                                  {item.InTime ? ` (${formatTime(item.InTime)})` : ""}
+                                  {item.ptime ? ` (${item.ptime})` : ""}
+                                </span>
+                              </div>
+
+                              {typeof item.Slip === "string" &&
+                                item.Slip.trim() !== "" && (
+                                  <div className="lr-grid-item">
+                                    <span className="lr-grid-label">Slip</span>
+                                    <span className="lr-grid-value">{item.Slip}</span>
+                                  </div>
+                                )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="lr-grid-item"><span className="lr-grid-label">Leave Dates</span><span className="lr-grid-value">{cleanDate(item.lfrom)} {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom) ? `- ${cleanDate(item.lto)}` : ''}</span></div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {((item.RA1_Comment || item.RA2_Comment || item.RA3_Comment || item.RA4_Comment) && type === 'equipment') && (
+                    <div style={{ marginTop: '14px', fontSize: '13px' }}>
+                      <b style={{ color: '#64748b' }}>Comments</b>
+                      {item.RA1_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA1}: {item.RA1_Comment}</p>}
+                      {item.RA2_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA2}: {item.RA2_Comment}</p>}
+                      {item.RA3_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA3}: {item.RA3_Comment}</p>}
+                      {item.RA4_Comment && <p style={{ margin: '4px 0' }}>💬 {item.RA4}: {item.RA4_Comment}</p>}
+                    </div>
+                  )}
+
+                  {getRejectionInfo(item) && <p style={{ color: 'red', fontWeight: 'bold', fontSize: '12px', marginTop: '8px' }}>{getRejectionInfo(item)}</p>}
+                  {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'overtime' && type !== 'onduty' && (
+                    <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>Approved By: {getApprovedBy(item)}</p>
+                  )}
+
+                  {/* ── OnDuty team-view: always show status-driven action buttons ── */}
+                  {type === 'onduty' && view !== 'my' && (() => {
+                    // Priority: local optimistic state → then server L_status
+                    const localAction = ondutyActionMap[String(item.lid)];
+                    const serverStatus = (item.L_status || '').toLowerCase();
+
+                    // Already decided by the logged-in user's own designation at
+                    // an RA1..RA4 level (e.g. a Business Manager slot already
+                    // approved) - hide the buttons even if L_status is still
+                    // pending at a later level.
+                    const myDecision = getOnDutyMyDecision(item);
+
+                    const isApproved =
+                      localAction === 'approved' ||
+                      myDecision === 'approved' ||
+                      myDecision === 'accepted' ||
+                      (!localAction && (serverStatus.includes('approved') || serverStatus.includes('accepted')));
+
+                    const isRejected =
+                      localAction === 'rejected' ||
+                      myDecision === 'rejected' ||
+                      (!localAction && serverStatus.includes('rejected'));
+
+                    const isPending = !isApproved && !isRejected;
+
+                    return (
+                      <div className="lr-card-actions">
+                        <button
+                          className="lr-action-btn approve"
+                          disabled={isApproved}
+                          style={isApproved ? { opacity: 0.65, cursor: 'not-allowed' } : {}}
+                          onClick={() => !isApproved && updateOnDuty(item, 'Accepted')}
+                        >
+                          {isApproved ? '✅ Approved' : '✅ Approve'}
+                        </button>
+
+                        {isPending && (
+                          <button
+                            className="lr-action-btn reject"
+                            onClick={() => updateOnDuty(item, 'Rejected')}
+                          >
+                            ❌ Reject
+                          </button>
+                        )}
+
+                        {isRejected && (
+                          <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600, alignSelf: 'center' }}>
+                            ❌ Rejected
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── All other types: standard canAct gate ── */}
+                  {((type !== 'onduty' && view !== "my" && canAct(item)) || (type === "overtime" && view === "my")) && (
+                    <div className="lr-card-actions">
+                      {type === 'onduty' ? (
+                        <></>
+                      ) : type === 'equipment' ? (
+                        <>
+
+                          {/* NORMAL APPROVAL FLOW */}
+
+                          {canAct(item) && (
+                            <>
+                              {item.CurrentLevel === 1 &&
+                                item.RequestType !== "Replacement" && (
+                                  <input
+                                    type="number"
+                                    placeholder="Amount"
+                                    value={amountMap[item.lid] || ''}
+                                    onChange={(e) =>
+                                      handleAmountChange(item.lid, e.target.value)
+                                    }
+                                  />
+                                )}
+
+                              <input
+                                type="text"
+                                placeholder="Comment"
+                                value={commentMap[item.lid] || ''}
+                                onChange={(e) =>
+                                  handleCommentChange(item.lid, e.target.value)
+                                }
+                              />
+
+                              <button
+                                className="lr-action-btn approve"
+                                onClick={() => handleApprove(item)}
+                              >
+                                ✅ Approve
+                              </button>
+
+                              <button
+                                className="lr-action-btn reject"
+                                onClick={() => handleReject(item)}
+                              >
+                                ❌ Reject
+                              </button>
+                            </>
+                          )}
+
+                          {/* 
   
 
     {item.L_status === "Approved" &&
@@ -1881,382 +1876,382 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
         </button>
       )} */}
 
-  </>
-                 ) : type === 'overtime' ? (
-  <>
-    {view !== "my" && canAct(item) && (
-      <>
-        <button
-          className="lr-action-btn approve"
-          onClick={() => updateOvertime(item, 'Accepted')}
-        >
-          ✅ Approve
-        </button>
+                        </>
+                      ) : type === 'overtime' ? (
+                        <>
+                          {view !== "my" && canAct(item) && (
+                            <>
+                              <button
+                                className="lr-action-btn approve"
+                                onClick={() => updateOvertime(item, 'Accepted')}
+                              >
+                                ✅ Approve
+                              </button>
 
-        <button
-          className="lr-action-btn reject"
-          onClick={() => updateOvertime(item, 'Rejected')}
-        >
-          ❌ Reject
-        </button>
-      </>
-    )}
+                              <button
+                                className="lr-action-btn reject"
+                                onClick={() => updateOvertime(item, 'Rejected')}
+                              >
+                                ❌ Reject
+                              </button>
+                            </>
+                          )}
 
-    {/* 🔥 SHOW EDIT ONLY BEFORE RA1 ACTION */}
-    {view === "my" &&
-      (!item.RA1_Status ||
-        item.RA1_Status.toLowerCase() === "pending") && (
-        <button
-          className="lr-action-btn edit"
-          onClick={() => openOvertimeEdit(item)}
-        >
-          ✏️ Edit
-        </button>
-      )}
-  </>
-) : (
-                    <>
-                      <button className="lr-action-btn approve" onClick={() => updateStatus(item.lid, 'Accepted')}>✅ Approve</button>
-                      <button className="lr-action-btn reject"  onClick={() => updateStatus(item.lid, 'Rejected')}>❌ Reject</button>
-                    </>
+                          {/* 🔥 SHOW EDIT ONLY BEFORE RA1 ACTION */}
+                          {view === "my" &&
+                            (!item.RA1_Status ||
+                              item.RA1_Status.toLowerCase() === "pending") && (
+                              <button
+                                className="lr-action-btn edit"
+                                onClick={() => openOvertimeEdit(item)}
+                              >
+                                ✏️ Edit
+                              </button>
+                            )}
+                        </>
+                      ) : (
+                        <>
+                          <button className="lr-action-btn approve" onClick={() => updateStatus(item.lid, 'Accepted')}>✅ Approve</button>
+                          <button className="lr-action-btn reject" onClick={() => updateStatus(item.lid, 'Rejected')}>❌ Reject</button>
+                        </>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
-              {/* NETWORK ADMIN ASSIGN */}
+                  {/* NETWORK ADMIN ASSIGN */}
 
-{type === "equipment" &&
-  item.L_status === "Approved" &&
-  item.AssignStatus !== "Assigned" &&
-  getUser()?.designation === item.RA1 && (
+                  {type === "equipment" &&
+                    item.L_status === "Approved" &&
+                    item.AssignStatus !== "Assigned" &&
+                    getUser()?.designation === item.RA1 && (
 
-    <div className="lr-card-actions">
+                      <div className="lr-card-actions">
 
-      <input
-        type="text"
-        placeholder="Enter Equipment Code"
-        value={equipmentCodeMap[item.lid] || ""}
-        onChange={(e) =>
-          setEquipmentCodeMap({
-            ...equipmentCodeMap,
-            [item.lid]: e.target.value
-          })
-        }
-      />
+                        <input
+                          type="text"
+                          placeholder="Enter Equipment Code"
+                          value={equipmentCodeMap[item.lid] || ""}
+                          onChange={(e) =>
+                            setEquipmentCodeMap({
+                              ...equipmentCodeMap,
+                              [item.lid]: e.target.value
+                            })
+                          }
+                        />
 
-      <button
-        className="lr-action-btn approve"
-        onClick={() => handleAssignEquipment(item)}
-      >
-        Assign Equipment
-      </button>
+                        <button
+                          className="lr-action-btn approve"
+                          onClick={() => handleAssignEquipment(item)}
+                        >
+                          Assign Equipment
+                        </button>
 
-    </div>
-)}
+                      </div>
+                    )}
 
-{/* EMPLOYEE RECEIVE */}
+                  {/* EMPLOYEE RECEIVE */}
 
-{type === "equipment" &&
-  item.AssignStatus === "Assigned" &&
-  item.ReceiveStatus !== "Received" &&
-  view === "my" &&
-  item.empcode === getUser()?.empCode && (
+                  {type === "equipment" &&
+                    item.AssignStatus === "Assigned" &&
+                    item.ReceiveStatus !== "Received" &&
+                    view === "my" &&
+                    item.empcode === getUser()?.empCode && (
 
-    <div className="lr-card-actions">
+                      <div className="lr-card-actions">
 
-      <button
-        className="lr-action-btn approve"
-        onClick={() => handleReceiveEquipment(item)}
-      >
-        Receive Equipment
-      </button>
+                        <button
+                          className="lr-action-btn approve"
+                          onClick={() => handleReceiveEquipment(item)}
+                        >
+                          Receive Equipment
+                        </button>
 
-    </div>
-)}
-              </div>{/* end lr-card-inner */}
-            </div>
-          );
-        })}
-{viewModalOpen && selectedDuty && (
-  <div className="modal-overlay">
-    <div className="modal-container">
-
-      {/* HEADER */}
-      <div className="modal-header">
-        <h3>On Duty Details</h3>
-        <button onClick={() => setViewModalOpen(false)}>✖</button>
-      </div>
-
-      {/* BODY */}
-      <div className="modal-body">
-
-        {(selectedDuty.dayTrips || []).length === 0 && (
-          <p>No trip data available</p>
-        )}
-
-        {(selectedDuty.dayTrips || []).map((trip: any, index: number) => (
-          <div key={trip.dayTrip_Id || index} className="trip-card">
-
-            <div className="trip-header">
-              <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
-            </div>
-
-            <div className="trip-body">
-              <p>
-                <b>Reading:</b> {trip.readingFrom} → {trip.readingTo} ({trip.distance} Km)
-              </p>
-
-              {trip.fuelAmount && (
-                <p><b>Fuel:</b> ₹{trip.fuelAmount}</p>
-              )}
-            </div>
-
-            {(trip.visits || []).map((visit: any, vIndex: number) => (
-              <div key={vIndex} className="visit-card">
-
-                <p><b>Client:</b> {visit.client_Name}</p>
-
-                <p>
-                  <b>Location:</b>{" "}
-                  {visit.latitude && visit.longitude ? (
-                    <span
-                      style={{ color: "blue", cursor: "pointer" }}
-                      onClick={() =>
-                        window.open(
-                          `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
-                        )
-                      }
-                    >
-                      View Map
-                    </span>
-                  ) : (
-                    visit.location
-                  )}
-                </p>
-
-                <p>
-                  <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
-                </p>
-
-                <p>
-                  <b>Contact:</b> {visit.contact_Person} ({visit.mobile_Number})
-                </p>
-
-                <p>
-                  <b>Remarks:</b> {visit.remarks}
-                </p>
-
+                      </div>
+                    )}
+                </div>{/* end lr-card-inner */}
               </div>
-            ))}
-          </div>
-        ))}
+            );
+          })}
+      {viewModalOpen && selectedDuty && (
+        <div className="modal-overlay">
+          <div className="modal-container">
 
-      </div>
-    </div>
-  </div>
-)}
-{editOtModal && (
-  <div className="modal-overlay">
-    <div className="modal-container">
-
-      <div className="modal-header">
-        <h3>Edit Overtime</h3>
-
-        <button onClick={() => setEditOtModal(false)}>
-          ✖
-        </button>
-      </div>
-
-      <div className="modal-body">
-
-        <div className="form-group">
-          <label>From Time</label>
-
-          <input
-            type="time"
-            value={editOT.fromtime}
-            onChange={(e) =>
-              setEditOT({
-                ...editOT,
-                fromtime: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        <div className="form-group">
-          <label>To Time</label>
-
-          <input
-            type="time"
-            value={editOT.totime}
-            onChange={(e) =>
-              setEditOT({
-                ...editOT,
-                totime: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Description</label>
-
-          <textarea
-            value={editOT.description}
-            onChange={(e) =>
-              setEditOT({
-                ...editOT,
-                description: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        <button
-          className="lr-action-btn approve"
-          onClick={saveEditedOvertime}
-        >
-          Save Changes
-        </button>
-
-      </div>
-    </div>
-  </div>
-)}
-{permissionModal && (
-  <div className="modal-overlay center-modal">
-
-    <div className="permission-modal-container">
-
-      <div className="modal-header">
-        <h3>Permission Dashboard</h3>
-
-        <button
-          onClick={() => setPermissionModal(false)}
-        >
-          ✖
-        </button>
-      </div>
-
-      <div className="modal-body">
-<div className="team-permission-grid">
-
-  {permissionData.map((x: any, idx: number) => {
-
-    // const usedPercent =
-    //   Number(x.usedPercent || 0);
-    const totalMinutes =
-  Number(x.totalAvailableMin || 0);
-
-const usedMinutes =
-  Number(x.usedMin || 0);
-
-const usedPercent =
-  totalMinutes > 0
-    ? (usedMinutes / totalMinutes) * 100
-    : 0;
-
-    const rowClass =
-      usedPercent >= 100
-        ? "danger-row"
-        : usedPercent >= 70
-        ? "warning-row"
-        : usedPercent >= 40
-        ? "medium-row"
-        : "safe-row";
-
-    return (
-      <div
-        key={idx}
-        className={`team-permission-card ${rowClass}`}
-      >
-
-        <div className="team-card-left">
-
-          <div className="team-avatar">
-            {x.empName?.charAt(0)}
-          </div>
-
-          <div>
-            <div className="team-name">
-              {x.empName}
+            {/* HEADER */}
+            <div className="modal-header">
+              <h3>On Duty Details</h3>
+              <button onClick={() => setViewModalOpen(false)}>✖</button>
             </div>
 
-            <div className="team-code">
-              EMP ID : {x.empCode}
+            {/* BODY */}
+            <div className="modal-body">
+
+              {(selectedDuty.dayTrips || []).length === 0 && (
+                <p>No trip data available</p>
+              )}
+
+              {(selectedDuty.dayTrips || []).map((trip: any, index: number) => (
+                <div key={trip.dayTrip_Id || index} className="trip-card">
+
+                  <div className="trip-header">
+                    <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
+                  </div>
+
+                  <div className="trip-body">
+                    <p>
+                      <b>Reading:</b> {trip.readingFrom} → {trip.readingTo} ({trip.distance} Km)
+                    </p>
+
+                    {trip.fuelAmount && (
+                      <p><b>Fuel:</b> ₹{trip.fuelAmount}</p>
+                    )}
+                  </div>
+
+                  {(trip.visits || []).map((visit: any, vIndex: number) => (
+                    <div key={vIndex} className="visit-card">
+
+                      <p><b>Client:</b> {visit.client_Name}</p>
+
+                      <p>
+                        <b>Location:</b>{" "}
+                        {visit.latitude && visit.longitude ? (
+                          <span
+                            style={{ color: "blue", cursor: "pointer" }}
+                            onClick={() =>
+                              window.open(
+                                `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
+                              )
+                            }
+                          >
+                            View Map
+                          </span>
+                        ) : (
+                          visit.location
+                        )}
+                      </p>
+
+                      <p>
+                        <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
+                      </p>
+
+                      <p>
+                        <b>Contact:</b> {visit.contact_Person} ({visit.mobile_Number})
+                      </p>
+
+                      <p>
+                        <b>Remarks:</b> {visit.remarks}
+                      </p>
+
+                    </div>
+                  ))}
+                </div>
+              ))}
+
             </div>
           </div>
+        </div>
+      )}
+      {editOtModal && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+
+            <div className="modal-header">
+              <h3>Edit Overtime</h3>
+
+              <button onClick={() => setEditOtModal(false)}>
+                ✖
+              </button>
+            </div>
+
+            <div className="modal-body">
+
+              <div className="form-group">
+                <label>From Time</label>
+
+                <input
+                  type="time"
+                  value={editOT.fromtime}
+                  onChange={(e) =>
+                    setEditOT({
+                      ...editOT,
+                      fromtime: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>To Time</label>
+
+                <input
+                  type="time"
+                  value={editOT.totime}
+                  onChange={(e) =>
+                    setEditOT({
+                      ...editOT,
+                      totime: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+
+                <textarea
+                  value={editOT.description}
+                  onChange={(e) =>
+                    setEditOT({
+                      ...editOT,
+                      description: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <button
+                className="lr-action-btn approve"
+                onClick={saveEditedOvertime}
+              >
+                Save Changes
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+      {permissionModal && (
+        <div className="modal-overlay center-modal">
+
+          <div className="permission-modal-container">
+
+            <div className="modal-header">
+              <h3>Permission Dashboard</h3>
+
+              <button
+                onClick={() => setPermissionModal(false)}
+              >
+                ✖
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="team-permission-grid">
+
+                {permissionData.map((x: any, idx: number) => {
+
+                  // const usedPercent =
+                  //   Number(x.usedPercent || 0);
+                  const totalMinutes =
+                    Number(x.totalAvailableMin || 0);
+
+                  const usedMinutes =
+                    Number(x.usedMin || 0);
+
+                  const usedPercent =
+                    totalMinutes > 0
+                      ? (usedMinutes / totalMinutes) * 100
+                      : 0;
+
+                  const rowClass =
+                    usedPercent >= 100
+                      ? "danger-row"
+                      : usedPercent >= 70
+                        ? "warning-row"
+                        : usedPercent >= 40
+                          ? "medium-row"
+                          : "safe-row";
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`team-permission-card ${rowClass}`}
+                    >
+
+                      <div className="team-card-left">
+
+                        <div className="team-avatar">
+                          {x.empName?.charAt(0)}
+                        </div>
+
+                        <div>
+                          <div className="team-name">
+                            {x.empName}
+                          </div>
+
+                          <div className="team-code">
+                            EMP ID : {x.empCode}
+                          </div>
+                        </div>
+
+                      </div>
+
+                      <div className="team-card-right">
+
+                        <div className="team-stat">
+                          <span>Total</span>
+                          <strong>
+                            {x.totalAvailableDisplay}
+                          </strong>
+                        </div>
+
+                        <div className="team-stat">
+                          <span>Used</span>
+                          <strong>
+                            {x.usedDisplay}
+                          </strong>
+                        </div>
+
+                        <div className="team-stat">
+                          <span>Balance</span>
+                          <strong>
+                            {x.balanceDisplay}
+                          </strong>
+                        </div>
+
+                        <div className="team-stat">
+                          <span>OT Earned</span>
+                          <strong>
+                            {x.earnedOTMin}m
+                          </strong>
+                        </div>
+
+                      </div>
+
+                      <div className="team-progress-section">
+
+                        <div className="team-progress-top">
+                          <span>Usage</span>
+
+                          <span>
+                            {usedPercent.toFixed(0)}%
+                          </span>
+                        </div>
+
+                        <div className="team-progress-bar">
+                          <div
+                            className="team-progress-fill"
+                            style={{
+                              width: `${Math.min(
+                                usedPercent,
+                                100
+                              )}%`,
+                            }}
+                          />
+                        </div>
+
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+
+
+            </div>
+
+          </div>
 
         </div>
-
-        <div className="team-card-right">
-
-          <div className="team-stat">
-            <span>Total</span>
-            <strong>
-              {x.totalAvailableDisplay}
-            </strong>
-          </div>
-
-          <div className="team-stat">
-            <span>Used</span>
-            <strong>
-              {x.usedDisplay}
-            </strong>
-          </div>
-
-          <div className="team-stat">
-            <span>Balance</span>
-            <strong>
-              {x.balanceDisplay}
-            </strong>
-          </div>
-
-          <div className="team-stat">
-            <span>OT Earned</span>
-            <strong>
-              {x.earnedOTMin}m
-            </strong>
-          </div>
-
-        </div>
-
-        <div className="team-progress-section">
-
-          <div className="team-progress-top">
-            <span>Usage</span>
-
-            <span>
-              {usedPercent.toFixed(0)}%
-            </span>
-          </div>
-
-          <div className="team-progress-bar">
-            <div
-              className="team-progress-fill"
-              style={{
-                width: `${Math.min(
-                  usedPercent,
-                  100
-                )}%`,
-              }}
-            />
-          </div>
-
-        </div>
-
-      </div>
-    );
-  })}
-</div>
-       
-
-      </div>
-
-    </div>
-
-  </div>
-)}
+      )}
       {!loading && finalData.length === 0 && <p>No data found</p>}
     </div>
   );
