@@ -9,6 +9,7 @@ import {
   IonIcon,
   IonSelect,
   IonSelectOption,
+  useIonAlert,
 } from "@ionic/react";
 
 import {
@@ -97,6 +98,7 @@ const getRejectionInfo = (item: any) => {
   return null;
 };
 const RequestList: React.FC<Props> = ({ type, view, status }) => {
+    const [presentAlert] = useIonAlert();
     const [amountMap, setAmountMap] = useState<{ [key: string]: string }>({});
 const [commentMap, setCommentMap] = useState<{ [key: string]: string }>({});
 const handleAmountChange = (id: string, value: string) => {
@@ -620,7 +622,11 @@ const updateOnDuty = async (item: any, status: string) => {
       }
     } catch { /* keep default msg */ }
 
-    alert(displayMsg);
+    presentAlert({
+      header: "Status Update",
+      message: displayMsg,
+      buttons: ["OK"],
+    });
     // Mark this item locally so buttons update immediately without waiting for reload
     setOndutyActionMap(prev => ({
       ...prev,
@@ -634,7 +640,11 @@ const updateOnDuty = async (item: any, status: string) => {
       (typeof e?.response?.data === "string" ? e.response.data : null) ||
       e?.message ||
       "Action failed. Please try again.";
-    alert(`Error: ${msg}`);
+    presentAlert({
+      header: "Error",
+      message: msg,
+      buttons: ["OK"],
+    });
     console.error("updateOnDuty error:", e?.response ?? e);
   }
 };
@@ -787,7 +797,11 @@ const saveEditedOvertime = async () => {
       Number(editOT.totime.split(":")[1]);
 
     if (toMinutes <= fromMinutes) {
-      alert("To time should be greater than From time");
+      presentAlert({
+        header: "Validation Error",
+        message: "To time should be greater than From time",
+        buttons: ["OK"],
+      });
       return;
     }
 
@@ -819,7 +833,11 @@ console.log("SAVE OT PAYLOAD", payload);
 
     loadData(true);
 
-    alert("Overtime updated successfully");
+    presentAlert({
+      header: "Success",
+      message: "Overtime updated successfully",
+      buttons: ["OK"],
+    });
   } catch (e: any) {
   console.error("SAVE OT ERROR", e);
 
@@ -830,7 +848,11 @@ console.log("SAVE OT PAYLOAD", payload);
     e?.response?.data?.title ||
     "Failed to update overtime";
 
-  alert(errorMsg);
+  presentAlert({
+    header: "Error",
+    message: errorMsg,
+    buttons: ["OK"],
+  });
 }
 };
 
