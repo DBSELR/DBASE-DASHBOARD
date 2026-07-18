@@ -8,7 +8,7 @@ import {
   IonButton,
   IonIcon
 } from "@ionic/react";
-import { calendarOutline, documentTextOutline, optionsOutline, timeOutline, informationCircleOutline } from "ionicons/icons";
+import { calendarOutline, documentTextOutline, optionsOutline, timeOutline, informationCircleOutline, alertCircleOutline } from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
@@ -173,7 +173,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   // =========================================
   // 🔥 REAL-TIME BALANCE API
   // =========================================
-  
+
 
   const checkBalance = async () => {
     const empCode = getUser()?.empCode;
@@ -224,7 +224,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     }
   };
 
- 
+
 
   useEffect(() => {
     if (!startDate) return;
@@ -250,7 +250,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     if (loading) return; // Prevent double click
     const empCode = getUser()?.empCode;
 
-   
+
     if (!remarks) return showToast("Enter remarks");
     // ✅ Leave Type Validation
     if (requestType === "Leave" && !leaveMode) {
@@ -281,32 +281,39 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     let finalCategory =
       leaveMode === "Leave" ? leaveCategory : leaveMode;
 
+    let requestedDays = 1;
     if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
       finalCategory = "Casual";
+      requestedDays = 0.5;
+    } else if (!singleDateMode && startDate && endDate) {
+      requestedDays = moment(endDate).diff(moment(startDate), "days") + 1;
     }
-   
 
     if (
-    finalCategory === "Casual" &&
-    Number(balance?.balance ?? 0) <= 0
-)
-{
-    setLopMessage("CL balance exhausted. Convert to LOP?");
-    setConfirmLOP(true);
-    return;
-}
-
-   
+      finalCategory === "Casual" &&
+      requestedDays > Number(balance?.balance ?? 0)
+    ) {
+      setLopMessage(
+        Number(balance?.balance ?? 0) <= 0
+          ? "CL balance exhausted. Convert to LOP?"
+          : `You requested ${requestedDays} days but only have ${balance?.balance} CL available. Convert request to LOP?`
+      );
+      setConfirmLOP(true);
+      return;
+    }
 
     if (
-    finalCategory === "Sick" &&
-    Number(balance?.balance ?? 0) <= 0
-)
-{
-    setLopMessage("SL balance exhausted. Convert to LOP?");
-    setConfirmLOP(true);
-    return;
-}
+      finalCategory === "Sick" &&
+      requestedDays > Number(balance?.balance ?? 0)
+    ) {
+      setLopMessage(
+        Number(balance?.balance ?? 0) <= 0
+          ? "SL balance exhausted. Convert to LOP?"
+          : `You requested ${requestedDays} days but only have ${balance?.balance} SL available. Convert request to LOP?`
+      );
+      setConfirmLOP(true);
+      return;
+    }
 
     // 🔥 PERMISSION VALIDATION
     if (requestType === "Permission" && balance) {
@@ -328,32 +335,72 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     submitToServer(finalCategory);
   };
 
- 
-  const submitToServer = async (category: string) => {
+
+  const submitSplitLeave = async () => {
     if (loading) return;
 
+    const available = Number(balance?.balance ?? 0);
+    if (available <= 0 || !startDate || !endDate || singleDateMode) {
+      submitToServer("LOP");
+      return;
+    }
+
+    let originalCategory = leaveMode === "Leave" ? leaveCategory : leaveMode;
+    if (originalCategory === "Forenoon" || originalCategory === "Afternoon") {
+      originalCategory = "Casual";
+    }
+
+    const firstPartStart = startDate;
+    const firstPartEnd = moment(startDate).add(available - 1, 'days').format("YYYY-MM-DD");
+    const secondPartStart = moment(startDate).add(available, 'days').format("YYYY-MM-DD");
+    const secondPartEnd = endDate;
+
     setLoading(true);
+
+    try {
+      // Submit Available portion
+      await submitToServer(originalCategory, firstPartStart, firstPartEnd, remarks + ` (${available} Days Approved)`, true);
+      // Submit LOP portion
+      await submitToServer("LOP", secondPartStart, secondPartEnd, remarks + " (Converted to LOP)", false);
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+    }
+  };
+
+  const submitToServer = async (
+    category: string,
+    overrideFrom?: string,
+    overrideTo?: string,
+    overrideRemarks?: string,
+    skipClear?: boolean
+  ) => {
+    if (loading && !overrideFrom) return;
+
+    if (!overrideFrom) setLoading(true);
 
     const empCode = getUser()?.empCode;
 
     const payload = {
-      _fromdate: fmtDMY(startDate),
+      _fromdate: fmtDMY(overrideFrom || startDate),
       _todate: singleDateMode
-        ? fmtDMY(startDate)
-        : fmtDMY(endDate),
+        ? fmtDMY(overrideFrom || startDate)
+        : fmtDMY(overrideTo || endDate),
 
-      _remarks: remarks,
+      _remarks: overrideRemarks || remarks,
       _PermTime: requestType === "Permission" ? permTime : "",
-       _InTime:
-  requestType === "Permission"
-    ? moment(inTime, "HH:mm").format("HH:mm")
-    : null,
+      _InTime:
+        requestType === "Permission"
+          ? moment(inTime, "HH:mm").format("HH:mm")
+          : null,
       _requesttype: requestType,
       _empcode: empCode,
       _leaveMode:
         requestType === "Permission"
           ? "Permission"
-          : leaveMode,
+          : category === "LOP"
+            ? (leaveMode === "Forenoon" || leaveMode === "Afternoon" ? "Casual" : leaveCategory)
+            : leaveMode,
 
       _leaveCategory:
         requestType === "Permission"
@@ -382,10 +429,13 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       window.dispatchEvent(new CustomEvent("leaveRequestAdded"));
 
       showToast("Submitted Successfully");
-      clearForm();
-      loadExistingLeaves();
 
-     
+      if (!skipClear) {
+        clearForm();
+        loadExistingLeaves();
+      }
+
+
 
       // ── Send WhatsApp template to RA1 ──
       if (newLid) {
@@ -496,7 +546,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         "Error submitting request"
       );
     } finally {
-      setLoading(false);
+      if (!skipClear) setLoading(false);
     }
   };
   useEffect(() => {
@@ -588,26 +638,26 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             </span>
           </div>
         </div>
-       {requestType === "Permission" && (
-  <div className="lr-field-box">
-    <label className="lr-field-label">In Time</label>
-    <div className="lr-field-content">
-      <IonIcon icon={timeOutline} className="lr-field-icon" />
+        {requestType === "Permission" && (
+          <div className="lr-field-box">
+            <label className="lr-field-label">In Time</label>
+            <div className="lr-field-content">
+              <IonIcon icon={timeOutline} className="lr-field-icon" />
 
-      <input
-        type="time"
-        value={inTime}
-        onChange={(e) => setInTime(e.target.value)}
-        style={{
-          flex: 1,
-          border: "none",
-          background: "transparent",
-          outline: "none"
-        }}
-      />
-    </div>
-  </div>
-)}
+              <input
+                type="time"
+                value={inTime}
+                onChange={(e) => setInTime(e.target.value)}
+                style={{
+                  flex: 1,
+                  border: "none",
+                  background: "transparent",
+                  outline: "none"
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {requestType === "Permission" && (
           <div className="lr-field-box">
@@ -710,7 +760,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           )}
         </div>
       )}
-   
+
 
       <button
         className="lr-gradient-btn"
@@ -750,7 +800,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           cancelText="Cancel"
           value={startDate || undefined}
           min={unlockRange.approved ? unlockRange.fromDate : new Date().toISOString().split("T")[0]}
-          max={`${new Date().getFullYear()}-12-31`}
+          max={`${new Date().getFullYear() + 1}-12-31`}
           isDateEnabled={(dateString) => {
             const date = dateString.split("T")[0];
             const today = new Date().toISOString().split("T")[0];
@@ -802,7 +852,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             max={
               startDate === unlockRange.fromDate
                 ? unlockRange.toDate
-                : `${new Date().getFullYear()}-12-31`
+                : `${new Date().getFullYear() + 1}-12-31`
             }
             isDateEnabled={(dateString) => {
               const date = dateString.split("T")[0];
@@ -831,40 +881,92 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         </div>
       </IonModal>
       {/* ✅ LOP CONFIRMATION MODAL */}
-     <IonModal
-  isOpen={confirmLOP}
-  onDidDismiss={() => setConfirmLOP(false)}
->
-        <div style={{ padding: 20 }}>
-          <h3>⚠️ Confirmation</h3>
-          <p>{lopMessage}</p>
+      <IonModal
+        isOpen={confirmLOP}
+        onDidDismiss={() => setConfirmLOP(false)}
+        style={{
+          '--border-radius': '25px',
+          '--height': 'auto',
+          '--width': '90%',
+          '--max-width': '400px'
+        }}
+      >
+        <div style={{
+          padding: '32px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          fontFamily: 'inherit',
+          background: '#ffffff'
+        }}>
+          {/* Alert Icon */}
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: '#fee2e2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '20px'
+          }}>
+            <IonIcon icon={alertCircleOutline} style={{ fontSize: '32px', color: '#dc2626' }} />
+          </div>
 
-     
+          <h3 style={{ margin: '0 0 12px', fontSize: '22px', fontWeight: '700', color: '#1e293b' }}>
+            Confirmation
+          </h3>
 
-         <IonButton
-            color="danger"
-            expand="block"
-            onClick={() => {
-              setConfirmLOP(false);
-              submitToServer("LOP");
-            }}
-          >
-            Yes Continue (LOP)
-          </IonButton> 
+          <p style={{ margin: '0 0 32px', fontSize: '15px', color: '#64748b', lineHeight: '1.5' }}>
+            {lopMessage}
+          </p>
 
-          <IonButton
-            expand="block"
-            onClick={() => {
-              setConfirmLOP(false);
-              clearForm();
-            }}
-          >
-            Cancel
-          </IonButton>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
+            <button
+              onClick={() => {
+                setConfirmLOP(false);
+                submitSplitLeave();
+              }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#761f1fff',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: '600',
+                fontSize: '15px',
+                cursor: 'pointer'
+              }}
+            >
+              YES CONTINUE (LOP)
+            </button>
+
+            <button
+              onClick={() => {
+                setConfirmLOP(false);
+                clearForm();
+              }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#5c805a',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: '600',
+                fontSize: '15px',
+                cursor: 'pointer'
+              }}
+            >
+              CANCEL
+            </button>
+          </div>
         </div>
       </IonModal>
 
-      
+
 
       <IonToast
         isOpen={toastOpen}
