@@ -232,7 +232,6 @@ function MeetingDashboard() {
               <IonSelect
                 className="hidden-select-overlay"
                 interface="popover"
-                toggleIcon="none"
                 value={selectedMonth}
                 onIonChange={e => { if (e.detail.value) setSelectedMonth(e.detail.value); }}
               >
@@ -257,7 +256,6 @@ function MeetingDashboard() {
               <IonSelect
                 className="hidden-select-overlay"
                 interface="popover"
-                toggleIcon="none"
                 value={selectedProject}
                 onIonChange={e => setSelectedProject(e.detail.value)}
               >

@@ -285,49 +285,149 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     }
 
     // ✅ LEAVE / PERMISSION
+    let itemObj = x;
+    if (Array.isArray(x)) {
+      if (x.length === 30) {
+        itemObj = {
+          lid: x[0],
+          empcode: x[1],
+          lfrom: x[2],
+          lto: x[3],
+          AppliedOn: x[4],
+          ptime: x[5],
+          ltype: x[6],
+          L_status: x[7],
+          Days: x[8],
+          Remarks: x[9],
+          Leavemode: x[10],
+          LeaveCategory: x[11],
+          Empname: x[12],
+          RA1: x[13],
+          RA2: x[14],
+          RA3: x[15],
+          RA4: x[16],
+          RA1_Status: x[17],
+          RA2_Status: x[18],
+          RA3_Status: x[19],
+          RA4_Status: x[20],
+          CurrentLevel: x[21],
+          MaxLevel: x[22],
+          CurrentRA: x[23],
+          Slip: x[24],
+          InTime: x[25],
+          RA1Name: x[26],
+          RA2Name: x[27],
+          RA3Name: x[28],
+          RA4Name: x[29],
+        };
+      } else if (x.length === 32) {
+        itemObj = {
+          lid: x[0],
+          empcode: x[1],
+          lfrom: x[2],
+          lto: x[3],
+          AppliedOn: x[4],
+          ptime: x[5],
+          ltype: x[6],
+          L_status: x[7],
+          Days: x[8],
+          Remarks: x[9],
+          P_Out: x[10],
+          P_In: x[11],
+          Empname: x[12],
+          RA1: x[13],
+          RA2: x[14],
+          RA3: x[15],
+          RA4: x[16],
+          RA1_Status: x[17],
+          RA2_Status: x[18],
+          RA3_Status: x[19],
+          RA4_Status: x[20],
+          CurrentLevel: x[21],
+          MaxLevel: x[22],
+          CurrentRA: x[23],
+          Leavemode: x[24],
+          LeaveCategory: x[25],
+          Slip: x[26],
+          InTime: x[27],
+          RA1Name: x[28],
+          RA2Name: x[29],
+          RA3Name: x[30],
+          RA4Name: x[31],
+        };
+      } else {
+        itemObj = {
+          lid: x[0],
+          empcode: x[1],
+          lfrom: x[2],
+          lto: x[3],
+          AppliedOn: x[4],
+          ptime: x[5],
+          ltype: x[6],
+          L_status: x[7],
+          Days: x[8],
+          Remarks: x[9],
+          Leavemode: x[10],
+          LeaveCategory: x[11],
+          Empname: x[12] || x[10],
+          RA1: x[13] || x[11],
+          RA2: x[14] || x[12],
+          RA3: x[15] || x[13],
+          RA4: x[16] || x[14],
+          RA1_Status: x[17] || x[15],
+          RA2_Status: x[18] || x[16],
+          RA3_Status: x[19] || x[17],
+          RA4_Status: x[20] || x[18],
+          CurrentLevel: x[21],
+          MaxLevel: x[22],
+          CurrentRA: x[23],
+        };
+      }
+    }
+
     return {
-      lid: pick(x, "lid", "Id", "id"),
-      empcode: pick(x, "empcode", "EmpCode", "empCode"),
-      Empname: safeText(pick(x, "Empname", "empname", "EmpCode", "empName", "empCode")),
-      InTime: safeText(pick(x, "InTime", "inTime")),
+      lid: pick(itemObj, "lid", "Id", "id"),
+      empcode: pick(itemObj, "empcode", "EmpCode", "empCode"),
+      Empname: safeText(pick(itemObj, "Empname", "empname", "EmpCode", "empName", "empCode")),
+      InTime: safeText(pick(itemObj, "InTime", "inTime")),
 
       // ✅ EQUIPMENT FIX
-      Remarks: safeText(pick(x, "Remarks", "Purpose", "remarks", "purpose")),
-      Priority: pick(x, "Priority", "priority"),
-      FilePath: pick(x, "FilePath", "filePath"),
-      Amount: pick(x, "Amount", "amount"),
+      Remarks: safeText(pick(itemObj, "Remarks", "Purpose", "remarks", "purpose")),
+      Priority: pick(itemObj, "Priority", "priority"),
+      FilePath: pick(itemObj, "FilePath", "filePath"),
+      Amount: pick(itemObj, "Amount", "amount"),
 
       // ✅ DATE
-      lfrom: safeText(pick(x, "lfrom", "lFrom", "LFrom")),
-      ltype: safeText(pick(x, "ltype", "LType", "lType")),
-      lto: safeText(pick(x, "lto", "lTo", "LTo")),
-      AppliedOn: safeText(pick(x, "AppliedOn", "appliedOn")),
+      lfrom: safeText(pick(itemObj, "lfrom", "lFrom", "LFrom")),
+      ltype: safeText(pick(itemObj, "ltype", "LType", "lType")),
+      lto: safeText(pick(itemObj, "lto", "lTo", "LTo")),
+      AppliedOn: safeText(pick(itemObj, "AppliedOn", "appliedOn")),
       // ✅ STATUS FIX
-      L_status: safeText(pick(x, "L_status", "Status", "l_status", "status")),
-      LeaveCategory: safeText(pick(x, "LeaveCategory", "leaveCategory")),
-      Leavemode: safeText(pick(x, "Leavemode", "leavemode", "LeaveMode", "leaveMode")),
-      ptime: safeText(pick(x, "ptime", "pTime")),
+      L_status: safeText(pick(itemObj, "L_status", "Status", "l_status", "status")),
+      LeaveCategory: safeText(pick(itemObj, "LeaveCategory", "leaveCategory")),
+      Leavemode: safeText(pick(itemObj, "Leavemode", "leavemode", "LeaveMode", "leaveMode")),
+      ptime: safeText(pick(itemObj, "ptime", "pTime")),
       // ✅ APPROVAL
-      RA1_Status: pick(x, "RA1_Status", "ra1_Status", "rA1_Status", "ra1Status", "rA1Status"),
-      RA2_Status: pick(x, "RA2_Status", "ra2_Status", "rA2_Status", "ra2Status", "rA2Status"),
-      RA3_Status: pick(x, "RA3_Status", "ra3_Status", "rA3_Status", "ra3Status", "rA3Status"),
-      RA4_Status: pick(x, "RA4_Status", "ra4_Status", "rA4_Status", "ra4Status", "rA4Status"),
+      RA1_Status: pick(itemObj, "RA1_Status", "ra1_Status", "rA1_Status", "ra1Status", "rA1Status"),
+      RA2_Status: pick(itemObj, "RA2_Status", "ra2_Status", "rA2_Status", "ra2Status", "rA2Status"),
+      RA3_Status: pick(itemObj, "RA3_Status", "ra3_Status", "rA3_Status", "ra3Status", "rA3Status"),
+      RA4_Status: pick(itemObj, "RA4_Status", "ra4_Status", "rA4_Status", "ra4Status", "rA4Status"),
 
-      CurrentLevel: pick(x, "CurrentLevel", "currentLevel"),
-      MaxLevel: pick(x, "MaxLevel", "maxLevel"),
-      CurrentRA: pick(x, "CurrentRA", "currentRA", "currentRa"),
+      CurrentLevel: pick(itemObj, "CurrentLevel", "currentLevel"),
+      MaxLevel: pick(itemObj, "MaxLevel", "maxLevel"),
+      CurrentRA: pick(itemObj, "CurrentRA", "currentRA", "currentRa"),
 
-      Slip: pick(x, "Slip", "slip"),
+      Slip: pick(itemObj, "Slip", "slip"),
 
-      RA1: pick(x, "RA1", "rA1", "ra1"),
-      RA2: pick(x, "RA2", "rA2", "ra2"),
-      RA3: pick(x, "RA3", "rA3", "ra3"),
-      RA4: pick(x, "RA4", "rA4", "ra4"),
+      RA1: pick(itemObj, "RA1", "rA1", "ra1"),
+      RA2: pick(itemObj, "RA2", "rA2", "ra2"),
+      RA3: pick(itemObj, "RA3", "rA3", "ra3"),
+      RA4: pick(itemObj, "RA4", "rA4", "ra4"),
 
-      RA1_Comment: pick(x, "RA1_Comment", "ra1_Comment", "rA1_Comment", "ra1Comment", "rA1Comment"),
-      RA2_Comment: pick(x, "RA2_Comment", "ra2_Comment", "rA2_Comment", "ra2Comment", "rA2Comment"),
-      RA3_Comment: pick(x, "RA3_Comment", "ra3_Comment", "rA3_Comment", "ra3Comment", "rA3Comment"),
-      RA4_Comment: pick(x, "RA4_Comment", "ra4_Comment", "rA4_Comment", "ra4Comment", "rA4Comment"),
+      RA1_Comment: pick(itemObj, "RA1_Comment", "ra1_Comment", "rA1_Comment", "ra1Comment", "rA1Comment"),
+      RA2_Comment: pick(itemObj, "RA2_Comment", "ra2_Comment", "rA2_Comment", "ra2Comment", "rA2Comment"),
+      RA3_Comment: pick(itemObj, "RA3_Comment", "ra3_Comment", "rA3_Comment", "ra3Comment", "rA3Comment"),
+      RA4_Comment: pick(itemObj, "RA4_Comment", "ra4_Comment", "rA4_Comment", "ra4Comment", "rA4Comment"),
     };
   };
 
@@ -657,7 +757,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const controller = type === "permission" ? "Permission" : "Leave";
+      // Point Leave/Permission updates to Permission controller (since Leave controller calls non-existent SP)
+      const controller = "Permission";
       await axios.post(
         `${baseUrl}${controller}/update_Leave_Permission`,
         {
@@ -1325,7 +1426,6 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
               <IonSelect
                 className="hidden-select-overlay"
                 interface="popover"
-                toggleIcon={undefined}
                 value={selectedMonth}
                 onIonChange={(e) =>
                   setSelectedMonth(e.detail.value)
@@ -1381,7 +1481,6 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
               <IonSelect
                 className="hidden-select-overlay"
                 interface="popover"
-                toggleIcon="none"
                 value={selectedMonth}
                 onIonChange={(e) =>
                   setSelectedMonth(e.detail.value)

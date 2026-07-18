@@ -913,7 +913,6 @@ const canViewAllEmployees =
                           <IonSelect
                             className="hidden-select-overlay"
                             interface="popover"
-                            toggleIcon="none"
                             value={selectedMonth}
                             onIonChange={(e) => {
                               const month = e.detail.value;

@@ -460,7 +460,14 @@ const SecurityAttendanceScanner: React.FC = () => {
             status: selectedStatusRef.current
           })
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          let errMsg = `HTTP ${response.status}`;
+          try {
+            const eb = await response.json();
+            errMsg = eb.message || errMsg;
+          } catch {}
+          throw new Error(errMsg);
+        }
         const data = await response.json();
         logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
         
@@ -543,20 +550,29 @@ const SecurityAttendanceScanner: React.FC = () => {
           }
         } else {
           setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-          setStatusColor("#ef4444"); setMessage("❌ Face Not Recognized");
-          scheduleNextScan(1500);
+          setStatusColor("#ef4444"); setMessage("❌ " + (data.message || "Face Not Recognized"));
+          scheduleNextScan(500);
         }
       } else { scheduleNextScan(1000); }
     } catch (err: any) {
       logDebug("Err: " + err.message);
       setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-      setStatusColor("#ef4444"); setMessage("❌ Connection Timeout"); scheduleNextScan(3500);
+      let userFriendlyMsg = "Connection Error";
+      const raw = (err?.message || "").toLowerCase();
+      if (raw.includes("500") || raw.includes("conversion") || raw.includes("sql") || raw.includes("reference")) {
+        userFriendlyMsg = "Service temporarily unavailable. Please try again.";
+      } else if (raw.includes("timeout") || raw.includes("network") || raw.includes("fetch") || raw.includes("connection")) {
+        userFriendlyMsg = "Connection Timeout. Please check network.";
+      } else {
+        userFriendlyMsg = err?.message || "Connection Error";
+      }
+      setStatusColor("#ef4444"); setMessage("❌ " + userFriendlyMsg); scheduleNextScan(1500);
     }
     finally { setProcessing(false); processingRef.current = false; }
   };
 
   useEffect(() => {
-    if (cameraReady) scheduleNextScan(1200);
+    if (cameraReady) scheduleNextScan(400);
     return () => { if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current); };
   }, [cameraReady]);
 

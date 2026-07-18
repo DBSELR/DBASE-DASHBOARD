@@ -437,6 +437,7 @@ const AIAttendanceRegister: React.FC = () => {
             gap: 40px;
             padding: 40px;
             box-sizing: border-box;
+            margin-bottom: 100px;
           }
 
           .scanner-frame {
@@ -934,6 +935,7 @@ const AIAttendanceRegister: React.FC = () => {
               grid-template-columns: 1fr;
               gap: 24px;
               padding: 24px 20px;
+              margin-bottom: 100px;
             }
             .pose-thumb-grid {
               grid-template-columns: repeat(5, 1fr);

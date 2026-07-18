@@ -329,3 +329,8 @@ body[data-theme="dbase"] {
   position: relative;
   z-index: 2;
 }
+
+/* Hide caret/arrow icon inside hidden select overlay */
+.hidden-select-overlay::part(icon) {
+  display: none !important;
+}

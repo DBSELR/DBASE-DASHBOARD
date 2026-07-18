@@ -520,17 +520,26 @@ const AIAttendanceScanner: React.FC = () => {
           setTimeout(() => {
             resetScannerAndResume();
           }, 4000);
-        } else { setResultMessage("❌ Face Not Recognized"); setStatusColor("#ef4444"); scheduleNextScan(2500); }
+        } else { setResultMessage("❌ " + (data.message || "Face Not Recognized")); setStatusColor("#ef4444"); scheduleNextScan(500); }
       } else { scheduleNextScan(1000); }
     } catch (err: any) {
       logDebug("Err: " + err.message);
-      setResultMessage(`❌ ${err?.message || "Connection Error"}`); setStatusColor("#ef4444"); scheduleNextScan(3500);
+      let userFriendlyMsg = "Connection Error";
+      const raw = (err?.message || "").toLowerCase();
+      if (raw.includes("500") || raw.includes("conversion") || raw.includes("sql") || raw.includes("reference")) {
+        userFriendlyMsg = "Service temporarily unavailable. Please try again.";
+      } else if (raw.includes("timeout") || raw.includes("network") || raw.includes("fetch") || raw.includes("connection")) {
+        userFriendlyMsg = "Connection Timeout. Please check network.";
+      } else {
+        userFriendlyMsg = err?.message || "Connection Error";
+      }
+      setResultMessage(`❌ ${userFriendlyMsg}`); setStatusColor("#ef4444"); scheduleNextScan(1500);
     }
     finally { setIsProcessing(false); isProcessingRef.current = false; }
   };
 
   useEffect(() => {
-    if (isCameraReady) scheduleNextScan(1200);
+    if (isCameraReady) scheduleNextScan(400);
     return () => { if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current); };
   }, [isCameraReady]);
 

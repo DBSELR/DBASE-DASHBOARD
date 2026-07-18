@@ -305,7 +305,6 @@ function MeetingList() {
             <IonSelect
               className="hidden-select-overlay"
               interface="popover"
-              toggleIcon="none"
               value={selectedMonth}
               onIonChange={e => { if (e.detail.value) setSelectedMonth(e.detail.value); }}
             >

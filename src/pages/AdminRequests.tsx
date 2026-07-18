@@ -135,13 +135,90 @@ const AdminRequests: React.FC = () => {
   const fetchLeaveData = async (empCode: string, month: string, tab: string) => {
     if (!month) return;
     const controller = tab === "permissions" ? "Permission" : "Leave";
+    const user = getUser();
+    const loggedInEmpCode = user?.empCode || "";
+    const leaveType = tab === "permissions" ? "Permission" : "Leave";
     const url = `${baseUrl}${controller}/loadrequests_leave_permission?Empcode=${loggedInEmpCode}&Seachdate=${month}&LType=${leaveType}`;
     console.log("[AdminRequests] Fetching leave data:", { url, empCode, month, tab });
 
     try {
       const res = await axios.get(url, { headers: getAuthHeaders() });
       console.log("[AdminRequests] Fetch leave data response:", res.status, res.data?.length);
-      let result = res.data || [];
+      let rawResult = res.data || [];
+      let result = rawResult.map((x: any) => {
+        if (Array.isArray(x)) {
+          if (x.length === 30) {
+            return {
+              lid: x[0],
+              empcode: x[1],
+              lfrom: x[2],
+              lto: x[3],
+              AppliedOn: x[4],
+              ptime: x[5],
+              ltype: x[6],
+              L_status: x[7],
+              Days: x[8],
+              Remarks: x[9],
+              Leavemode: x[10],
+              LeaveCategory: x[11],
+              Empname: x[12],
+              RA1: x[13],
+              RA2: x[14],
+              RA3: x[15],
+              RA4: x[16],
+              RA1_Status: x[17],
+              RA2_Status: x[18],
+              RA3_Status: x[19],
+              RA4_Status: x[20],
+              CurrentLevel: x[21],
+              MaxLevel: x[22],
+              CurrentRA: x[23],
+              Slip: x[24],
+              InTime: x[25],
+              RA1Name: x[26],
+              RA2Name: x[27],
+              RA3Name: x[28],
+              RA4Name: x[29],
+            };
+          } else if (x.length === 32) {
+            return {
+              lid: x[0],
+              empcode: x[1],
+              lfrom: x[2],
+              lto: x[3],
+              AppliedOn: x[4],
+              ptime: x[5],
+              ltype: x[6],
+              L_status: x[7],
+              Days: x[8],
+              Remarks: x[9],
+              P_Out: x[10],
+              P_In: x[11],
+              Empname: x[12],
+              RA1: x[13],
+              RA2: x[14],
+              RA3: x[15],
+              RA4: x[16],
+              RA1_Status: x[17],
+              RA2_Status: x[18],
+              RA3_Status: x[19],
+              RA4_Status: x[20],
+              CurrentLevel: x[21],
+              MaxLevel: x[22],
+              CurrentRA: x[23],
+              Leavemode: x[24],
+              LeaveCategory: x[25],
+              Slip: x[26],
+              InTime: x[27],
+              RA1Name: x[28],
+              RA2Name: x[29],
+              RA3Name: x[30],
+              RA4Name: x[31],
+            };
+          }
+        }
+        return x;
+      });
 
       if (empCode !== "0") {
         result = result.filter(
@@ -176,7 +253,8 @@ const AdminRequests: React.FC = () => {
       Status: status.charAt(0).toUpperCase() + status.slice(1),
     };
 
-    const controller = selectedTab === "permissions" ? "Permission" : "Leave";
+    // Point Leave/Permission updates to Permission controller (since Leave controller calls non-existent SP)
+    const controller = "Permission";
     const url = `${baseUrl}${controller}/update_Leave_Permission`;
     console.log("[AdminRequests] Updating leave status:", { url, payload });
 
@@ -335,7 +413,6 @@ const AdminRequests: React.FC = () => {
                 <IonSelect
                   className="hidden-select-overlay"
                   interface="popover"
-                  toggleIcon="none"
                   value={selectedMonth}
                   onIonChange={(e) => {
                     const newMonth = e.detail.value;
