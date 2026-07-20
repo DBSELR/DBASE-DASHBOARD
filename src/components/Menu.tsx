@@ -44,6 +44,66 @@ import "../theme/Common.css";
 import "./Menu.css";
 import FloatingTabBar from "./FloatingTabBar";
 
+const BouncingBall: React.FC = () => {
+  const ballRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let x = Math.random() * 150;
+    let y = Math.random() * 300;
+    let dx = 1.2;
+    let dy = 1.5;
+    let animationFrameId: number;
+
+    const animate = () => {
+      if (ballRef.current) {
+        // Typical Ionic menu width is 304px, height is 100vh
+        const parentWidth = 304; 
+        const parentHeight = window.innerHeight;
+        
+        const ballSize = 120; // bigger blur ball
+
+        x += dx;
+        y += dy;
+
+        if (x + ballSize > parentWidth || x < 0) {
+          dx = -dx;
+        }
+        if (y + ballSize > parentHeight || y < 0) {
+          dy = -dy;
+        }
+
+        ballRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      }
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    animate();
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
+
+  return (
+    <div
+      ref={ballRef}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '120px',
+        height: '120px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), var(--ion-color-primary, #f15a24))',
+        boxShadow: '0 8px 32px var(--ion-color-primary, #f15a24)',
+        opacity: 0.5,
+        filter: 'blur(8px)',
+        pointerEvents: 'none',
+        zIndex: 0, // Behind the menu content
+        willChange: 'transform'
+      }}
+    />
+  );
+};
+
 const Menu: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
@@ -174,9 +234,13 @@ const Menu: React.FC = () => {
 
   return (
     <>
-      <IonMenu contentId="main" menuId="main-menu" type="overlay" className="menu-background">
-        <IonContent className="menu-background" scrollY={false}>
-          <div className="menu-inner-wrapper">
+      <IonMenu contentId="main" menuId="main-menu" type="overlay" className="menu-background modern-glass-menu">
+        <IonContent className="menu-background modern-glass-content" scrollY={false} style={{ '--background': 'transparent' }}>
+          
+          {/* ── Bouncing Floater Ball ── */}
+          <BouncingBall />
+
+          <div className="menu-inner-wrapper" style={{ position: 'relative', zIndex: 1, height: '100%', overflowY: 'auto' }}>
 
             {/* ── Profile Card (static, never scrolls) ── */}
             <div className="modern-menu-header premium-trendy-bg">
