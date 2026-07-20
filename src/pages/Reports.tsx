@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import moment from "moment";
 import { API_BASE } from "../config";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import "./Reports.css";
 
 const LOG = (...args: any[]) => console.log("[Reports]", ...args);
@@ -8,6 +10,7 @@ const GROUP = (title: string) => console.group("[Reports]", title);
 const GROUP_END = () => console.groupEnd();
 
 const Reports: React.FC = () => {
+  const history = useHistory();
   const [userData, setUserData] = useState<any>(null);
   const [reportType, setReportType] = useState<string>();
   const [fromDate, setFromDate] = useState<string>(moment().format("YYYY-MM-DD"));
@@ -286,10 +289,28 @@ const reportOptions =
 
   return (
     <div className="rpt-main-container">
-      <header className="rpt-header rpt-fade-in stagger-1 premium-trendy-bg">
-        <h2>Report Center</h2>
-        <p>Generate and view your professional reports</p>
-      </header>
+      <div className="page-wr-header" style={{ width: '100%', margin: '0 0 24px 0' }}>
+        <div className="page-wr-header-left">
+          <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
+            <ChevronLeft size={22} />
+          </button>
+          <div>
+            <h1 className="page-wr-title">Report Center</h1>
+            <p className="page-wr-subtitle">Generate and view your professional reports</p>
+          </div>
+        </div>
+        <div className="page-wr-header-right">
+          <div className="page-wr-header-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ion-color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+        </div>
+      </div>
 
       <div className="rpt-card rpt-fade-in stagger-2">
         <div className="rpt-form-grid">

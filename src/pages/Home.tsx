@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Particles from "react-tsparticles";
+import { loadSlim } from "tsparticles-slim";
+import type { Engine } from "tsparticles-engine";
 import {
   MapPin,
   X,
@@ -24,9 +27,16 @@ declare global {
 import { FileWarning } from "lucide-react";
 
 
-const ADMIN_EMPCODES = ['1501', '1509', '1601','1508'];
+const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508'];
 
 const Home: React.FC = () => {
+  const particlesInit = useCallback(async (engine: Engine) => {
+    await loadSlim(engine);
+  }, []);
+
+  const [themeColors, setThemeColors] = useState<string[]>(["#f57c00", "#ffab40", "#fb923c"]);
+  const [primaryColor, setPrimaryColor] = useState<string>("#f57c00");
+
   const [currentTime, setCurrentTime] = useState<string>("");
   const [location, setLocation] = useState<string>("Fetching location...");
   const [showNotifications, setShowNotifications] = useState(false);
@@ -38,6 +48,18 @@ const Home: React.FC = () => {
   })();
 
   useEffect(() => {
+    // Extract dynamic theme colors from Ionic CSS variables
+    const getThemeColors = () => {
+      const style = getComputedStyle(document.documentElement);
+      const primary = style.getPropertyValue('--ion-color-primary').trim() || "#f57c00";
+      const secondary = style.getPropertyValue('--ion-color-secondary').trim() || "#ffab40";
+      const tertiary = style.getPropertyValue('--ion-color-tertiary').trim() || "#fb923c";
+      
+      setPrimaryColor(primary);
+      setThemeColors([primary, secondary, tertiary]);
+    };
+
+    getThemeColors();
     updateTime();
     const interval = setInterval(updateTime, 1000);
     getLocation(); // Fetch location on load
@@ -142,37 +164,86 @@ const Home: React.FC = () => {
     { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: "/stock", colorClass: "home-card-stock" },
     { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },
     { id: "maintenance", label: "Maintenance", icon: "https://cdn.lordicon.com/qawxkplz.json", path: null, colorClass: "home-card-maintenance" },
-    { id: "scanner", label: "Scanner", icon: <Scan size={32} color="#ffffff" />, path: "/camera", colorClass: "home-card-scanner", isLucide: true },
-    ...(String(currentEmpCode).trim() !== "2001" ? [{ id: "ai-attendance", label: "AI Attendance", icon: <UserCheck size={32} color="#ffffff" />, path: "/ai-attendance-scanner", colorClass: "home-card-ai-attendance", isLucide: true }] : []),
-    
-{
-  id: "daywise-attendance",
-  label: "Attendance Logs",
-  icon: <UserCheck size={32} color="#ffffff" />,
-  path: "/ai-attendance-log/logs",
-  colorClass: "home-card-ai-attendance",
-  isLucide: true
-},
-{
-  id: "my-penalties",
-  label: "My Penalties",
-  icon: <BadgeAlert size={34} color="#ffffff" />,
-  path: "/employee-penalties",
-  colorClass: "home-card-penalties",
-  isLucide: true
-},
-...(ADMIN_EMPCODES.includes(currentEmpCode) ? [{
-  id: "ai-attendance-admin",
-  label: "AI Attendance Admin",
-  icon: <ShieldAlert size={32} color="#ffffff" />,
-  path: "/ai-attendance-admin-dashboard",
-  colorClass: "home-card-ai-admin",
-  isLucide: true
-}] : []),
+    { id: "scanner", label: "Scanner", icon: "https://cdn.lordicon.com/msoeawqm.json", path: "/camera", colorClass: "home-card-scanner" },
+    ...(String(currentEmpCode).trim() !== "2001" ? [{ id: "ai-attendance", label: "AI Attendance", icon: "https://cdn.lordicon.com/bgebyztw.json", path: "/ai-attendance-scanner", colorClass: "home-card-ai-attendance" }] : []),
+    {
+      id: "daywise-attendance",
+      label: "Attendance Logs",
+      icon: "https://cdn.lordicon.com/nocovwne.json",
+      path: "/ai-attendance-log/logs",
+      colorClass: "home-card-ai-attendance"
+    },
+    {
+      id: "my-penalties",
+      label: "My Penalties",
+      icon: "https://cdn.lordicon.com/tdrtiskw.json",
+      path: "/employee-penalties",
+      colorClass: "home-card-penalties"
+    },
+    ...(ADMIN_EMPCODES.includes(currentEmpCode) ? [{
+      id: "ai-attendance-admin",
+      label: "AI Attendance Admin",
+      icon: "https://cdn.lordicon.com/rqqkvjqf.json",
+      path: "/ai-attendance-admin-dashboard",
+      colorClass: "home-card-ai-admin"
+    }] : []),
   ];
 
-  return (  
+  return (
     <div className="home-container">
+      {/* Background Particles */}
+      <Particles
+        id="tsparticles-home"
+        init={particlesInit}
+        options={{
+          fullScreen: { enable: false, zIndex: 0 },
+          particles: {
+            number: { value: 40, density: { enable: true, value_area: 800 } },
+            color: { value: themeColors },
+            shape: { type: "circle" },
+            opacity: { value: 0.3, random: true },
+            size: { value: 4, random: true },
+            move: {
+              enable: true,
+              speed: 1.2,
+              direction: "none",
+              random: true,
+              straight: false,
+              outModes: { default: "out" },
+              bounce: false,
+            },
+            links: {
+              enable: true,
+              distance: 140,
+              color: primaryColor,
+              opacity: 0.1,
+              width: 1,
+            },
+          },
+          interactivity: {
+            events: {
+              onHover: { enable: true, mode: "grab" },
+              onClick: { enable: true, mode: "push" },
+              resize: true,
+            },
+            modes: {
+              grab: { distance: 140, links: { opacity: 0.3 } },
+              push: { quantity: 2 },
+            },
+          },
+          detectRetina: true,
+        }}
+        style={{
+          position: "fixed", /* Fixed so it stays in background when scrolling */
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none" /* allow clicking through to cards underneath */
+        }}
+        className="home-particles-bg"
+      />
+
       {/* Premium Header */}
       <header className="home-header">
         <img src="./images/dbase.png" alt="DBase Logo" className="home-logo" />

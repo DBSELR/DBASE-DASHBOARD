@@ -1,6 +1,7 @@
 /* =====================================================
    RequestsPage — Ultra-Premium Redesign v3
    ===================================================== */
+@import url("./WorkReports.css");
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
@@ -90,7 +91,7 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  margin-top: -56px;
+  margin-top: 0px;
   position: relative;
   z-index: 20;
 }

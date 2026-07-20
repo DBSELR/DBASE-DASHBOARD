@@ -24,7 +24,8 @@ import {
   Ticket,
   ChevronRight,
   MoreVertical,
-  X
+  X,
+  ChevronLeft
 } from "lucide-react";
 import DashboardButtons from "./DashboardButtons";
 import SupportTickets from "./SupportTickets";
@@ -286,16 +287,32 @@ export default function Tickets() {
       <IonContent className="dbase-tickets-content-scroller">
         <div className="dbase-tickets-container">
 
-          {/* Header */}
-          <div className="dbase-tickets-header dbase-animate-fade">
-            <div className="dbase-tickets-title-row">
-              <h1 className="dbase-tickets-title">Ticket Hub</h1>
-              <div className="dbase-tickets-header-actions">
-                <button className="dbase-tickets-btn dbase-tickets-btn-secondary" onClick={() => history.push("/tickets/ticketdata")}>
+          {/* Premium Header */}
+          <div className="page-wr-header" style={{ width: '100%', margin: '16px 0 24px 0' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
+                <ChevronLeft size={22} />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Ticket Hub</h1>
+                <p className="page-wr-subtitle">Manage and track your support tickets</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  className="dbase-tickets-btn dbase-tickets-btn-secondary" 
+                  onClick={() => history.push("/tickets/ticketdata")}
+                  style={{ background: 'rgba(255, 255, 255, 0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '8px 16px', borderRadius: '12px', height: '40px' }}
+                >
                   <Download size={18} />
                   <span className="hidden-mobile">Export</span>
                 </button>
-                <button className="dbase-tickets-btn dbase-tickets-btn-primary" onClick={() => history.push("/tickets/raisedticket")}>
+                <button 
+                  className="dbase-tickets-btn dbase-tickets-btn-primary" 
+                  onClick={() => history.push("/tickets/raisedticket")}
+                  style={{ background: 'white', color: 'var(--ion-color-primary)', border: 'none', padding: '8px 16px', borderRadius: '12px', height: '40px', fontWeight: 'bold' }}
+                >
                   <PlusCircle size={18} />
                   <span className="hidden-mobile">Raise</span>
                 </button>

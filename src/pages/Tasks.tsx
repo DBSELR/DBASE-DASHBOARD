@@ -58,6 +58,7 @@ import {
   pauseCircle
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import { apiService } from "../utils/apiService";
 import { API_BASE } from "../config";
 import "./Tasks.css";
@@ -1145,34 +1146,45 @@ const Tasks: React.FC = () => {
           onDidDismiss={() => setToastMessage("")}
         />
 
-        <div className="native-segment-header">
-          <button className="native-back-btn" onClick={handleBack}>
-            <IonIcon icon={arrowBack} />
-          </button>
-          <div className="native-segment-container">
+        <div className="page-wr-header" style={{ margin: '16px 16px 20px 16px' }}>
+          <div className="page-wr-header-left">
+            <button className="page-wr-back-btn" onClick={handleBack} style={{ color: 'white' }}>
+              <ChevronLeft size={22} />
+            </button>
+            <div>
+              <h1 className="page-wr-title">Task Management</h1>
+              <p className="page-wr-subtitle">Manage and assign tasks</p>
+            </div>
+          </div>
+          <div className="page-wr-header-right">
+            <button className="page-wr-header-icon-box" onClick={() => fetchInitialData(currentEmpCode)} title="Refresh Data" style={{ border: 'none', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <IonIcon icon={repeat} style={{ fontSize: '20px', color: 'var(--ion-color-primary)' }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Standalone Segment Tabs */}
+        <div style={{ padding: '0 16px', marginBottom: '0px' }}>
+          <div className="tasks-custom-tabs">
             <div
-              className={`native-segment-item ${selectedTab === "view" ? "active" : ""}`}
+              className={`tasks-tab-item ${selectedTab === "view" ? "active" : ""}`}
               onClick={() => setSelectedTab("view")}
             >
               View Task
             </div>
             <div
-              className={`native-segment-item ${selectedTab === "assign" ? "active" : ""}`}
+              className={`tasks-tab-item ${selectedTab === "assign" ? "active" : ""}`}
               onClick={() => setSelectedTab("assign")}
             >
               Assign Task
             </div>
-            <div className={`native-segment-slider ${selectedTab === "view" ? "left" : "right"}`} />
           </div>
-          <button className="native-refresh-btn" onClick={() => fetchInitialData(currentEmpCode)} title="Refresh Data">
-            <IonIcon icon={repeat} />
-          </button>
         </div>
 
         {/* View Tasks Tab */}
         {selectedTab === "view" && (
           <div className="view-task-section ion-padding">
-            <div className="task-filters-row" style={{ marginTop: '30px' }}>
+            <div className="task-filters-row">
               <div className="native-filter-segment">
                 <div
                   className={`native-filter-item ${filterValue === "pending" ? "active" : ""}`}

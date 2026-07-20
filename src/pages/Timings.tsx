@@ -17,8 +17,10 @@ import {
   BarChart3,
   LogOut,
   LogIn,
-  CheckCircle2
+  CheckCircle2,
+  ChevronLeft
 } from "lucide-react";
+import { useHistory } from "react-router-dom";
 import axios from "axios";
 import Chart from "chart.js/auto";
 import { API_BASE } from "../config";
@@ -47,6 +49,7 @@ type EmpTiming = {
 };
 
 const Timings: React.FC = () => {
+  const history = useHistory();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   // Determine if admin based on common codes or designation
   const isAdmin = user?.designation === "Director" || user?.empCode === "1509" || user?.empCode === "2001";
@@ -303,10 +306,26 @@ const Timings: React.FC = () => {
 
   return (
     <IonPage>
-
-
       <IonContent>
         <div className="tm-page-content">
+          {/* Custom Premium Header */}
+          <div className="tm-header tm-animate">
+            <div className="tm-header-left">
+              <button className="tm-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={24} color="#ffffff" />
+              </button>
+              <div>
+                <h1 className="tm-title">Timings</h1>
+                <span className="tm-subtitle">Activity & Permissions</span>
+              </div>
+            </div>
+            <div className="tm-header-right">
+              <div className="tm-header-icon-box">
+                <Clock size={26} color="var(--ion-color-primary)" />
+              </div>
+            </div>
+          </div>
+
           <IonLoading isOpen={loading} message="Fetching latest data..." />
           <IonToast
             isOpen={showToast}

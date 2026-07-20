@@ -1,10 +1,11 @@
+@import url("./WorkReports.css");
+
 /* ================= DASHBOARD ================= */
 
 .work-dashboard {
-  padding: 12px;
+  padding: 0;
   background: #f6f7fb;
   min-height: 100vh;
-
   overflow-y: auto;
 }
 
@@ -12,23 +13,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin: 0 auto 24px auto;
+  padding: 16px 16px 0 16px;
   position: relative;
   width: 100%;
-}
-
-.dashboard-header h2 {
-  margin: 0;
-  font-size: 26px;
-  font-weight: 800;
-  color: linear-gradient(135deg, var(--ion-color-primary, #f15a24), var(--ion-color-secondary, #f47b4e)); /* Premium Indigo */
-  letter-spacing: -0.5px;
-}
-
-.dashboard-header p {
-  margin: 4px 0 0;
-  color: #64748b;
-  font-size: 13px;
+  max-width: 950px;
 }
 
 /* ================= PERIOD PILL ================= */
@@ -681,44 +670,33 @@
   gap: 18px;
 }
 
-.card-date {
-  display: inline-block;
-  background: #5f5959;
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  margin-bottom: -10px;
-  z-index: 5;
-  width: fit-content;
-}
+/* Removed duplicate .card-date */
 
 /* Duplicate card styling block removed to prevent conflict with consolidated section below */
 
-.work-dashboard {
-  background: #edf2f7;
-  min-height: 100vh;
-  padding: 15px;
-}
+/* Removed duplicate work-dashboard */
 
 .task-list-container {
   max-width: 950px;
   margin: auto;
-    padding-top: 50px;
+  padding: 10px 16px 50px 16px;
 }
 
 /* New Filters Layout Styles */
 .filters-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: center;
+  width: 100%;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-width: 140px;
 }
 
 .filter-label {
@@ -746,7 +724,8 @@
   background: #fff;
   transition: all 0.3s ease;
   cursor: pointer;
-  min-width: 180px;
+  min-width: 120px;
+  width: 100%;
   justify-content: space-between;
 }
 
@@ -765,17 +744,19 @@
 .card-date {
   display: inline-flex;
   align-items: center;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 12px;
-  margin-top: 24px;
-  margin-bottom: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  background: linear-gradient(135deg, var(--ion-color-primary), #818cf8);
+  color: #ffffff;
+  padding: 8px 20px;
+  border-radius: 24px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 28px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.35);
   width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Redesigned Premium wr-card */

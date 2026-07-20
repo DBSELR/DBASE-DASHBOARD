@@ -29,7 +29,8 @@ import {
   ChevronDown,
   XCircle,
   Check,
-  X
+  X,
+  ChevronLeft
 } from "lucide-react";
 import {
   personOutline,
@@ -96,7 +97,7 @@ const WorkReports: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingReportId, setEditingReportId] = useState<number | null>(null);
   const [editingReportContent, setEditingReportContent] = useState<string>("");
-   const history = useHistory();
+  const history = useHistory();
   // Searchable Dropdown States
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [empSearchTerm, setEmpSearchTerm] = useState("");
@@ -184,71 +185,71 @@ const WorkReports: React.FC = () => {
       }
 
       try {
-      const user = JSON.parse(
-  localStorage.getItem("user") || "{}"
-);
+        const user = JSON.parse(
+          localStorage.getItem("user") || "{}"
+        );
 
-const designation =
-  user?.designation || "";
+        const designation =
+          user?.designation || "";
 
-const isAdminUser =
-  designation === "HR" ||
-  designation === "Director" ||
-  designation === "In-Charge F&A";
+        const isAdminUser =
+          designation === "HR" ||
+          designation === "Director" ||
+          designation === "In-Charge F&A";
 
-if (isAdminUser) {
+        if (isAdminUser) {
 
-  const empRes = await axios.get(
-    `${baseUrl}/Employee/Load_Employees?SearchEmp`,
-    {
-      headers: getAuthHeaders()
-    }
-  );
+          const empRes = await axios.get(
+            `${baseUrl}/Employee/Load_Employees?SearchEmp`,
+            {
+              headers: getAuthHeaders()
+            }
+          );
 
-  const formatted = empRes.data.map(
-    (e: string[]) => ({
-      empCode: e[0],
-      name: e[1]
-    })
-  );
+          const formatted = empRes.data.map(
+            (e: string[]) => ({
+              empCode: e[0],
+              name: e[1]
+            })
+          );
 
-  setEmployees(formatted);
+          setEmployees(formatted);
 
-} else {
+        } else {
 
-  setEmployees([
-    {
-      empCode: user.empCode,
-      name: `${user.empCode} - ${user.empName}`
-    }
-  ]);
-}
+          setEmployees([
+            {
+              empCode: user.empCode,
+              name: `${user.empCode} - ${user.empName}`
+            }
+          ]);
+        }
 
-if (user?.empCode) {
+        if (user?.empCode) {
 
-  const defaultEmpCode =
-    user.empCode;
+          const defaultEmpCode =
+            user.empCode;
 
-  const defaultMonth =
-    getCurrentMonthYear();
+          const defaultMonth =
+            getCurrentMonthYear();
 
-  setSelectedEmployee(
-    defaultEmpCode
-  );
+          setSelectedEmployee(
+            defaultEmpCode
+          );
 
-  setSelectedMonth(
-    defaultMonth
-  );
+          setSelectedMonth(
+            defaultMonth
+          );
 
-  await fetchMonths(
-    defaultEmpCode
-  );
+          await fetchMonths(
+            defaultEmpCode
+          );
 
-  await fetchReports(
-    defaultEmpCode,
-    defaultMonth
-  );
-}
+          await fetchReports(
+            defaultEmpCode,
+            defaultMonth
+          );
+        }
       } catch (err) {
         console.error("Error loading employees", err);
       }
@@ -258,31 +259,31 @@ if (user?.empCode) {
   }, []);
 
   const loadTeamReportAccess = async () => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-    const res = await axios.get(
-      `${baseUrl}/Sources/Load_GETRAS`,
-      {
-        headers: getAuthHeaders()
-      }
-    );
+      const res = await axios.get(
+        `${baseUrl}/Sources/Load_GETRAS`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
 
-    const allowedDesignations = res.data.map(
-      (x: any) => x.name?.trim().toLowerCase()
-    );
+      const allowedDesignations = res.data.map(
+        (x: any) => x.name?.trim().toLowerCase()
+      );
 
-    const userDesignation =
-      user?.designation?.trim().toLowerCase();
+      const userDesignation =
+        user?.designation?.trim().toLowerCase();
 
-    setShowTeamReports(
-      allowedDesignations.includes(userDesignation)
-    );
-  } catch (err) {
-    console.error("Error loading designation access", err);
-    setShowTeamReports(false);
-  }
-};
+      setShowTeamReports(
+        allowedDesignations.includes(userDesignation)
+      );
+    } catch (err) {
+      console.error("Error loading designation access", err);
+      setShowTeamReports(false);
+    }
+  };
 
   const getCurrentMonthYear = (): string => {
     const now = new Date();
@@ -441,15 +442,15 @@ if (user?.empCode) {
       return;
     }
 
-   const userData =
-  JSON.parse(
-    localStorage.getItem("user") || "{}"
-  );
+    const userData =
+      JSON.parse(
+        localStorage.getItem("user") || "{}"
+      );
 
-const canViewAllEmployees =
-  userData?.designation === "HR" ||
-  userData?.designation === "Director" ||
-  userData?.designation === "In-Charge F&A";
+    const canViewAllEmployees =
+      userData?.designation === "HR" ||
+      userData?.designation === "Director" ||
+      userData?.designation === "In-Charge F&A";
     const empCode = userData?.empCode;
 
     if (!empCode) {
@@ -530,22 +531,30 @@ const canViewAllEmployees =
     "Jan-2025", "Feb-2025", "Mar-2025", "Apr-2025",
   ];
 
-  
+
 
   return (
     <IonPage>
       <IonContent className="ion-padding" style={{ "--background": "var(--ion-background-color)" }}>
         <div className="wr-container">
-          {/* Integrated Header */}
-          <div className="wr-integrated-header">
-            {/* <img
-              src="./images/dbase.png"
-              alt="DBase Logo"
-              className="wr-brand-logo"
-            /> */}
-            <div className="wr-page-title">Work Reports</div>
+          {/* Custom Premium Header */}
+          <div className="page-wr-header">
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Work Reports</h1>
+                <p className="page-wr-subtitle">Submit and review your daily activities</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <FileText size={26} color="var(--ion-color-primary)" />
+              </div>
+            </div>
           </div>
- {/* {showTeamReports && (
+          {/* {showTeamReports && (
     <button
       className="team-report-btn"
       onClick={() =>
@@ -766,11 +775,11 @@ const canViewAllEmployees =
                 </div>
 
                 <div className="wr-button-group">
-                   <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
+                  <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
                     <Send size={20} />
                     Submit
                   </button>
-                   <button className="wr-btn wr-btn-outline" onClick={handleClear}>
+                  <button className="wr-btn wr-btn-outline" onClick={handleClear}>
                     <RefreshCcw size={15} />
                     Clear
                   </button>
@@ -783,119 +792,119 @@ const canViewAllEmployees =
               <div className="wr-view-section">
                 <div className="wr-card" style={{ marginBottom: '24px' }}>
                   <div className="wr-history-header">
-  <div className="wr-section-title">
-    <Search size={22} />
-    Work History
-  </div>
+                    <div className="wr-section-title">
+                      <Search size={22} />
+                      Work History
+                    </div>
 
-  {showTeamReports && (
-    <button
-      className="team-report-btn"
-      onClick={() => history.push("/workreport-dashboard")}
-    >
-      Team Work Reports
-    </button>
-  )}
-</div>
+                    {showTeamReports && (
+                      <button
+                        className="team-report-btn"
+                        onClick={() => history.push("/workreport-dashboard")}
+                      >
+                        Team Work Reports
+                      </button>
+                    )}
+                  </div>
 
                   <div className="workrp-wh" >
                     {canViewAllEmployees && (
-                    <div className="wr-input-group" style={{ marginBottom: 0 }}>
-                      <div className="custom-dropdown-container" ref={triggerRef}>
-                        <div
-                          className={`premium-filter-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
-                          onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
-                        >
-                          <div className="trigger-content">
-                            <div className="trigger-icon-box">
-                              <IonIcon icon={personOutline} />
+                      <div className="wr-input-group" style={{ marginBottom: 0 }}>
+                        <div className="custom-dropdown-container" ref={triggerRef}>
+                          <div
+                            className={`premium-filter-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
+                            onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
+                          >
+                            <div className="trigger-content">
+                              <div className="trigger-icon-box">
+                                <IonIcon icon={personOutline} />
+                              </div>
+                              <div className="trigger-text-sec">
+                                <span className="trigger-sub">Employee</span>
+                                <span className="trigger-main">
+                                  {employees.find(e => e.empCode === selectedEmployee)?.name || "Select Employee"}
+                                </span>
+                              </div>
                             </div>
-                            <div className="trigger-text-sec">
-                              <span className="trigger-sub">Employee</span>
-                              <span className="trigger-main">
-                                {employees.find(e => e.empCode === selectedEmployee)?.name || "Select Employee"}
-                              </span>
-                            </div>
+                            <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
                           </div>
-                          <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
-                        </div>
 
-                        {isEmployeeDropdownOpen && createPortal(
-                          <>
-                            <div className="dropdown-outside-click-layer" onClick={() => setIsEmployeeDropdownOpen(false)} />
-                            <div
-                              className="custom-inline-dropdown"
-                              style={{
-                                position: 'absolute',
-                                top: `${dropdownPos.top}px`,
-                                left: `${dropdownPos.left}px`,
-                                width: `${dropdownPos.width}px`
-                              }}
-                            >
-                              <div className="dropdown-search-sec">
-                                <IonIcon icon={searchOutline} className="dropdown-search-icon" />
-                                <input
-                                  type="text"
-                                  className="dropdown-pure-input"
-                                  placeholder="Search name or code..."
-                                  value={empSearchTerm}
-                                  onChange={(e) => setEmpSearchTerm(e.target.value)}
-                                  autoFocus
-                                />
-                                {empSearchTerm && (
-                                  <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
-                                    <IonIcon icon={closeCircle} />
-                                  </button>
-                                )}
-                              </div>
+                          {isEmployeeDropdownOpen && createPortal(
+                            <>
+                              <div className="dropdown-outside-click-layer" onClick={() => setIsEmployeeDropdownOpen(false)} />
+                              <div
+                                className="custom-inline-dropdown"
+                                style={{
+                                  position: 'absolute',
+                                  top: `${dropdownPos.top}px`,
+                                  left: `${dropdownPos.left}px`,
+                                  width: `${dropdownPos.width}px`
+                                }}
+                              >
+                                <div className="dropdown-search-sec">
+                                  <IonIcon icon={searchOutline} className="dropdown-search-icon" />
+                                  <input
+                                    type="text"
+                                    className="dropdown-pure-input"
+                                    placeholder="Search name or code..."
+                                    value={empSearchTerm}
+                                    onChange={(e) => setEmpSearchTerm(e.target.value)}
+                                    autoFocus
+                                  />
+                                  {empSearchTerm && (
+                                    <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                                      <IonIcon icon={closeCircle} />
+                                    </button>
+                                  )}
+                                </div>
 
-                              <div className="dropdown-body">
-                                {filteredEmployees.map((emp) => {
-                                  const isSelected = selectedEmployee === emp.empCode;
+                                <div className="dropdown-body">
+                                  {filteredEmployees.map((emp) => {
+                                    const isSelected = selectedEmployee === emp.empCode;
 
-                                  // Extract actual name by removing ID prefix (e.g., 1501-NAME)
-                                  const nameWithoutId = emp.name.includes("-") ? emp.name.split("-")[1].trim() : emp.name;
-                                  const initials = nameWithoutId.charAt(0).toUpperCase();
+                                    // Extract actual name by removing ID prefix (e.g., 1501-NAME)
+                                    const nameWithoutId = emp.name.includes("-") ? emp.name.split("-")[1].trim() : emp.name;
+                                    const initials = nameWithoutId.charAt(0).toUpperCase();
 
-                                  return (
-                                    <div
-                                      key={emp.empCode}
-                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                      onMouseDown={async (e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setSelectedEmployee(emp.empCode);
-                                        setReportList([]);
-                                        setSelectedMonth(null);
-                                        setIsEmployeeDropdownOpen(false);
-                                        setEmpSearchTerm("");
-                                        await fetchMonths(emp.empCode);
-                                      }}
-                                    >
-                                      <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`}>
-                                        {initials}
+                                    return (
+                                      <div
+                                        key={emp.empCode}
+                                        className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                        onMouseDown={async (e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedEmployee(emp.empCode);
+                                          setReportList([]);
+                                          setSelectedMonth(null);
+                                          setIsEmployeeDropdownOpen(false);
+                                          setEmpSearchTerm("");
+                                          await fetchMonths(emp.empCode);
+                                        }}
+                                      >
+                                        <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`}>
+                                          {initials}
+                                        </div>
+                                        <div className="dr-info">
+                                          <span className="dr-name">{emp.name}</span>
+                                          <span className="dr-id">ID: {emp.empCode}</span>
+                                        </div>
+                                        {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
                                       </div>
-                                      <div className="dr-info">
-                                        <span className="dr-name">{emp.name}</span>
-                                        <span className="dr-id">ID: {emp.empCode}</span>
-                                      </div>
-                                      {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                                    );
+                                  })}
+                                  {filteredEmployees.length === 0 && (
+                                    <div className="dr-no-results">
+                                      <p>No matches for "{empSearchTerm}"</p>
                                     </div>
-                                  );
-                                })}
-                                {filteredEmployees.length === 0 && (
-                                  <div className="dr-no-results">
-                                    <p>No matches for "{empSearchTerm}"</p>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </>,
-                          document.body
-                        )}
+                            </>,
+                            document.body
+                          )}
+                        </div>
                       </div>
-                    </div>
-)}
+                    )}
                     <div className="wr-input-group" style={{ marginBottom: 0 }}>
                       <div className="custom-dropdown-container">
                         <div className="premium-filter-trigger">
@@ -937,38 +946,34 @@ const canViewAllEmployees =
                 <div className="wr-reports-list">
                   {reportList.length > 0 ? (
                     reportList.map((report: any, index: number) => (
-                      <div className={`wr-report-card ${report[7]}`} key={index}>
-                        <div className="wr-report-header">
-                          <div className="wr-status-container">
-                            <div className="wr-report-date-badge">
-                              {report[5]}
+                      <div className={`wr-premium-card ${report[7]}`} key={index}>
+                        <div className="wr-premium-card-header">
+                          <div className="wr-header-left">
+                            <div className="wr-date-wrap">
+                              <Calendar size={13} className="wr-header-icon" />
+                              <span>{report[5]}</span>
                             </div>
-                            <div className={`wr-status-pill ${report[6].toLowerCase()}`} style={{
-                              backgroundColor: report[8],
-                              color: '#fff',
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontWeight: '600'
-                            }}>
-                              {report[6]}
+                            <div className="wr-premium-location">
+                              <MapPin size={12} className="wr-header-icon" />
+                              <span>{report[2]}</span>
                             </div>
                           </div>
-                          <div className="wr-report-location-badge">
-                            <MapPin size={12} />
-                            {report[2]}
+                          <div className="wr-status-wrap" style={{ backgroundColor: report[8] }}>
+                            <span className="wr-status-dot"></span>
+                            {report[6]}
                           </div>
                         </div>
-                        <div className="wr-report-content">
-                          <div className="wr-report-title-row">
-                            <div className="wr-report-title">{report[1]}</div>
+                        <div className="wr-premium-card-body">
+                          <h3 className="wr-premium-title">{report[1]}</h3>
+                          <div className="wr-premium-desc-box">
+                            <FileText size={14} className="wr-desc-icon" />
+                            <p className="wr-premium-text">{report[4]}</p>
                             {report[6] === "Pending" && JSON.parse(localStorage.getItem("user") || "{}")?.empCode === selectedEmployee && (
-                              <button className="wr-edit-btn" onClick={() => handleEditClick(report)}>
+                              <button className="wr-edit-btn-small" onClick={() => handleEditClick(report)}>
                                 <Edit2 size={16} />
                               </button>
                             )}
                           </div>
-                          <p className="wr-report-text">{report[4]}</p>
                         </div>
                       </div>
                     ))

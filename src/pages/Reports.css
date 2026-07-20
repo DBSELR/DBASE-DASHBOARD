@@ -1,4 +1,6 @@
-/* Reports.css */
+@import url("./WorkReports.css");
+
+/* Reports.css - Unique Namespacing: .rpt-* */
 
 .rpt-main-container {
   height: 100vh;
@@ -6,7 +8,7 @@
   -webkit-overflow-scrolling: touch;
   /* Smooth scrolling on iOS */
   background: linear-gradient(135deg, #f0f4ff 0%, #f9fafb 100%);
-  padding: 24px 20px 120px 20px;
+  padding: 16px 20px 120px 20px;
   /* Extra bottom padding for floating tab bar */
   font-family: var(--body-font, 'Inter', sans-serif);
   box-sizing: border-box;

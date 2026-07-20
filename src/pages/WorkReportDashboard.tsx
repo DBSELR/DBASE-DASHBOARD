@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import axios from "axios";
 import "./WorkReportDashboard.css";
 import { API_BASE } from "../config";
+import { ChevronLeft, FileText, Check, X, Calendar, MapPin } from "lucide-react";
+import { useHistory } from "react-router-dom";
 import { IonIcon } from "@ionic/react";
 import { person, search, close, checkmarkCircle, chevronDown } from "ionicons/icons";
 
@@ -29,8 +31,9 @@ const WorkReportDashboard: React.FC = () => {
   const [monthYearList, setMonthYearList] = useState<string[]>([]);
   const [searchDate, setSearchDate] = useState<string>("");
  const [workReports, setWorkReports] = useState<WorkReport[]>([]);
-const [allWorkReports, setAllWorkReports] = useState<WorkReport[]>([]);
+  const [allWorkReports, setAllWorkReports] = useState<WorkReport[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
+  const history = useHistory();
 
   // Parse active user from localStorage "user" JSON key
   const getLoggedInUser = () => {
@@ -352,9 +355,22 @@ const [allWorkReports, setAllWorkReports] = useState<WorkReport[]>([]);
     <div className="work-dashboard">
 
       {/* HEADER */}
-      <div className="dashboard-header">
-        <div>
-          <h2>WorkReport Dashboard</h2>
+      <div className="dashboard-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+        <div className="page-wr-header" style={{ width: '100%' }}>
+          <div className="page-wr-header-left">
+            <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+              <ChevronLeft size={22} color="white" />
+            </button>
+            <div>
+              <h1 className="page-wr-title">Team Reports</h1>
+              <p className="page-wr-subtitle">Review work reports</p>
+            </div>
+          </div>
+          <div className="page-wr-header-right">
+            <div className="page-wr-header-icon-box">
+              <FileText size={24} color="var(--ion-color-primary)" />
+            </div>
+          </div>
         </div>
 
         <div className="filters-row">
@@ -536,51 +552,53 @@ const [allWorkReports, setAllWorkReports] = useState<WorkReport[]>([]);
                 )}
 
               <div
-                className={`wr-card status-${(item.Status || "Pending").toLowerCase()} ${item.LPClass || ""}`}
+                className={`wr-premium-card ${
+                  item.Status === "Approved" ? "accept-card" : 
+                  item.Status === "Rejected" ? "reject-card" : "pending-card"
+                } ${item.LPClass || ""}`}
               >
-                <div className="wr-badge">
-                  {item.EmpName} -- {item.ClientProject}
+                <div className="wr-premium-card-header">
+                  <div className="wr-header-left">
+                    <div className="wr-date-wrap">
+                      <Calendar size={13} className="wr-header-icon" />
+                      <span>{item.WorkDate}</span>
+                    </div>
+                    <div className="wr-premium-location">
+                      <MapPin size={12} className="wr-header-icon" />
+                      <span>{item.ClientProject}</span>
+                    </div>
+                  </div>
+                  <div className="wr-status-wrap" style={{ backgroundColor: item.Color }}>
+                    <span className="wr-status-dot"></span>
+                    {item.Status || "Pending"}
+                  </div>
                 </div>
-
-                <div className="wr-actions">
-                  {item.Status === "Pending" && (
-                    <>
-                      <span
-                        className="success-bg"
-                        onClick={() =>
-                          updateWorkReportStatus(
-                            item.WorkId ?? "",
-                            "Approved"
-                          )
-                        }
-                      >
-                        ✓
-                      </span>
-
-                      <span
-                        className="danger-bg"
-                        onClick={() =>
-                          updateWorkReportStatus(
-                            item.WorkId ?? "",
-                            "Rejected"
-                          )
-                        }
-                      >
-                        ✕
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="wr-desc">
-                  {item.Description}
-                </div>
-
-                <div className="wr-remark">
-                  Date :
-                  <span>
-                    {item.WorkDate}
-                  </span>
+                
+                <div className="wr-premium-card-body">
+                  <h3 className="wr-premium-title">{item.EmpName}</h3>
+                  <div className="wr-premium-desc-box">
+                    <FileText size={14} className="wr-desc-icon" />
+                    <p className="wr-premium-text">{item.Description}</p>
+                    
+                    {item.Status === "Pending" && (
+                      <>
+                        <button
+                          className="wr-edit-btn-small"
+                          style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', boxShadow: '0 2px 8px rgba(16, 185, 129, 0.15)', marginLeft: '8px' }}
+                          onClick={() => updateWorkReportStatus(item.WorkId ?? "", "Approved")}
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          className="wr-edit-btn-small"
+                          style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)', marginLeft: '4px' }}
+                          onClick={() => updateWorkReportStatus(item.WorkId ?? "", "Rejected")}
+                        >
+                          <X size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </React.Fragment>

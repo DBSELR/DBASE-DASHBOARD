@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
-import { IonIcon, IonSelect, IonSelectOption } from "@ionic/react";
-import { calendarOutline, documentTextOutline, layersOutline } from "ionicons/icons";
+import { IonIcon, IonSelect, IonSelectOption, IonPage, IonContent } from "@ionic/react";
+import { calendarOutline, documentTextOutline, layersOutline, personOutline, syncOutline, peopleOutline, chatbubbleEllipsesOutline } from "ionicons/icons";
 import "./MeetingList.css";
 import MeetingDetailModal from "../../components/MeetingDetailModal";
 
@@ -57,6 +59,7 @@ const getUser = () => {
 };
 
 function MeetingList() {
+  const history = useHistory();
   const [meetings, setMeetings]   = useState<Meeting[]>([]);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -285,12 +288,25 @@ function MeetingList() {
   };
 
   return (
-    <div className="mlist-page">
-      {/* ── Header ── */}
-      <div className="mlist-hdr">
-        <h2 className="mlist-title">Meeting List</h2>
+    <IonPage>
+      <IonContent>
+        <div className="mlist-page" style={{ padding: "16px", paddingBottom: "100px", maxWidth: "1200px", margin: "0 auto" }}>
+      {/* ── Custom Premium Header ── */}
+      <div className="page-wr-header" style={{ marginBottom: '16px' }}>
+        <div className="page-wr-header-left">
+          <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+            <ChevronLeft size={22} color="white" />
+          </button>
+          <div>
+            <h1 className="page-wr-title">Meeting List</h1>
+            <p className="page-wr-subtitle">View and manage scheduled meetings</p>
+          </div>
+        </div>
+      </div>
 
-        <div className="custom-dropdown-container">
+      {/* ── Period Selector Below Header ── */}
+      <div style={{ marginBottom: '20px', display: 'flex', overflowX: 'auto', paddingBottom: '4px' }}>
+        <div className="custom-dropdown-container" style={{ minWidth: '180px' }}>
           <div className="premium-filter-trigger">
             <div className="trigger-content">
               <div className="trigger-icon-box">
@@ -298,7 +314,7 @@ function MeetingList() {
               </div>
               <div className="trigger-text-sec">
                 <span className="trigger-sub">PERIOD</span>
-                <span className="trigger-main">{selectedMonth}</span>
+                <span className="trigger-main">{selectedMonth || "Select Month"}</span>
               </div>
             </div>
             <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
@@ -324,7 +340,6 @@ function MeetingList() {
         <div className="mlist-empty">
           <span className="mlist-empty-icon">📅</span>
           <span className="mlist-empty-title">No meetings found</span>
-          <span className="mlist-empty-sub">Try selecting a different period</span>
         </div>
       )}
 
@@ -334,240 +349,8 @@ function MeetingList() {
             Showing <strong>{filteredMeetings.length}</strong> meeting{filteredMeetings.length !== 1 ? "s" : ""} for <strong>{selectedMonth}</strong>
           </div>
 
-          {/* ════════════════════════════════════════
-              DESKTOP TABLE
-              ════════════════════════════════════════ */}
-          <div className="meeting-table-wrapper mlist-tbl-wrap">
-            <table className="meeting-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Period</th>
-                  <th>Frequency</th>
-                  <th>Meeting Type</th>
-                  <th>Owner</th>
-                  <th>Participants</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                  <th>Attachment</th>
-                  <th>Teams</th>
-                  <th>Details</th>
-                  {hasOwnerMeeting && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMeetings.map(item => {
-                  const userIsOwner = isOwner(getMeetingOwner(item));
-                  const edit        = editStates[item.id] || { status: "", remarks: "", file: null };
-                  const mYear       = item.financialYear || (item as any).FinancialYear || "";
-                  const mMonth      = item.monthName     || (item as any).MonthName     || "";
-                  const mFrequency  = item.frequencyType || (item as any).FrequencyType || "-";
-                  const mMeetingType = item.meetingType  || (item as any).MeetingType   || "-";
-                  const mStatus     = item.meetingStatus || (item as any).MeetingStatus || "Pending";
-                  const mRemarks    = item.remarks       || (item as any).Remarks       || "-";
-                  const mAttachment = item.attachment    || (item as any).Attachment;
-                  const mOwnerRaw   = getMeetingOwner(item) || "-";
-                  const mPartRaw    = getParticipants(item) || "-";
-                  const teamsUrl    = item.teamsMeetingUrl || (item as any).TeamsMeetingUrl || "";
-                  const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
-                  const dateInfo    = parseMeetingDate(rawDate);
-
-                  return (
-                    <tr key={item.id}>
-                      <td style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{item.id}</td>
-                      <td>
-                        <div style={{ lineHeight: 1.5 }}>
-                          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
-                            {mMonth} {mYear}
-                          </div>
-                          {dateInfo && (
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                              {dateInfo.fmt}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>{mFrequency}</td>
-                      <td style={{ fontWeight: 600 }}>{mMeetingType}</td>
-                      <td>{mOwnerRaw}</td>
-                      <td style={{ color: "#64748b" }}>{mPartRaw}</td>
-
-                      {/* Status */}
-                      <td>
-                        {userIsOwner ? (
-                          <select
-                            value={edit.status}
-                            onChange={e => handleEditChange(item.id, "status", e.target.value)}
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Escalated">Escalated</option>
-                          </select>
-                        ) : (
-                          <span className={badgeClass(mStatus)}>{mStatus}</span>
-                        )}
-                      </td>
-
-                      {/* Remarks */}
-                      <td>
-                        {userIsOwner ? (
-                          <input
-                            type="text"
-                            value={edit.remarks}
-                            onChange={e => handleEditChange(item.id, "remarks", e.target.value)}
-                            placeholder="Add remark…"
-                          />
-                        ) : (
-                          <span style={{ color: "#64748b" }}>{mRemarks}</span>
-                        )}
-                      </td>
-
-                      {/* Attachment */}
-                      <td>
-                        {mAttachment && (
-                          <a
-                            href={getFileUrl(mAttachment)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="view-file-btn"
-                            style={{ marginBottom: 6, display: "inline-flex" }}
-                          >
-                            <IonIcon icon={documentTextOutline} />
-                            View
-                          </a>
-                        )}
-                        {userIsOwner && (
-                          <input
-                            type="file"
-                            className="mlist-file-input"
-                            onChange={e => {
-                              if (e.target.files?.[0]) handleEditChange(item.id, "file", e.target.files[0]);
-                            }}
-                          />
-                        )}
-                        {!userIsOwner && !mAttachment && (
-                          <span style={{ color: "#94a3b8", fontSize: 12 }}>No file</span>
-                        )}
-                      </td>
-
-                      {/* Teams */}
-                      <td>
-                        {teamsUrl ? (
-                          <button
-                            onClick={() => handleJoinMeeting(item.id, teamsUrl)}
-                            style={{
-                              padding: "6px 12px", background: "#2563eb", color: "#fff",
-                              border: "none", borderRadius: 7, cursor: "pointer",
-                              fontWeight: 700, fontSize: 12, fontFamily: "inherit",
-                            }}
-                          >
-                            Join
-                          </button>
-                        ) : (
-                          <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Details */}
-                      <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
-                          {item.attendancePercent != null && item.attendanceSyncStatus === "Completed" && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6,
-                              background: item.attendancePercent >= 75 ? "#dcfce7" : item.attendancePercent >= 50 ? "#fef9c3" : "#fee2e2",
-                              color:      item.attendancePercent >= 75 ? "#15803d" : item.attendancePercent >= 50 ? "#92400e" : "#b91c1c",
-                            }}>
-                              {item.attendancePercent}% attended
-                            </span>
-                          )}
-                          {item.transcriptSyncStatus === "Completed" && (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: "#ede9fe", color: "#7c3aed" }}>
-                              📝 Transcript
-                            </span>
-                          )}
-                          {/* Time display */}
-                          {(item.meetingStartTime || item.meetingEndTime) && timeEditId !== item.id && (
-                            <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600 }}>
-                              🕐 {item.meetingStartTime ? new Date(item.meetingStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
-                              {" – "}
-                              {item.meetingEndTime   ? new Date(item.meetingEndTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
-                            </span>
-                          )}
-                          {/* Inline time editor (Team Leaders + Admins) */}
-                          {(isAdmin || isTeamLeader) && timeEditId === item.id && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", minWidth: 170 }}>
-                              <label style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>Start</label>
-                              <input type="time" value={timeForm.startTime}
-                                onChange={e => setTimeForm(f => ({ ...f, startTime: e.target.value }))}
-                                style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #cbd5e1" }} />
-                              <label style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>End</label>
-                              <input type="time" value={timeForm.endTime}
-                                onChange={e => setTimeForm(f => ({ ...f, endTime: e.target.value }))}
-                                style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #cbd5e1" }} />
-                              <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
-                                <button onClick={() => handleUpdateTime(item)} disabled={timeSaving}
-                                  style={{ flex: 1, padding: "4px 0", background: "#059669", color: "#fff", border: "none", borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                                  {timeSaving ? "…" : "Save"}
-                                </button>
-                                <button onClick={() => setTimeEditId(null)}
-                                  style={{ padding: "4px 8px", background: "#f1f5f9", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>
-                                  ✕
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <div style={{ display: "flex", gap: 4 }}>
-                            <button
-                              onClick={() => openDetail(item)}
-                              style={{
-                                padding: "5px 10px", background: "#eff6ff", color: "#2563eb",
-                                border: "1px solid #bfdbfe", borderRadius: 7, cursor: "pointer",
-                                fontWeight: 700, fontSize: 12, fontFamily: "inherit", whiteSpace: "nowrap",
-                              }}
-                            >
-                              👁 View
-                            </button>
-                            {(isAdmin || isTeamLeader) && timeEditId !== item.id && (
-                              <button onClick={() => openTimeEdit(item)}
-                                style={{
-                                  padding: "5px 8px", background: "#fff7ed", color: "#c2410c",
-                                  border: "1px solid #fed7aa", borderRadius: 7, cursor: "pointer",
-                                  fontWeight: 700, fontSize: 12, fontFamily: "inherit", whiteSpace: "nowrap",
-                                }}>
-                                🕐 Time
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Owner actions */}
-                      {userIsOwner && (
-                        <td>
-                          <button
-                            onClick={() => handleSave(item.id)}
-                            style={{
-                              padding: "6px 12px", background: "#059669", color: "#fff",
-                              border: "none", borderRadius: 7, cursor: "pointer",
-                              fontWeight: 700, fontSize: 12, fontFamily: "inherit",
-                            }}
-                          >
-                            Save
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ════════════════════════════════════════
-              MOBILE CARDS
-              ════════════════════════════════════════ */}
-          <div className="mlist-cards">
-            {filteredMeetings.map(item => {
+          <div className="meeting-list-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px', paddingBottom: '80px' }}>
+            {filteredMeetings.map((item, idx) => {
               const userIsOwner = isOwner(getMeetingOwner(item));
               const edit        = editStates[item.id] || { status: "", remarks: "", file: null };
               const mYear       = item.financialYear || (item as any).FinancialYear || "";
@@ -578,194 +361,253 @@ function MeetingList() {
               const mRemarks    = item.remarks       || (item as any).Remarks       || "";
               const mAttachment = item.attachment    || (item as any).Attachment;
               const mOwnerRaw   = getMeetingOwner(item) || "-";
+              const mPartRaw    = getParticipants(item) || "-";
               const teamsUrl    = item.teamsMeetingUrl || (item as any).TeamsMeetingUrl || "";
               const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
               const dateInfo    = parseMeetingDate(rawDate);
+              const mApproved   = mStatus.toLowerCase() === 'completed';
+              const mRejected   = mStatus.toLowerCase() === 'escalated';
 
               return (
-                <div className="mlist-card" key={item.id}>
-                  {/* Card top: date badge + type + status */}
-                  <div className="mlist-card-top">
-                    {dateInfo ? (
-                      <div className="mlist-date-badge">
-                        <span className="mlist-date-day">{dateInfo.day}</span>
-                        <span className="mlist-date-mon">{dateInfo.mon}</span>
+                <div key={`${item.id}-${idx}`} style={{ padding: "12px", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: mApproved ? "#10b981" : mRejected ? "#ef4444" : "#f59e0b" }} />
+                  
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingLeft: "6px" }}>
+                    <div style={{ flex: 1, paddingRight: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                        <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.2px" }}>{mMeetingType}</h3>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", background: "#f1f5f9", padding: "2px 5px", borderRadius: "4px" }}>#{item.id}</span>
                       </div>
-                    ) : (
-                      <div className="mlist-date-badge mlist-date-badge-none">
-                        <span className="mlist-date-day" style={{ fontSize: 14 }}>—</span>
+                      <div style={{ fontSize: "12px", color: "#64748b", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
+                        <IonIcon icon={calendarOutline} style={{ fontSize: "12px", color: "#94a3b8" }} />
+                        {dateInfo ? dateInfo.fmt : `${mMonth} ${mYear}`}
                       </div>
-                    )}
-                    <div className="mlist-card-identity">
-                      <div className="mlist-card-type">{mMeetingType}</div>
-                      <div className="mlist-card-period">{mMonth} {mYear}</div>
                     </div>
-                    <span className={badgeClass(mStatus)}>{mStatus}</span>
-                  </div>
 
-                  {/* Meta grid */}
-                  <div className="mlist-card-meta">
-                    <div className="mlist-meta-item">
-                      <span className="mlist-meta-label">Owner</span>
-                      <span className="mlist-meta-val">{mOwnerRaw}</span>
-                    </div>
-                    <div className="mlist-meta-item">
-                      <span className="mlist-meta-label">Frequency</span>
-                      <span className="mlist-meta-val">{mFrequency}</span>
-                    </div>
-                    {mRemarks && mRemarks !== "-" && (
-                      <div className="mlist-meta-item mlist-meta-span2">
-                        <span className="mlist-meta-label">Remarks</span>
-                        <span className="mlist-meta-val">{mRemarks}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Status badges for mobile */}
-                  {((item.attendancePercent != null && item.attendanceSyncStatus === "Completed") || item.transcriptSyncStatus === "Completed" || item.aiSummaryAvailable) && (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "6px 0 2px" }}>
-                      {item.attendancePercent != null && item.attendanceSyncStatus === "Completed" && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                          background: item.attendancePercent >= 75 ? "#dcfce7" : item.attendancePercent >= 50 ? "#fef9c3" : "#fee2e2",
-                          color:      item.attendancePercent >= 75 ? "#15803d" : item.attendancePercent >= 50 ? "#92400e" : "#b91c1c",
-                        }}>
-                          {item.attendancePercent}% attended
-                        </span>
-                      )}
-                      {item.transcriptSyncStatus === "Completed" && (
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "#ede9fe", color: "#7c3aed" }}>📝 Transcript</span>
-                      )}
-                      {item.aiSummaryAvailable && (
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "#fef3c7", color: "#92400e" }}>🤖 AI Ready</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Time display + inline editor for mobile (Team Leaders + Admins) */}
-                  {(isAdmin || isTeamLeader) && (
-                    <div style={{ padding: "4px 0 2px" }}>
-                      {timeEditId !== item.id ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {(item.meetingStartTime || item.meetingEndTime) && (
-                            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>
-                              🕐 {item.meetingStartTime ? new Date(item.meetingStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
-                              {" – "}
-                              {item.meetingEndTime ? new Date(item.meetingEndTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
-                            </span>
-                          )}
-                          <button onClick={() => openTimeEdit(item)}
-                            style={{
-                              padding: "5px 12px", background: "#fff7ed", color: "#c2410c",
-                              border: "1px solid #fed7aa", borderRadius: 7, cursor: "pointer",
-                              fontWeight: 700, fontSize: 12, fontFamily: "inherit",
-                            }}>
-                            🕐 Edit Time
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", width: 36 }}>Start</label>
-                            <input type="time" value={timeForm.startTime}
-                              onChange={e => setTimeForm(f => ({ ...f, startTime: e.target.value }))}
-                              style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }} />
-                          </div>
-                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", width: 36 }}>End</label>
-                            <input type="time" value={timeForm.endTime}
-                              onChange={e => setTimeForm(f => ({ ...f, endTime: e.target.value }))}
-                              style={{ flex: 1, fontSize: 13, padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }} />
-                          </div>
-                          <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-                            <button onClick={() => handleUpdateTime(item)} disabled={timeSaving}
-                              style={{ flex: 1, padding: "7px 0", background: "#059669", color: "#fff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                              {timeSaving ? "Saving…" : "Save Time"}
-                            </button>
-                            <button onClick={() => setTimeEditId(null)}
-                              style={{ padding: "7px 14px", background: "#f1f5f9", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Footer: file + join + view */}
-                  <div className="mlist-card-footer">
-                    {mAttachment && (
-                      <a
-                        href={getFileUrl(mAttachment)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mlist-file-link"
-                      >
-                        <IonIcon icon={documentTextOutline} />
-                        View File
-                      </a>
-                    )}
-                    {teamsUrl && (
-                      <button
-                        className="mlist-btn-join"
-                        onClick={() => handleJoinMeeting(item.id, teamsUrl)}
-                      >
-                        🔗 Join Meeting
-                      </button>
-                    )}
-                    <button
-                      onClick={() => openDetail(item)}
+                    <span
                       style={{
-                        padding: "9px 16px",
-                        background: "#eff6ff", color: "#2563eb",
-                        border: "1px solid #bfdbfe", borderRadius: 9,
-                        fontWeight: 700, fontSize: 13, cursor: "pointer",
-                        fontFamily: "inherit", flex: teamsUrl ? "0 0 auto" : 1,
+                        fontSize: "10px", fontWeight: 700, textTransform: "uppercase", padding: "4px 8px", borderRadius: "12px",
+                        background: mApproved ? "#dcfce7" : mRejected ? "#fee2e2" : "#fef9c3",
+                        color: mApproved ? "#059669" : mRejected ? "#dc2626" : "#b45309",
+                        letterSpacing: "0.3px", flexShrink: 0
                       }}
                     >
-                      👁 Details
-                    </button>
+                      {mStatus}
+                    </span>
                   </div>
+                  
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      alignItems: "stretch",
+                      paddingLeft: "6px"
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <IonIcon icon={personOutline} style={{ color: "#64748b", fontSize: "14px" }} />
+                        <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600 }}>Owner</span>
+                        <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 700 }}>{mOwnerRaw}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <IonIcon icon={syncOutline} style={{ color: "#64748b", fontSize: "14px" }} />
+                        <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600 }}>Freq</span>
+                        <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600 }}>{mFrequency}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
+                        <IonIcon icon={peopleOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px" }} />
+                        <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600, flexShrink: 0 }}>People</span>
+                        <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600, lineHeight: 1.3 }}>{mPartRaw}</span>
+                      </div>
+                      {mRemarks && mRemarks !== "-" && (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: "6px", marginTop: "4px", paddingTop: "8px", borderTop: "1px dashed #e2e8f0" }}>
+                          <IonIcon icon={chatbubbleEllipsesOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px", flexShrink: 0 }} />
+                          <span style={{ fontSize: "12px", color: "#475569", fontStyle: "italic", lineHeight: 1.3 }}>"{mRemarks}"</span>
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Owner edit section */}
-                  {userIsOwner && (
-                    <div className="mlist-card-edit">
-                      <div>
-                        <label className="mlist-edit-label">Status</label>
-                        <select
-                          className="mlist-edit-select"
-                          value={edit.status}
-                          onChange={e => handleEditChange(item.id, "status", e.target.value)}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="Completed">Completed</option>
-                          <option value="Escalated">Escalated</option>
-                        </select>
+                    {((item.attendancePercent != null && item.attendanceSyncStatus === "Completed") || item.transcriptSyncStatus === "Completed" || item.aiSummaryAvailable) && (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "4px 0" }}>
+                        {item.attendancePercent != null && item.attendanceSyncStatus === "Completed" && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
+                            background: item.attendancePercent >= 75 ? "#dcfce7" : item.attendancePercent >= 50 ? "#fef9c3" : "#fee2e2",
+                            color:      item.attendancePercent >= 75 ? "#15803d" : item.attendancePercent >= 50 ? "#92400e" : "#b91c1c",
+                          }}>
+                            {item.attendancePercent}% attended
+                          </span>
+                        )}
+                        {item.transcriptSyncStatus === "Completed" && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#ede9fe", color: "#7c3aed" }}>📝 Transcript</span>
+                        )}
+                        {item.aiSummaryAvailable && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#fef3c7", color: "#92400e" }}>🤖 AI Ready</span>
+                        )}
                       </div>
-                      <div>
-                        <label className="mlist-edit-label">Remarks</label>
-                        <input
-                          type="text"
-                          className="mlist-edit-input"
-                          value={edit.remarks}
-                          onChange={e => handleEditChange(item.id, "remarks", e.target.value)}
-                          placeholder="Add remark…"
-                        />
+                    )}
+
+                    {(isAdmin || isTeamLeader) && (
+                      <div style={{ padding: "4px 0 2px" }}>
+                        {timeEditId !== item.id ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {(item.meetingStartTime || item.meetingEndTime) && (
+                              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                                🕐 {item.meetingStartTime ? new Date(item.meetingStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
+                                {" – "}
+                                {item.meetingEndTime ? new Date(item.meetingEndTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
+                              </span>
+                            )}
+                            <button onClick={() => openTimeEdit(item)}
+                              style={{
+                                padding: "5px 12px", background: "#fff7ed", color: "#c2410c",
+                                border: "1px solid #fed7aa", borderRadius: 7, cursor: "pointer",
+                                fontWeight: 700, fontSize: 12, fontFamily: "inherit",
+                              }}>
+                              🕐 Edit Time
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                              <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", width: 40 }}>Start</label>
+                              <input type="time" value={timeForm.startTime}
+                                onChange={e => setTimeForm(f => ({ ...f, startTime: e.target.value }))}
+                                style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+                            </div>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                              <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", width: 40 }}>End</label>
+                              <input type="time" value={timeForm.endTime}
+                                onChange={e => setTimeForm(f => ({ ...f, endTime: e.target.value }))}
+                                style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+                            </div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                              <button onClick={() => handleUpdateTime(item)} disabled={timeSaving}
+                                style={{ flex: 1, padding: "8px 0", background: "#059669", color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                                {timeSaving ? "Saving…" : "Save Time"}
+                              </button>
+                              <button onClick={() => setTimeEditId(null)}
+                                style={{ padding: "8px 16px", background: "#f1f5f9", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label className="mlist-edit-label">Attachment</label>
-                        <input
-                          type="file"
-                          onChange={e => {
-                            if (e.target.files?.[0]) handleEditChange(item.id, "file", e.target.files[0]);
+                    )}
+
+                    <div
+                      style={{
+                        paddingTop: "14px",
+                        borderTop: "1px solid #f1f5f9",
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {mAttachment && (
+                        <a
+                          href={getFileUrl(mAttachment)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: "6px",
+                            padding: "10px 14px", background: "#f8fafc", color: "#334155",
+                            border: "1px solid #e2e8f0", borderRadius: "10px",
+                            fontWeight: 700, fontSize: "13px", textDecoration: "none"
                           }}
-                        />
-                      </div>
-                      <button className="mlist-btn-save" onClick={() => handleSave(item.id)}>
-                        ✓ Save
+                        >
+                          <IonIcon icon={documentTextOutline} />
+                          File
+                        </a>
+                      )}
+                      {teamsUrl && (
+                        <button
+                          style={{
+                            flex: 1, padding: "10px 16px", background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                            color: "#fff", border: "none", borderRadius: "10px",
+                            fontWeight: 700, fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
+                          }}
+                          onClick={() => handleJoinMeeting(item.id, teamsUrl)}
+                        >
+                          🔗 Join
+                        </button>
+                      )}
+                      <button
+                        onClick={() => openDetail(item)}
+                        style={{
+                          padding: "10px 16px",
+                          background: "#eff6ff",
+                          color: "#2563eb",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: "10px",
+                          fontWeight: 700,
+                          fontSize: "13px",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          flex: teamsUrl ? "0 0 auto" : 1,
+                        }}
+                      >
+                        👁 Details
                       </button>
                     </div>
-                  )}
+
+                    {userIsOwner && (
+                      <div
+                        style={{
+                          padding: "14px",
+                          background: "#f8fafc",
+                          borderRadius: "12px",
+                          border: "1px dashed #cbd5e1",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div>
+                          <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Status</label>
+                          <select
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", background: "#fff", fontSize: "14px", color: "#0f172a", fontFamily: "inherit" }}
+                            value={edit.status}
+                            onChange={e => handleEditChange(item.id, "status", e.target.value)}
+                          >
+                            <option value="Pending">Pending</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Escalated">Escalated</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Remarks</label>
+                          <input
+                            type="text"
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", background: "#fff", fontSize: "14px", color: "#0f172a", fontFamily: "inherit", boxSizing: "border-box" }}
+                            value={edit.remarks}
+                            onChange={e => handleEditChange(item.id, "remarks", e.target.value)}
+                            placeholder="Add remark…"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Attachment</label>
+                          <input
+                            type="file"
+                            style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid #e2e8f0", background: "#fff", fontSize: "12px" }}
+                            onChange={e => {
+                              if (e.target.files?.[0]) handleEditChange(item.id, "file", e.target.files[0]);
+                            }}
+                          />
+                        </div>
+                        <button
+                          style={{ padding: "10px", background: "#059669", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+                          onClick={() => handleSave(item.id)}
+                        >
+                          ✓ Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -792,7 +634,9 @@ function MeetingList() {
         onSyncAttendance={isAdmin ? handleSyncAttendance : undefined}
         onSyncTranscript={isAdmin ? handleSyncTranscript : undefined}
       />
-    </div>
+      </div>
+      </IonContent>
+    </IonPage>
   );
 }
 

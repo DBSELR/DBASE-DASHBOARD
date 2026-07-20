@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { IonPage, IonContent } from "@ionic/react";
 import { useHistory } from "react-router-dom";
+import Particles from "react-tsparticles";
+import { loadSlim } from "tsparticles-slim";
+import type { Engine } from "tsparticles-engine";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
 import { registerNativePush } from "../services/pushNotification";
@@ -15,10 +18,28 @@ const Login: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [toastActive, setToastActive] = useState(false);
 
+  const [themeColors, setThemeColors] = useState<string[]>(["#f57c00", "#ffab40", "#fb923c"]);
+  const [primaryColor, setPrimaryColor] = useState<string>("#f57c00");
+
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
+  const particlesInit = useCallback(async (engine: Engine) => {
+    await loadSlim(engine);
+  }, []);
+
   useEffect(() => {
+    const getThemeColors = () => {
+      const style = getComputedStyle(document.documentElement);
+      const primary = style.getPropertyValue('--ion-color-primary').trim() || "#f57c00";
+      const secondary = style.getPropertyValue('--ion-color-secondary').trim() || "#ffab40";
+      const tertiary = style.getPropertyValue('--ion-color-tertiary').trim() || "#fb923c";
+      
+      setPrimaryColor(primary);
+      setThemeColors([primary, secondary, tertiary]);
+    };
+
+    getThemeColors();
     const timer = setTimeout(() => setStep(2), 2500);
     return () => clearTimeout(timer);
   }, []);
@@ -108,6 +129,55 @@ const Login: React.FC = () => {
 
           {/* Background */}
           <div className="db-login-bg-shapes">
+            <Particles
+              id="tsparticles"
+              init={particlesInit}
+              options={{
+                fullScreen: { enable: false, zIndex: 0 },
+                particles: {
+                  number: { value: 60, density: { enable: true, value_area: 800 } },
+                  color: { value: themeColors },
+                  shape: { type: "circle" },
+                  opacity: { value: 0.6, random: true },
+                  size: { value: 4, random: true },
+                  move: {
+                    enable: true,
+                    speed: 1.5,
+                    direction: "none",
+                    random: true,
+                    straight: false,
+                    outModes: { default: "bounce" },
+                    bounce: false,
+                  },
+                  links: {
+                    enable: true,
+                    distance: 120,
+                    color: primaryColor,
+                    opacity: 0.2,
+                    width: 1,
+                  },
+                },
+                interactivity: {
+                  events: {
+                    onHover: { enable: true, mode: "grab" },
+                    onClick: { enable: true, mode: "push" },
+                    resize: true,
+                  },
+                  modes: {
+                    grab: { distance: 140, links: { opacity: 0.5 } },
+                    push: { quantity: 3 },
+                  },
+                },
+                detectRetina: true,
+              }}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+              }}
+            />
             <div className="db-shape db-shape-1"></div>
             <div className="db-shape db-shape-2"></div>
           </div>

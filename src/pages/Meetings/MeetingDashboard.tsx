@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
-import { IonIcon, IonSelect, IonSelectOption } from "@ionic/react";
-import { calendarOutline, documentTextOutline, layersOutline } from "ionicons/icons";
+import { IonIcon, IonSelect, IonSelectOption, IonPage, IonContent } from "@ionic/react";
+import { calendarOutline, documentTextOutline, layersOutline, personOutline, syncOutline, peopleOutline, chatbubbleEllipsesOutline } from "ionicons/icons";
 import TranscriptModal from "../../components/TranscriptModal";
 import AttendanceModal from "../../components/AttendanceModal";
 import "./MeetingList.css";
@@ -81,6 +83,7 @@ function statusBadgeClass(status?: string) {
 }
 
 function MeetingDashboard() {
+  const history = useHistory();
   const [meetings, setMeetings]             = useState<Meeting[]>([]);
   const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState<string | null>(null);
@@ -210,63 +213,75 @@ function MeetingDashboard() {
 
   return (
     <>
-      <div className="mdash-page">
+    <IonPage>
+      <IonContent>
+        <div className="mdash-page" style={{ padding: "16px", paddingBottom: "100px", maxWidth: "1200px", margin: "0 auto" }}>
 
-        {/* ── Title ── */}
-        <h1 className="mdash-title">Meeting Dashboard</h1>
-
-        {/* ── Filters ── */}
-        <div className="mdash-filters">
-          <div className="custom-dropdown-container">
-            <div className="premium-filter-trigger">
-              <div className="trigger-content">
-                <div className="trigger-icon-box">
-                  <IonIcon icon={calendarOutline} />
-                </div>
-                <div className="trigger-text-sec">
-                  <span className="trigger-sub">PERIOD</span>
-                  <span className="trigger-main">{selectedMonth}</span>
-                </div>
+          {/* ── Custom Premium Header ── */}
+          <div className="page-wr-header" style={{ marginBottom: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Meeting Dashboard</h1>
+                <p className="page-wr-subtitle">Analytics and status tracking</p>
               </div>
-              <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
-              <IonSelect
-                className="hidden-select-overlay"
-                interface="popover"
-                value={selectedMonth}
-                onIonChange={e => { if (e.detail.value) setSelectedMonth(e.detail.value); }}
-              >
-                {monthsList.map(m => (
-                  <IonSelectOption key={m} value={m}>{m}</IonSelectOption>
-                ))}
-              </IonSelect>
             </div>
           </div>
 
-          <div className="custom-dropdown-container">
-            <div className="premium-filter-trigger">
-              <div className="trigger-content">
-                <div className="trigger-text-sec">
-                  <span className="trigger-sub">PROJECT</span>
-                  <span className="trigger-main" style={{ color: selectedProject ? "#f97316" : "#64748b" }}>
-                    {selectedProject || "All Projects"}
-                  </span>
+          {/* ── Filters ── */}
+          <div style={{ marginBottom: '20px', display: 'flex', overflowX: 'auto', paddingBottom: '4px', gap: '16px' }}>
+            <div className="custom-dropdown-container" style={{ minWidth: '180px' }}>
+              <div className="premium-filter-trigger">
+                <div className="trigger-content">
+                  <div className="trigger-icon-box">
+                    <IonIcon icon={calendarOutline} />
+                  </div>
+                  <div className="trigger-text-sec">
+                    <span className="trigger-sub">PERIOD</span>
+                    <span className="trigger-main">{selectedMonth}</span>
+                  </div>
                 </div>
+                <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
+                <IonSelect
+                  className="hidden-select-overlay"
+                  interface="popover"
+                  value={selectedMonth}
+                  onIonChange={e => { if (e.detail.value) setSelectedMonth(e.detail.value); }}
+                >
+                  {monthsList.map(m => (
+                    <IonSelectOption key={m} value={m}>{m}</IonSelectOption>
+                  ))}
+                </IonSelect>
               </div>
-              <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
-              <IonSelect
-                className="hidden-select-overlay"
-                interface="popover"
-                value={selectedProject}
-                onIonChange={e => setSelectedProject(e.detail.value)}
-              >
-                <IonSelectOption value="">All Projects</IonSelectOption>
-                {projects.map(p => (
-                  <IonSelectOption key={p} value={p}>{p}</IonSelectOption>
-                ))}
-              </IonSelect>
+            </div>
+
+            <div className="custom-dropdown-container" style={{ minWidth: '180px' }}>
+              <div className="premium-filter-trigger">
+                <div className="trigger-content">
+                  <div className="trigger-text-sec">
+                    <span className="trigger-sub">PROJECT</span>
+                    <span className="trigger-main" style={{ color: selectedProject ? "#f97316" : "#0f172a" }}>
+                      {selectedProject || "All Projects"}
+                    </span>
+                  </div>
+                </div>
+                <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
+                <IonSelect
+                  className="hidden-select-overlay"
+                  interface="popover"
+                  value={selectedProject}
+                  onIonChange={e => setSelectedProject(e.detail.value)}
+                >
+                  <IonSelectOption value="">All Projects</IonSelectOption>
+                  {projects.map(p => (
+                    <IonSelectOption key={p} value={p}>{p}</IonSelectOption>
+                  ))}
+                </IonSelect>
+              </div>
             </div>
           </div>
-        </div>
 
         {loading && <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>Loading dashboard…</div>}
         {error   && <div style={{ padding: "16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, color: "#dc2626" }}>{error}</div>}
@@ -323,265 +338,163 @@ function MeetingDashboard() {
             ) : (
               <>
                 {/* ════════════════════════════════════════
-                    DESKTOP TABLE
+                    RESPONSIVE PREMIUM CARDS
                     ════════════════════════════════════════ */}
-                <div className="mdash-tbl-wrap">
-                  <table className="meeting-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Period</th>
-                        <th>Frequency</th>
-                        <th>Meeting Type</th>
-                        <th>Owner</th>
-                        <th>Participants</th>
-                        <th>Status</th>
-                        <th>Project</th>
-                        <th>Attachment</th>
-                        <th>Teams</th>
-                        <th>Attended</th>
-                        <th>Sync</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayedMeetings.map(item => {
-                        const mAttachment = item.attachment || (item as any).Attachment;
-                        const mYear       = item.financialYear || (item as any).FinancialYear || "";
-                        const mMonth      = item.monthName     || (item as any).MonthName     || "";
-                        const mFrequency  = item.frequencyType || (item as any).FrequencyType || "-";
-                        const teamsUrl    = item.teamsMeetingUrl || (item as any).TeamsMeetingUrl || "";
-                        const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
-                        const dateInfo    = parseMeetingDate(rawDate);
-                        const attStatus   = (item as any).AttendanceSyncStatus || (item as any).attendanceSyncStatus || null;
-                        const txStatus    = (item as any).TranscriptSyncStatus  || (item as any).transcriptSyncStatus  || null;
-                        const attBadge    = STATUS_BADGE[attStatus] ?? null;
-                        const txBadge     = STATUS_BADGE[txStatus]  ?? null;
-                        const mStatus     = item.meetingStatus || "Pending";
-
-                        return (
-                          <tr key={item.id}>
-                            <td style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{item.id}</td>
-                            <td>
-                              <div style={{ lineHeight: 1.5 }}>
-                                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>
-                                  {mMonth} {mYear}
-                                </div>
-                                {dateInfo && (
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                                    {dateInfo.fmt}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td>{mFrequency}</td>
-                            <td style={{ fontWeight: 600 }}>{item.meetingType}</td>
-                            <td>{item.meetingOwner}</td>
-                            <td style={{ color: "#64748b" }}>{item.participants || (item as any).Participants || "-"}</td>
-                            <td>
-                              <span style={{
-                                padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                                background:
-                                  mStatus === "Completed" ? "#dcfce7" :
-                                  mStatus === "Escalated" ? "#fee2e2" : "#fef9c3",
-                                color:
-                                  mStatus === "Completed" ? "#15803d" :
-                                  mStatus === "Escalated" ? "#b91c1c" : "#92400e",
-                              }}>
-                                {mStatus}
-                              </span>
-                            </td>
-                            <td>{item.projectName || "-"}</td>
-                            <td>
-                              {mAttachment ? (
-                                <a href={getFileUrl(mAttachment)} target="_blank" rel="noreferrer" className="view-file-btn">
-                                  <IonIcon icon={documentTextOutline} />
-                                  View
-                                </a>
-                              ) : (
-                                <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
-                              )}
-                            </td>
-                            <td>
-                              {teamsUrl ? (
-                                <button
-                                  onClick={() => handleJoinMeeting(item.id, teamsUrl)}
-                                  style={{
-                                    padding: "6px 12px", background: "#2563eb", color: "#fff",
-                                    border: "none", borderRadius: 7, cursor: "pointer",
-                                    fontWeight: 700, fontSize: 12, fontFamily: "inherit",
-                                  }}
-                                >
-                                  Join
-                                </button>
-                              ) : (
-                                <span style={{ color: "#94a3b8" }}>—</span>
-                              )}
-                            </td>
-                            <td>
-                              <span style={{
-                                display: "inline-block", padding: "3px 10px", borderRadius: 12,
-                                background: attendanceCounts[item.id] ? "#dcfce7" : "#f1f5f9",
-                                color: attendanceCounts[item.id] ? "#16a34a" : "#94a3b8",
-                                fontWeight: "bold", fontSize: 13,
-                              }}>
-                                {attendanceCounts[item.id] ?? 0}
-                              </span>
-                            </td>
-                            <td>
-                              {((item as any).GraphMeetingId || item.teamsMeetingUrl) && (
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, minWidth: 130 }}>
-                                  <button
-                                    onClick={() => handleSyncAttendance(item.id)}
-                                    title="Sync attendance"
-                                    style={{ padding: "4px 6px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: "bold" }}
-                                  >
-                                    ↑ Sync
-                                  </button>
-                                  <button
-                                    onClick={() => setViewAttendanceId(item.id)}
-                                    title={attStatus ? `Attendance: ${attStatus}` : "View attendance"}
-                                    style={{ padding: "4px 6px", background: attBadge?.bg ?? "#ede9fe", color: attBadge?.color ?? "#7c3aed", border: `1px solid ${attBadge?.border ?? "#c4b5fd"}`, borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: "bold" }}
-                                  >
-                                    👥 {attBadge?.label ?? "View"}
-                                  </button>
-                                  <button
-                                    onClick={() => handleSyncTranscript(item.id)}
-                                    title="Sync transcript"
-                                    style={{ padding: "4px 6px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: "bold" }}
-                                  >
-                                    ↑ Sync
-                                  </button>
-                                  <button
-                                    onClick={() => setViewTranscriptId(item.id)}
-                                    title={txStatus ? `Transcript: ${txStatus}` : "View transcript"}
-                                    style={{ padding: "4px 6px", background: txBadge?.bg ?? "#e0f2fe", color: txBadge?.color ?? "#0891b2", border: `1px solid ${txBadge?.border ?? "#7dd3fc"}`, borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: "bold" }}
-                                  >
-                                    📝 {txBadge?.label ?? "View"}
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* ════════════════════════════════════════
-                    MOBILE CARDS
-                    ════════════════════════════════════════ */}
-                <div className="mdash-cards">
-                  {displayedMeetings.map(item => {
+                <div className="meeting-list-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px', paddingBottom: '80px' }}>
+                  {displayedMeetings.map((item, idx) => {
                     const mAttachment = item.attachment || (item as any).Attachment;
                     const mYear       = item.financialYear || (item as any).FinancialYear || "";
                     const mMonth      = item.monthName     || (item as any).MonthName     || "";
+                    const mFrequency  = item.frequencyType || (item as any).FrequencyType || "-";
+                    const mMeetingType = item.meetingType  || (item as any).MeetingType   || "-";
+                    const mOwnerRaw   = item.meetingOwner || "-";
+                    const mPartRaw    = item.participants || (item as any).Participants || "-";
                     const teamsUrl    = item.teamsMeetingUrl || (item as any).TeamsMeetingUrl || "";
                     const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
                     const dateInfo    = parseMeetingDate(rawDate);
+                    
                     const attStatus   = (item as any).AttendanceSyncStatus || (item as any).attendanceSyncStatus || null;
                     const txStatus    = (item as any).TranscriptSyncStatus  || (item as any).transcriptSyncStatus  || null;
                     const attBadge    = STATUS_BADGE[attStatus] ?? null;
                     const txBadge     = STATUS_BADGE[txStatus]  ?? null;
-                    const hasSync     = !!(((item as any).GraphMeetingId || item.teamsMeetingUrl));
+                    
+                    const mStatus     = item.meetingStatus || "Pending";
+                    const mApproved   = mStatus.toLowerCase() === 'completed';
+                    const mRejected   = mStatus.toLowerCase() === 'escalated';
 
                     return (
-                      <div className="mdash-card" key={item.id}>
-                        {/* Top: date + type + status */}
-                        <div className="mdash-card-top">
-                          {dateInfo ? (
-                            <div className="mdash-date-badge">
-                              <span className="mdash-date-day">{dateInfo.day}</span>
-                              <span className="mdash-date-mon">{dateInfo.mon}</span>
+                      <div key={`${item.id}-${idx}`} style={{ padding: "12px", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: mApproved ? "#10b981" : mRejected ? "#ef4444" : "#f59e0b" }} />
+                        
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingLeft: "6px" }}>
+                          <div style={{ flex: 1, paddingRight: "8px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.2px" }}>{mMeetingType}</h3>
+                              <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", background: "#f1f5f9", padding: "2px 5px", borderRadius: "4px" }}>#{item.id}</span>
                             </div>
-                          ) : (
-                            <div className="mdash-date-badge mdash-date-badge-none">
-                              <span className="mdash-date-day" style={{ fontSize: 14 }}>—</span>
+                            <div style={{ fontSize: "12px", color: "#64748b", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
+                              <IonIcon icon={calendarOutline} style={{ fontSize: "12px", color: "#94a3b8" }} />
+                              {dateInfo ? dateInfo.fmt : `${mMonth} ${mYear}`}
                             </div>
-                          )}
-                          <div className="mdash-card-info">
-                            <div className="mdash-card-type">
-                              {item.meetingType || "-"}
-                            </div>
-                            <div className="mdash-card-period">{mMonth} {mYear}</div>
                           </div>
-                          <span className={statusBadgeClass(item.meetingStatus)}>
-                            {item.meetingStatus || "Pending"}
+
+                          <span
+                            style={{
+                              fontSize: "10px", fontWeight: 700, textTransform: "uppercase", padding: "4px 8px", borderRadius: "12px",
+                              background: mApproved ? "#dcfce7" : mRejected ? "#fee2e2" : "#fef9c3",
+                              color: mApproved ? "#059669" : mRejected ? "#dc2626" : "#b45309",
+                              letterSpacing: "0.3px", flexShrink: 0
+                            }}
+                          >
+                            {mStatus}
                           </span>
                         </div>
+                        
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
+                            alignItems: "stretch",
+                            paddingLeft: "6px"
+                          }}
+                        >
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <IonIcon icon={personOutline} style={{ color: "#64748b", fontSize: "14px" }} />
+                              <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600 }}>Owner</span>
+                              <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 700 }}>{mOwnerRaw}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <IonIcon icon={syncOutline} style={{ color: "#64748b", fontSize: "14px" }} />
+                              <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600 }}>Freq</span>
+                              <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600 }}>{mFrequency}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
+                              <IonIcon icon={peopleOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px" }} />
+                              <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600, flexShrink: 0 }}>People</span>
+                              <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600, lineHeight: 1.3 }}>{mPartRaw}</span>
+                            </div>
+                            {item.projectName && (
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: "6px", marginTop: "4px", paddingTop: "8px", borderTop: "1px dashed #e2e8f0" }}>
+                                <IonIcon icon={layersOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px", flexShrink: 0 }} />
+                                <span style={{ fontSize: "12px", color: "#475569", fontStyle: "italic", lineHeight: 1.3 }}>Project: {item.projectName}</span>
+                              </div>
+                            )}
+                          </div>
 
-                        {/* Meta grid */}
-                        <div className="mdash-card-meta">
-                          <div className="mdash-meta-item">
-                            <span className="mdash-meta-label">Owner</span>
-                            <span className="mdash-meta-val">{item.meetingOwner || "-"}</span>
-                          </div>
-                          <div className="mdash-meta-item">
-                            <span className="mdash-meta-label">Attended</span>
-                            <span className="mdash-meta-val" style={{ color: attendanceCounts[item.id] ? "#16a34a" : "#94a3b8", fontWeight: 700 }}>
-                              {attendanceCounts[item.id] ?? 0}
-                            </span>
-                          </div>
-                          {item.projectName && (
-                            <div className="mdash-meta-item">
-                              <span className="mdash-meta-label">Project</span>
-                              <span className="mdash-meta-val">{item.projectName}</span>
+                          {/* Sync Buttons */}
+                          {((item as any).GraphMeetingId || item.teamsMeetingUrl) && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, paddingTop: "8px" }}>
+                              <button
+                                onClick={() => handleSyncAttendance(item.id)}
+                                title="Sync attendance"
+                                style={{ padding: "6px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: "bold" }}
+                              >
+                                ↑ Sync Att.
+                              </button>
+                              <button
+                                onClick={() => setViewAttendanceId(item.id)}
+                                style={{ padding: "6px", background: attBadge?.bg ?? "#ede9fe", color: attBadge?.color ?? "#7c3aed", border: `1px solid ${attBadge?.border ?? "#c4b5fd"}`, borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: "bold" }}
+                              >
+                                👥 {attendanceCounts[item.id] ?? 0} {attBadge?.label ?? "View"}
+                              </button>
+                              <button
+                                onClick={() => handleSyncTranscript(item.id)}
+                                title="Sync transcript"
+                                style={{ padding: "6px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: "bold" }}
+                              >
+                                ↑ Sync Tx.
+                              </button>
+                              <button
+                                onClick={() => setViewTranscriptId(item.id)}
+                                style={{ padding: "6px", background: txBadge?.bg ?? "#e0f2fe", color: txBadge?.color ?? "#0891b2", border: `1px solid ${txBadge?.border ?? "#7dd3fc"}`, borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: "bold" }}
+                              >
+                                📝 {txBadge?.label ?? "View"}
+                              </button>
                             </div>
                           )}
-                          {item.frequencyType && (
-                            <div className="mdash-meta-item">
-                              <span className="mdash-meta-label">Frequency</span>
-                              <span className="mdash-meta-val">{item.frequencyType || (item as any).FrequencyType}</span>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Footer: file + join */}
-                        <div className="mdash-card-footer">
-                          {mAttachment && (
-                            <a
-                              href={getFileUrl(mAttachment)}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#2563eb", fontWeight: 600, textDecoration: "none", padding: "7px 12px", background: "#eff6ff", borderRadius: 9 }}
-                            >
-                              <IonIcon icon={documentTextOutline} />
-                              File
-                            </a>
-                          )}
-                          {teamsUrl && (
-                            <button className="mdash-btn-join" onClick={() => handleJoinMeeting(item.id, teamsUrl)}>
-                              🔗 Join
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Sync section */}
-                        {hasSync && (
-                          <div className="mdash-card-sync">
-                            <div className="mdash-card-sync-lbl">Sync</div>
-                            <button className="mdash-btn-sync-att" onClick={() => handleSyncAttendance(item.id)}>
-                              ↑ Attendance
-                            </button>
-                            <button
-                              className="mdash-btn-view"
-                              onClick={() => setViewAttendanceId(item.id)}
-                              style={{ background: attBadge?.bg ?? "#ede9fe", color: attBadge?.color ?? "#7c3aed", borderColor: attBadge?.border ?? "#c4b5fd" }}
-                            >
-                              👥 {attBadge?.label ?? "View"}
-                            </button>
-                            <button className="mdash-btn-sync-tx" onClick={() => handleSyncTranscript(item.id)}>
-                              ↑ Transcript
-                            </button>
-                            <button
-                              className="mdash-btn-view"
-                              onClick={() => setViewTranscriptId(item.id)}
-                              style={{ background: txBadge?.bg ?? "#e0f2fe", color: txBadge?.color ?? "#0891b2", borderColor: txBadge?.border ?? "#7dd3fc" }}
-                            >
-                              📝 {txBadge?.label ?? "View"}
-                            </button>
+                          <div
+                            style={{
+                              paddingTop: "8px",
+                              borderTop: "1px solid #f1f5f9",
+                              display: "flex",
+                              gap: "8px",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {mAttachment && (
+                              <a
+                                href={getFileUrl(mAttachment)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: "6px",
+                                  padding: "8px 12px", background: "#f8fafc", color: "#334155",
+                                  border: "1px solid #e2e8f0", borderRadius: "8px",
+                                  fontWeight: 700, fontSize: "12px", textDecoration: "none"
+                                }}
+                              >
+                                <IonIcon icon={documentTextOutline} />
+                                File
+                              </a>
+                            )}
+                            {teamsUrl && (
+                              <button
+                                style={{
+                                  flex: 1, padding: "8px 12px", background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                                  color: "#fff", border: "none", borderRadius: "8px",
+                                  fontWeight: 700, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
+                                }}
+                                onClick={() => handleJoinMeeting(item.id, teamsUrl)}
+                              >
+                                🔗 Join
+                              </button>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
@@ -590,10 +503,12 @@ function MeetingDashboard() {
             )}
           </>
         )}
-      </div>
+        </div>
+      </IonContent>
+    </IonPage>
 
-      <TranscriptModal  meetingId={viewTranscriptId}  onClose={() => setViewTranscriptId(null)} />
-      <AttendanceModal  meetingId={viewAttendanceId}  onClose={() => setViewAttendanceId(null)} />
+    <TranscriptModal  meetingId={viewTranscriptId}  onClose={() => setViewTranscriptId(null)} />
+    <AttendanceModal  meetingId={viewAttendanceId}  onClose={() => setViewAttendanceId(null)} />
     </>
   );
 }

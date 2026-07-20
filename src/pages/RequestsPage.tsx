@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { IonPage, IonContent, IonIcon } from "@ionic/react";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import {
   calendarOutline,
   timeOutline,
@@ -23,6 +25,7 @@ const TYPES = [
 ];
 
 const RequestsPage: React.FC = () => {
+  const history = useHistory();
   const [type, setType] = useState("leave");
   const [view, setView] = useState<"my" | "raised">("my");
   const [rasList, setRasList] = useState<any[]>([]);
@@ -51,9 +54,21 @@ const RequestsPage: React.FC = () => {
       <IonContent className="page-content">
 
         {/* ── Premium Header ── */}
-        <div className="req-page-header-wrap">
-          <div className="req-page-subtitle">HR Portal</div>
-          <div className="req-page-title">My Requests</div>
+        <div className="page-wr-header" style={{ margin: '16px 16px 24px 16px' }}>
+          <div className="page-wr-header-left">
+            <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
+              <ChevronLeft size={22} />
+            </button>
+            <div>
+              <h1 className="page-wr-title">My Requests</h1>
+              <p className="page-wr-subtitle">Manage all your HR requests</p>
+            </div>
+          </div>
+          <div className="page-wr-header-right">
+            <div className="page-wr-header-icon-box">
+              <IonIcon icon={calendarOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+            </div>
+          </div>
         </div>
 
         {/* ── Type Tabs ── */}

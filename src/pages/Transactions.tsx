@@ -28,6 +28,8 @@ import {
   IonMenuButton,
   IonCheckbox,
 } from "@ionic/react";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft, Wallet } from "lucide-react";
 import { arrowForward, close, calendar, person, documentText, eyeOutline, checkmarkCircle } from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
@@ -412,6 +414,7 @@ const normalizeAdvancePending = (rows: any[]): AdvancePending[] => {
 /* ========================================================= */
 
 const Transactions: React.FC = () => {
+  const history = useHistory();
   /* -------- init from localStorage -------- */
   const storedUserRaw = localStorage.getItem("user");
   const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
@@ -1205,7 +1208,6 @@ const triggerBillUpload = () => {
       escapeCsv(v.VID),
       escapeCsv(v.Date),
       escapeCsv(v.EmpID),
-      escapeCsv(v.VDescription),
       escapeCsv(v.amount),
       escapeCsv(v.isVerified),
       escapeCsv(v.fname),
@@ -1249,17 +1251,20 @@ const triggerBillUpload = () => {
           color={toastColor}
         />
 
-        {/* --- Header / User Info --- */}
-        <div className="page-header-wrap">
-          <div className="header-top">
-            <IonButtons slot="start">
-              <IonBackButton defaultHref="/home" className="custom-back-btn" />
-            </IonButtons>
-            <div className="header-text">
-              <div className="dept-label">
-                {userProfile?.Department || "Account Overview"}
-              </div>
-              <div className="page-title">Transactions</div>
+        {/* Custom Premium Header */}
+        <div className="page-txn-header">
+          <div className="page-txn-header-left">
+            <button className="page-txn-back-btn" onClick={() => history.goBack()}>
+              <ChevronLeft size={24} color="#ffffff" />
+            </button>
+            <div>
+              <h1 className="page-txn-title">Transactions</h1>
+              <span className="page-txn-subtitle">{userProfile?.Department || "Account Overview"}</span>
+            </div>
+          </div>
+          <div className="page-txn-header-right">
+            <div className="page-txn-header-icon-box">
+              <Wallet size={26} color="var(--ion-color-primary)" />
             </div>
           </div>
         </div>
@@ -1318,9 +1323,9 @@ const triggerBillUpload = () => {
                   <IonIcon icon={arrowForward} /> New Transfer
                 </div>
                 <div>
-                  <IonButton size="small" fill="outline" onClick={exportTransactions}>
-                    Download Excel
-                  </IonButton>
+                  <button className="premium-export-btn" onClick={exportTransactions}>
+                    <IonIcon icon={documentText} /> Download Excel
+                  </button>
                 </div>
               </div>
               <div className="form-grid">
@@ -1476,27 +1481,30 @@ const triggerBillUpload = () => {
                   />
                 </div>
 
-                <div className="filter-action-col">
-                  <button
-                    className="filter-apply-btn"
-                    disabled={filterLoading}
-                    style={{ opacity: filterLoading ? 0.6 : 1, cursor: filterLoading ? "not-allowed" : "pointer" }}
-                    onClick={async () => {
-                      filterSearchRef.current = true;
-                      setFilterLoading(true);
-                      await fetchTransactions(EmpCode);
-                      presentToast("Filter applied successfully");
-                    }}
-                  >
-                    {filterLoading ? "Searching…" : "Search"}
-                  </button>
-                  <button className="filter-clear-btn" onClick={() => {
-                    setStartDate(""); setEndDate(""); setSelectedYear("");
-                    setTransCredDebt("All"); setSelectedTxnType("All");
-                    fetchTransactions(EmpCode, { start: "", end: "", year: "", type: "All", head: "All" });
-                  }}>
-                    Clear
-                  </button>
+                <div className="input-group">
+                  <div className="input-label" style={{ visibility: 'hidden' }}>Action</div>
+                  <div className="filter-action-row">
+                    <button
+                      className="filter-apply-btn"
+                      disabled={filterLoading}
+                      style={{ opacity: filterLoading ? 0.6 : 1, cursor: filterLoading ? "not-allowed" : "pointer" }}
+                      onClick={async () => {
+                        filterSearchRef.current = true;
+                        setFilterLoading(true);
+                        await fetchTransactions(EmpCode);
+                        presentToast("Filter applied successfully");
+                      }}
+                    >
+                      {filterLoading ? "Searching…" : "Search"}
+                    </button>
+                    <button className="filter-clear-btn" onClick={() => {
+                      setStartDate(""); setEndDate(""); setSelectedYear("");
+                      setTransCredDebt("All"); setSelectedTxnType("All");
+                      fetchTransactions(EmpCode, { start: "", end: "", year: "", type: "All", head: "All" });
+                    }}>
+                      Clear
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1568,12 +1576,12 @@ const triggerBillUpload = () => {
             <div className="section-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div className="section-title">
-                  <IonIcon icon={arrowForward} /> New Voucher Request
+                  <IonIcon icon={arrowForward} /> Verified Vouchers
                 </div>
                 <div>
-                  <IonButton size="small" fill="outline" onClick={exportVouchers}>
-                    Download Excel
-                  </IonButton>
+                  <button className="premium-export-btn" onClick={exportVouchers}>
+                    <IonIcon icon={documentText} /> Download Excel
+                  </button>
                 </div>
               </div>
               <div className="form-grid">
@@ -1782,12 +1790,12 @@ const triggerBillUpload = () => {
               <div className="section-card">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div className="section-title">
-                      <IonIcon icon={arrowForward} /> Advances & Cash in Hands
+                      <IonIcon icon={arrowForward} /> Search by Reference
                     </div>
                     <div>
-                      <IonButton size="small" fill="outline" onClick={exportAdvances}>
-                        Download Excel
-                      </IonButton>
+                      <button className="premium-export-btn" onClick={exportAdvances}>
+                        <IonIcon icon={documentText} /> Download Excel
+                      </button>
                     </div>
                   </div>
                 <div className="advances-table-wrapper">

@@ -30,9 +30,16 @@ import {
   personCircleOutline,
   checkmarkCircleOutline,
   closeCircleOutline,
+  locationOutline,
+  peopleOutline,
+  carOutline,
+  documentTextOutline,
 } from "ionicons/icons";
 import axios from "axios";
 import "./OnDuties.css";
+import "../components/requests/RequestList.css";
+import { createPortal } from "react-dom";
+import { ChevronDown, Search, X, Check } from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
@@ -348,6 +355,52 @@ const [tripModalMode, setTripModalMode] =
 
 const [fromModal, setFromModal] = useState(false);
 const [toModal, setToModal] = useState(false);
+
+// custom dropdown states
+const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
+const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+const [isTransportDropdownOpen, setIsTransportDropdownOpen] = useState(false);
+
+const [teamSearchTerm, setTeamSearchTerm] = useState("");
+const [clientSearchTerm, setClientSearchTerm] = useState("");
+
+const [teamDropdownPos, setTeamDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [transportDropdownPos, setTransportDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+const teamTriggerRef = useRef<HTMLDivElement>(null);
+const clientTriggerRef = useRef<HTMLDivElement>(null);
+const transportTriggerRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const updateDropdownPositions = () => {
+    if (isTeamDropdownOpen && teamTriggerRef.current) {
+      const rect = teamTriggerRef.current.getBoundingClientRect();
+      setTeamDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
+    if (isClientDropdownOpen && clientTriggerRef.current) {
+      const rect = clientTriggerRef.current.getBoundingClientRect();
+      setClientDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
+    if (isTransportDropdownOpen && transportTriggerRef.current) {
+      const rect = transportTriggerRef.current.getBoundingClientRect();
+      setTransportDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
+  };
+
+  window.addEventListener('resize', updateDropdownPositions);
+  const container = contentRef.current;
+  if (container) {
+    container.addEventListener('scroll', updateDropdownPositions);
+  }
+  updateDropdownPositions();
+
+  return () => {
+    window.removeEventListener('resize', updateDropdownPositions);
+    if (container) container.removeEventListener('scroll', updateDropdownPositions);
+  };
+}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen]);
+
 const loadUnlockRange = async () => {
   const res = await fetch(
     `${API_BASE}ApprovalRequest/GetApprovedUnlockRequest?empCode=${empCode}&requestType=On%20Duty`
@@ -1485,310 +1538,280 @@ useEffect(() => {
           <h2 style={{ margin: 0, fontWeight: 700 }}>Duty Manager</h2>
           <div>
 
-            <IonGrid className="ion-no-padding compact-duty-grid">
-              <IonRow className="compact-duty-row">
-                <IonCol size="12" sizeMd="4">
-                  <div className="compact-duty-card">
-                    <label className="compact-duty-label">Team Members</label>
+            <div className="lr-bento-grid" style={{ alignItems: "start", marginBottom: "20px" }}>
+              {/* Team Members */}
+              <div className="lr-field-box" onClick={() => setIsTeamDropdownOpen(!isTeamDropdownOpen)}>
+                <label className="lr-field-label">Team Members</label>
+                <div className="lr-field-content" ref={teamTriggerRef}>
+                  <IonIcon icon={peopleOutline} className="lr-field-icon" />
+                  {team.length > 1 ? (
+                    <>
+                      <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: selectedCodes.length ? "#1e293b" : "#94a3b8" }}>
+                        {selectedCodes.length > 0 ? `${selectedCodes.length} Selected` : "Select Team"}
+                      </span>
+                      <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
 
-                    {team.length > 1 ? (
-                      <IonSelect
-                        multiple
-                        interface="popover"
-                        className="compact-duty-select"
-                        value={selectedCodes}
-                        onIonChange={(e) => setSelectedCodes(e.detail.value)}
-                        placeholder="Select Team"
-                      >
-                        {team.map((emp, idx) => (
-                          <IonSelectOption
-                            key={`${emp.EmpCode}-${idx}`}
-                            value={emp.EmpCode}
-                          >
-                            {emp.EmpName}
-                          </IonSelectOption>
-                        ))}
-                      </IonSelect>
-                    ) : (
-                      <div className="compact-duty-value">
-                        {team[0]?.EmpName || "-"}
-                      </div>
-                    )}
-                  </div>
-                </IonCol>
-                <IonModal
-                  isOpen={!!dateModalType}
-                  onDidDismiss={() => setDateModalType(null)}
-                  className="native-date-modal"
-                >
-                  <div className="native-date-modal-wrapper">
-                    <IonDatetime
-                      presentation="date"
-                      preferWheel={true}
-                      showDefaultButtons={true}
-                      value={dateModalType === "from" ? dutyFromDate : dutyToDate}
-                      min={minCampDate}
-                      max={maxCampDate}
-                      onIonChange={(e) => {
-                        const val = String(e.detail.value || "");
-
-                        if (dateModalType === "from") {
-                          setDutyFromDate(val);
-
-                          if (!dutyToDate || moment(val).isAfter(dutyToDate)) {
-                            setDutyToDate(val);
-                          }
-                        } else {
-                          setDutyToDate(val);
-                        }
-                      }}
-                      onIonCancel={() => setDateModalType(null)}
-                    />
-                  </div>
-                </IonModal>
-<IonCol size="12" sizeMd="4">
-  <div
-    className="compact-duty-card"
-    onClick={() => setFromModal(true)}
-  >
-    <label className="compact-duty-label">Camp From Date</label>
-
-    <div className="compact-duty-date">
-      <span
-        className={
-          dutyFromDate
-            ? "compact-duty-value"
-            : "compact-duty-placeholder"
-        }
-      >
-        {dutyFromDate
-          ? moment(dutyFromDate).format("DD-MM-YYYY")
-          : "Pick From Date"}
-      </span>
-    </div>
-  </div>
-
-  {/* MODAL */}
-  <IonModal
-    isOpen={fromModal}
-    className="native-date-modal"
-    onDidDismiss={() => setFromModal(false)}
-  >
-<IonDatetime
-  presentation="date"
-  preferWheel={true}
-  showDefaultButtons={true}
-  doneText="Done"
-  cancelText="Cancel"
-  value={dutyFromDate || undefined}
-  min={unlockRange.approved ? unlockRange.fromDate : today}
-  max={maxDate}
-  isDateEnabled={(dateString) => {
-    const date = dateString.split("T")[0];
-
-    // allow the already-selected date even if outside the normal enabled range
-    if (date === dutyFromDate) {
-      return true;
-    }
-
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    // Approved range
-    if (
-      unlockRange.approved &&
-      date >= unlockRange.fromDate &&
-      date <= unlockRange.toDate
-    ) {
-      return true;
-    }
-
-    // default rule
-    return date >= todayStr;
-  }}
-  onIonChange={(e) => {
-    const value = e.detail.value as string;
-
-    if (value) {
-      const selected = value.split("T")[0];
-      setDutyFromDate(selected);
-      setDutyToDate("");
-    }
-  }}
-/>
-  </IonModal>
-</IonCol>
-
-  {/* ================= TO DATE ================= */}
- <IonCol size="12" sizeMd="4">
-  <div
-    className="compact-duty-card"
-    onClick={() => setToModal(true)}
-  >
-    <label className="compact-duty-label">Camp To Date</label>
-
-    <div className="compact-duty-date">
-      <span
-        className={
-          dutyToDate
-            ? "compact-duty-value"
-            : "compact-duty-placeholder"
-        }
-      >
-        {dutyToDate
-          ? moment(dutyToDate).format("DD-MM-YYYY")
-          : "Pick To Date"}
-      </span>
-    </div>
-  </div>
-
-  {/* MODAL */}
-  <IonModal
-    isOpen={toModal}
-    className="native-date-modal"
-    onDidDismiss={() => setToModal(false)}
-  >
-<IonDatetime
-  presentation="date"
-  preferWheel={true}
-  showDefaultButtons={true}
-  doneText="Done"
-  cancelText="Cancel"
-  value={dutyToDate || undefined}
-  min={
-    dutyFromDate === unlockRange.fromDate
-      ? unlockRange.fromDate
-      : (dutyFromDate || today)
-  }
-  max={
-    dutyFromDate === unlockRange.fromDate
-      ? unlockRange.toDate
-      : maxDate
-  }
-  onIonChange={(e) => {
-    const value = e.detail.value as string;
-
-    if (value) {
-      setDutyToDate(value.split("T")[0]);
-    }
-  }}
-/>
-  </IonModal>
-</IonCol>
-              </IonRow>
-
-              <IonRow className="compact-duty-row">
-                <IonCol size="12" sizeMd="4">
-                  <div className="compact-duty-card">
-                    <label className="compact-duty-label">Client / Institution</label>
-
-                    <IonSelect
-                      interface="popover"
-                      className="compact-duty-select"
-                      placeholder="Search Party / Client"
-                      value={institution}
-                      onIonChange={(e) => setInstitution(e.detail.value)}
-                    >
-                      <IonSelectOption value="Party">Party</IonSelectOption>
-                      {clients.map((c, idx) => (
-                        <IonSelectOption
-                          key={`${c.Client_ID}-${idx}`}
-                          value={c.Client_Name}
-                        >
-                          {c.Client_Name}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </div>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="4">
-                  <div className="compact-duty-card">
-                    <label className="compact-duty-label">Location</label>
-
-                    <IonInput
-                      className="compact-duty-input"
-                      placeholder="Vijayawada"
-                      value={location}
-                      onIonInput={(e) => setLocation(e.detail.value || "")}
-                    />
-                  </div>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="4">
-                  <div className="compact-duty-card">
-                    <label className="compact-duty-label">Transport</label>
-
-                    <IonSelect
-                      interface="popover"
-                      className="compact-duty-select"
-                      value={transportMode}
-                      onIonChange={(e) => setTransportMode(e.detail.value)}
-                    >
-                      <IonSelectOption value="PublicTransport">
-                        Public Transport
-                      </IonSelectOption>
-                      <IonSelectOption value="Office 4 Wheeler">
-                        Office 4 Wheeler
-                      </IonSelectOption>
-                      <IonSelectOption value="Office 2 Wheeler">
-                        Office 2 Wheeler
-                      </IonSelectOption>
-                      <IonSelectOption value="Own 2 Wheeler">
-                        Own 2 Wheeler
-                      </IonSelectOption>
-                      <IonSelectOption value="Own 4 Wheeler">
-                        Own 4 Wheeler
-                      </IonSelectOption>
-                    </IonSelect>
-                  </div>
-                </IonCol>
-              </IonRow>
-
-              <IonRow className="compact-duty-row">
-                {transportMode !== "PublicTransport" && (
-                  <IonCol size="12" sizeMd="4">
-                    <div className="compact-duty-card">
-                      <label className="compact-duty-label">Vehicle No</label>
-
-                      <IonInput
-                        className="compact-duty-input"
-                        placeholder="AP16..."
-                        value={vehicleNo}
-                        onIonInput={(e) => setVehicleNo(e.detail.value || "")}
-                      />
-                    </div>
-                  </IonCol>
-                )}
-
-                <IonCol
-                  size="12"
-                  sizeMd={transportMode === "PublicTransport" ? "12" : "8"}
-                >
-                  <div className="compact-duty-card">
-                    <label className="compact-duty-label">Work Description</label>
-
-                    <IonTextarea
-                      className="compact-duty-textarea"
-                      placeholder="Ex: System installation..."
-                      value={dutiesDesc}
-                      autoGrow
-                      rows={2}
-                      onIonInput={(e) => setDutiesDesc(e.detail.value || "")}
-                    />
-                  </div>
-                </IonCol>
-              </IonRow>
-
-              <div className="compact-duty-buttons">
-                <IonButton
-                  className="compact-duty-submit"
-                  expand="block"
-                  onClick={saveOnDuty}
-                >
-                  Submit Report
-                </IonButton>
+                      {isTeamDropdownOpen && createPortal(
+                        <>
+                          <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTeamDropdownOpen(false); }} />
+                          <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${teamDropdownPos.top}px`, left: `${teamDropdownPos.left}px`, width: `${teamDropdownPos.width}px` }}>
+                            <div className="dropdown-search-sec">
+                              <Search size={16} className="dropdown-search-icon" />
+                              <input type="text" placeholder="Search team..." value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
+                              {teamSearchTerm && <button className="dropdown-clear-btn" onClick={() => setTeamSearchTerm("")}><X size={16} /></button>}
+                            </div>
+                            <div className="dropdown-body">
+                              {team.filter(t => (t.EmpName || "").toLowerCase().includes(teamSearchTerm.toLowerCase())).length > 0 ? (
+                                team.filter(t => (t.EmpName || "").toLowerCase().includes(teamSearchTerm.toLowerCase())).map((emp, index) => {
+                                  const isSelected = selectedCodes.includes(emp.EmpCode);
+                                  const initials = (emp.EmpName?.charAt(0) || "?").toUpperCase();
+                                  return (
+                                    <div
+                                      key={index}
+                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (isSelected) {
+                                          setSelectedCodes(selectedCodes.filter(c => c !== emp.EmpCode));
+                                        } else {
+                                          setSelectedCodes([...selectedCodes, emp.EmpCode]);
+                                        }
+                                      }}
+                                    >
+                                      <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
+                                      <div className="dr-info">
+                                        <span className="dr-name">{emp.EmpName}</span>
+                                        <span className="dr-id">ID: {emp.EmpCode}</span>
+                                      </div>
+                                      {isSelected && <Check size={18} className="dr-check" />}
+                                    </div>
+                                  );
+                                })
+                              ) : <div className="dr-no-results">No members found</div>}
+                            </div>
+                          </div>
+                        </>,
+                        document.body
+                      )}
+                    </>
+                  ) : (
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "#1e293b" }}>
+                      {team[0]?.EmpName || "-"}
+                    </span>
+                  )}
+                </div>
               </div>
-            </IonGrid>
+
+              {/* Camp From Date & To Date Wrapper */}
+              <div className="lr-field-box" onClick={() => setDateModalType("from")} style={{ cursor: "pointer" }}>
+                <label className="lr-field-label">Camp From Date</label>
+                <div className="lr-field-content">
+                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyFromDate ? "#1e293b" : "#94a3b8" }}>
+                    {dutyFromDate ? moment(dutyFromDate).format("DD-MM-YYYY") : "Pick From Date"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="lr-field-box" onClick={() => setDateModalType("to")} style={{ cursor: "pointer" }}>
+                <label className="lr-field-label">Camp To Date</label>
+                <div className="lr-field-content">
+                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyToDate ? "#1e293b" : "#94a3b8" }}>
+                    {dutyToDate ? moment(dutyToDate).format("DD-MM-YYYY") : "Pick To Date"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Modals for Dates */}
+              <IonModal isOpen={!!dateModalType} onDidDismiss={() => setDateModalType(null)} className="native-date-modal">
+                <div className="native-date-modal-wrapper">
+                  <IonDatetime
+                    presentation="date"
+                    preferWheel={true}
+                    showDefaultButtons={true}
+                    value={dateModalType === "from" ? dutyFromDate : dutyToDate}
+                    min={dateModalType === "from" ? (unlockRange.approved ? unlockRange.fromDate : today) : (dutyFromDate === unlockRange.fromDate ? unlockRange.fromDate : (dutyFromDate || today))}
+                    max={dateModalType === "from" ? maxDate : (dutyFromDate === unlockRange.fromDate ? unlockRange.toDate : maxDate)}
+                    isDateEnabled={dateModalType === "from" ? ((dateString) => {
+                      const date = dateString.split("T")[0];
+                      if (date === dutyFromDate) return true;
+                      const todayStr = new Date().toISOString().split("T")[0];
+                      if (unlockRange.approved && date >= unlockRange.fromDate && date <= unlockRange.toDate) return true;
+                      return date >= todayStr;
+                    }) : undefined}
+                    onIonChange={(e) => {
+                      const val = String(e.detail.value || "");
+                      if (dateModalType === "from") {
+                        setDutyFromDate(val);
+                        if (!dutyToDate || moment(val).isAfter(dutyToDate)) setDutyToDate(val);
+                      } else {
+                        setDutyToDate(val);
+                      }
+                    }}
+                    onIonCancel={() => setDateModalType(null)}
+                  />
+                </div>
+              </IonModal>
+
+              {/* Client / Institution */}
+              <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
+                <label className="lr-field-label">Client / Institution</label>
+                <div className="lr-field-content" ref={clientTriggerRef}>
+                  <IonIcon icon={businessOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: institution ? "#1e293b" : "#94a3b8" }}>
+                    {institution || "Search Party / Client"}
+                  </span>
+                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                  {isClientDropdownOpen && createPortal(
+                    <>
+                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsClientDropdownOpen(false); }} />
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${clientDropdownPos.top}px`, left: `${clientDropdownPos.left}px`, width: `${clientDropdownPos.width}px` }}>
+                        <div className="dropdown-search-sec">
+                          <Search size={16} className="dropdown-search-icon" />
+                          <input type="text" placeholder="Search client..." value={clientSearchTerm} onChange={(e) => setClientSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
+                          {clientSearchTerm && <button className="dropdown-clear-btn" onClick={() => setClientSearchTerm("")}><X size={16} /></button>}
+                        </div>
+                        <div className="dropdown-body">
+                          {[{ Client_Name: "Party" }, ...clients].filter(c => c.Client_Name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length > 0 ? (
+                            [{ Client_Name: "Party" }, ...clients].filter(c => c.Client_Name.toLowerCase().includes(clientSearchTerm.toLowerCase())).map((c, index) => {
+                              const isSelected = institution === c.Client_Name;
+                              const initials = (c.Client_Name.charAt(0) || "?").toUpperCase();
+                              return (
+                                <div
+                                  key={index}
+                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setInstitution(c.Client_Name);
+                                    setIsClientDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
+                                  <div className="dr-info">
+                                    <span className="dr-name">{c.Client_Name}</span>
+                                  </div>
+                                  {isSelected && <Check size={18} className="dr-check" />}
+                                </div>
+                              );
+                            })
+                          ) : <div className="dr-no-results">No clients found</div>}
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">Location</label>
+                <div className="lr-field-content">
+                  <IonIcon icon={locationOutline} className="lr-field-icon" />
+                  <input
+                    type="text"
+                    placeholder="Vijayawada"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
+                  />
+                </div>
+              </div>
+
+              {/* Transport */}
+              <div className="lr-field-box" onClick={() => setIsTransportDropdownOpen(!isTransportDropdownOpen)}>
+                <label className="lr-field-label">Transport</label>
+                <div className="lr-field-content" ref={transportTriggerRef}>
+                  <IonIcon icon={carOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: transportMode ? "#1e293b" : "#94a3b8" }}>
+                    {transportMode || "Select Transport"}
+                  </span>
+                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                  {isTransportDropdownOpen && createPortal(
+                    <>
+                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTransportDropdownOpen(false); }} />
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${transportDropdownPos.top}px`, left: `${transportDropdownPos.left}px`, width: `${transportDropdownPos.width}px` }}>
+                        <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
+                          {["PublicTransport", "Office 4 Wheeler", "Office 2 Wheeler", "Own 2 Wheeler", "Own 4 Wheeler"].map((loc, index) => {
+                            const isSelected = transportMode === loc;
+                            const initials = loc.charAt(0);
+                            return (
+                              <div
+                                key={index}
+                                className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setTransportMode(loc);
+                                  setIsTransportDropdownOpen(false);
+                                }}
+                              >
+                                <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
+                                <div className="dr-info">
+                                  <span className="dr-name">{loc}</span>
+                                </div>
+                                {isSelected && <Check size={18} className="dr-check" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              </div>
+
+              {/* Vehicle No */}
+              {transportMode !== "PublicTransport" && (
+                <div className="lr-field-box">
+                  <label className="lr-field-label">Vehicle No</label>
+                  <div className="lr-field-content">
+                    <IonIcon icon={carOutline} className="lr-field-icon" />
+                    <input
+                      type="text"
+                      placeholder="AP16..."
+                      value={vehicleNo}
+                      onChange={(e) => setVehicleNo(e.target.value)}
+                      style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Work Description */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">Work Description</label>
+                <div className="lr-field-content" style={{ alignItems: "flex-start", padding: "12px 16px" }}>
+                  <textarea
+                    placeholder="Ex: System installation..."
+                    value={dutiesDesc}
+                    onChange={(e) => setDutiesDesc(e.target.value)}
+                    rows={2}
+                    style={{
+                      flex: 1, border: "none", background: "transparent",
+                      fontSize: 14, fontWeight: 500, outline: "none",
+                      resize: "none", color: "#1e293b", fontFamily: "inherit", width: "100%",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex" }}>
+              <button
+                className="lr-gradient-btn"
+                style={{ flex: 1, padding: "14px", borderRadius: "14px", fontSize: "15px", fontWeight: "700" }}
+                onClick={saveOnDuty}
+              >
+                Submit Report
+              </button>
+            </div>
           </div>
           <div className="history-section-title">On Duty Logs</div>
 

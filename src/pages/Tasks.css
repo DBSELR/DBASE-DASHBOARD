@@ -1,5 +1,6 @@
+@import url("./WorkReports.css");
+
 /* 
-  Premium Tasks Page Styles - V2 (Creative & Attractive)
   Modern Glassmorphism + Dynamic Motion + Theme Harmony
   Optimized for Mobile (Android/iOS) and Web
 */
@@ -57,123 +58,36 @@
     background: #0a0a0b;
 }
 
-/* Native Style Segment Header */
-.native-segment-header {
+/* --- Custom Native-Like Tabs --- */
+.tasks-custom-tabs {
     display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    gap: 12px;
-    background: var(--glass-bg);
-    backdrop-filter: var(--surface-blur);
-    border-bottom: 1px solid var(--glass-border);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.native-back-btn {
-    background: rgba(var(--ion-color-primary-rgb), 0.1);
-    border: none;
-    color: var(--ion-color-primary);
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-
-.native-back-btn:active {
-    transform: scale(0.9);
-}
-
-.native-refresh-btn {
-    background: rgba(var(--ion-color-secondary-rgb), 0.12);
-    border: none;
-    color: var(--ion-color-secondary);
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-
-.native-refresh-btn:hover {
-    background: rgba(var(--ion-color-secondary-rgb), 0.2);
-    transform: rotate(30deg);
-}
-
-.native-refresh-btn:active {
-    transform: scale(0.9) rotate(90deg);
-}
-
-@media screen and (min-width: 768px) {
-    .native-back-btn {
-        display: none;
-    }
-}
-
-.native-segment-container {
-    flex: 1;
-    display: flex;
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 14px;
-    padding: 4px;
+    background: #ffffff;
+    padding: 6px;
+    border-radius: 100px;
     position: relative;
-    height: 44px;
+    z-index: 10;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
 }
 
-.dark .native-segment-container {
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.native-segment-item {
+.tasks-tab-item {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    text-align: center;
+    padding: 12px 16px;
     font-size: 14px;
     font-weight: 700;
-    color: var(--ion-color-step-600);
-    z-index: 2;
+    color: #64748b;
+    border-radius: 100px;
     cursor: pointer;
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.native-segment-item.active {
-    color: #fff;
-}
-
-.native-segment-slider {
-    position: absolute;
-    top: 4px;
-    bottom: 4px;
-    width: calc(50% - 4px);
-    background: var(--premium-gradient);
-    border-radius: 10px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1;
-}
-
-.native-segment-slider.left {
-    transform: translateX(0);
-}
-
-.native-segment-slider.right {
-    transform: translateX(100%);
-}
-
-@media screen and (min-width: 320px) {
-    .native-segment-header {
-        padding: 8px 12px;
-    }
+.tasks-tab-item.active {
+    background: var(--ion-color-primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
 }
 
 ion-segment-button {

@@ -22,12 +22,14 @@ import {
 } from "ionicons/icons";
 import axios from "axios";
 import {
-
   calendarOutline,
 } from "ionicons/icons";
+import { createPortal } from "react-dom";
+import { ChevronDown, Search, X, Check } from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import "./OverTime.css";
+import "../components/requests/RequestList.css";
 
 type ClientItem = { Client_ID: string; Client_Name: string };
 
@@ -108,6 +110,13 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
   const [otList, setOTList] = useState<OTrow[]>([]);
   const [otEditingId, setOTEditingId] = useState<string>("");
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
+  
+  // Custom Dropdown State
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const clientTriggerRef = useRef<HTMLDivElement>(null);
+
   const currentYear = new Date().getFullYear();
   const [unlockRange, setUnlockRange] = useState({
     approved: false,
@@ -218,6 +227,24 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
     setOTFinalMin(mins);
     //setOTDate(maxOtDate);
   }, [otFrom, otTo]);
+
+  // Handle dropdown positioning on scroll/resize
+  useEffect(() => {
+    const updatePositions = () => {
+      if (isClientDropdownOpen && clientTriggerRef.current) {
+        const rect = clientTriggerRef.current.getBoundingClientRect();
+        setClientDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+      }
+    };
+    updatePositions();
+    window.addEventListener('resize', updatePositions);
+    const scrollParents = [document.querySelector('ion-content')?.shadowRoot?.querySelector('.inner-scroll'), window];
+    scrollParents.forEach(p => p?.addEventListener('scroll', updatePositions));
+    return () => {
+      window.removeEventListener('resize', updatePositions);
+      scrollParents.forEach(p => p?.removeEventListener('scroll', updatePositions));
+    };
+  }, [isClientDropdownOpen]);
 
   const loadClients = async (search: string = "") => {
     try {
@@ -424,10 +451,10 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
         </div>
 
         <div className="ion-padding-horizontal">
-          <div className="overtime-form-container compact-form" >
-            <div className="overtime-form-title compact-title">
-              <IonIcon icon={timeOutline} />
-              <span>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
+          <div style={{ width: "100%", overflowX: "hidden" }} className="overtime-form-container">
+            <div className="overtime-form-title compact-title" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", fontWeight: "700" }}>
+              <IonIcon icon={timeOutline} style={{ color: "var(--ion-color-primary)", fontSize: "20px" }} />
+              <span style={{ color: "#334155" }}>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
             </div>
 
             <IonModal
@@ -443,215 +470,183 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                   doneText="Done"
                   cancelText="Cancel"
                   value={otDate || undefined}
-                  min={minOtDate}
+                  min={unlockRange.approved ? unlockRange.fromDate : minOtDate}
                   max={maxOtDate}
                   isDateEnabled={(dateString) => {
                     const date = dateString.split("T")[0];
+                    const today = new Date();
+                    const weekAgo = new Date();
+                    weekAgo.setDate(today.getDate() - 2);
+                    const weekAgoStr = weekAgo.toISOString().split("T")[0];
 
-                    const todayStr = new Date().toISOString().split("T")[0];
-
-                    // ✅ always allow selected date
                     if (date === otDate) return true;
-
-                    // ❌ default OT rule (last 7 days only)
-                    return date >= minOtDate && date <= todayStr;
+                    if (unlockRange.approved && date >= unlockRange.fromDate && date <= unlockRange.toDate) return true;
+                    return date >= weekAgoStr;
                   }}
                   onIonChange={(e) => {
                     const value = e.detail.value as string;
-
                     if (value) {
                       setOTDate(value.split("T")[0]);
-                      setDateModalOpen(false); // 👈 close modal after select
+                      setDateModalOpen(false);
                     }
                   }}
                 />
               </IonContent>
             </IonModal>
-            <IonGrid className="ion-no-padding compact-grid">
-              <IonRow className="compact-row">
-                <IonCol size="12" sizeMd="3">
-                  <div
-                    className="compact-input-card"
-                    onClick={() => setDateModalOpen(true)}
-                  >
-                    OT Date
-                    <div className="compact-date-display">
-                      <IonIcon icon={calendarOutline} className="compact-date-icon" />
-                      <span className="compact-date-text">
-                        {otDate ? moment(otDate).format("DD-MM-YYYY") : "Pick OT Date"}
-                      </span>
-                    </div>
-                  </div>
 
-                  <IonModal
-                    isOpen={dateModalOpen}
-                    onDidDismiss={() => setDateModalOpen(false)}
-                    className="native-date-modal"
-                  >
-                    {/* <IonDatetime
-    presentation="date"
-    preferWheel={true}
-    showDefaultButtons={true}
-    doneText="Done"
-    cancelText="Cancel"
-    value={otDate || undefined}
-    min={minOtDate}
-    max={maxOtDate}
-    onIonChange={(e) => {
-      const value = e.detail.value as string;
-
-      if (value) {
-        setOTDate(value.split("T")[0]);
-      }
-    }}
-  /> */}
-                    <IonDatetime
-                      presentation="date"
-                      preferWheel={true}
-                      showDefaultButtons={true}
-                      doneText="Done"
-                      cancelText="Cancel"
-                      value={otDate || undefined}
-                      min={unlockRange.approved ? unlockRange.fromDate : minOtDate}
-                      max={maxOtDate}
-                      isDateEnabled={(dateString) => {
-                        const date = dateString.split("T")[0];
-
-                        const today = new Date();
-
-                        const weekAgo = new Date();
-                        weekAgo.setDate(today.getDate() - 2);
-
-                        const weekAgoStr = weekAgo.toISOString().split("T")[0];
-
-                        // Approved release date/range
-                        if (
-                          unlockRange.approved &&
-                          date >= unlockRange.fromDate &&
-                          date <= unlockRange.toDate
-                        ) {
-                          return true;
-                        }
-
-                        // Default OT range (last 7 days only)
-                        return date >= weekAgoStr;
-                      }}
-                      onIonChange={(e) => {
-                        const value = e.detail.value as string;
-
-                        if (value) {
-                          setOTDate(value.split("T")[0]);
-                        }
-                      }}
-                    />
-                  </IonModal>
-
-                </IonCol>
-
-                <IonCol size="12" sizeMd="5">
-                  <div className="compact-input-card">
-                    <label className="compact-label">Client / College</label>
-
-                    <IonSelect
-                      interface="popover"
-                      className="compact-select"
-                      value={otClient}
-                      placeholder="Select Client"
-                      onIonChange={(e) => setOTClient(e.detail.value)}
-                    >
-                      {clients.map((c, idx) => (
-                        <IonSelectOption
-                          key={`${c.Client_ID}-${idx}`}
-                          value={c.Client_Name}
-                        >
-                          {c.Client_Name}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </div>
-                </IonCol>
-
-                <IonCol size="6" sizeMd="2">
-                  <div className="compact-input-card">
-                    <label className="compact-label">From</label>
-                    <IonInput
-                      type="time"
-                      className="compact-time-input"
-                      value={otFrom}
-                      onIonInput={(e) => setOTFrom(String(e.detail.value || ""))}
-                    />
-                  </div>
-                </IonCol>
-
-                <IonCol size="6" sizeMd="2">
-                  <div className="compact-input-card">
-                    <label className="compact-label">To</label>
-                    <IonInput
-                      type="time"
-                      className="compact-time-input"
-                      value={otTo}
-                      onIonInput={(e) => setOTTo(String(e.detail.value || ""))}
-                    />
-                  </div>
-                </IonCol>
-              </IonRow>
-
-              <IonRow className="compact-row compact-second-row">
-                <IonCol size="6" sizeMd="2">
-                  <div className="compact-stat-card">
-                    <span className="compact-stat-label">Actual</span>
-                    <span className="compact-stat-value">{otActualMin} Min</span>
-                  </div>
-                </IonCol>
-
-                <IonCol size="6" sizeMd="2">
-                  <div className="compact-input-card">
-                    <label className="compact-label">Approved</label>
-                    <IonInput
-                      className="compact-number-input"
-                      value={otFinalMin}
-                      onIonInput={(e) =>
-                        setOTFinalMin(Number(e.detail.value || 0))
-                      }
-                    />
-                  </div>
-                </IonCol>
-
-                <IonCol size="12" sizeMd="8">
-                  <div className="compact-input-card compact-summary-card">
-                    <label className="compact-label">Work Summary</label>
-                    <IonInput
-                      className="compact-summary-input"
-                      placeholder="Describe OT work done..."
-                      value={otDesc}
-                      onIonInput={(e) => setOTDesc(e.detail.value || "")}
-                    />
-                  </div>
-                </IonCol>
-              </IonRow>
-
-              <div className="compact-btn-row">
-                <IonButton
-                  className="compact-save-btn"
-                  expand="block"
-                  onClick={saveOT}
-                >
-                  {otEditingId ? "Update OT" : "Save OT"}
-                </IonButton>
-
-                {canApprove && otEditingId && (
-                  <IonButton
-                    className="compact-approve-btn"
-                    color="success"
-                    expand="block"
-                    onClick={approveOT}
-                  >
-                    Approve
-                  </IonButton>
-                )}
+            <div className="lr-bento-grid" style={{ alignItems: "start", marginBottom: "20px" }}>
+              {/* OT Date */}
+              <div
+                className="lr-field-box"
+                onClick={() => setDateModalOpen(true)}
+                style={{ cursor: "pointer" }}
+              >
+                <label className="lr-field-label">OT Date</label>
+                <div className="lr-field-content">
+                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: otDate ? "#1e293b" : "#94a3b8" }}>
+                    {otDate ? moment(otDate).format("DD-MM-YYYY") : "Pick OT Date"}
+                  </span>
+                </div>
               </div>
-            </IonGrid>
-          </div>
+
+              {/* Client / College */}
+              <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
+                <label className="lr-field-label">Client / College</label>
+                <div className="lr-field-content" ref={clientTriggerRef}>
+                  <IonIcon icon={personCircleOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: otClient ? "#1e293b" : "#94a3b8" }}>
+                    {otClient || "Select Client"}
+                  </span>
+                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                  {isClientDropdownOpen && createPortal(
+                    <>
+                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsClientDropdownOpen(false); }} />
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${clientDropdownPos.top}px`, left: `${clientDropdownPos.left}px`, width: `${clientDropdownPos.width}px` }}>
+                        <div className="dropdown-search-sec">
+                          <Search size={16} className="dropdown-search-icon" />
+                          <input type="text" placeholder="Search client..." value={clientSearchTerm} onChange={(e) => setClientSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
+                          {clientSearchTerm && <button className="dropdown-clear-btn" onClick={() => setClientSearchTerm("")}><X size={16} /></button>}
+                        </div>
+                        <div className="dropdown-body">
+                          {clients.filter(c => c.Client_Name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length > 0 ? (
+                            clients.filter(c => c.Client_Name.toLowerCase().includes(clientSearchTerm.toLowerCase())).map((c, index) => {
+                              const isSelected = otClient === c.Client_Name;
+                              const initials = (c.Client_Name.charAt(0) || "?").toUpperCase();
+                              return (
+                                <div
+                                  key={index}
+                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setOTClient(c.Client_Name);
+                                    setIsClientDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
+                                  <div className="dr-info">
+                                    <span className="dr-name">{c.Client_Name}</span>
+                                  </div>
+                                  {isSelected && <Check size={18} className="dr-check" />}
+                                </div>
+                              );
+                            })
+                          ) : <div className="dr-no-results">No clients found</div>}
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              </div>
+
+              {/* FROM TIME */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">From</label>
+                <div className="lr-field-content">
+                  <input
+                    type="time"
+                    value={otFrom}
+                    onChange={(e) => setOTFrom(e.target.value)}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "600" }}
+                  />
+                </div>
+              </div>
+
+              {/* TO TIME */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">To</label>
+                <div className="lr-field-content">
+                  <input
+                    type="time"
+                    value={otTo}
+                    onChange={(e) => setOTTo(e.target.value)}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "600" }}
+                  />
+                </div>
+              </div>
+
+              {/* Actual */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">Actual</label>
+                <div className="lr-field-content" style={{ justifyContent: "center" }}>
+                  <span style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>{otActualMin} Min</span>
+                </div>
+              </div>
+
+              {/* Approved */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">Approved</label>
+                <div className="lr-field-content">
+                  <input
+                    type="number"
+                    value={otFinalMin}
+                    onChange={(e) => setOTFinalMin(Number(e.target.value || 0))}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#6366f1", fontSize: "16px", fontWeight: "700", textAlign: "center" }}
+                  />
+                </div>
+              </div>
+
+              {/* Work Summary */}
+              <div className="lr-field-box">
+                <label className="lr-field-label">Work Summary</label>
+                <div className="lr-field-content" style={{ alignItems: "flex-start", padding: "12px 16px" }}>
+                  <textarea
+                    placeholder="Describe OT work done..."
+                    value={otDesc}
+                    onChange={(e) => setOTDesc(e.target.value)}
+                    rows={2}
+                    style={{
+                      flex: 1, border: "none", background: "transparent",
+                      fontSize: 14, fontWeight: 500, outline: "none",
+                      resize: "none", color: "#1e293b", fontFamily: "inherit", width: "100%",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                className="lr-gradient-btn"
+                style={{ flex: 1, padding: "14px", borderRadius: "14px", fontSize: "15px", fontWeight: "700" }}
+                onClick={saveOT}
+              >
+                {otEditingId ? "Update OT" : "Save OT"}
+              </button>
+              {canApprove && otEditingId && (
+                <button
+                  className="lr-gradient-btn"
+                  style={{ flex: 1, padding: "14px", borderRadius: "14px", fontSize: "15px", fontWeight: "700", background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
+                  onClick={approveOT}
+                >
+                  Approve
+                </button>
+              )}
+            </div>
+            </div>
           {/* <div className="history-section-title">Over-Time Logs</div>
           {otList.map((row, idx) => (
             <div key={`${row.id}-${idx}`} className="premium-card">

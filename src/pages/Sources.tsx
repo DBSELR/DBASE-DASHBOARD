@@ -5,6 +5,7 @@ import {
   IonInput, IonModal, IonPage, IonPopover,
   IonSelect, IonSelectOption, IonToast, IonGrid, IonRow, IonCol, IonIcon
 } from "@ionic/react";
+import { useHistory } from "react-router-dom";
 
 import {
   Accordion,
@@ -588,6 +589,7 @@ const UserAccessSection: React.FC = () => {
 };
 
 const Sources: React.FC = () => {
+  const history = useHistory();
   const [toast, setToast] = useState({
     open: false,
     msg: "",
@@ -1049,10 +1051,23 @@ const Sources: React.FC = () => {
     <IonPage>
       <IonContent className="ion-no-padding">
         <div className="src-container src-animate">
-          <div className="src-header-section">
-            <div className="src-title-group">
-              <h1 className="src-title">System Sources</h1>
-              <p className="src-subtitle">Manage administrative configurations and shared data.</p>
+          <div className="page-wr-header" style={{ width: '100%', margin: '16px 0 24px 0' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
+                <ChevronLeft />
+              </button>
+              <div>
+                <h1 className="page-wr-title">System Sources</h1>
+                <p className="page-wr-subtitle">Manage administrative configurations and shared data.</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ion-color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </div>
             </div>
           </div>
 

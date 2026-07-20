@@ -205,53 +205,56 @@
     animation: db-fade-in 1s ease-out;
 }
 
+/* Enhanced Login Card for Premium Look (Mobile First) */
 .db-login-card {
-    background: var(--db-glass-bg);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border: 1px solid var(--db-glass-border);
-    border-radius: 32px;
-    /* Reduced from 40px */
-    padding: 2.5rem 1.75rem 2.5rem;
-    /* Reduced padding */
-    width: 100%;
-    max-width: 450px;
-    /* Reduced from 500px */
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 28px;
+    padding: 2.2rem 1.5rem;
+    width: 92%;
+    max-width: 420px;
     margin: 0 auto;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.05);
-    animation: db-slide-up-full 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    animation: db-slide-up-full 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease;
+}
+
+.db-login-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 50px rgba(245, 124, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
 .db-login-title {
-    font-size: 1.6rem;
-    /* Reduced from 2rem */
+    font-size: 1.5rem;
     font-weight: 800;
     color: var(--db-text-main);
     margin-bottom: 0.4rem;
+    letter-spacing: -0.5px;
 }
 
 .db-login-subtitle {
     color: var(--db-text-muted);
     margin-bottom: 2rem;
-    /* Reduced from 2.5rem */
     font-size: 0.9rem;
-    /* Reduced from 1rem */
 }
 
 .db-input-group {
-    margin-bottom: 1.4rem;
-    /* Reduced from 1.8rem */
+    margin-bottom: 1.25rem;
     display: flex;
     flex-direction: column;
 }
 
 .db-input-label {
-    font-size: 0.85rem;
-    /* Reduced from 0.9rem */
+    font-size: 0.8rem;
     font-weight: 700;
     color: var(--db-text-main);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
     margin-left: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.8;
 }
 
 .db-input-wrapper {
@@ -261,27 +264,27 @@
 
 .db-input-field {
     width: 100%;
-    background: #fff;
-    border: 2px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid transparent;
     border-radius: 14px;
-    /* Reduced from 18px */
-    padding: 0.9rem 1.2rem;
-    /* Reduced from 1.1rem */
+    padding: 0.9rem 1.1rem;
     color: var(--db-text-main);
     font-size: 0.95rem;
-    /* Reduced from 1.05rem */
     outline: none;
     transition: var(--db-transition-smooth);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
 }
 
 .db-input-field:focus {
-    border-color: var(--db-primary);
-    box-shadow: 0 0 0 4px rgba(245, 124, 0, 0.08);
+    background: #fff;
+    border-color: var(--db-primary-light);
+    box-shadow: 0 0 0 4px rgba(245, 124, 0, 0.1), 0 6px 12px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
 }
 
 .db-password-toggle {
     position: absolute;
-    right: 1.2rem;
+    right: 1rem;
     top: 50%;
     transform: translateY(-50%);
     background: none;
@@ -292,12 +295,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
-    transition: color 0.3s;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s;
 }
 
 .db-password-toggle:hover {
     color: var(--db-primary);
+    background: rgba(245, 124, 0, 0.1);
 }
 
 /* Custom Validation Toast */
@@ -307,17 +312,17 @@
     left: 50%;
     transform: translateX(-50%) translateY(-100px);
     background: #fff;
-    padding: 0.85rem 1.25rem;
-    border-radius: 14px;
+    padding: 0.85rem 1.15rem;
+    border-radius: 12px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
     display: flex;
     align-items: center;
-    gap: 0.7rem;
+    gap: 0.6rem;
     z-index: 1000;
     border-left: 4px solid var(--db-error);
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    width: 85%;
-    max-width: 360px;
+    width: 90%;
+    max-width: 340px;
 }
 
 .db-validation-toast.active {
@@ -332,37 +337,62 @@
 .db-toast-msg {
     color: var(--db-text-main);
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .db-login-button {
     width: 100%;
     padding: 1rem;
-    /* Reduced from 1.2rem */
     background: var(--db-primary-gradient);
     border: none;
     border-radius: 14px;
-    /* Reduced from 18px */
     color: white;
     font-size: 1.05rem;
-    /* Reduced from 1.15rem */
     font-weight: 700;
-    margin-top: 0.8rem;
+    margin-top: 1rem;
     cursor: pointer;
-    box-shadow: 0 8px 20px rgba(245, 124, 0, 0.2);
-    transition: var(--db-transition-smooth);
+    box-shadow: 0 8px 20px rgba(245, 124, 0, 0.25);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.db-login-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: all 0.6s ease;
+}
+
+.db-login-button:hover::before {
+    left: 100%;
+}
+
+.db-login-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(245, 124, 0, 0.35);
+}
+
+.db-login-button:active {
+    transform: scale(0.98);
 }
 
 .db-login-button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* New Modern Animations */
 @keyframes db-slide-up-fade {
     from {
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(40px);
     }
 
     to {
@@ -391,64 +421,51 @@
     }
 }
 
-/* Media Queries starting from 320px onwards */
-@media screen and (min-width: 320px) {
+/* Media Queries for Scaling up to Tablets and Desktops */
+@media screen and (min-width: 480px) {
     .db-login-card {
-        /* padding: 1rem 1.25rem 1rem; */
-        /* width: 90%; */
-        margin: auto;
-    }
-
-    .db-input-field {
-        padding: 0.7rem 1rem;
-    }
-
-    .db-welcome-title {
-        font-size: 1.8rem;
-    }
-
-    .db-login-header img {
-        width: 80px;
+        padding: 3rem 2rem;
+        border-radius: 32px;
+        width: 100%;
     }
 
     .db-login-title {
-        font-size: 1.4rem;
-    }
-}
-
-@media screen and (min-width: 480px) {
-    .db-welcome-title {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 
-    .db-login-card {
-        padding: 2.5rem 1.75rem 3.5rem;
+    .db-input-field {
+        padding: 1rem 1.2rem;
+        font-size: 1rem;
+    }
+    
+    .db-login-button {
+        padding: 1.1rem;
+        font-size: 1.1rem;
+        border-radius: 16px;
     }
 }
 
 @media screen and (min-width: 768px) {
+    .db-welcome-title {
+        font-size: 2.2rem;
+    }
+
     .db-login-card {
-        border-radius: 24px;
-        margin-bottom: 2rem;
+        padding: 3.5rem 2.5rem;
     }
 
     .db-login-screen {
         justify-content: center;
         align-items: center;
     }
-
-    .db-login-header {
-        flex: none;
-        margin-bottom: 0.5rem;
-    }
 }
 
 /* Safe Area for Mobile Notch */
-/* @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .db-login-card {
-        padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .db-login-footer-links-container {
+        padding-bottom: env(safe-area-inset-bottom);
     }
-} */
+}
 
 /* Footer Links styling in bottom-right corner */
 .db-login-footer-links-container {
