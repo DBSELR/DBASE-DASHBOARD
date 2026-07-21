@@ -69,7 +69,12 @@ const Tasks: React.FC = () => {
   const [filterValue, setFilterValue] = useState<string>("pending");
   const [assignTo, setAssignTo] = useState("");
   const [description, setDescription] = useState("");
+  const getTodayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const [targetDate, setTargetDate] = useState("");
+  const [targetTime, setTargetTime] = useState("");
   const [priority, setPriority] = useState("");
   const [startDateModalOpen, setStartDateModalOpen] = useState(false);
 
@@ -256,6 +261,37 @@ const Tasks: React.FC = () => {
     actionTime: getCurrentTimeFormatted()
   });
 
+  const sendPushNotification = async (empCode: string, title: string, body: string) => {
+    try {
+      const res = await fetch(`${API_BASE}Notifications/SendPush`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
+        },
+        body: JSON.stringify({
+          EmpCode: empCode,
+          Title: title,
+          Body: body,
+          Url: "/tasks"
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      console.log("Push API Result:", data);
+      
+      if (!res.ok) {
+        console.warn(`Backend Push Error: ${data.error || data.message || res.statusText}`);
+        return;
+      }
+      
+      if (data.failed > 0) {
+        console.warn(`❌ FCM delivery failed for ${data.failed} tokens. The user's device might have an expired push token.`);
+      }
+    } catch (e) {
+      console.error("Push Catch Error:", e);
+    }
+  };
+
   const sendTaskWhatsApp = async (mobile: string, templateType: string, ctx: any, extra?: any) => {
     if (!mobile) return;
     const cleanedMobile = mobile.replace(/\D/g, "");
@@ -413,7 +449,18 @@ const Tasks: React.FC = () => {
         SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
         RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
         ADt: typeof t.ADt === 'string' ? t.ADt : "",
-        TDt: typeof t.TDt === 'string' ? t.TDt : "",
+        TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
+        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (() => {
+          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime;
+          let [h, m] = timeStr.split(':');
+          if (!h || !m) return timeStr;
+          const isPM = timeStr.toLowerCase().includes('pm');
+          const isAM = timeStr.toLowerCase().includes('am');
+          const ampm = isPM ? 'PM' : (isAM ? 'AM' : (Number(h) >= 12 ? 'PM' : 'AM'));
+          h = (Number(h) % 12 || 12).toString();
+          return `${h}:${m} ${ampm}`;
+        })() : "",
+        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime) : "",
         TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
         Status: typeof t.Status === 'string' ? t.Status : "",
         TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
@@ -429,7 +476,18 @@ const Tasks: React.FC = () => {
         SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
         RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
         ADt: typeof t.ADt === 'string' ? t.ADt : "",
-        TDt: typeof t.TDt === 'string' ? t.TDt : "",
+        TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
+        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (() => {
+          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime;
+          let [h, m] = timeStr.split(':');
+          if (!h || !m) return timeStr;
+          const isPM = timeStr.toLowerCase().includes('pm');
+          const isAM = timeStr.toLowerCase().includes('am');
+          const ampm = isPM ? 'PM' : (isAM ? 'AM' : (Number(h) >= 12 ? 'PM' : 'AM'));
+          h = (Number(h) % 12 || 12).toString();
+          return `${h}:${m} ${ampm}`;
+        })() : "",
+        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime) : "",
         TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
         Status: typeof t.Status === 'string' ? t.Status : "",
         TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
@@ -509,6 +567,7 @@ const Tasks: React.FC = () => {
         _RecEName: assignTo,
         _AssignDate: formatToISODate(today),
         _TargetDate: formatToISODate(targetDate),
+        _DTime: targetTime,
         _TskDescription: description,
         _TargetDays: String(diffDays),
         _Priority: priority,
@@ -541,27 +600,7 @@ const Tasks: React.FC = () => {
       try {
         const assignedEmpCode = assignTo.split("-")[0].trim();
         if (assignedEmpCode) {
-          fetch(`${API_BASE}Notifications/SendPush`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
-            },
-            body: JSON.stringify({
-              EmpCode: assignedEmpCode,
-              Title: "New Task Assigned",
-              Body: `A new task has been assigned to you by ${currentEmpName}.`,
-              Url: "/tasks"
-            })
-          })
-            .then(async res => {
-              const data = await res.json().catch(() => ({}));
-              console.log("Push API Result:", data);
-              if (!res.ok) {
-                alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
-              }
-            })
-            .catch(e => console.error("Push Error:", e));
+          sendPushNotification(assignedEmpCode, "New Task Assigned", `A new task has been assigned to you by ${currentEmpName}.`);
         }
       } catch (e) {
         console.error("Push Catch:", e);
@@ -615,6 +654,7 @@ const Tasks: React.FC = () => {
     setAssignTo("");
     setDescription("");
     setTargetDate("");
+    setTargetTime("");
     setPriority("");
   };
 
@@ -727,19 +767,7 @@ const Tasks: React.FC = () => {
         targets.delete(currentEmpCode);
 
         targets.forEach(empCode => {
-          fetch(`${API_BASE}Notifications/SendPush`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
-            },
-            body: JSON.stringify({
-              EmpCode: empCode,
-              Title: "Task Status Updated",
-              Body: `Task #${activeTask.TID}: ${updateStatusInfo} — by ${currentEmpName}.`,
-              Url: "/tasks"
-            })
-          }).catch(e => console.error("Push Error:", e));
+          sendPushNotification(empCode, "Task Status Updated", `Task #${activeTask.TID}: ${updateStatusInfo} — by ${currentEmpName}.`);
         });
       } catch (e) {
         console.error("Push Catch:", e);
@@ -801,19 +829,7 @@ const Tasks: React.FC = () => {
         targets.delete(currentEmpCode);
 
         targets.forEach(empCode => {
-          fetch(`${API_BASE}Notifications/SendPush`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
-            },
-            body: JSON.stringify({
-              EmpCode: empCode,
-              Title: "Task Completed",
-              Body: `Task #${activeTask.TID}: ${updateStatusInfo || "Task completed"} — by ${currentEmpName}.`,
-              Url: "/tasks"
-            })
-          }).catch(e => console.error("Push Error:", e));
+          sendPushNotification(empCode, "Task Completed", `Task #${activeTask.TID}: ${updateStatusInfo || "Task completed"} — by ${currentEmpName}.`);
         });
       } catch (e) {
         console.error("Push Catch:", e);
@@ -946,29 +962,13 @@ const Tasks: React.FC = () => {
 
         targets.forEach(empCode => {
           const isTransferee = (empCode === transferredEmpCode);
-          fetch(`${API_BASE}Notifications/SendPush`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
-            },
-            body: JSON.stringify({
-              EmpCode: empCode,
-              Title: "Task Transferred",
-              Body: isTransferee
+          sendPushNotification(
+            empCode,
+            "Task Transferred",
+            isTransferee
                 ? `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`
-                : `Task #${activeTask.TID} has been transferred to ${transferTargetEmp.split("-").slice(1).join("-").trim()} by ${currentEmpName}.`,
-              Url: "/tasks"
-            })
-          })
-            .then(async res => {
-              const data = await res.json().catch(() => ({}));
-              console.log("Push API Result:", data);
-              if (!res.ok) {
-                alert(`Backend Push Error: ${data.error || data.message || res.statusText}`);
-              }
-            })
-            .catch(e => console.error("Push Error:", e));
+                : `Task #${activeTask.TID} has been transferred to ${transferTargetEmp.split("-").slice(1).join("-").trim()} by ${currentEmpName}.`
+          );
         });
       } catch (e) {
         console.error("Push Catch:", e);
@@ -1042,19 +1042,7 @@ const Tasks: React.FC = () => {
         targets.delete(currentEmpCode);
 
         targets.forEach(empCode => {
-          fetch(`${API_BASE}Notifications/SendPush`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")?.replace(/"/g, "")}`
-            },
-            body: JSON.stringify({
-              EmpCode: empCode,
-              Title: "Task Reopened",
-              Body: `Task #${task.TID} has been reopened by ${currentEmpName}. Please review.`,
-              Url: "/tasks"
-            })
-          }).catch(e => console.error("Push Error:", e));
+          sendPushNotification(empCode, "Task Reopened", `Task #${task.TID} has been reopened by ${currentEmpName}. Please review.`);
         });
       } catch (e) {
         console.error("Push Catch:", e);
@@ -1278,6 +1266,11 @@ const Tasks: React.FC = () => {
                       <IonIcon icon={person} style={{ fontSize: '14px', marginRight: '4px' }} />
                       From: {formatEmpName(task.SenEName)}
                     </div>
+                    {(task.DTime || task.TargetTime) && (
+                      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#f59e0b', margin: '4px 0' }}>
+                        Deadline Time: {task.TargetTime || task.DTime}
+                      </div>
+                    )}
                     <div className="desc">{task.TDesc}</div>
                     {task.ReopenRemarks && (
                       <div className="reopen-remarks-box">
@@ -1435,14 +1428,31 @@ const Tasks: React.FC = () => {
                   </div>
 
                   <div className="ntv-form-group">
-                    <label className="ntv-form-label">Deadline</label>
-                    <div className="ntv-form-input-wrapper clickable" onClick={() => setStartDateModalOpen(true)}>
+                    <label className="ntv-form-label">Deadline Date</label>
+                    <div className="ntv-form-input-wrapper">
                       <IonIcon icon={calendar} className="ntv-form-input-icon" />
-                      <span className="ntv-form-text-display">
-                        {targetDate
-                          ? new Date(targetDate).toLocaleDateString("en-GB")
-                          : "Set Deadline"}
-                      </span>
+                      <input
+                        type="text"
+                        readOnly
+                        className="ntv-form-input"
+                        value={targetDate ? targetDate.split('T')[0] : ''}
+                        placeholder="Select Date"
+                        onClick={() => setStartDateModalOpen(true)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="ntv-form-group">
+                    <label className="ntv-form-label">Deadline Time</label>
+                    <div className="ntv-form-input-wrapper">
+                      <IonIcon icon={time} className="ntv-form-input-icon" />
+                      <input
+                        type="time"
+                        className="ntv-form-input"
+                        value={targetTime}
+                        onChange={(e) => setTargetTime(e.target.value)}
+                      />
                     </div>
                   </div>
 
@@ -1561,6 +1571,11 @@ const Tasks: React.FC = () => {
                   </div>
                   <div className="card-body">
                     <div className="recipient">To: {formatEmpName(task.RecEName)}</div>
+                    {(task.DTime || task.TargetTime) && (
+                      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#f59e0b', margin: '4px 0' }}>
+                        Deadline Time: {task.TargetTime || task.DTime}
+                      </div>
+                    )}
                     <div className="desc">{task.TDesc}</div>
                     {task.ReopenRemarks && (
                       <div className="reopen-remarks-box">
@@ -1600,6 +1615,7 @@ const Tasks: React.FC = () => {
             <div className="pwt-datetime-wrap">
               <IonDatetime
                 presentation="date"
+                min={getTodayISO()}
                 value={targetDate || undefined}
                 onIonChange={(e) => {
                   if (typeof e.detail.value === "string")

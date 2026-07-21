@@ -53,6 +53,7 @@ const getAuthHeaders = () => {
 // 🔥 SAFE FIX (NO OBJECT CRASH EVER)
 const safeText = (val: any) => {
   if (val === null || val === undefined) return "";
+  if (typeof val === "object" && Object.keys(val).length === 0) return "";
   if (typeof val === "object") return JSON.stringify(val);
   return String(val);
 };
@@ -64,7 +65,10 @@ const safeText = (val: any) => {
 // check every casing variant we've seen rather than trusting one.
 const pick = (d: any, ...keys: string[]) => {
   for (const k of keys) {
-    if (d[k] !== undefined && d[k] !== null && d[k] !== "") return d[k];
+    if (d[k] !== undefined && d[k] !== null && d[k] !== "") {
+      if (typeof d[k] === 'object' && Object.keys(d[k]).length === 0) continue;
+      return d[k];
+    }
   }
   return undefined;
 };
@@ -163,7 +167,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
   // tracks per-item onduty action: 'approved' | 'rejected' | undefined
   const [ondutyActionMap, setOndutyActionMap] = useState<Record<string, 'approved' | 'rejected'>>({});
 
-  const normalize = (x: any) => {
+  const normalize = (x: any, fallbackMgr: string = "") => {
     if (!x) return null;
 
     // ✅ ONDUTY
@@ -385,6 +389,45 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       }
     }
 
+    let deducedRA = pick(itemObj, "CurrentRA", "currentRA", "currentRa");
+    let deducedStatus = safeText(pick(itemObj, "L_status", "Status", "l_status", "status"));
+
+    if (!deducedRA && deducedStatus.toLowerCase().includes("pending")) {
+      const r1 = pick(itemObj, "RA1", "rA1", "ra1");
+      const r2 = pick(itemObj, "RA2", "rA2", "ra2");
+      const r3 = pick(itemObj, "RA3", "rA3", "ra3");
+      const r4 = pick(itemObj, "RA4", "rA4", "ra4");
+      const rs1 = safeText(pick(itemObj, "RA1_Status", "ra1_Status", "rA1_Status", "ra1Status", "rA1Status"));
+      const rs2 = safeText(pick(itemObj, "RA2_Status", "ra2_Status", "rA2_Status", "ra2Status", "rA2Status"));
+      const rs3 = safeText(pick(itemObj, "RA3_Status", "ra3_Status", "rA3_Status", "ra3Status", "rA3Status"));
+
+      const isP = (s: string) => !s || (!s.toLowerCase().includes("accepted") && !s.toLowerCase().includes("approved") && !s.toLowerCase().includes("rejected"));
+
+      if (r1 && isP(rs1)) deducedRA = r1;
+      else if (r2 && isP(rs2)) deducedRA = r2;
+      else if (r3 && isP(rs3)) deducedRA = r3;
+      else if (r4) deducedRA = r4;
+
+      if (!deducedRA) {
+        if (view !== "my") {
+          deducedRA = getUser()?.designation || "";
+        } else {
+          deducedRA = fallbackMgr;
+        }
+      }
+    }
+
+    if (deducedRA && deducedStatus.toLowerCase().includes("pending")) {
+      const trimmed = deducedStatus.trim().toLowerCase();
+      if (trimmed === "pending" || trimmed === "pending at") {
+        deducedStatus = "Pending at " + deducedRA;
+      }
+    } else if (!deducedRA && deducedStatus.toLowerCase().includes("pending")) {
+      if (deducedStatus.trim().toLowerCase() === "pending at") {
+        deducedStatus = "Pending";
+      }
+    }
+
     return {
       lid: pick(itemObj, "lid", "Id", "id"),
       empcode: pick(itemObj, "empcode", "EmpCode", "empCode"),
@@ -403,7 +446,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       lto: safeText(pick(itemObj, "lto", "lTo", "LTo")),
       AppliedOn: safeText(pick(itemObj, "AppliedOn", "appliedOn")),
       // ✅ STATUS FIX
-      L_status: safeText(pick(itemObj, "L_status", "Status", "l_status", "status")),
+      L_status: deducedStatus,
       LeaveCategory: safeText(pick(itemObj, "LeaveCategory", "leaveCategory")),
       Leavemode: safeText(pick(itemObj, "Leavemode", "leavemode", "LeaveMode", "leaveMode")),
       ptime: safeText(pick(itemObj, "ptime", "pTime")),
@@ -415,7 +458,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
       CurrentLevel: pick(itemObj, "CurrentLevel", "currentLevel"),
       MaxLevel: pick(itemObj, "MaxLevel", "maxLevel"),
-      CurrentRA: pick(itemObj, "CurrentRA", "currentRA", "currentRa"),
+      CurrentRA: deducedRA,
 
       Slip: pick(itemObj, "Slip", "slip"),
 
@@ -554,6 +597,30 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
   const loadData = async (silent: boolean = false) => {
     const empCode = getUser()?.empCode;
 
+    let fbManager = "";
+    if (view === "my" && empCode) {
+      try {
+        const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+        const res = await axios.get(`${baseUrl}/Employee/Get_Employee?_Ecode=${empCode}`, {
+          headers: getAuthHeaders()
+        });
+        
+        let data = res.data;
+        if (typeof data === "string") {
+          try { data = JSON.parse(data); } catch(e) {}
+        }
+        
+        const row = Array.isArray(data) ? data[0] : (data?.data ? data.data[0] : data);
+        if (row) {
+          fbManager = row[15] || row._RequestTo || row.RequestTo || row.requestTo || row.RA1 || "Business Manager";
+        } else {
+          fbManager = "Business Manager";
+        }
+      } catch (e) {
+        console.error("Failed to fetch fallback manager", e);
+        fbManager = "Business Manager";
+      }
+    }
 
     const normalizedType = (type || "").toLowerCase().trim();
 
@@ -605,9 +672,11 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
       const res = await axios.get(url, { headers: getAuthHeaders() });
 
-      const result = (Array.isArray(res.data) ? res.data : [])
-        .map(normalize)
+      let result = (Array.isArray(res.data) ? res.data : [])
+        .map((x: any) => normalize(x, fbManager))
         .filter(Boolean);
+
+
 
       // Preserve the previous card order: keep items where they were, and
       // append any newly-seen items at the end in the order the server sent
@@ -624,8 +693,10 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       });
 
       result.forEach((it: any) => {
-        if (byId.has(String(it.lid))) {
-          orderedResult.push(it);
+        const lidStr = String(it.lid);
+        if (byId.has(lidStr)) {
+          orderedResult.push(byId.get(lidStr));
+          byId.delete(lidStr);
         }
       });
 
@@ -752,7 +823,17 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
   const formatTime = (time: any) => {
     if (!time) return "";
 
-    return moment(time, "HH:mm:ss.SSSSSSS").format("hh:mm A");
+    let timeStr = String(time);
+
+    // If the server returns a full ISO date (e.g., "2026-07-18T17:30:00Z"),
+    // extract just the time portion to prevent JS Date from applying timezone shifts.
+    if (timeStr.includes("T")) {
+      timeStr = timeStr.split("T")[1];
+      // Strip any timezone indicators (Z, +, -)
+      timeStr = timeStr.split(/[Z\+\-]/)[0];
+    }
+
+    return moment(timeStr, ["HH:mm:ss.SSSSSSS", "HH:mm:ss", "HH:mm"]).format("hh:mm A");
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -784,7 +865,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         Amount: amountMap[item.lid] || 0,
         Comment: commentMap[item.lid] || "",
         EmpCode: getUser()?.empCode,
-      });
+      }, { headers: getAuthHeaders() });
 
       loadData(true);
     } catch (e) {
@@ -799,7 +880,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         Status: "Rejected",
         Comment: commentMap[item.lid] || "",
         EmpCode: getUser()?.empCode,
-      });
+      }, { headers: getAuthHeaders() });
 
       loadData(true);
     } catch (e) {
@@ -817,7 +898,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
           Status: "Assigned",
           EmpCode: getUser()?.empCode,
           ECode: equipmentCodeMap[item.lid]
-        }
+        },
+        { headers: getAuthHeaders() }
       );
 
       loadData(true);
@@ -836,7 +918,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
           RequestId: item.lid,
           Status: "Received",
           EmpCode: getUser()?.empCode
-        }
+        },
+        { headers: getAuthHeaders() }
       );
 
       loadData(true);
@@ -848,12 +931,12 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
   const updateOvertime = async (item: any, status: string) => {
     try {
-      await axios.post(`${baseUrl}Workreport/UpdateOvertimeStatus`, {
+      await axios.post(`${baseUrl}OverTime/UpdateOvertimeStatus`, {
         Id: item.lid,
         Status: status,
         EmpCode: getUser()?.empCode,
         FinMinDiff: item.MinDiff
-      });
+      }, { headers: getAuthHeaders() });
 
       loadData(true);
     } catch (e) {
@@ -966,7 +1049,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       Comment: commentMap[item.lid] || "",
     };
 
-    await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, payload);
+    await axios.post(`${baseUrl}EquipmentRequests/UpdateStatus`, payload, { headers: getAuthHeaders() });
     loadData(true);
   };
   const getStatusLabel = (item: any) => {
@@ -1038,6 +1121,12 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       if (user === normalizeText(item.RA2) && ra1Approved) {
         return true;
       }
+      
+      // Fallback for old requests missing RA1
+      if (!item.RA1 || normalizeText(item.RA1) === "") {
+        return normalizeText(item.CurrentRA) === user;
+      }
+
       return false;
     }
 
