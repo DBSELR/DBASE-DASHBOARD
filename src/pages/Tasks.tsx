@@ -450,8 +450,8 @@ const Tasks: React.FC = () => {
         RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
         ADt: typeof t.ADt === 'string' ? t.ADt : "",
         TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
-        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (() => {
-          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime;
+        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (() => {
+          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime;
           let [h, m] = timeStr.split(':');
           if (!h || !m) return timeStr;
           const isPM = timeStr.toLowerCase().includes('pm');
@@ -460,7 +460,7 @@ const Tasks: React.FC = () => {
           h = (Number(h) % 12 || 12).toString();
           return `${h}:${m} ${ampm}`;
         })() : "",
-        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime) : "",
+        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) : "",
         TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
         Status: typeof t.Status === 'string' ? t.Status : "",
         TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
@@ -471,14 +471,15 @@ const Tasks: React.FC = () => {
 
       // 4. Load Received Tasks (API 4)
       const received = await apiService.loadReceivedTasks(empCode);
+      console.log("RECEIVED TASKS RAW:", received);
       const mappedReceived = (received || []).map((t: any) => ({
         TID: t.TID ?? t[0],
         SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
         RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
         ADt: typeof t.ADt === 'string' ? t.ADt : "",
         TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
-        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (() => {
-          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime;
+        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (() => {
+          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime;
           let [h, m] = timeStr.split(':');
           if (!h || !m) return timeStr;
           const isPM = timeStr.toLowerCase().includes('pm');
@@ -487,7 +488,7 @@ const Tasks: React.FC = () => {
           h = (Number(h) % 12 || 12).toString();
           return `${h}:${m} ${ampm}`;
         })() : "",
-        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime) : "",
+        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) : "",
         TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
         Status: typeof t.Status === 'string' ? t.Status : "",
         TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
