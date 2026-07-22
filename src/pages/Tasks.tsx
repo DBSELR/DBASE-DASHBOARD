@@ -103,6 +103,7 @@ const Tasks: React.FC = () => {
   const [tagActiveTask, setTagActiveTask] = useState<any>(null);
   const [selectedTagEmployees, setSelectedTagEmployees] = useState<string[]>([]);
   const [activeTaskTags, setActiveTaskTags] = useState<string[]>([]);
+  const [activeTaskFullData, setActiveTaskFullData] = useState<any>(null);
   const [trueCurrentAssignee, setTrueCurrentAssignee] = useState("");
 
   // Custom Dropdown States
@@ -416,6 +417,61 @@ const Tasks: React.FC = () => {
     return currentAssignee;
   };
 
+  const getEffectiveRecipient = (task: any, history: any[] = [], tags: string[] = [], allTaskData?: any) => {
+    if (!task) return "";
+
+    // 1. Check if allTaskData (from Load_All_Task) has RecEName / AssignedTo that is valid
+    if (allTaskData) {
+      const rawRec = typeof allTaskData === 'object' ? (allTaskData.RecEName || allTaskData.RecECode || allTaskData.AssignedTo || (Array.isArray(allTaskData) && (allTaskData[0]?.RecEName || allTaskData[0]?.RecECode))) : null;
+      if (rawRec && typeof rawRec === 'string') {
+        const recCode = rawRec.split('-')[0].trim();
+        const isTaggedCode = tags.some(t => String(t).split('-')[0].trim() === recCode);
+        if (!isTaggedCode && recCode !== task.SenEName?.split('-')[0].trim()) {
+          return rawRec;
+        }
+      }
+    }
+
+    // 2. Check if task object itself has another recipient field from API
+    const altRec = task.ActualRecEName || task.OriginalRecEName || task.TaskRecEName || task.AssignedTo || task.recEName;
+    if (altRec && typeof altRec === 'string') {
+      const recCode = altRec.split('-')[0].trim();
+      const isTaggedCode = tags.some(t => String(t).split('-')[0].trim() === recCode);
+      if (!isTaggedCode) {
+        return altRec;
+      }
+    }
+
+    // 3. If task is NOT tagged, task.RecEName is the recipient
+    if (!task.IsTagged && task.RecEName) {
+      return task.RecEName;
+    }
+
+    // 4. If task IS tagged:
+    // Check transfer history first
+    const transfers = (history || []).filter(item => !!item.toName);
+    if (transfers.length > 0 && transfers[0].fromName) {
+      return transfers[0].fromName;
+    }
+
+    // Check history entries for status update entries made by the assignee
+    const creatorCode = task.SenEName ? String(task.SenEName).split('-')[0].trim() : "";
+    const cleanTags = (tags || []).map(t => String(t).split('-')[0].trim());
+
+    for (const item of (history || [])) {
+      const candidate = item.fromName || item.toName;
+      if (candidate && typeof candidate === 'string') {
+        const candidateCode = candidate.split('-')[0].trim();
+        if (candidateCode && candidateCode !== creatorCode && !cleanTags.includes(candidateCode)) {
+          return candidate;
+        }
+      }
+    }
+
+    // Fallback
+    return task.RecEName || "";
+  };
+
   useEffect(() => {
     const userJson = localStorage.getItem("user");
     if (userJson) {
@@ -515,9 +571,14 @@ const Tasks: React.FC = () => {
     setActiveTask(task);
     setSelectedTaskHistory([]); // Reset history before fetching
     setActiveTaskTags([]); // Reset tags before fetching
+    setActiveTaskFullData(null);
     setTrueCurrentAssignee(task.RecEName); // Set default assignee right away, in case fetch fails
     try {
-      const history = await apiService.loadViewTask(task.TID);
+      const [history, tags, fullData] = await Promise.all([
+        apiService.loadViewTask(task.TID).catch(() => []),
+        apiService.getTaskTags(task.TID).catch(() => []),
+        apiService.loadAllTasks(task.TID).catch(() => null)
+      ]);
       const mappedHistory = (history || []).map((item: any) => ({
         fromName: item[0],
         toName: item[1],
@@ -526,19 +587,15 @@ const Tasks: React.FC = () => {
         message: item[10],
       }));
       setSelectedTaskHistory(mappedHistory);
-      const trueAssignee = calculateTrueCurrentAssignee(mappedHistory, task.RecEName);
-      setTrueCurrentAssignee(trueAssignee);
+      const loadedTags = tags || [];
+      setActiveTaskTags(loadedTags);
+      setActiveTaskFullData(fullData);
 
-      // Load tags
-      try {
-        const tags = await apiService.getTaskTags(task.TID);
-        setActiveTaskTags(tags || []);
-      } catch (tagErr) {
-        console.warn("Failed to load task tags:", tagErr);
-      }
+      const effectiveRec = getEffectiveRecipient(task, mappedHistory, loadedTags, fullData);
+      const trueAssignee = calculateTrueCurrentAssignee(mappedHistory, effectiveRec);
+      setTrueCurrentAssignee(trueAssignee);
     } catch (error) {
       console.error("Error fetching task view:", error);
-      // Even if fetch fails (e.g., 400 Bad Request), we still want to show the modal with empty history
       setSelectedTaskHistory([]);
       setTrueCurrentAssignee(task.RecEName); // Fallback to initial recipient
     } finally {
@@ -1670,7 +1727,8 @@ const Tasks: React.FC = () => {
                               }
                             });
                           } else {
-                            assigneeFlow.push(activeTask.RecEName);
+                            const effectiveRec = getEffectiveRecipient(activeTask, selectedTaskHistory, activeTaskTags, activeTaskFullData);
+                            assigneeFlow.push(effectiveRec);
                           }
 
                           const uniqueFlow: string[] = [];
@@ -1932,7 +1990,7 @@ const Tasks: React.FC = () => {
 
                       // Pre-calculate updater names for each history item
                       const resolvedHistory = [];
-                      let currentAssignee = activeTask?.RecEName || "";
+                      let currentAssignee = getEffectiveRecipient(activeTask, selectedTaskHistory, activeTaskTags, activeTaskFullData);
 
                       // Loop backwards to track assignee changes
                       for (let i = selectedTaskHistory.length - 1; i >= 0; i--) {

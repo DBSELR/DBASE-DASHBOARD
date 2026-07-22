@@ -10,7 +10,9 @@ import {
   checkmarkCircleOutline,
   closeOutline,
   fingerPrintOutline,
-  alertCircleOutline
+  alertCircleOutline,
+  playOutline,
+  pauseOutline
 } from "ionicons/icons";
 import { useRef, useState, useEffect } from "react";
 import { useHistory } from "react-router";
@@ -93,6 +95,8 @@ const AIAttendanceScanner: React.FC = () => {
   } | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showGraceTrackerDetails, setShowGraceTrackerDetails] = useState<boolean>(false);
+  const [isScannerPaused, setIsScannerPaused] = useState<boolean>(false);
+  const isScannerPausedRef = useRef<boolean>(false);
 
   const logDebug = (msg: string) => {
     console.log(`[DEBUG] ${msg}`);
@@ -138,6 +142,24 @@ const AIAttendanceScanner: React.FC = () => {
   const cityNameRef      = useRef("");
   useEffect(() => { cityNameRef.current      = cityName;      }, [cityName]);
   
+  useEffect(() => { isScannerPausedRef.current = isScannerPaused; }, [isScannerPaused]);
+
+  const toggleScannerPause = () => {
+    const nextState = !isScannerPaused;
+    setIsScannerPaused(nextState);
+    isScannerPausedRef.current = nextState;
+    if (nextState) {
+      setResultMessage("⏸️ Scanner Paused");
+      setStatusColor("#f59e0b");
+      logDebug("Scanner paused manually");
+    } else {
+      setResultMessage("Align your face in the frame");
+      setStatusColor("#6366f1");
+      logDebug("Scanner resumed manually");
+      scheduleNextScan(100);
+    }
+  };
+
   useEffect(() => {
     selectedStatusRef.current = selectedStatus;
   }, [selectedStatus]);
@@ -385,6 +407,7 @@ const AIAttendanceScanner: React.FC = () => {
   };
 
   const captureAndScan = async () => {
+    if (isScannerPausedRef.current) { scheduleNextScan(1000); return; }
     if (isProcessingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
     if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
     if (latitudeRef.current === 0 && longitudeRef.current === 0) {
@@ -694,68 +717,93 @@ const AIAttendanceScanner: React.FC = () => {
           
           /* Status override buttons widget styling */
           .status-override-container {
-            margin-bottom: 20px;
+            margin-bottom: 0;
+            flex: 1 1 auto;
+            min-width: 0;
           }
           .status-title-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 8px;
+            margin-bottom: 3px;
           }
           .status-btn-group {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            gap: 4px;
             background: #f8fafc;
-            padding: 5px;
-            border-radius: 16px;
+            padding: 3px;
+            border-radius: 10px;
             border: 1px solid #e2e8f0;
           }
-          @media (max-width: 480px) {
+          @media (max-width: 640px) {
+            .sc-header {
+              flex-wrap: wrap !important;
+              gap: 6px 10px !important;
+              padding: calc(env(safe-area-inset-top) + 8px) 12px 8px !important;
+            }
+            .sc-title-wrap {
+              flex: 1 !important;
+            }
+            .status-override-container {
+              width: 100% !important;
+              flex: 0 0 100% !important;
+              order: 3 !important;
+              margin-top: 2px !important;
+            }
             .status-btn-group {
-              grid-template-columns: repeat(2, 1fr);
-              gap: 6px;
-              border-radius: 12px;
+              grid-template-columns: repeat(4, 1fr) !important;
+              gap: 3px !important;
+              padding: 2px !important;
+              border-radius: 8px !important;
+            }
+            .status-btn {
+              padding: 2px 2px !important;
+              height: 23px !important;
+              font-size: 0.60rem !important;
+              border-radius: 6px !important;
             }
           }
           .status-btn {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
-            padding: 10px 8px;
-            border-radius: 12px;
-            font-size: 0.78rem;
+            border: 1px solid #cbd5e1;
+            padding: 3px 4px;
+            height: 25px;
+            border-radius: 8px;
+            font-size: 0.65rem;
             font-weight: 750;
             color: #475569;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
           }
           .status-btn.slot-morning.active {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
             color: #ffffff !important;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
             border-color: #10b981 !important;
           }
           .status-btn.slot-lunch-out.active {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
             color: #ffffff !important;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25) !important;
             border-color: #f59e0b !important;
           }
           .status-btn.slot-lunch-in.active {
             background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
             color: #ffffff !important;
-            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25) !important;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25) !important;
             border-color: #0ea5e9 !important;
           }
           .status-btn.slot-evening.active {
             background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
             color: #ffffff !important;
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25) !important;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25) !important;
             border-color: #8b5cf6 !important;
           }
           .status-btn.slot-morning:not(.active):hover {
@@ -781,14 +829,57 @@ const AIAttendanceScanner: React.FC = () => {
           .auto-tag {
             position: absolute;
             top: -4px;
-            right: 0px;
+            right: -1px;
             background: #e0e7ff;
             color: #4f46e5;
-            font-size: 0.52rem;
-            padding: 1px 4px;
-            border-radius: 6px;
+            font-size: 0.44rem;
+            padding: 0px 3px;
+            border-radius: 4px;
             font-weight: 800;
-            border: 1px solid rgba(79, 70, 229, 0.1);
+            line-height: 1.1;
+            border: 1px solid rgba(79, 70, 229, 0.15);
+          }
+          .sc-cam-pause-btn {
+            position: absolute;
+            bottom: 16px;
+            right: 68px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.65);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 15;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s;
+          }
+          .sc-cam-pause-btn:hover {
+            background: rgba(15, 23, 42, 0.85);
+            transform: scale(1.05);
+          }
+          .sc-cam-pause-btn:active {
+            transform: scale(0.92);
+          }
+          .sc-cam-pause-btn.is-paused {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            border-color: #f59e0b !important;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4) !important;
+            color: #ffffff !important;
+          }
+          @media (max-width: 768px) {
+            .sc-cam-pause-btn {
+              bottom: 12px !important;
+              right: 48px !important;
+              width: 32px !important;
+              height: 32px !important;
+              font-size: 15px !important;
+            }
           }
 
           /* Monthly grace tracker tracker layout */
@@ -983,6 +1074,44 @@ const AIAttendanceScanner: React.FC = () => {
               <h1 className="sc-title">AI FACE ATTENDANCE</h1>
               <p className="sc-subtitle">Biometric Check-In Portal</p>
             </div>
+
+            {/* 1. Status Selection Row (Manual Override) */}
+            <div className="status-override-container">
+              <div className="status-title-row">
+                <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
+                <button 
+                  onClick={() => setShowRulesModal(true)}
+                  style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.5rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
+                  View Rules
+                </button>
+              </div>
+
+              <div className="status-btn-group">
+                {["Morning In", "Lunch Out", "Lunch In", "Evening Out"].map(slot => {
+                  const isAuto = slot === getAutoStatus();
+                  const isActive = selectedStatus === slot;
+                  const shortLabel = slot === "Morning In" ? "Morning" : slot === "Lunch Out" ? "Lunch Out" : slot === "Lunch In" ? "Lunch In" : "Evening";
+                  const slotClass = slot === "Morning In" ? "slot-morning" : slot === "Lunch Out" ? "slot-lunch-out" : slot === "Lunch In" ? "slot-lunch-in" : "slot-evening";
+                  return (
+                    <button
+                      key={slot}
+                      className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedStatus(slot);
+                        setIsManualOverride(true);
+                        logDebug(`Selected manually: ${slot}`);
+                      }}
+                    >
+                      <span>{shortLabel}</span>
+                      {isAuto && <span className="auto-tag">Auto</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <button className="sc-log-btn ai-log-btn" onClick={() => history.push('/ai-attendance-log/user')}>
               <IonIcon icon={calendarOutline} />
             </button>
@@ -1048,9 +1177,18 @@ const AIAttendanceScanner: React.FC = () => {
                 )}
 
                 {isCameraReady && (
-                  <button className="sc-cam-flip-btn" onClick={toggleCameraMode} title="Flip Camera">
-                    <IonIcon icon={cameraReverseOutline} />
-                  </button>
+                  <>
+                    <button 
+                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`} 
+                      onClick={toggleScannerPause} 
+                      title={isScannerPaused ? "Start Scanner" : "Pause Scanner"}
+                    >
+                      <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
+                    </button>
+                    <button className="sc-cam-flip-btn" onClick={toggleCameraMode} title="Flip Camera">
+                      <IonIcon icon={cameraReverseOutline} />
+                    </button>
+                  </>
                 )}
 
                 {/* Debug Logs */}
@@ -1208,43 +1346,6 @@ const AIAttendanceScanner: React.FC = () => {
                     {cooldownCountdown > 0 
                       ? 'Please step away from the camera' 
                       : resultMessage}
-                  </div>
-
-                  {/* 1. Status Selection Row (Manual Override) */}
-                  <div className="status-override-container">
-                    <div className="status-title-row">
-                      <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
-                      <button 
-                        onClick={() => setShowRulesModal(true)}
-                        style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '15px' }} />
-                        View Rules
-                      </button>
-                    </div>
-
-                    <div className="status-btn-group">
-                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out"].map(slot => {
-                        const isAuto = slot === getAutoStatus();
-                        const isActive = selectedStatus === slot;
-                        const shortLabel = slot === "Morning In" ? "Morning" : slot === "Lunch Out" ? "Lunch Out" : slot === "Lunch In" ? "Lunch In" : "Evening";
-                        const slotClass = slot === "Morning In" ? "slot-morning" : slot === "Lunch Out" ? "slot-lunch-out" : slot === "Lunch In" ? "slot-lunch-in" : "slot-evening";
-                        return (
-                          <button
-                            key={slot}
-                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
-                            onClick={() => {
-                              setSelectedStatus(slot);
-                              setIsManualOverride(true);
-                              logDebug(`Selected manually: ${slot}`);
-                            }}
-                          >
-                            <span>{shortLabel}</span>
-                            {isAuto && <span className="auto-tag">Auto</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
 
                   {/* 2. Monthly Grace & Rules Tracker Widget */}
