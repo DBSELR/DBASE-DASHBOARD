@@ -640,7 +640,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         </div>
         {requestType === "Permission" && (
           <div className="lr-field-box">
-            <label className="lr-field-label">In Time</label>
+            <label className="lr-field-label">Time</label>
             <div className="lr-field-content">
               <IonIcon icon={timeOutline} className="lr-field-icon" />
 
@@ -666,7 +666,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
               <IonIcon icon={timeOutline} className="lr-field-icon" />
               <input
                 type="number"
-                placeholder="e.g. 60"
+                placeholder="E.x. 60"
                 value={permTime}
                 onChange={(e) => setPermTime(e.target.value)}
                 style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 14, fontWeight: 500, outline: 'none', color: '#1e293b', width: '100%' }}

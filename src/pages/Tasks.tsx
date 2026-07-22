@@ -278,12 +278,12 @@ const Tasks: React.FC = () => {
       });
       const data = await res.json().catch(() => ({}));
       console.log("Push API Result:", data);
-      
+
       if (!res.ok) {
         console.warn(`Backend Push Error: ${data.error || data.message || res.statusText}`);
         return;
       }
-      
+
       if (data.failed > 0) {
         console.warn(`❌ FCM delivery failed for ${data.failed} tokens. The user's device might have an expired push token.`);
       }
@@ -966,8 +966,8 @@ const Tasks: React.FC = () => {
             empCode,
             "Task Transferred",
             isTransferee
-                ? `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`
-                : `Task #${activeTask.TID} has been transferred to ${transferTargetEmp.split("-").slice(1).join("-").trim()} by ${currentEmpName}.`
+              ? `Task #${activeTask.TID} has been transferred to you by ${currentEmpName}.`
+              : `Task #${activeTask.TID} has been transferred to ${transferTargetEmp.split("-").slice(1).join("-").trim()} by ${currentEmpName}.`
           );
         });
       } catch (e) {
@@ -1235,15 +1235,15 @@ const Tasks: React.FC = () => {
                         <div className={`tdm-status-pill small ${task.Status?.toLowerCase() || 'pending'}`} title={task.Status || 'Pending'}>
                           <IonIcon icon={
                             task.Status === 'In Progress' ? playCircle :
-                            task.Status === 'On Hold' ? pauseCircle :
-                            task.Status === 'Closed' || task.Status === 'Completed' ? checkmarkCircle :
-                            time
+                              task.Status === 'On Hold' ? pauseCircle :
+                                task.Status === 'Closed' || task.Status === 'Completed' ? checkmarkCircle :
+                                  time
                           } style={{ fontSize: '10px' }} />
                           {
                             task.Status === 'In Progress' ? 'PRG' :
-                            task.Status === 'On Hold' ? 'HLD' :
-                            task.Status === 'Closed' || task.Status === 'Completed' ? 'CLSD' :
-                            'PND'
+                              task.Status === 'On Hold' ? 'HLD' :
+                                task.Status === 'Closed' || task.Status === 'Completed' ? 'CLSD' :
+                                  'PND'
                           }
                         </div>
                       )}
@@ -1418,7 +1418,8 @@ const Tasks: React.FC = () => {
                         style={{
                           height: '25px',
                           resize: 'none',
-                          fontFamily: 'inherit'
+                          fontFamily: 'inherit',
+
                         }}
                         placeholder="What needs to be done?"
                         value={description}
@@ -1444,7 +1445,7 @@ const Tasks: React.FC = () => {
                   </div>
 
                   <div className="ntv-form-group">
-                    <label className="ntv-form-label">Deadline Time</label>
+                    <label className="ntv-form-label">Deadline Time (Opt)</label>
                     <div className="ntv-form-input-wrapper">
                       <IonIcon icon={time} className="ntv-form-input-icon" />
                       <input
