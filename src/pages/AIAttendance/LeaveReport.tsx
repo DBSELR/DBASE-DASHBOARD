@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IonPage, IonContent, IonIcon, IonModal, IonDatetime, IonButton, IonToast } from '@ionic/react';
+import { IonPage, IonContent, IonIcon, IonModal, IonDatetime, IonButton, IonToast, IonHeader } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
 import {
   arrowBackOutline,
@@ -150,190 +150,109 @@ const loadData = async () => {
   setIsLoading(true);
 
   try {
-    const response = await fetch(
-      `${API_BASE}Leave/BranchLeaveReport?branch=${encodeURIComponent(
-        selectedBranch
-      )}&fromDate=${fromDate}&toDate=${toDate}`,
-      {
-        headers: hdrs,
-      }
-    );
+    const baseUrl = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
 
-    const data = await response.json();
-    console.log(data);
-console.log(data.data);
-console.table(data.data);
+    // 1. Get employees for the selected branch (or ALL)
+    let employeeList: any[] = [];
+    const branchParam = selectedBranch !== "ALL" ? `?branch=${encodeURIComponent(selectedBranch)}` : "";
+    const empRes = await fetch(`${baseUrl}Checkin/GetEmployeesByBranch${branchParam}`, { headers: hdrs });
+    const empData = await empRes.json();
 
-    if (data.success) {
-      setLeaves(data.data);
-    } else {
-      setLeaves([]);
-      showToast(data.message, "danger");
+    if (empData && empData.success && Array.isArray(empData.data)) {
+      employeeList = empData.data;
     }
+
+    if (employeeList.length === 0) {
+      setLeaves([]);
+      showToast("No employees found for this branch.", "danger");
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Generate all dates in the range
+    const dates: string[] = [];
+    let current = moment(fromDate).startOf('day');
+    const end = moment(toDate).startOf('day');
+    
+    // limit to 60 days to prevent excessive requests
+    if (end.diff(current, 'days') > 60) {
+      showToast("Date range too large (max 60 days).", "danger");
+      setIsLoading(false);
+      return;
+    }
+
+    while (current.isSameOrBefore(end)) {
+      dates.push(current.format('YYYY-MM-DD'));
+      current.add(1, 'day');
+    }
+
+    // 3. Fetch attendance for each date
+    const allAbsents: any[] = [];
+    const MAX_CONCURRENT = 5;
+    
+    for (let i = 0; i < dates.length; i += MAX_CONCURRENT) {
+      const batch = dates.slice(i, i + MAX_CONCURRENT);
+      
+      await Promise.all(
+        batch.map(async (date) => {
+          try {
+            const attendanceUrl = `${baseUrl}Checkin/AIGetAttendanceByDate?date=${date}${selectedBranch !== "ALL" ? `&branch=${encodeURIComponent(selectedBranch)}` : ""}`;
+            const res = await fetch(attendanceUrl, { headers: hdrs });
+            const d = await res.json();
+            
+            let presentEmpIds = new Set<string>();
+            if (d.success && Array.isArray(d.data)) {
+              d.data.forEach((r: any) => {
+                if (r.empId) {
+                  presentEmpIds.add(String(r.empId).trim().toLowerCase());
+                }
+              });
+            }
+
+            // Check against employeeList
+            employeeList.forEach((emp: any) => {
+              const eCode = String(emp.empCode || "").trim().toLowerCase();
+              if (!presentEmpIds.has(eCode)) {
+                allAbsents.push({
+                  empcode: emp.empCode || "-",
+                  empname: emp.empName || "Unknown",
+                  Empname: emp.empName || "Unknown",
+                  ltype: "Absent",
+                  L_status: "Absent",
+                  lfrom: moment(date).format("DD-MM-YYYY"),
+                  lto: moment(date).format("DD-MM-YYYY"),
+                  Ptime: "-",
+                  remarks: "No punches for the day",
+                  Remarks: "No punches for the day",
+                  _dateValue: moment(date).valueOf(), // for sorting
+                  lid: `${emp.empCode}-${date}`
+                });
+              }
+            });
+          } catch (e) {
+            console.error("Failed to fetch attendance for date:", date, e);
+          }
+        })
+      );
+    }
+
+    // Sort by date (newest first), then by employee code
+    allAbsents.sort((a, b) => {
+      if (b._dateValue !== a._dateValue) {
+        return b._dateValue - a._dateValue;
+      }
+      return String(a.empcode).localeCompare(String(b.empcode));
+    });
+
+    setLeaves(allAbsents);
+
   } catch (err) {
     console.error(err);
-    showToast("Failed to load leave report", "danger");
+    showToast("Failed to load absent report", "danger");
   } finally {
     setIsLoading(false);
   }
 };
-//   const loadData = async () => {
-//     setIsLoading(true);
-//     try {
-//       const baseUrl = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
-
-//       // STEP 1: Get employees for the selected branch
-//       // Using fetch + API key — exactly like AIAttendanceRuleMaster.tsx
-//       // STEP 1: Get employees for the selected branch
-// let employeeList: any[] = [];
-
-// const branchParam =
-//   selectedBranch !== "ALL"
-//     ? `?branch=${encodeURIComponent(selectedBranch)}`
-//     : "";
-
-// const empRes = await fetch(
-//   `${API_BASE}Checkin/GetEmployeesByBranch${branchParam}`,
-//   { headers: hdrs }
-// );
-
-// const empData = await empRes.json();
-
-// if (empData && empData.success && Array.isArray(empData.data)) {
-//   employeeList = empData.data;
-//   console.table(employeeList);
-// }
-
-// // Debug
-// console.table(
-//   employeeList.map((e: any) => ({
-//     EmpCode: e.empCode,
-//     Name: e.empName,
-//     Branch: e.branch,
-//   }))
-// );
-
-// if (employeeList.length === 0) {
-//   setLeaves([]);
-//   showToast("No employees found for this branch.", "danger");
-//   return;
-// }
-     
-
-//       if (employeeList.length === 0) {
-//         setLeaves([]);
-//         showToast("No employees found for this branch.", "danger");
-//         return;
-//       }
-     
-//       // STEP 2: Determine months needed for the date range
-//       const requiredMonths = getMonthsBetween(fromDate, toDate);
-//       const allLeaves: any[] = [];
-
-//       // STEP 3: For each employee fetch their leaves using fetch + API key (not Bearer token)
-//       // This is the same pattern RuleMaster uses for GetEmployeesByBranch
-//       await Promise.all(
-//         employeeList.map(async (emp: any) => {
-//           const empCode = emp.empCode?.toString() || "";
-//           if (!empCode) return;
-
-//           await Promise.all(
-//             requiredMonths.map(async (month) => {
-//               // Fetch Leaves
-//               try {
-//                 const r = await fetch(
-//                   `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${month}&LType=Leave`,
-//                   { headers: hdrs }
-//                 );
-//                 const d = await r.json();
-//                 const rows = Array.isArray(d) ? d : d.data || [];
-
-//                 console.log(
-//                 "Requested:",
-//                  empCode,
-//                 "Returned:",
-//                  rows.map((x: any) => x.empcode)
-//               );
-//                 if (Array.isArray(d)) allLeaves.push(...d);
-//                 else if (d && Array.isArray(d.data)) allLeaves.push(...d.data);
-//               } catch { /* skip */ }
-
-//               // Fetch Permissions
-//               try {
-//                 const r = await fetch(
-//                   `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${month}&LType=Permission`,
-//                   { headers: hdrs }
-//                 );
-//                 const d = await r.json();
-//                 if (Array.isArray(d)) allLeaves.push(...d);
-//                 else if (d && Array.isArray(d.data)) allLeaves.push(...d.data);
-//               } catch { /* skip */ }
-//             })
-//           );
-//         })
-//       );
-
-//       // STEP 4: Filter by exact date range
-//       const validEmpCodes = new Set(
-//   employeeList.map((e: any) => e.empCode?.toString())
-// );
-
-// const branchFilteredLeaves = allLeaves.filter((leave: any) =>
-//   validEmpCodes.has(leave.empcode?.toString())
-// );
-
-// // STEP 4: Filter by exact date range
-// const startMoment = moment(fromDate).startOf("day");
-// const endMoment = moment(toDate).endOf("day");
-
-// const filtered = branchFilteredLeaves.filter(entry => {
-//     const lfrom = entry.lfrom
-//         ? moment(entry.lfrom, "DD-MM-YYYY")
-//         : null;
-
-//     const lto =
-//         entry.lto && entry.lto.trim() !== ""
-//             ? moment(entry.lto, "DD-MM-YYYY")
-//             : lfrom;
-
-//     if (!lfrom || !lfrom.isValid()) return false;
-
-//     return (
-//         lfrom.isSameOrBefore(endMoment) &&
-//         (lto
-//             ? lto.isSameOrAfter(startMoment)
-//             : lfrom.isSameOrAfter(startMoment))
-//     );
-// });
-
-//       // const filtered = allLeaves.filter(entry => {
-//       //   const lfrom = entry.lfrom ? moment(entry.lfrom, "DD-MM-YYYY") : null;
-//       //   const lto = entry.lto && entry.lto.trim() !== "" ? moment(entry.lto, "DD-MM-YYYY") : lfrom;
-//       //   if (!lfrom || !lfrom.isValid()) return false;
-//       //   const overlaps = lfrom.isSameOrBefore(endMoment) &&
-//       //     (lto ? lto.isSameOrAfter(startMoment) : lfrom.isSameOrAfter(startMoment));
-//       //   return overlaps;
-//       // });
-
-//       // Remove duplicate entries (same lid)
-//       const seen = new Set<number>();
-//       const unique = filtered.filter(e => {
-//         if (!e.lid || seen.has(e.lid)) return false;
-//         seen.add(e.lid);
-//         return true;
-//       });
-
-//       // Sort by latest first
-//       unique.sort((a, b) => (b.lid || 0) - (a.lid || 0));
-//       setLeaves(unique);
-
-//     } catch (err) {
-//       console.error("Failed to load leaves", err);
-//       showToast("Failed to load data.", "danger");
-//     } finally {
-//       setIsLoading(false);
-//     }
-//   };
 
 
 
@@ -341,16 +260,18 @@ console.table(data.data);
 
   return (
     <IonPage className="leave-report-container">
-      <IonContent fullscreen scrollY>
+      <IonHeader className="ion-no-border" style={{ background: '#f8fafc' }}>
         <div className="lr-trendy-header">
           <button className="back-btn" onClick={() => history.goBack()}>
             <IonIcon icon={arrowBackOutline} />
           </button>
           <div style={{ flex: 1 }}>
-            <h1 className="lr-main-title">Leave Report</h1>
+            <h1 className="lr-main-title">Absents Report</h1>
             <p style={{ margin: '4px 0 0',color: 'white', fontSize: '13px', opacity: 0.8 }}>Branch-wise Leave & Permissions</p>
           </div>
         </div>
+      </IonHeader>
+      <IonContent fullscreen scrollY>
 
         <div className="lr-filters-section">
           <div className="lr-filter-card">
@@ -423,9 +344,9 @@ console.table(data.data);
         </div>
 
         <div className="lr-results-section">
-          <h2 className="lr-section-title">Leave List</h2>
+          <h2 className="lr-section-title">Absents List</h2>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="lr-cards-grid">
             {leaves.length > 0 ? (
               leaves.map((entry: any, index: number) => {
                 const status = renderSafe(entry.L_status).toLowerCase();

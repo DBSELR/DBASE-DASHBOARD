@@ -460,7 +460,7 @@ const AIAttendanceLog: React.FC = () => {
                 }}
               >
                 <IonIcon icon={documentTextOutline} style={{ fontSize: '14px' }} />
-                Leave Report
+                Absents Report
               </button>
 
               <div className="live-sync-indicator">

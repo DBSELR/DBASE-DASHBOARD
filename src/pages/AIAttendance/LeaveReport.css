@@ -212,7 +212,7 @@
 .lr-section-title {
   font-size: 18px;
   font-weight: 800;
-  color: #1e293b;
+  color: var(--ion-color-primary, #0d9488);
   margin: 0;
 }
 
@@ -365,5 +365,23 @@
 
   .pwt-date-content {
     padding: 18px;
+  }
+}
+
+.lr-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .lr-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .lr-cards-grid {
+    grid-template-columns: 1fr;
   }
 }

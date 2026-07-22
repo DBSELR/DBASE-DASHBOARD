@@ -5,8 +5,8 @@
 .work-dashboard {
   padding: 0;
   background: #f6f7fb;
-  min-height: 100vh;
-  overflow-y: auto;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .dashboard-header {
@@ -81,13 +81,31 @@
   padding-right: 20px; /* extra space on the right for absolute badges */
   padding-bottom: 50px;
   
-  /* Hide scrollbar */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  /* Show scrollbar */
+  scrollbar-width: auto;
+  scrollbar-color: #64748b #f1f5f9;
 }
 
 .task-list-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  width: 12px;
+}
+
+.task-list-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.task-list-container::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.task-list-container::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 /* ================= CARD ================= */
