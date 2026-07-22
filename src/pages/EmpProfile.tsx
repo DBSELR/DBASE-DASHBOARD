@@ -1577,12 +1577,7 @@ const EmpProfile: React.FC = () => {
               label="Secondary Email"
               value={userData.email2}
             />
-            <InfoItem
-              color="var(--ion-color-primary)"
-              icon={Users}
-              label="Reports To"
-              value={userData.ReportTO}
-            />
+            
 
             {/* <InfoItem icon={Clock} label="Available Leaves" value={userData.availableLeaves} /> */}
             {/* <InfoItem icon={TrendingUp} label="Unseen Credits" value={userData.unseenCredits} /> */}
