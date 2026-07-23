@@ -1,9 +1,9 @@
 import { IonContent, IonPage, IonIcon, IonSpinner } from "@ionic/react";
-import { 
-  arrowBackOutline, 
-  cameraReverseOutline, 
-  pinOutline, 
-  bluetoothOutline, 
+import {
+  arrowBackOutline,
+  cameraReverseOutline,
+  pinOutline,
+  bluetoothOutline,
   calendarOutline,
   informationCircleOutline,
   timeOutline,
@@ -12,7 +12,8 @@ import {
   fingerPrintOutline,
   alertCircleOutline,
   playOutline,
-  pauseOutline
+  pauseOutline,
+  helpCircleOutline
 } from "ionicons/icons";
 import { useRef, useState, useEffect } from "react";
 import { useHistory } from "react-router";
@@ -57,43 +58,48 @@ const getAutoStatus = (): string => {
 
 const AIAttendanceScanner: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const history  = useHistory();
+  const history = useHistory();
 
-  const [isProcessing,  setIsProcessing]  = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
-  const [scanSuccess,   setScanSuccess]   = useState(false);
-  const [cameraMode,    setCameraMode]    = useState<"user" | "environment">("user");
-  const [latitude,      setLatitude]      = useState<number>(0);
-  const [longitude,     setLongitude]     = useState<number>(0);
+  const [scanSuccess, setScanSuccess] = useState(false);
+  const [cameraMode, setCameraMode] = useState<"user" | "environment">("user");
+  const [latitude, setLatitude] = useState<number>(0);
+  const [longitude, setLongitude] = useState<number>(0);
   const [locationReady, setLocationReady] = useState(false);
   const [resultMessage, setResultMessage] = useState("Initializing camera...");
-  const [statusColor,   setStatusColor]   = useState("#6366f1");
-  const [userData,      setUserData]      = useState<any>(null);
-  const [userProfile,   setUserProfile]   = useState<any>(null);
-  const [bleVerified,   setBleVerified]   = useState(false);
-  const [bleDeviceId,   setBleDeviceId]   = useState("");
+  const [statusColor, setStatusColor] = useState("#6366f1");
+  const [userData, setUserData] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [bleVerified, setBleVerified] = useState(false);
+  const [bleDeviceId, setBleDeviceId] = useState("");
   const [bleDeviceName, setBleDeviceName] = useState("");
   const [isBleScanning, setIsBleScanning] = useState(false);
   const [bleSignalStrength, setBleSignalStrength] = useState<number | null>(null);
-  const [allowedBeacons, setAllowedBeacons] = useState<{name: string, mac: string}[]>([]);
-  const [isMobile,      setIsMobile]      = useState(window.innerWidth <= 768);
-  const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
-  const [cityName,      setCityName]      = useState<string>("");
-  const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
-  
+  const [allowedBeacons, setAllowedBeacons] = useState<{ name: string, mac: string }[]>([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [capturedImg, setCapturedImg] = useState<string | null>(null);
+  const [cityName, setCityName] = useState<string>("");
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
   // Status Selector
   const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
   const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
-  
+
   // Grace & Rules Telemetry
   const [graceSummary, setGraceSummary] = useState<{
     freeGracesUsed: number;
     gracesLeft: number;
     permissionGraceUsed: number;
     permissionBalance: number;
+    pTime?: number;
+    approvedOvertime?: number;
+    totalPermission?: number;
+    usedPermission?: number;
     history: any[];
   } | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showPermissionCalcModal, setShowPermissionCalcModal] = useState(false);
   const [showGraceTrackerDetails, setShowGraceTrackerDetails] = useState<boolean>(false);
   const [isScannerPaused, setIsScannerPaused] = useState<boolean>(false);
   const isScannerPausedRef = useRef<boolean>(false);
@@ -110,38 +116,38 @@ const AIAttendanceScanner: React.FC = () => {
     lateMinutes?: number; date?: string; attendanceStatus?: string; confidence?: number;
   } | null>(null);
 
-  const latitudeRef      = useRef(0);
-  const longitudeRef     = useRef(0);
+  const latitudeRef = useRef(0);
+  const longitudeRef = useRef(0);
   const locationReadyRef = useRef(false);
-  const bleVerifiedRef   = useRef(false);
+  const bleVerifiedRef = useRef(false);
   const bleDeviceNameRef = useRef("");
-  const bleDeviceIdRef   = useRef("");
-  const allowedBeaconsRef = useRef<{name: string, mac: string}[]>([]);
-  const userDataRef      = useRef<any>(null);
-  const userProfileRef   = useRef<any>(null);
+  const bleDeviceIdRef = useRef("");
+  const allowedBeaconsRef = useRef<{ name: string, mac: string }[]>([]);
+  const userDataRef = useRef<any>(null);
+  const userProfileRef = useRef<any>(null);
   const isCameraReadyRef = useRef(false);
-  const scanSuccessRef   = useRef(false);
-  const isProcessingRef  = useRef(false);
-  const loopTimeoutRef   = useRef<any>(null);
-  const bleTimeoutRef    = useRef<any>(null);
-  
+  const scanSuccessRef = useRef(false);
+  const isProcessingRef = useRef(false);
+  const loopTimeoutRef = useRef<any>(null);
+  const bleTimeoutRef = useRef<any>(null);
+
   const selectedStatusRef = useRef(getAutoStatus());
 
-  useEffect(() => { latitudeRef.current      = latitude;      }, [latitude]);
-  useEffect(() => { longitudeRef.current     = longitude;     }, [longitude]);
+  useEffect(() => { latitudeRef.current = latitude; }, [latitude]);
+  useEffect(() => { longitudeRef.current = longitude; }, [longitude]);
   useEffect(() => { locationReadyRef.current = locationReady; }, [locationReady]);
-  useEffect(() => { bleVerifiedRef.current   = bleVerified;   }, [bleVerified]);
+  useEffect(() => { bleVerifiedRef.current = bleVerified; }, [bleVerified]);
   useEffect(() => { bleDeviceNameRef.current = bleDeviceName; }, [bleDeviceName]);
-  useEffect(() => { bleDeviceIdRef.current   = bleDeviceId;   }, [bleDeviceId]);
+  useEffect(() => { bleDeviceIdRef.current = bleDeviceId; }, [bleDeviceId]);
   useEffect(() => { allowedBeaconsRef.current = allowedBeacons; }, [allowedBeacons]);
-  useEffect(() => { userDataRef.current      = userData;      }, [userData]);
-  useEffect(() => { userProfileRef.current   = userProfile;   }, [userProfile]);
+  useEffect(() => { userDataRef.current = userData; }, [userData]);
+  useEffect(() => { userProfileRef.current = userProfile; }, [userProfile]);
   useEffect(() => { isCameraReadyRef.current = isCameraReady; }, [isCameraReady]);
-  useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
-  useEffect(() => { isProcessingRef.current  = isProcessing;  }, [isProcessing]);
-  const cityNameRef      = useRef("");
-  useEffect(() => { cityNameRef.current      = cityName;      }, [cityName]);
-  
+  useEffect(() => { scanSuccessRef.current = scanSuccess; }, [scanSuccess]);
+  useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
+  const cityNameRef = useRef("");
+  useEffect(() => { cityNameRef.current = cityName; }, [cityName]);
+
   useEffect(() => { isScannerPausedRef.current = isScannerPaused; }, [isScannerPaused]);
 
   const toggleScannerPause = () => {
@@ -207,7 +213,7 @@ const AIAttendanceScanner: React.FC = () => {
         await BleClient.initialize();
         const enabled = await BleClient.isEnabled();
         logDebug("Bluetooth enabled: " + enabled);
-        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => {}); await BleClient.stopLEScan(); } catch (err: any) { logDebug("BLE Perm Request Err: " + err.message); }
+        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => { }); await BleClient.stopLEScan(); } catch (err: any) { logDebug("BLE Perm Request Err: " + err.message); }
         await verifyEasyReach();
       } catch (e: any) {
         logDebug("BLE Init Error: " + e.message);
@@ -227,7 +233,7 @@ const AIAttendanceScanner: React.FC = () => {
         setUserProfile(parsed);
         setResultMessage("Align your face in the frame");
         setStatusColor("#6366f1");
-        
+
         const currentEmpId = parsed?.empCode || parsed?.EmpCode || "";
         if (currentEmpId) {
           fetchGraceSummary(currentEmpId);
@@ -274,7 +280,7 @@ const AIAttendanceScanner: React.FC = () => {
         try {
           const perm = await Geolocation.requestPermissions();
           if (perm.location !== "granted") return;
-        } catch {}
+        } catch { }
       }
 
       if ("geolocation" in navigator) {
@@ -289,7 +295,7 @@ const AIAttendanceScanner: React.FC = () => {
             setLongitude(pos.coords.longitude);
             setLocationReady(true);
           },
-          () => {},
+          () => { },
           { enableHighAccuracy: false, timeout: 3000, maximumAge: Infinity }
         );
 
@@ -304,7 +310,7 @@ const AIAttendanceScanner: React.FC = () => {
             setLongitude(p.coords.longitude);
             setLocationReady(true);
           },
-          () => {},
+          () => { },
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       }
@@ -446,7 +452,7 @@ const AIAttendanceScanner: React.FC = () => {
 
         const imageData = canvas.toDataURL("image/jpeg", 0.8);
         setCapturedImg(imageData);
-        
+
         const finalEmpId = userDataRef.current?.empCode || userDataRef.current?.EmpCode || "";
         logDebug(`API POST: ${finalEmpId} Slot: ${selectedStatusRef.current}`);
 
@@ -468,7 +474,7 @@ const AIAttendanceScanner: React.FC = () => {
         });
         if (!response.ok) {
           let errMsg = `HTTP ${response.status}`;
-          try { const eb = await response.json(); errMsg = eb.message || errMsg; } catch {}
+          try { const eb = await response.json(); errMsg = eb.message || errMsg; } catch { }
           throw new Error(errMsg);
         }
         const data = await response.json();
@@ -476,14 +482,14 @@ const AIAttendanceScanner: React.FC = () => {
         if (data.invalidLocation) {
           const isGpsNotReady = latitudeRef.current === 0 && longitudeRef.current === 0;
           if (isGpsNotReady) { setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b"); scheduleNextScan(2000); }
-          else               { setResultMessage(`⛔ ${data.message || "Outside Office Location"}`); setStatusColor("#ef4444"); speakText(data.message || "You are not in office location"); scheduleNextScan(4000); }
+          else { setResultMessage(`⛔ ${data.message || "Outside Office Location"}`); setStatusColor("#ef4444"); speakText(data.message || "You are not in office location"); scheduleNextScan(4000); }
           return;
         }
-        if (data.invalidTime)   { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
-        
+        if (data.invalidTime) { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
+
         if (data.alreadyMarked) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
-          const empId   = data.empId   || userDataRef.current?.empCode || "";
+          const empId = data.empId || userDataRef.current?.empCode || "";
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
 
           let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -495,45 +501,45 @@ const AIAttendanceScanner: React.FC = () => {
               const ampm = hr >= 12 ? "PM" : "AM";
               const displayHr = hr % 12 || 12;
               displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
-            } catch {}
+            } catch { }
           }
 
-          setAttendanceDetails({ 
-            empName, empId, 
-            status: data.status || "", 
-            isDuplicate: true, 
+          setAttendanceDetails({
+            empName, empId,
+            status: data.status || "",
+            isDuplicate: true,
             customMessage: data.message || "Already marked",
             confidence: data.confidence,
             time: displayTime
           });
           setResultMessage(`⚠️ ${empName}`); speakText(`${empName} attendance already marked`);
-          
+
           // Auto-resume scanner after 4 seconds
           setTimeout(() => {
             resetScannerAndResume();
           }, 4000);
           return;
         }
-        
+
         if (data.success) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
-          const empId   = data.empId   || userDataRef.current?.empCode || "";
+          const empId = data.empId || userDataRef.current?.empCode || "";
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
           setAttendanceDetails({
             empName, empId,
-            status:           data.status           || "Attendance Logged",
-            time:             data.time             || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            officeName:       data.officeName        || "",
-            presenceMethod:   data.presenceMethod    || "Face Only",
-            graceType:        data.graceType         || "",
-            lateMinutes:      data.lateMinutes       ?? 0,
-            date:             data.date              || new Date().toLocaleDateString('en-GB'),
-            attendanceStatus: data.attendanceStatus  || "",
-            confidence:       data.confidence
+            status: data.status || "Attendance Logged",
+            time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            officeName: data.officeName || "",
+            presenceMethod: data.presenceMethod || "Face Only",
+            graceType: data.graceType || "",
+            lateMinutes: data.lateMinutes ?? 0,
+            date: data.date || new Date().toLocaleDateString('en-GB'),
+            attendanceStatus: data.attendanceStatus || "",
+            confidence: data.confidence
           });
           setResultMessage(`✅ Welcome, ${empName}`);
           speakText(`${empName} attendance marked successfully`);
-          
+
           // Re-fetch monthly grace totals to update counters instantly
           if (empId) {
             fetchGraceSummary(empId);
@@ -576,7 +582,7 @@ const AIAttendanceScanner: React.FC = () => {
       await BleClient.requestLEScan({}, async (result: ScanResult) => {
         try {
           const name = (result.device.name || "").trim().toUpperCase();
-          const mac  = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
+          const mac = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
           const isUuid = mac.length > 12;
           const rssi = result.rssi ?? -100;
 
@@ -584,10 +590,10 @@ const AIAttendanceScanner: React.FC = () => {
 
           const matched = allowedBeaconsRef.current.length > 0
             ? allowedBeaconsRef.current.some(b => {
-                const dbName = b.name.trim().toUpperCase();
-                const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
-                return name === dbName && (mac === dbMac || isUuid);
-              })
+              const dbName = b.name.trim().toUpperCase();
+              const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
+              return name === dbName && (mac === dbMac || isUuid);
+            })
             : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
 
           if (matched) {
@@ -603,11 +609,11 @@ const AIAttendanceScanner: React.FC = () => {
               logDebug(`Beacon found but too far: ${name} (${rssi} dBm)`);
             }
           }
-        } catch {}
+        } catch { }
       });
       if (bleTimeoutRef.current) clearTimeout(bleTimeoutRef.current);
       bleTimeoutRef.current = setTimeout(async () => {
-        try { await BleClient.stopLEScan(); } catch {}
+        try { await BleClient.stopLEScan(); } catch { }
         setIsBleScanning(false);
         logDebug(`BLE cycle done. Found=${found}`);
         if (!found && !bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 5000);
@@ -624,7 +630,7 @@ const AIAttendanceScanner: React.FC = () => {
   // Cooldown countdown state
   const [cooldownCountdown, setCooldownCountdown] = useState<number>(0);
   const cooldownCountdownRef = useRef(0);
-  
+
   useEffect(() => {
     cooldownCountdownRef.current = cooldownCountdown;
   }, [cooldownCountdown]);
@@ -701,7 +707,7 @@ const AIAttendanceScanner: React.FC = () => {
   return (
     <IonPage>
       <IonContent fullscreen scrollY={true} className="scanner-pg">
-        
+
         {/* Style block overrides for clean white dashboard and widgets */}
         <style>{`
           .scanner-pg {
@@ -1079,7 +1085,7 @@ const AIAttendanceScanner: React.FC = () => {
             <div className="status-override-container">
               <div className="status-title-row">
                 <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
-                <button 
+                <button
                   onClick={() => setShowRulesModal(true)}
                   style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.5rem', fontWeight: 700, cursor: 'pointer' }}
                 >
@@ -1139,7 +1145,7 @@ const AIAttendanceScanner: React.FC = () => {
                     <IonIcon icon={pinOutline} />
                     <span>{locationReady ? 'GPS Verified' : 'GPS Fix…'}</span>
                   </div>
-                  <div 
+                  <div
                     className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
                     style={
                       !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
@@ -1148,8 +1154,8 @@ const AIAttendanceScanner: React.FC = () => {
                     }
                   >
                     <IonIcon icon={bluetoothOutline} />
-                    <span>{bleVerified 
-                      ? 'Beacon OK' 
+                    <span>{bleVerified
+                      ? 'Beacon OK'
                       : bleSignalStrength !== null && bleSignalStrength < -80
                         ? 'BLE Weak'
                         : 'Beacon…'}</span>
@@ -1178,9 +1184,9 @@ const AIAttendanceScanner: React.FC = () => {
 
                 {isCameraReady && (
                   <>
-                    <button 
-                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`} 
-                      onClick={toggleScannerPause} 
+                    <button
+                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`}
+                      onClick={toggleScannerPause}
                       title={isScannerPaused ? "Start Scanner" : "Pause Scanner"}
                     >
                       <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
@@ -1217,19 +1223,19 @@ const AIAttendanceScanner: React.FC = () => {
             </div>
 
             {/* RIGHT: CONTROL PANEL */}
-            <div 
+            <div
               className="sc-panel-area"
               style={
-                isMobile 
+                isMobile
                   ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
                   : {}
               }
             >
-              <div 
-                className="sc-drag-zone" 
-                onClick={toggleSheet} 
-                onTouchStart={handleTouchStart} 
-                onTouchMove={handleTouchMove} 
+              <div
+                className="sc-drag-zone"
+                onClick={toggleSheet}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
               >
                 <div className="sc-drag-handle" />
@@ -1263,7 +1269,7 @@ const AIAttendanceScanner: React.FC = () => {
                       <h3 style={{ margin: '0 0 16px 0', fontSize: '0.85rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                         Attendance Verification Details
                       </h3>
-                      
+
                       <div className="sc-res-chips">
                         <div className="sc-chip ok-chip">
                           <span className="chip-lbl">Shift Status</span>
@@ -1281,9 +1287,9 @@ const AIAttendanceScanner: React.FC = () => {
                           <span className="chip-lbl">Identity Mode</span>
                           <span className="chip-val">
                             {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
-                             attendanceDetails.presenceMethod === 'Bluetooth'       ? '📶 BLE' :
-                             attendanceDetails.presenceMethod === 'GPS'             ? '📍 GPS' :
-                                                                                      '🎭 Face Rec'}
+                              attendanceDetails.presenceMethod === 'Bluetooth' ? '📶 BLE' :
+                                attendanceDetails.presenceMethod === 'GPS' ? '📍 GPS' :
+                                  '🎭 Face Rec'}
                           </span>
                         </div>
 
@@ -1306,7 +1312,7 @@ const AIAttendanceScanner: React.FC = () => {
                     </div>
                   )}
 
-                  <button 
+                  <button
                     onClick={resetScannerAndResume}
                     style={{
                       width: '100%',
@@ -1332,27 +1338,27 @@ const AIAttendanceScanner: React.FC = () => {
 
                 /* ── IDLE CONTROL PANEL ── */
                 <div className="scanner-dashboard-card">
-                  
+
                   {/* Status indicator */}
                   <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
                     <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
-                    {cooldownCountdown > 0 
-                      ? `RESUMING IN ${cooldownCountdown}S...` 
-                      : isProcessing 
-                        ? 'ANALYZING FACE...' 
+                    {cooldownCountdown > 0
+                      ? `RESUMING IN ${cooldownCountdown}S...`
+                      : isProcessing
+                        ? 'ANALYZING FACE...'
                         : 'AWAITING BIOMETRICS'}
                   </div>
                   <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : statusColor }}>
-                    {cooldownCountdown > 0 
-                      ? 'Please step away from the camera' 
+                    {cooldownCountdown > 0
+                      ? 'Please step away from the camera'
                       : resultMessage}
                   </div>
 
                   {/* 2. Monthly Grace & Rules Tracker Widget */}
                   {graceSummary && (
                     <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '12px' }}>
-                      <h3 
-                        className="grace-tracker-title" 
+                      <h3
+                        className="grace-tracker-title"
                         onClick={() => setShowGraceTrackerDetails(p => !p)}
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', margin: '14px 0 8px 0' }}
                       >
@@ -1401,7 +1407,24 @@ const AIAttendanceScanner: React.FC = () => {
                                 <span>{graceSummary.freeGracesUsed} used</span>
                               </div>
                               <div className="grace-stat-row">
-                                <span>Permission Balance</span>
+                                <span>P_Time (Base Permission)</span>
+                                <span className="val-high">{graceSummary.pTime ?? 0} min</span>
+                              </div>
+                              <div className="grace-stat-row">
+                                <span>Approved Overtime Credits</span>
+                                <span className="val-high" style={{ color: '#16a34a' }}>+ {graceSummary.approvedOvertime ?? 0} min</span>
+                              </div>
+                              <div className="grace-stat-row" style={{ alignItems: 'center' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  Permission Balance
+                                  <button
+                                    onClick={() => setShowPermissionCalcModal(true)}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#6366f1' }}
+                                    title="Click to view calculation breakdown"
+                                  >
+                                    <IonIcon icon={helpCircleOutline} style={{ fontSize: '1.05rem', color: '#6366f1' }} />
+                                  </button>
+                                </span>
                                 <span className="val-high">{graceSummary.permissionBalance} min</span>
                               </div>
                             </div>
@@ -1409,8 +1432,15 @@ const AIAttendanceScanner: React.FC = () => {
 
                           {/* "Where it was Cut" history logs */}
                           <div className="grace-history-container">
-                            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.3px' }}>
-                              Grace Usage History ("Where it was Cut")
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                Grace Usage History ("Where it was Cut")
+                              </span>
+                              {graceSummary.history && (
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#ef4444', background: '#fef2f2', padding: '2px 8px', borderRadius: '12px', border: '1px solid #fee2e2' }}>
+                                  Total Cut: {graceSummary.history.reduce((acc: number, r: any) => acc + (r.lateMinutes || 0) + (r.lunchLateMinutes || 0), 0)}m / P_Time: {graceSummary.pTime ?? 0}m
+                                </span>
+                              )}
                             </div>
                             {graceSummary.history && graceSummary.history.length > 0 ? (
                               graceSummary.history.map((row: any, i: number) => {
@@ -1418,7 +1448,15 @@ const AIAttendanceScanner: React.FC = () => {
                                 const isPerm = row.graceType === "PERMISSION";
                                 const classType = isFree ? 'type-free' : isPerm ? 'type-perm' : 'type-lop';
                                 const labelType = isFree ? 'Free Grace' : isPerm ? 'Permission' : 'LOP Deducted';
-                                const lateTime = row.lateMinutes > 0 ? `${row.lateMinutes}m late` : row.lunchLateMinutes > 0 ? `${row.lunchLateMinutes}m late (Lunch)` : 'On Time';
+
+                                const lateParts = [];
+                                if (row.lateMinutes > 0) lateParts.push(`${row.lateMinutes}m Morning`);
+                                if (row.lunchLateMinutes > 0) lateParts.push(`${row.lunchLateMinutes}m Lunch`);
+                                const rowTotalMins = (row.lateMinutes || 0) + (row.lunchLateMinutes || 0);
+                                const lateTime = lateParts.length > 0
+                                  ? `${rowTotalMins}m late (${lateParts.join(', ')})`
+                                  : 'On Time';
+
                                 return (
                                   <div key={i} className="grace-history-row">
                                     <span className="history-date">{row.date} ({row.attendanceStatus})</span>
@@ -1436,15 +1474,68 @@ const AIAttendanceScanner: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Permission Calculation Breakdown Modal */}
+                  {showPermissionCalcModal && (
+                    <div className="rules-modal-overlay" onClick={() => setShowPermissionCalcModal(false)}>
+                      <div className="rules-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', borderRadius: '18px', padding: '20px', background: 'white' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>📊</span> Permission Balance Calculation
+                          </h3>
+                          <button onClick={() => setShowPermissionCalcModal(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <IonIcon icon={closeOutline} style={{ fontSize: '18px', color: '#64748b' }} />
+                          </button>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', marginBottom: '14px', border: '1px solid #e2e8f0', fontSize: '0.78rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ color: '#475569' }}>Base Monthly Permission (P_Time):</span>
+                            <span style={{ fontWeight: 700, color: '#1e293b' }}>{graceSummary?.pTime ?? 0} min</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ color: '#16a34a' }}>Approved Overtime Credits:</span>
+                            <span style={{ fontWeight: 700, color: '#16a34a' }}>+ {graceSummary?.approvedOvertime ?? 0} min</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', borderTop: '1px dashed #cbd5e1', paddingTop: '6px' }}>
+                            <span style={{ fontWeight: 700, color: '#334155' }}>Total Allowed Permission:</span>
+                            <span style={{ fontWeight: 800, color: '#0f172a' }}>{(graceSummary?.pTime ?? 0) + (graceSummary?.approvedOvertime ?? 0)} min</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#dc2626' }}>
+                            <span>Total Used Permissions (Deductions):</span>
+                            <span style={{ fontWeight: 700 }}>- {graceSummary?.usedPermission ?? 0} min</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #6366f1', paddingTop: '8px', marginTop: '4px' }}>
+                            <span style={{ fontWeight: 800, color: '#4f46e5' }}>Remaining Permission Balance:</span>
+                            <span style={{ fontWeight: 800, color: '#4f46e5', fontSize: '0.85rem' }}>{graceSummary?.permissionBalance ?? 0} min</span>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
+                          Formula & Equation
+                        </div>
+                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 12px', borderRadius: '10px', fontSize: '0.74rem', color: '#1e40af', marginBottom: '16px', lineHeight: '1.5' }}>
+                          <strong>Balance</strong> = (P_Time + Overtime) - Used Deductions<br />
+                          <code style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1d4ed8' }}>
+                            {graceSummary?.permissionBalance ?? 0}m = ({graceSummary?.pTime ?? 0}m + {graceSummary?.approvedOvertime ?? 0}m) - {graceSummary?.usedPermission ?? 0}m
+                          </code>
+                        </div>
+
+                        <button onClick={() => setShowPermissionCalcModal(false)} style={{ width: '100%', padding: '10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 3. System Telemetry Checklist */}
                   {(!isMobile || sheetState === "expanded") && (
                     <div style={{ marginTop: '24px' }}>
                       <h3 className="checklist-header">
                         Telemetry Checklist
                       </h3>
-                      
+
                       <div className="checklist-widget">
-                        
+
                         <div className="check-item">
                           <div className="check-label-wrap">
                             <span style={{ fontSize: '18px' }}>📷</span>
@@ -1492,10 +1583,10 @@ const AIAttendanceScanner: React.FC = () => {
                                 : {}
                             }
                           >
-                            {bleVerified 
-                              ? 'OK' 
+                            {bleVerified
+                              ? 'OK'
                               : bleSignalStrength !== null && bleSignalStrength < -80
-                                ? 'FAR' 
+                                ? 'FAR'
                                 : 'SCAN'}
                           </span>
                         </div>
@@ -1531,7 +1622,7 @@ const AIAttendanceScanner: React.FC = () => {
               <div className="rules-modal-card">
                 <div className="rules-modal-header">
                   <h3 className="rules-modal-title">Attendance Policy & Rules</h3>
-                  <button 
+                  <button
                     onClick={() => setShowRulesModal(false)}
                     style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                   >
@@ -1571,7 +1662,7 @@ const AIAttendanceScanner: React.FC = () => {
                   </div>
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
-                  <button 
+                  <button
                     onClick={() => setShowRulesModal(false)}
                     style={{ padding: '8px 18px', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
                   >
