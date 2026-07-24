@@ -56,6 +56,21 @@ const getAutoStatus = (): string => {
   }
 };
 
+const getSlotColorConfig = (slot?: string) => {
+  switch (slot) {
+    case 'Morning In':
+      return { label: '🌅 Morning In', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
+    case 'Lunch Out':
+      return { label: '🍱 Lunch Out', color: '#d97706', bg: '#fffbeb', border: '#fde68a' };
+    case 'Lunch In':
+      return { label: '🥗 Lunch In', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+    case 'Evening Out':
+      return { label: '🌇 Evening Out', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' };
+    default:
+      return { label: slot || 'Attendance', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
+  }
+};
+
 const AIAttendanceScanner: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const history = useHistory();
@@ -598,7 +613,7 @@ const AIAttendanceScanner: React.FC = () => {
 
           if (matched) {
             setBleSignalStrength(rssi);
-            const isCloseEnough = rssi >= -80;
+            const isCloseEnough = rssi >= -140;
 
             if (isCloseEnough) {
               found = true; setBleVerified(true); bleVerifiedRef.current = true;
@@ -1263,7 +1278,18 @@ const AIAttendanceScanner: React.FC = () => {
                   </div>
 
                   {attendanceDetails.isDuplicate ? (
-                    <div className="sc-res-msg warn-msg">{attendanceDetails.customMessage}</div>
+                    <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '14px', marginTop: '12px', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e11d48', fontWeight: 800, fontSize: '0.88rem', marginBottom: '6px' }}>
+                        <span>⚠️ ATTENDANCE ALREADY MARKED</span>
+                      </div>
+                      <div style={{ color: '#9f1239', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.4 }}>
+                        {attendanceDetails.customMessage || `${attendanceDetails.status} is already logged for today at ${attendanceDetails.time}.`}
+                      </div>
+                      <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#be123c', fontWeight: 700 }}>
+                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Slot: {attendanceDetails.status}</span>
+                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Time: {attendanceDetails.time}</span>
+                      </div>
+                    </div>
                   ) : (
                     <div>
                       <h3 style={{ margin: '0 0 16px 0', fontSize: '0.85rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
@@ -1271,9 +1297,9 @@ const AIAttendanceScanner: React.FC = () => {
                       </h3>
 
                       <div className="sc-res-chips">
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Shift Status</span>
-                          <span className="chip-val">{attendanceDetails.status}</span>
+                        <div className="sc-chip ok-chip" style={{ background: getSlotColorConfig(attendanceDetails.status).bg, borderColor: getSlotColorConfig(attendanceDetails.status).border }}>
+                          <span className="chip-lbl" style={{ color: getSlotColorConfig(attendanceDetails.status).color }}>Shift Status</span>
+                          <span className="chip-val" style={{ color: getSlotColorConfig(attendanceDetails.status).color, fontWeight: 800 }}>{getSlotColorConfig(attendanceDetails.status).label}</span>
                         </div>
                         <div className="sc-chip ok-chip">
                           <span className="chip-lbl">Time Registered</span>
@@ -1404,7 +1430,7 @@ const AIAttendanceScanner: React.FC = () => {
                               </div>
                               <div className="grace-stat-row">
                                 <span>Morning Graces Used</span>
-                                <span>{graceSummary.freeGracesUsed} used</span>
+                                <span>{graceSummary.freeGracesUsed} Left</span>
                               </div>
                               <div className="grace-stat-row">
                                 <span>P_Time (Base Permission)</span>
