@@ -10,7 +10,7 @@ import {
   playOutline,
   pauseOutline
 } from "ionicons/icons";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
 import { Geolocation } from "@capacitor/geolocation";
@@ -47,6 +47,21 @@ const getAutoStatus = (): string => {
     return "Lunch In";
   } else {
     return "Evening Out";
+  }
+};
+
+const getSlotColorConfig = (slot?: string) => {
+  switch (slot) {
+    case 'Morning In':
+      return { label: '🌅 Morning In', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
+    case 'Lunch Out':
+      return { label: '🍱 Lunch Out', color: '#d97706', bg: '#fffbeb', border: '#fde68a' };
+    case 'Lunch In':
+      return { label: '🥗 Lunch In', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+    case 'Evening Out':
+      return { label: '🌇 Evening Out', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' };
+    default:
+      return { label: slot || 'Attendance', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
   }
 };
 
@@ -90,7 +105,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   // Cooldown countdown state
   const [cooldownCountdown, setCooldownCountdown] = useState<number>(0);
   const cooldownCountdownRef = useRef(0);
-  
+
   useEffect(() => {
     cooldownCountdownRef.current = cooldownCountdown;
   }, [cooldownCountdown]);
@@ -104,19 +119,150 @@ const SecurityAttendanceScanner: React.FC = () => {
     if (nextState) {
       setMessage("⏸️ Scanner Paused");
       setStatusColor("#f59e0b");
-      logDebug("Scanner paused manually on Kiosk");
     } else {
       setMessage("Awaiting scan...");
       setStatusColor("#8b5cf6");
-      logDebug("Scanner resumed manually on Kiosk");
-      scheduleNextScan(100);
     }
   };
+
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const detectedFacesRef = useRef<any[]>([]);
+
+  const drawMultiFaceOverlays = useCallback(() => {
+    const canvas = overlayCanvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = video.clientWidth || 640;
+    const height = video.clientHeight || 480;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    ctx.clearRect(0, 0, width, height);
+
+    const faces = detectedFacesRef.current;
+    if (!faces || faces.length === 0) return;
+
+    const timeNow = Date.now();
+    const rotationAngle = (timeNow / 16) % (2 * Math.PI);
+
+    faces.forEach((face: any, index: number) => {
+      const box = face.box || face.location || (face.top ? face : null);
+      if (!box) return;
+
+      const imgW = box.imgW || box.imageWidth || 640;
+      const imgH = box.imgH || box.imageHeight || 480;
+
+      const scaleX = width / imgW;
+      const scaleY = height / imgH;
+
+      const rawLeft = box.left ?? 0;
+      const rawRight = box.right ?? (rawLeft + 100);
+      const rawTop = box.top ?? 0;
+      const rawBottom = box.bottom ?? (rawTop + 100);
+
+      const left = width - (rawRight * scaleX);
+      const right = width - (rawLeft * scaleX);
+      const top = rawTop * scaleY;
+      const bottom = rawBottom * scaleY;
+
+      const faceW = right - left;
+      const faceH = bottom - top;
+      const centerX = left + faceW / 2;
+      const centerY = top + faceH / 2;
+      const radius = Math.max(faceW, faceH) / 2 + 18;
+
+      const isRecognized = face.isRecognized !== false;
+      const isDup = face.alreadyMarked;
+      const color = isRecognized ? (isDup ? '#f59e0b' : '#10b981') : '#ef4444';
+      const name = face.empName || face.empId || 'Unknown Person';
+
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(rotationAngle * (index % 2 === 0 ? 1 : -1));
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([14, 8]);
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 14;
+      ctx.stroke();
+
+      ctx.rotate(-rotationAngle * 2);
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(10, radius - 8), 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.stroke();
+
+      ctx.restore();
+
+      const bLen = 14;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+
+      ctx.beginPath(); ctx.moveTo(left, top + bLen); ctx.lineTo(left, top); ctx.lineTo(left + bLen, top); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(right - bLen, top); ctx.lineTo(right, top); ctx.lineTo(right, top + bLen); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left, bottom - bLen); ctx.lineTo(left, bottom); ctx.lineTo(left + bLen, bottom); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(right - bLen, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, bottom - bLen); ctx.stroke();
+
+      const badgeText = `${isRecognized ? (isDup ? '⚠️ ' : '✅ ') : '❓ '}${name}`;
+      ctx.font = '700 13px Inter, system-ui, sans-serif';
+      const textW = ctx.measureText(badgeText).width;
+      const bW = textW + 26;
+      const bH = 26;
+      const bX = centerX - bW / 2;
+      const bY = top - 38;
+
+      ctx.save();
+      ctx.beginPath();
+      if ((ctx as any).roundRect) {
+        (ctx as any).roundRect(bX, bY, bW, bH, 13);
+      } else {
+        ctx.rect(bX, bY, bW, bH);
+      }
+      ctx.fillStyle = isRecognized ? (isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)') : 'rgba(239, 68, 68, 0.9)';
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowBlur = 0;
+      ctx.fillText(badgeText, centerX, bY + bH / 2);
+      ctx.restore();
+    });
+  }, []);
+
+  useEffect(() => {
+    let animId: number;
+    const loop = () => {
+      drawMultiFaceOverlays();
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [drawMultiFaceOverlays]);
 
   useEffect(() => {
     if (cooldownCountdown > 0) {
       const timer = setTimeout(() => {
-        setCooldownCountdown(prev => {
+        setCooldownCountdown((prev: number) => {
           if (prev <= 1) {
             scheduleNextScan(200);
             return 0;
@@ -456,127 +602,173 @@ const SecurityAttendanceScanner: React.FC = () => {
       canvas.height = targetHeight;
 
       const ctx = canvas.getContext("2d");
-      if (ctx && videoRef.current) {
-        ctx.save();
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
+      if (!ctx || !videoRef.current) {
+        scheduleNextScan(1000);
+        return;
+      }
 
-        const image = canvas.toDataURL("image/jpeg", 0.8);
-        setCapturedImg(image);
-        
-        logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
+      ctx.save();
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
 
-        const isLastFrame = matchCountRef.current === 2;
-        const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
-          body: JSON.stringify({
-            image,
-            latitude: latitudeRef.current,
-            longitude: longitudeRef.current,
-            bluetoothConnected: bleVerifiedRef.current,
-            bluetoothDeviceName: bleDeviceNameRef.current,
-            bluetoothDeviceId: bleDeviceIdRef.current,
-            saveNeeded: isLastFrame,
-            status: selectedStatusRef.current
-          })
-        });
-        if (!response.ok) {
-          let errMsg = `HTTP ${response.status}`;
-          try {
-            const eb = await response.json();
-            errMsg = eb.message || errMsg;
-          } catch {}
-          throw new Error(errMsg);
-        }
-        const data = await response.json();
-        logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
-        
-        if (data.invalidLocation) {
-          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-          setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`);
-          speakText(data.message || "You are not in office location");
-          scheduleNextScan(4000);
-          return;
-        }
-        if (data.invalidTime) {
-          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-          setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);
-          speakText(data.message);
-          scheduleNextScan(4000);
-          return;
-        }
-        if (data.alreadyMarked) {
-          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
+      const image = canvas.toDataURL("image/jpeg", 0.8);
+      setCapturedImg(image);
+      
+      logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
 
-          let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          if (data.time && data.time.includes(":")) {
-            try {
-              const parts = data.time.split(":");
-              const hr = parseInt(parts[0], 10);
-              const min = parts[1];
-              const ampm = hr >= 12 ? "PM" : "AM";
-              const displayHr = hr % 12 || 12;
-              displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
-            } catch {}
-          }
+      const isLastFrame = matchCountRef.current === 2;
+      const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
+        body: JSON.stringify({
+          image,
+          latitude: latitudeRef.current,
+          longitude: longitudeRef.current,
+          bluetoothConnected: bleVerifiedRef.current,
+          bluetoothDeviceName: bleDeviceNameRef.current,
+          bluetoothDeviceId: bleDeviceIdRef.current,
+          saveNeeded: isLastFrame,
+          status: selectedStatusRef.current
+        })
+      });
+      if (!response.ok) {
+        let errMsg = `HTTP ${response.status}`;
+        try {
+          const eb = await response.json();
+          errMsg = eb.message || errMsg;
+        } catch {}
+        throw new Error(errMsg);
+      }
+      const data = await response.json();
+      logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
+      if (data.detectedFaces || data.matchedEmployees) {
+        detectedFacesRef.current = data.detectedFaces || data.matchedEmployees || [];
+      }
+      
+      if (data.matchedEmployees && Array.isArray(data.matchedEmployees) && data.matchedEmployees.length > 0) {
+        const validSaved = data.matchedEmployees.filter((e: any) => e.alreadyMarked !== true && e.invalidLocation !== true && e.invalidTime !== true);
+        const allNames = data.matchedEmployees.map((e: any) => e.empName || e.empId).join(", ");
+        const savedNames = validSaved.map((e: any) => e.empName || e.empId).join(", ");
 
-          setScannedEmployee({ 
-            empName: data.empName || "Employee", 
-            empId: data.empId || "", 
-            isDuplicate: true, 
-            customMessage: data.message || "Attendance already marked.", 
-            confidence: data.confidence,
-            time: displayTime
+        setMatchCount(3);
+        setScanSuccess(true); scanSuccessRef.current = true;
+
+        if (validSaved.length > 0) {
+          setStatusColor("#10b981");
+          setScannedEmployee({
+            empName: savedNames,
+            empId: validSaved.map((e: any) => e.empId).join(", "),
+            status: validSaved[0]?.status || "Attendance Logged",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isDuplicate: false,
+            confidence: validSaved[0]?.confidence || 95
           });
-          setMessage(`⚠️ Cooldown: ${data.empName}`); speakText(`${data.empName} attendance already marked`);
+          setMessage(`✅ Verified (${validSaved.length}): ${savedNames}`);
+          speakText(`Attendance marked for ${savedNames}`);
+        } else {
+          setStatusColor("#f59e0b");
+          setScannedEmployee({
+            empName: allNames,
+            empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
+            status: "Already Marked Today",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isDuplicate: true,
+            confidence: data.matchedEmployees[0]?.confidence || 90
+          });
+          setMessage(`⚠️ Cooldown: ${allNames}`);
+          speakText(`${allNames} attendance already marked today`);
+        }
+
+        setVerifyingName(""); lastMatchedEmpIdRef.current = "";
+        setTimeout(() => {
+          resetScannerAndResume();
+        }, 4000);
+        return;
+      }
+
+      if (data.invalidLocation) {
+        setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+        setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`);
+        speakText(data.message || "You are not in office location");
+        scheduleNextScan(4000);
+        return;
+      }
+      if (data.invalidTime) {
+        setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+        setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);
+        speakText(data.message);
+        scheduleNextScan(4000);
+        return;
+      }
+      if (data.alreadyMarked) {
+        setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+        setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
+
+        let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (data.time && data.time.includes(":")) {
+          try {
+            const parts = data.time.split(":");
+            const hr = parseInt(parts[0], 10);
+            const min = parts[1];
+            const ampm = hr >= 12 ? "PM" : "AM";
+            const displayHr = hr % 12 || 12;
+            displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
+          } catch {}
+        }
+
+        setScannedEmployee({ 
+          empName: data.empName || "Employee", 
+          empId: data.empId || "", 
+          isDuplicate: true, 
+          customMessage: data.message || "Attendance already marked.", 
+          confidence: data.confidence,
+          time: displayTime
+        });
+        setMessage(`⚠️ Cooldown: ${data.empName}`); speakText(`${data.empName} attendance already marked`);
+        
+        setTimeout(() => {
+          resetScannerAndResume();
+        }, 4000);
+        return;
+      }
+
+      if (data.success) {
+        const empId = data.empId || "";
+        const empName = data.empName || "Employee";
+
+        if (data.saveNeeded === false) {
+          if (lastMatchedEmpIdRef.current === empId) {
+            const nextCount = matchCountRef.current + 1;
+            setMatchCount(nextCount);
+            setVerifyingName(empName);
+            setMessage(`Verifying: ${empName}...`);
+            setStatusColor(nextCount === 1 ? "#3b82f6" : "#eab308");
+          } else {
+            setMatchCount(1);
+            lastMatchedEmpIdRef.current = empId;
+            setVerifyingName(empName);
+            setMessage(`Analyzing: ${empName}...`);
+            setStatusColor("#3b82f6");
+          }
+          scheduleNextScan(150);
+        } else {
+          setMatchCount(3);
+          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
+          setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false, confidence: data.confidence });
+          setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
+          setVerifyingName(""); lastMatchedEmpIdRef.current = "";
           
-          // Auto-resume scanner after 4 seconds
           setTimeout(() => {
             resetScannerAndResume();
           }, 4000);
-          return;
         }
-        if (data.success) {
-          const empId = data.empId || "";
-          const empName = data.empName || "Employee";
-
-          if (data.saveNeeded === false) {
-            if (lastMatchedEmpIdRef.current === empId) {
-              const nextCount = matchCountRef.current + 1;
-              setMatchCount(nextCount);
-              setVerifyingName(empName);
-              setMessage(`Verifying: ${empName}...`);
-              setStatusColor(nextCount === 1 ? "#3b82f6" : "#eab308");
-            } else {
-              setMatchCount(1);
-              lastMatchedEmpIdRef.current = empId;
-              setVerifyingName(empName);
-              setMessage(`Analyzing: ${empName}...`);
-              setStatusColor("#3b82f6");
-            }
-            scheduleNextScan(150);
-          } else {
-            setMatchCount(3);
-            setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
-            setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false, confidence: data.confidence });
-            setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
-            setVerifyingName(""); lastMatchedEmpIdRef.current = "";
-            
-            // Auto-resume scanner after 4 seconds
-            setTimeout(() => {
-              resetScannerAndResume();
-            }, 4000);
-          }
-        } else {
-          setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-          setStatusColor("#ef4444"); setMessage("❌ " + (data.message || "Face Not Recognized"));
-          scheduleNextScan(500);
-        }
-      } else { scheduleNextScan(1000); }
+      } else {
+        setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+        setStatusColor("#ef4444"); setMessage("❌ " + (data.message || "Face Not Recognized"));
+        scheduleNextScan(500);
+      }
     } catch (err: any) {
       logDebug("Err: " + err.message);
       setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
@@ -625,7 +817,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
           if (matched) {
             setBleSignalStrength(rssi);
-            const isCloseEnough = rssi >= -80;
+            const isCloseEnough = rssi >= -140;
 
             if (isCloseEnough) {
               found = true; setBleVerified(true); bleVerifiedRef.current = true;
@@ -897,8 +1089,9 @@ const SecurityAttendanceScanner: React.FC = () => {
 
             {/* LEFT: CAMERA */}
             <div className="sc-cam-area">
-              <div className="sc-cam-card clay" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+              <div className="sc-cam-card clay" style={{ borderColor: '#e2e8f0', background: '#f8fafc', position: 'relative' }}>
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
+                <canvas ref={overlayCanvasRef} className="sc-overlay-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
 
                 <div className="sc-hud">
                   <svg className="sc-progress-svg" viewBox="0 0 120 120">
@@ -1052,16 +1245,27 @@ const SecurityAttendanceScanner: React.FC = () => {
                     </div>
                   </div>
                   {scannedEmployee.isDuplicate ? (
-                    <div className="sc-res-msg warn-msg">{scannedEmployee.customMessage}</div>
+                    <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '14px', marginTop: '12px', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e11d48', fontWeight: 800, fontSize: '0.88rem', marginBottom: '6px' }}>
+                        <span>⚠️ ATTENDANCE ALREADY MARKED</span>
+                      </div>
+                      <div style={{ color: '#9f1239', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.4 }}>
+                        {scannedEmployee.customMessage || `${scannedEmployee.status} is already logged for today at ${scannedEmployee.time}.`}
+                      </div>
+                      <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#be123c', fontWeight: 700 }}>
+                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Slot: {scannedEmployee.status}</span>
+                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Time: {scannedEmployee.time}</span>
+                      </div>
+                    </div>
                   ) : (
                     <div>
                       <h3 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                         Officer Verification Details
                       </h3>
                       <div className="sc-res-chips">
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Shift Status</span>
-                          <span className="chip-val">{scannedEmployee.status}</span>
+                        <div className="sc-chip ok-chip" style={{ background: getSlotColorConfig(scannedEmployee.status).bg, borderColor: getSlotColorConfig(scannedEmployee.status).border }}>
+                          <span className="chip-lbl" style={{ color: getSlotColorConfig(scannedEmployee.status).color }}>Shift Status</span>
+                          <span className="chip-val" style={{ color: getSlotColorConfig(scannedEmployee.status).color, fontWeight: 800 }}>{getSlotColorConfig(scannedEmployee.status).label}</span>
                         </div>
                         <div className="sc-chip ok-chip">
                           <span className="chip-lbl">Logged At</span>

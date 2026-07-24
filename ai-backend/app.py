@@ -234,11 +234,13 @@ def log_attendance(original_name):
     def push_to_main_db():
         try:
             payload = {
-                "empId":  emp_id,
-                "name":   name,
-                "time":   timestamp,
-                "date":   today_date,
-                "status": status_logged,
+                "image":   "data:image/jpeg;base64,AI_SERVICE_STREAM",
+                "empId":   emp_id,
+                "empName": name,
+                "name":    name,
+                "time":    timestamp,
+                "date":    today_date,
+                "status":  status_logged,
             }
             headers = {"x-api-key": "dbase-ai-master-key-2026"}
             requests.post(

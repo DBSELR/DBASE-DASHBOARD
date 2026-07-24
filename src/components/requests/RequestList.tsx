@@ -1066,16 +1066,21 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
     const list: string[] = [];
 
-    if (item?.RA1_Status === "Accepted" && item?.RA1)
+    const isApproved = (statusStr: any) => {
+      const s = String(statusStr || "").toLowerCase();
+      return s === "accepted" || s === "approved";
+    };
+
+    if (isApproved(item?.RA1_Status) && item?.RA1)
       list.push(item.RA1);
 
-    if (item?.RA2_Status === "Accepted" && item?.RA2)
+    if (isApproved(item?.RA2_Status) && item?.RA2)
       list.push(item.RA2);
 
-    if (item?.RA3_Status === "Accepted" && item?.RA3)
+    if (isApproved(item?.RA3_Status) && item?.RA3)
       list.push(item.RA3);
 
-    if (item?.RA4_Status === "Accepted" && item?.RA4)
+    if (isApproved(item?.RA4_Status) && item?.RA4)
       list.push(item.RA4);
 
     return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
@@ -1113,7 +1118,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     const user = normalizeText(getUser()?.designation);
 
     if (normalizeText(item.ltype) === "permission") {
-      const ra1Approved = normalizeText(item.RA1_Status) === "accepted";
+      const ra1Status = normalizeText(item.RA1_Status);
+      const ra1Approved = ra1Status === "accepted" || ra1Status === "approved";
 
       if (user === normalizeText(item.RA1) && !ra1Approved) {
         return true;
