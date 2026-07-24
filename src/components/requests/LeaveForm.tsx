@@ -273,7 +273,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         moment(date).format("YYYY-MM-DD")
       );
     };
-    if (isDuplicateDate(startDate)) {
+    if (requestType !== "Permission" && isDuplicateDate(startDate)) {
       clearForm();
       return showToast("Leave already applied for this date");
     } //not null
@@ -296,7 +296,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       setLopMessage(
         Number(balance?.balance ?? 0) <= 0
           ? "CL balance exhausted. Convert to LOP?"
-          : `You requested ${requestedDays} days but only have ${balance?.balance} CL available. Convert request to LOP?`
+          : `You requested ${requestedDays} days but only have ${balance?.balance} CL available. Remaining ${requestedDays - Number(balance?.balance)} CL Convert to LOP.`
       );
       setConfirmLOP(true);
       return;
@@ -309,7 +309,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       setLopMessage(
         Number(balance?.balance ?? 0) <= 0
           ? "SL balance exhausted. Convert to LOP?"
-          : `You requested ${requestedDays} days but only have ${balance?.balance} SL available. Convert request to LOP?`
+          : `You requested ${requestedDays} days but only have ${balance?.balance} SL available. Remaining ${requestedDays - Number(balance?.balance)} SL Convert to LOP.`
       );
       setConfirmLOP(true);
       return;
@@ -320,13 +320,13 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       const minutes = parseFloat(permTime || "0");
 
       if (balance.usedSessions >= balance.maxSessions) {
-        setLopMessage("Session limit exceeded → Convert to LOP?");
+        setLopMessage("Session limit exceeded → Convert to LOP.");
         setConfirmLOP(true);
         return;
       }
 
       if (minutes > balance.balance) {
-        setLopMessage("Permission minutes exceeded → Convert to LOP?");
+        setLopMessage("Permission minutes exceeded → Convert to LOP.");
         setConfirmLOP(true);
         return;
       }
@@ -350,18 +350,50 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       originalCategory = "Casual";
     }
 
-    const firstPartStart = startDate;
-    const firstPartEnd = moment(startDate).add(available - 1, 'days').format("YYYY-MM-DD");
-    const secondPartStart = moment(startDate).add(available, 'days').format("YYYY-MM-DD");
-    const secondPartEnd = endDate;
+    const requestedDays = moment(endDate).diff(moment(startDate), "days") + 1;
+
+    let requests: any[] = [];
+    let currentDate = moment(startDate);
+    let remainingCasual = available;
+
+    for (let i = 0; i < requestedDays; i++) {
+      let dateStr = currentDate.format("YYYY-MM-DD");
+      if (remainingCasual >= 1) {
+        requests.push({ date: dateStr, mode: "Leave", cat: originalCategory });
+        remainingCasual -= 1;
+      } else if (remainingCasual === 0.5) {
+        requests.push({ date: dateStr, mode: "Forenoon", cat: originalCategory });
+        requests.push({ date: dateStr, mode: "Afternoon", cat: "LOP" });
+        remainingCasual -= 0.5;
+      } else {
+        requests.push({ date: dateStr, mode: "Leave", cat: "LOP" });
+      }
+      currentDate.add(1, 'days');
+    }
+
+    let groups: any[] = [];
+    let currentGroup: any = null;
+
+    for (let req of requests) {
+      if (!currentGroup || currentGroup.mode !== req.mode || currentGroup.cat !== req.cat) {
+        if (currentGroup) groups.push(currentGroup);
+        currentGroup = { start: req.date, end: req.date, mode: req.mode, cat: req.cat, count: req.mode === 'Leave' ? 1 : 0.5 };
+      } else {
+        currentGroup.end = req.date;
+        currentGroup.count += (req.mode === 'Leave' ? 1 : 0.5);
+      }
+    }
+    if (currentGroup) groups.push(currentGroup);
 
     setLoading(true);
 
     try {
-      // Submit Available portion
-      await submitToServer(originalCategory, firstPartStart, firstPartEnd, remarks + ` (${available} Days Approved)`, true);
-      // Submit LOP portion
-      await submitToServer("LOP", secondPartStart, secondPartEnd, remarks + " (Converted to LOP)", false);
+      for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        const isLast = i === groups.length - 1;
+        const remarkText = group.cat === "LOP" ? `(${group.count} Days Converted to LOP)` : `(${group.count} Days ${group.cat})`;
+        await submitToServer(group.cat, group.start, group.end, remarks + " " + remarkText, !isLast, group.mode);
+      }
     } catch (error) {
       console.error(error);
       setLoading(false);
@@ -373,7 +405,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     overrideFrom?: string,
     overrideTo?: string,
     overrideRemarks?: string,
-    skipClear?: boolean
+    skipClear?: boolean,
+    overrideMode?: string
   ) => {
     if (loading && !overrideFrom) return;
 
@@ -398,9 +431,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       _leaveMode:
         requestType === "Permission"
           ? "Permission"
-          : category === "LOP"
-            ? (leaveMode === "Forenoon" || leaveMode === "Afternoon" ? "Casual" : leaveCategory)
-            : leaveMode,
+          : overrideMode || leaveMode,
 
       _leaveCategory:
         requestType === "Permission"
@@ -492,9 +523,9 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             requestType === "Permission"
               ? `Permission${permTime ? ` (${permTime} mins)` : ""}`
               : payload._leaveMode +
-                (payload._leaveCategory && payload._leaveCategory !== payload._leaveMode
-                  ? ` / ${payload._leaveCategory}`
-                  : "");
+              (payload._leaveCategory && payload._leaveCategory !== payload._leaveMode
+                ? ` / ${payload._leaveCategory}`
+                : "");
 
           const whatsappPayload = {
             Lid: newLid,
