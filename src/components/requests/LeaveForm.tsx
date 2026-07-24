@@ -489,10 +489,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           const user = getUser();
 
           const leaveType =
-            payload._leaveMode +
-            (payload._leaveCategory
-              ? ` / ${payload._leaveCategory}`
-              : "");
+            requestType === "Permission"
+              ? `Permission${permTime ? ` (${permTime} mins)` : ""}`
+              : payload._leaveMode +
+                (payload._leaveCategory && payload._leaveCategory !== payload._leaveMode
+                  ? ` / ${payload._leaveCategory}`
+                  : "");
 
           const whatsappPayload = {
             Lid: newLid,
@@ -502,7 +504,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             ToDate: payload._todate,
             LeaveType: leaveType,
             Reason: payload._remarks,
-            RaEmpCode: ra1EmpCode
+            RaEmpCode: ra1EmpCode,
+            RequestType: requestType
           };
 
           console.log("====================================");
