@@ -120,6 +120,7 @@ const AIAttendanceScanner: React.FC = () => {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showPermissionCalcModal, setShowPermissionCalcModal] = useState(false);
   const [showGraceTrackerDetails, setShowGraceTrackerDetails] = useState<boolean>(false);
+  const [graceHistoryFilter, setGraceHistoryFilter] = useState<'ALL' | 'LOP' | 'GRACE' | 'PERMISSION'>('ALL');
   const [isScannerPaused, setIsScannerPaused] = useState<boolean>(false);
   const isScannerPausedRef = useRef<boolean>(false);
 
@@ -1523,7 +1524,7 @@ const AIAttendanceScanner: React.FC = () => {
                               </div>
                               <div className="grace-stat-row">
                                 <span>Morning Graces Used</span>
-                                <span>{graceSummary.freeGracesUsed} Left</span>
+                                <span className="val-high" style={{ color: '#ef4444' }}>{graceSummary.freeGracesUsed} Used</span>
                               </div>
                               <div className="grace-stat-row">
                                 <span>P_Time (Base Permission)</span>
@@ -1535,7 +1536,7 @@ const AIAttendanceScanner: React.FC = () => {
                               </div>
                               <div className="grace-stat-row" style={{ alignItems: 'center' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  Permission Balance
+                                  Remaining Balance
                                   <button
                                     onClick={() => setShowPermissionCalcModal(true)}
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#6366f1' }}
@@ -1551,7 +1552,7 @@ const AIAttendanceScanner: React.FC = () => {
 
                           {/* "Where it was Cut" history logs */}
                           <div className="grace-history-container">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                               <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
                                 Grace Usage History ("Where it was Cut")
                               </span>
@@ -1561,30 +1562,112 @@ const AIAttendanceScanner: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            {graceSummary.history && graceSummary.history.length > 0 ? (
-                              graceSummary.history.map((row: any, i: number) => {
-                                const isFree = row.graceType === "FREE_GRACE";
-                                const isPerm = row.graceType === "PERMISSION";
-                                const classType = isFree ? 'type-free' : isPerm ? 'type-perm' : 'type-lop';
-                                const labelType = isFree ? 'Free Grace' : isPerm ? 'Permission' : 'LOP Deducted';
 
-                                const lateParts = [];
-                                if (row.lateMinutes > 0) lateParts.push(`${row.lateMinutes}m Morning`);
-                                if (row.lunchLateMinutes > 0) lateParts.push(`${row.lunchLateMinutes}m Lunch`);
-                                const rowTotalMins = (row.lateMinutes || 0) + (row.lunchLateMinutes || 0);
-                                const lateTime = lateParts.length > 0
-                                  ? `${rowTotalMins}m late (${lateParts.join(', ')})`
-                                  : 'On Time';
+                            {graceSummary.history && graceSummary.history.length > 0 && (() => {
+                              const categorizeGraceRow = (row: any) => {
+                                const gType = (row.graceType || '').toUpperCase();
+                                const status = (row.attendanceStatus || '').toUpperCase();
 
-                                return (
-                                  <div key={i} className="grace-history-row">
-                                    <span className="history-date">{row.date} ({row.attendanceStatus})</span>
-                                    <span style={{ color: '#475569', fontSize: '0.7rem' }}>{lateTime}</span>
-                                    <span className={`history-type ${classType}`}>{labelType}</span>
+                                if (gType === 'FREE_GRACE' || gType.includes('FREE') || gType.includes('GRACE') || status.includes('GRACE')) {
+                                  return {
+                                    category: 'GRACE',
+                                    classType: 'type-free',
+                                    labelType: 'Free Grace',
+                                    statusText: row.attendanceStatus || 'Grace'
+                                  };
+                                }
+                                if (gType === 'PERMISSION' || gType.includes('PERM') || status.includes('PERM') || status.includes('PERMISSION')) {
+                                  return {
+                                    category: 'PERMISSION',
+                                    classType: 'type-perm',
+                                    labelType: 'Permission Adjusted',
+                                    statusText: row.attendanceStatus || 'Permission Adjusted'
+                                  };
+                                }
+                                return {
+                                  category: 'LOP',
+                                  classType: 'type-lop',
+                                  labelType: 'LOP Deducted',
+                                  statusText: row.attendanceStatus || 'LOP'
+                                };
+                              };
+
+                              const allHist = graceSummary.history;
+                              const lopCount = allHist.filter((r: any) => categorizeGraceRow(r).category === 'LOP').length;
+                              const graceCount = allHist.filter((r: any) => categorizeGraceRow(r).category === 'GRACE').length;
+                              const permCount = allHist.filter((r: any) => categorizeGraceRow(r).category === 'PERMISSION').length;
+
+                              const filteredList = allHist.filter((r: any) => {
+                                if (graceHistoryFilter === 'ALL') return true;
+                                return categorizeGraceRow(r).category === graceHistoryFilter;
+                              });
+
+                              return (
+                                <>
+                                  <div className="grace-filter-btn-group">
+                                    <button
+                                      className={`grace-filter-btn ${graceHistoryFilter === 'ALL' ? 'active' : ''}`}
+                                      onClick={() => setGraceHistoryFilter('ALL')}
+                                    >
+                                      All ({allHist.length})
+                                    </button>
+                                    <button
+                                      className={`grace-filter-btn lop-btn ${graceHistoryFilter === 'LOP' ? 'active' : ''}`}
+                                      onClick={() => setGraceHistoryFilter('LOP')}
+                                    >
+                                      LOP ({lopCount})
+                                    </button>
+                                    <button
+                                      className={`grace-filter-btn grace-btn ${graceHistoryFilter === 'GRACE' ? 'active' : ''}`}
+                                      onClick={() => setGraceHistoryFilter('GRACE')}
+                                    >
+                                      Grace ({graceCount})
+                                    </button>
+                                    <button
+                                      className={`grace-filter-btn perm-btn ${graceHistoryFilter === 'PERMISSION' ? 'active' : ''}`}
+                                      onClick={() => setGraceHistoryFilter('PERMISSION')}
+                                    >
+                                      Permission Adjusted ({permCount})
+                                    </button>
                                   </div>
-                                );
-                              })
-                            ) : (
+
+                                  <div className="grace-history-list">
+                                    {filteredList.length > 0 ? (
+                                      filteredList.map((row: any, i: number) => {
+                                        const catInfo = categorizeGraceRow(row);
+                                        const lateParts = [];
+                                        if ((row.lateMinutes || 0) > 0) lateParts.push(`${row.lateMinutes}m Morning`);
+                                        if ((row.lunchLateMinutes || 0) > 0) lateParts.push(`${row.lunchLateMinutes}m Lunch`);
+                                        const rowTotalMins = (row.lateMinutes || 0) + (row.lunchLateMinutes || 0);
+                                        const lateTime = lateParts.length > 0
+                                          ? `${rowTotalMins}m late (${lateParts.join(', ')})`
+                                          : 'On Time';
+
+                                        return (
+                                          <div key={i} className="grace-history-row">
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                              <span className="history-date" style={{ fontWeight: 800 }}>
+                                                {row.date} <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>({catInfo.statusText})</span>
+                                              </span>
+                                              <span style={{ color: '#475569', fontSize: '0.72rem', fontWeight: 600 }}>
+                                                {lateTime}
+                                              </span>
+                                            </div>
+                                            <span className={`history-type ${catInfo.classType}`}>
+                                              {catInfo.labelType}
+                                            </span>
+                                          </div>
+                                        );
+                                      })
+                                    ) : (
+                                      <div className="grace-history-empty">No entries found for this category filter.</div>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
+
+                            {(!graceSummary.history || graceSummary.history.length === 0) && (
                               <div className="grace-history-empty">No graces or permissions deducted this month.</div>
                             )}
                           </div>

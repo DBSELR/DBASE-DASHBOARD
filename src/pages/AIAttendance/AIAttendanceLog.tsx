@@ -79,8 +79,11 @@ const AIAttendanceLog: React.FC = () => {
   })();
 
   const ADMIN_IDS = ["1501", "1509", "1601", "1508"];
-  const isAdmin = ADMIN_IDS.includes(loggedInId);
-  const effectiveMode = isAdmin ? "security" : "user";
+  const isAdmin = ADMIN_IDS.includes(loggedInId) || (Boolean(loggedInId) && ADMIN_IDS.includes(String(parseInt(loggedInId, 10))));
+  
+  // Security console (all employees' logs) is ONLY accessible by ADMIN_IDS.
+  // All regular employees strictly view their own personal attendance logs.
+  const effectiveMode = isAdmin ? (mode === "user" ? "user" : "security") : "user";
   const history = useHistory();
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -135,12 +138,16 @@ const AIAttendanceLog: React.FC = () => {
   /* ── load branches dynamically ── */
   useEffect(() => {
     if (effectiveMode === "security") {
-      fetch(API_BASE + 'Checkin/GetBranches', {
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'dbase-ai-master-key-2026' }
-      })
+      const token = localStorage.getItem("token") || "";
+      const hdrs: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'dbase-ai-master-key-2026',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      fetch(API_BASE + 'Checkin/GetBranches', { headers: hdrs })
       .then(r => r.json())
       .then(d => {
-        if (d.success) setBranches(["ALL", ...d.data]);
+        if (d.success && Array.isArray(d.data)) setBranches(["ALL", ...d.data]);
       })
       .catch(console.error);
     }
@@ -167,7 +174,11 @@ const AIAttendanceLog: React.FC = () => {
   async function fetchLogs(showLoader = false) {
     if (showLoader) setLoading(true);
     const token = localStorage.getItem("token") || "";
-    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-key': 'dbase-ai-master-key-2026',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
 
     try {
       if (effectiveMode === "user") {
@@ -225,10 +236,13 @@ const AIAttendanceLog: React.FC = () => {
             if (d.success && Array.isArray(d.data)) {
               return d.data
                 .filter((r: any) => {
-                  const n = (r.name || "").toLowerCase();
-                  const id = (r.empId || "").toLowerCase();
-                  return (empCode && id === empCode.toLowerCase()) ||
-                         (empName && n.includes(empName.toLowerCase()));
+                  const n = String(r.name || "").trim().toLowerCase();
+                  const id = String(r.empId || "").trim().toLowerCase();
+                  const eCode = empCode.toLowerCase();
+                  const eName = empName.toLowerCase();
+                  const sameId = eCode && (id === eCode || (parseInt(id, 10) > 0 && parseInt(id, 10) === parseInt(eCode, 10)));
+                  const sameName = eName && (n === eName || n.includes(eName) || eName.includes(n));
+                  return sameId || sameName;
                 })
                 .map((r: any) => map(r, date));
             }
@@ -239,8 +253,9 @@ const AIAttendanceLog: React.FC = () => {
         const flat = all.flat();
         setUserLogs(dates.map(date =>
           flat.find(l => l.date === date) || {
-            Name: empName, 'Emp ID': empCode,
-            'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-', date
+            Name: empName || "Employee", 'Emp ID': empCode || "-",
+            'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-',
+            attendanceStatus: 'Absent', date
           }
         ));
 
@@ -251,7 +266,7 @@ const AIAttendanceLog: React.FC = () => {
         if (selectedBranch !== "ALL") {
           try {
             const br = await fetch(API_BASE + `Checkin/GetEmployeesByBranch?branch=${encodeURIComponent(selectedBranch)}`, {
-              headers: { 'Content-Type': 'application/json', 'x-api-key': 'dbase-ai-master-key-2026' }
+              headers
             });
             const bd = await br.json();
             if (bd.success && Array.isArray(bd.data)) {
@@ -273,76 +288,78 @@ const AIAttendanceLog: React.FC = () => {
         const d = await res.json();
         if (d.success && Array.isArray(d.data)) {
 
-  const mapped: AttendanceRecord[] = d.data.map((r: any) => ({
-    'Emp ID': r.empId || '-',
-    Name: r.name || 'Unknown',
-    'Morning In': r.morningIn || '-',
-    'Lunch Out': r.lunchOut || '-',
-    'Lunch In': r.lunchIn || '-',
-    'Evening Out': r.eveningOut || '-',
-    lateMinutes: r.lateMinutes || '0',
-    graceType: r.graceType || '-',
-    attendanceStatus: r.attendanceStatus || '-',
-    branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
-    morningInLat: r.morningInLat,
-    morningInLng: r.morningInLng,
-    morningInCity: r.morningInCity,
-    lunchOutLat: r.lunchOutLat,
-    lunchOutLng: r.lunchOutLng,
-    lunchOutCity: r.lunchOutCity,
-    lunchInLat: r.lunchInLat,
-    lunchInLng: r.lunchInLng,
-    lunchInCity: r.lunchInCity,
-    eveningOutLat: r.eveningOutLat,
-    eveningOutLng: r.eveningOutLng,
-    eveningOutCity: r.eveningOutCity,
-  }));
+          const mapped: AttendanceRecord[] = d.data.map((r: any) => ({
+            'Emp ID': r.empId || '-',
+            Name: r.name || 'Unknown',
+            'Morning In': r.morningIn || '-',
+            'Lunch Out': r.lunchOut || '-',
+            'Lunch In': r.lunchIn || '-',
+            'Evening Out': r.eveningOut || '-',
+            lateMinutes: r.lateMinutes || '0',
+            graceType: r.graceType || '-',
+            attendanceStatus: r.attendanceStatus || '-',
+            branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
+            morningInLat: r.morningInLat,
+            morningInLng: r.morningInLng,
+            morningInCity: r.morningInCity,
+            lunchOutLat: r.lunchOutLat,
+            lunchOutLng: r.lunchOutLng,
+            lunchOutCity: r.lunchOutCity,
+            lunchInLat: r.lunchInLat,
+            lunchInLng: r.lunchInLng,
+            lunchInCity: r.lunchInCity,
+            eveningOutLat: r.eveningOutLat,
+            eveningOutLng: r.eveningOutLng,
+            eveningOutCity: r.eveningOutCity,
+          }));
 
-  // ✅ Build final list based on the roster if a branch is selected
-  let finalLogs: AttendanceRecord[] = [];
-  
-  if (selectedBranch === "ALL") {
-    finalLogs = mapped;
-  } else if (!fetchedBranchRoster) {
-    // Fallback: manually filter by branch string if API failed
-    finalLogs = mapped.filter(x => (x.branch || "").trim().toLowerCase() === selectedBranch.trim().toLowerCase());
-  } else {
-    // Roster mode: explicitly map over all employees in the branch
-    finalLogs = branchEmployees.map((emp: any) => {
-      const eCode = String(emp.empCode || "").trim().toLowerCase();
-      const found = mapped.find(m => String(m['Emp ID'] || "").trim().toLowerCase() === eCode);
-      if (found) return found;
-      
-      // Inject missing employee as Absent
-      return {
-        'Emp ID': emp.empCode || '-',
-        Name: emp.empName || 'Unknown',
-        'Morning In': '-',
-        'Lunch Out': '-',
-        'Lunch In': '-',
-        'Evening Out': '-',
-        lateMinutes: '0',
-        graceType: '-',
-        attendanceStatus: 'Absent',
-        branch: emp.branch || selectedBranch
-      };
-    });
-  }
+          let finalLogs: AttendanceRecord[] = [];
+          
+          if (selectedBranch === "ALL") {
+            finalLogs = mapped;
+          } else if (!fetchedBranchRoster) {
+            finalLogs = mapped.filter(x => (x.branch || "").trim().toLowerCase() === selectedBranch.trim().toLowerCase());
+          } else {
+            finalLogs = branchEmployees.map((emp: any) => {
+              const eCode = String(emp.empCode || "").trim().toLowerCase();
+              const found = mapped.find(m => {
+                const mId = String(m['Emp ID'] || "").trim().toLowerCase();
+                const mName = String(m.Name || "").trim().toLowerCase();
+                const eName = String(emp.empName || "").trim().toLowerCase();
+                return (mId && (mId === eCode || (parseInt(mId, 10) > 0 && parseInt(mId, 10) === parseInt(eCode, 10)))) ||
+                       (mName && eName && (mName === eName || mName.includes(eName) || eName.includes(mName)));
+              });
+              if (found) return found;
+              
+              return {
+                'Emp ID': emp.empCode || '-',
+                Name: emp.empName || 'Unknown',
+                'Morning In': '-',
+                'Lunch Out': '-',
+                'Lunch In': '-',
+                'Evening Out': '-',
+                lateMinutes: '0',
+                graceType: '-',
+                attendanceStatus: 'Absent',
+                branch: emp.branch || selectedBranch
+              };
+            });
+          }
 
-  // ✅ Latest punch first
-  const sorted = [...finalLogs].sort((a, b) => {
-    const latest = (rec: AttendanceRecord) =>
-      SLOTS
-        .map(s => rec[s.key])
-        .filter(t => t && t !== "-")
-        .sort()
-        .reverse()[0] || "";
+          const sorted = [...finalLogs].sort((a, b) => {
+            const latest = (rec: AttendanceRecord) =>
+              SLOTS
+                .map(s => rec[s.key])
+                .filter(t => t && t !== "-")
+                .sort()
+                .reverse()[0] || "";
 
-    return latest(b).localeCompare(latest(a));
-  });
+            return latest(b).localeCompare(latest(a));
+          });
 
-  setSecurityLogs(sorted);
-}}
+          setSecurityLogs(sorted);
+        }
+      }
     } catch (err) {
       console.error("[AIAttendanceLog]", err);
     } finally {

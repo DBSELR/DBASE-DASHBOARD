@@ -29,16 +29,17 @@ try {
     const body = payload.notification?.body || payload.data?.body || "You have a pending task assigned to you.";
     const image = payload.notification?.image || payload.data?.image || null;
 
+    const targetUrl = payload.data?.url || "/workreport";
     const notificationOptions = {
       body: body,
       icon: "/images/dbase.png",
       badge: "/images/dbs-logo-short.png",
       image: image,
-      vibrate: [200, 100, 200],
-      tag: "task-notification",
+      vibrate: [300, 100, 300, 100, 300],
+      tag: payload.data?.type || "app-notification",
       renotify: true,
       data: {
-        url: payload.data?.url || "/tasks"
+        url: targetUrl
       }
     };
 
@@ -48,7 +49,7 @@ try {
   self.addEventListener("notificationclick", (event) => {
     event.notification.close();
 
-    const targetUrl = event.notification?.data?.url || "/tasks";
+    const targetUrl = event.notification?.data?.url || "/workreport";
 
     event.waitUntil(
       clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

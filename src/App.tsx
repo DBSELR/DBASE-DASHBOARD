@@ -64,6 +64,7 @@ import MeetingMaster from "./pages/Meetings/MeetingMaster";
 import MeetingDashboard from "./pages/Meetings/MeetingDashboard";
 import MeetingList from "./pages/Meetings/MeetingList";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
+import WorkReportReminderModal from "./components/WorkReportReminderModal";
 import { registerNativePush } from "./services/pushNotification";
 
 import PenaltyMaster from "./pages/PenaltyMaster";
@@ -218,10 +219,10 @@ const App: React.FC = () => {
             </IonRouterOutlet>
           </IonSplitPane>
         )}
+        {user && <SpeedDialComponent />}
+        {user && <TaskNotificationPopup />}
+        {user && <WorkReportReminderModal />}
       </IonReactRouter>
-
-      {user && <SpeedDialComponent />}
-      {user && <TaskNotificationPopup />}
     </IonApp>
   );
 };

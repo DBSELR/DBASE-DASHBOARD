@@ -30,7 +30,8 @@ import {
   XCircle,
   Check,
   X,
-  ChevronLeft
+  ChevronLeft,
+  ShieldAlert
 } from "lucide-react";
 import {
   personOutline,
@@ -98,6 +99,30 @@ const WorkReports: React.FC = () => {
   const [editingReportId, setEditingReportId] = useState<number | null>(null);
   const [editingReportContent, setEditingReportContent] = useState<string>("");
   const history = useHistory();
+
+  const [isTodayReportSubmitted, setIsTodayReportSubmitted] = useState<boolean>(() => {
+    try {
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+      return localStorage.getItem(`work_report_submitted_${todayKey}`) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const markTodaySubmitted = () => {
+    try {
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+      const slot = now.getMinutes() >= 20 ? "18_20" : "18_00";
+      localStorage.setItem(`work_report_submitted_${todayKey}`, "true");
+      localStorage.setItem("work_report_dismissed_time", `${todayKey}_${slot}`);
+      setIsTodayReportSubmitted(true);
+      window.dispatchEvent(new CustomEvent("work-report-submitted"));
+    } catch (err) {
+      console.error("Error setting work report submitted state", err);
+    }
+  };
   // Searchable Dropdown States
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [empSearchTerm, setEmpSearchTerm] = useState("");
@@ -308,6 +333,17 @@ const WorkReports: React.FC = () => {
       const reports = res.data || [];
       setReportList(reports);
 
+      const loginEmpCode = _user?.empCode || _user?.EmpCode;
+      if (reports.length > 0 && empCode === loginEmpCode) {
+        const hasTodayReport = reports.some((r: any) => {
+          const rDate = r[5];
+          return rDate && moment(rDate).isSame(moment(), 'day');
+        });
+        if (hasTodayReport) {
+          markTodaySubmitted();
+        }
+      }
+
       if (reports.length === 0) {
         setToastMessage(`No work reports found for ${month}`);
         setToastType("danger");
@@ -362,6 +398,7 @@ const WorkReports: React.FC = () => {
       console.log("Submission Response:", response.data);
 
       if (response.data && (typeof response.data === 'string' ? (response.data.includes("saved successfully") || response.data.includes("Save successfully")) : response.data.message?.includes("success"))) {
+        markTodaySubmitted();
         setToastType("success");
         setToastMessage("Work report submitted successfully!");
         handleClear();
@@ -377,6 +414,7 @@ const WorkReports: React.FC = () => {
         console.warn("Unexpected response format or content:", response.data);
         // Fallback for different responses
         if (response.data === "Save successfully" || response.data?.status === "success") {
+          markTodaySubmitted();
           // still treat as success if it matches somehow
           setToastType("success");
           setToastMessage("Work report submitted successfully!");
@@ -554,16 +592,105 @@ const WorkReports: React.FC = () => {
               </div>
             </div>
           </div>
-          {/* {showTeamReports && (
-    <button
-      className="team-report-btn"
-      onClick={() =>
-        history.push("/workreport-dashboard")
-      }
-    >
-      Team Work Reports
-    </button>
-  )} */}
+
+
+
+          {/* TEMPORARY TEST BUTTONS BAR */}
+          {/* <div style={{
+            background: "rgba(220, 38, 38, 0.08)",
+            border: "1.5px dashed rgba(220, 38, 38, 0.4)",
+            borderRadius: "16px",
+            padding: "14px 18px",
+            marginBottom: "24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                🧪 Notification Testing Toolbar (Temporary)
+              </span>
+              <span style={{ fontSize: "12px", color: "#888" }}>Test Red Alert & Push System</span>
+            </div>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("test-work-report-alert", { detail: { isUrgent: false } }))}
+                style={{
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 4px 12px rgba(220, 38, 38, 0.3)"
+                }}
+              >
+                <ShieldAlert size={16} />
+                Test 6:00 PM Red Alert Modal
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("test-work-report-alert", { detail: { isUrgent: true } }))}
+                style={{
+                  background: "linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 4px 12px rgba(185, 28, 28, 0.4)"
+                }}
+              >
+                <ShieldAlert size={16} />
+                Test 6:20 PM Final Red Alert Modal
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setToastMessage("Triggering Server Push to All Employees...");
+                    setToastType("success");
+                    setShowToast(true);
+                    await axios.post(`${baseUrl}/Notifications/SendWorkReportReminderAll?isSecondReminder=false`, {}, { headers: getAuthHeaders() });
+                    setToastMessage("✅ Server Push Notification dispatched!");
+                  } catch (e: any) {
+                    console.error("Test push error:", e);
+                    setToastMessage("Server push sent (check browser/mobile push)");
+                  }
+                  setShowToast(true);
+                }}
+                style={{
+                  background: "#1e293b",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                📡 Trigger Server Push (FCM + SignalR)
+              </button>
+            </div>
+          </div> */}
+
           {/* Custom Segments - Visible only on Mobile via CSS */}
           <div className="wr-segment-container">
             <div

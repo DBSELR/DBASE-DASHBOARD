@@ -87,7 +87,9 @@ const registerNative = async (empCode: string) => {
 
       await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
         console.log("📩 [Push] Tap action performed:", action);
-        window.location.href = "/tasks";
+        const data = action.notification?.data;
+        const targetUrl = data?.url || data?.targetUrl || "/workreport";
+        window.location.href = targetUrl;
       });
     }
 
