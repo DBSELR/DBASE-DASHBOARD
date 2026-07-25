@@ -377,10 +377,17 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     for (let req of requests) {
       if (!currentGroup || currentGroup.cat !== req.cat) {
         if (currentGroup) groups.push(currentGroup);
-        currentGroup = { start: req.date, end: req.date, mode: req.mode, cat: req.cat, count: req.mode === 'Leave' ? 1 : 0.5 };
+        currentGroup = {
+          start: req.date,
+          end: req.date,
+          mode: "Leave",
+          cat: req.cat,
+          count: req.mode === "Leave" ? 1 : 0.5
+        };
       } else {
         currentGroup.end = req.date;
-        currentGroup.count += (req.mode === 'Leave' ? 1 : 0.5);
+        currentGroup.count += req.mode === "Leave" ? 1 : 0.5;
+        currentGroup.mode = "Leave";
       }
     }
     if (currentGroup) groups.push(currentGroup);
@@ -392,7 +399,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         const group = groups[i];
         const isLast = i === groups.length - 1;
         const remarkText = group.cat === "LOP" ? `(${group.count} Days Converted to LOP)` : `(${group.count} Days ${group.cat})`;
-        await submitToServer(group.cat, group.start, group.end, remarks + " " + remarkText, !isLast, group.mode);
+        await submitToServer(group.cat, group.start, group.end, remarks + " " + remarkText, !isLast, group.mode, group.count);
       }
     } catch (error) {
       console.error(error);
@@ -406,7 +413,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     overrideTo?: string,
     overrideRemarks?: string,
     skipClear?: boolean,
-    overrideMode?: string
+    overrideMode?: string,
+    overrideDays?: number
   ) => {
     if (loading && !overrideFrom) return;
 
@@ -421,7 +429,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         : fmtDMY(overrideTo || endDate),
 
       _remarks: overrideRemarks || remarks,
-      _PermTime: requestType === "Permission" ? permTime : "",
+      _PermTime:
+        requestType === "Permission"
+          ? permTime
+          : overrideDays !== undefined
+          ? String(overrideDays)
+          : "",
       _InTime:
         requestType === "Permission"
           ? moment(inTime, "HH:mm").format("HH:mm")
