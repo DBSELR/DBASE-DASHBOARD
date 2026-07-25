@@ -295,7 +295,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     ) {
       setLopMessage(
         Number(balance?.balance ?? 0) <= 0
-          ? "CL balance exhausted. Convert to LOP?"
+          ? "CL balance exhausted. Convert to LOP."
           : `You requested ${requestedDays} days but only have ${balance?.balance} CL available. Remaining ${requestedDays - Number(balance?.balance)} CL Convert to LOP.`
       );
       setConfirmLOP(true);
@@ -308,7 +308,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     ) {
       setLopMessage(
         Number(balance?.balance ?? 0) <= 0
-          ? "SL balance exhausted. Convert to LOP?"
+          ? "SL balance exhausted. Convert to LOP."
           : `You requested ${requestedDays} days but only have ${balance?.balance} SL available. Remaining ${requestedDays - Number(balance?.balance)} SL Convert to LOP.`
       );
       setConfirmLOP(true);
@@ -375,7 +375,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     let currentGroup: any = null;
 
     for (let req of requests) {
-      if (!currentGroup || currentGroup.mode !== req.mode || currentGroup.cat !== req.cat) {
+      if (!currentGroup || currentGroup.cat !== req.cat) {
         if (currentGroup) groups.push(currentGroup);
         currentGroup = { start: req.date, end: req.date, mode: req.mode, cat: req.cat, count: req.mode === 'Leave' ? 1 : 0.5 };
       } else {
