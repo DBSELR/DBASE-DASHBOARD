@@ -66,6 +66,10 @@ const getSlotColorConfig = (slot?: string) => {
       return { label: '🥗 Lunch In', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
     case 'Evening Out':
       return { label: '🌇 Evening Out', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' };
+    case 'Permission Out':
+      return { label: '🚪 Perm Out', color: '#e11d48', bg: '#fff1f2', border: '#fecdd3' };
+    case 'Permission In':
+      return { label: '🏁 Perm In', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' };
     default:
       return { label: slot || 'Attendance', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
   }
@@ -252,6 +256,16 @@ const AIAttendanceScanner: React.FC = () => {
         const currentEmpId = parsed?.empCode || parsed?.EmpCode || "";
         if (currentEmpId) {
           fetchGraceSummary(currentEmpId);
+          fetch(`${API_BASE}Checkin/GetActivePermissionForToday?empId=${currentEmpId}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data?.hasApprovedPermission && data?.suggestedSlot) {
+                setSelectedStatus(data.suggestedSlot);
+                setIsManualOverride(true);
+                logDebug(`Auto-selected permission slot: ${data.suggestedSlot}`);
+              }
+            })
+            .catch(() => {});
         }
         logDebug("User loaded: " + currentEmpId);
       }
@@ -427,6 +441,36 @@ const AIAttendanceScanner: React.FC = () => {
     scheduleNextScan(1000);
   };
 
+  const handleSlotSelect = async (slot: string) => {
+    setSelectedStatus(slot);
+    selectedStatusRef.current = slot;
+    setIsManualOverride(true);
+    logDebug(`Selected manually: ${slot}`);
+
+    if (slot === "Permission Out" || slot === "Permission In") {
+      const empId = userDataRef.current?.empCode || userDataRef.current?.EmpCode || "";
+      if (empId) {
+        try {
+          setResultMessage(`Checking Permission Approval for ${empId}...`);
+          setStatusColor("#3b82f6");
+          const res = await fetch(`${API_BASE}Checkin/GetActivePermissionForToday?empId=${empId}`);
+          if (res.ok) {
+            const permData = await res.json();
+            if (!permData.hasApprovedPermission) {
+              setResultMessage("⚠️ No Approved Permission Found for Today");
+              setStatusColor("#f59e0b");
+              speakText("No approved permission request found for today. Please request permission first.");
+            } else {
+              setResultMessage(`✅ Approved Permission: ${permData.approvedMinutes}m (Return window calculated from OUT scan)`);
+              setStatusColor("#10b981");
+              speakText(`Permission approved for ${permData.approvedMinutes} minutes.`);
+            }
+          }
+        } catch {}
+      }
+    }
+  };
+
   const captureAndScan = async () => {
     if (isScannerPausedRef.current) { scheduleNextScan(1000); return; }
     if (isProcessingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
@@ -502,6 +546,27 @@ const AIAttendanceScanner: React.FC = () => {
         }
         if (data.invalidTime) { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
 
+        if (data.hasPermission === false || (data.success === false && data.message && data.message.includes("No Approved Permission"))) {
+          const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
+          const empId = data.empId || userDataRef.current?.empCode || "";
+          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
+
+          setAttendanceDetails({
+            empName, empId,
+            status: "No Approved Permission Found",
+            isDuplicate: true,
+            customMessage: data.message || "No Approved Permission Found for Today. Please submit a permission request in Leave/Permission Form and obtain manager approval before scanning Perm Out.",
+            confidence: data.confidence,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+          setResultMessage(`⚠️ ${empName}`); speakText(`No approved permission found for today for ${empName}`);
+
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 4000);
+          return;
+        }
+
         if (data.alreadyMarked) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId = data.empId || userDataRef.current?.empCode || "";
@@ -513,21 +578,25 @@ const AIAttendanceScanner: React.FC = () => {
               const parts = data.time.split(":");
               const hr = parseInt(parts[0], 10);
               const min = parts[1];
+              const sec = parts[2] ? `:${parts[2]}` : "";
               const ampm = hr >= 12 ? "PM" : "AM";
               const displayHr = hr % 12 || 12;
-              displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
+              displayTime = `${displayHr.toString().padStart(2, '0')}:${min}${sec} ${ampm}`;
             } catch { }
           }
 
+          const slotName = data.status || "Morning In";
+          const alertMsg = data.message || `${slotName} already marked at ${displayTime}`;
+
           setAttendanceDetails({
             empName, empId,
-            status: data.status || "",
+            status: `${slotName} Already Marked`,
             isDuplicate: true,
-            customMessage: data.message || "Already marked",
+            customMessage: alertMsg,
             confidence: data.confidence,
             time: displayTime
           });
-          setResultMessage(`⚠️ ${empName}`); speakText(`${empName} attendance already marked`);
+          setResultMessage(`⚠️ ${empName}`); speakText(`${empName} ${slotName} already marked`);
 
           // Auto-resume scanner after 4 seconds
           setTimeout(() => {
@@ -540,9 +609,10 @@ const AIAttendanceScanner: React.FC = () => {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId = data.empId || userDataRef.current?.empCode || "";
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
+          const slotName = data.status || selectedStatusRef.current || "Morning In";
           setAttendanceDetails({
             empName, empId,
-            status: data.status || "Attendance Logged",
+            status: `${slotName} Marked Successfully`,
             time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             officeName: data.officeName || "",
             presenceMethod: data.presenceMethod || "Face Only",
@@ -560,11 +630,16 @@ const AIAttendanceScanner: React.FC = () => {
             fetchGraceSummary(empId);
           }
 
-          // Auto-resume scanner after 4 seconds
+          // Auto-resume scanner after 3 seconds
           setTimeout(() => {
             resetScannerAndResume();
-          }, 4000);
-        } else { setResultMessage("❌ " + (data.message || "Face Not Recognized")); setStatusColor("#ef4444"); scheduleNextScan(500); }
+          }, 3000);
+        } else {
+          setAttendanceDetails(null);
+          setResultMessage("Align face to scan");
+          setStatusColor("#8b5cf6");
+          scheduleNextScan(600);
+        }
       } else { scheduleNextScan(1000); }
     } catch (err: any) {
       logDebug("Err: " + err.message);
@@ -1096,46 +1171,19 @@ const AIAttendanceScanner: React.FC = () => {
               <p className="sc-subtitle">Biometric Check-In Portal</p>
             </div>
 
-            {/* 1. Status Selection Row (Manual Override) */}
-            <div className="status-override-container">
-              <div className="status-title-row">
-                <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
-                <button
-                  onClick={() => setShowRulesModal(true)}
-                  style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.5rem', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
-                  View Rules
-                </button>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => setShowRulesModal(true)}
+                style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', color: '#4f46e5', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+              >
+                <IonIcon icon={informationCircleOutline} style={{ fontSize: '16px' }} />
+                View Rules
+              </button>
 
-              <div className="status-btn-group">
-                {["Morning In", "Lunch Out", "Lunch In", "Evening Out"].map(slot => {
-                  const isAuto = slot === getAutoStatus();
-                  const isActive = selectedStatus === slot;
-                  const shortLabel = slot === "Morning In" ? "Morning" : slot === "Lunch Out" ? "Lunch Out" : slot === "Lunch In" ? "Lunch In" : "Evening";
-                  const slotClass = slot === "Morning In" ? "slot-morning" : slot === "Lunch Out" ? "slot-lunch-out" : slot === "Lunch In" ? "slot-lunch-in" : "slot-evening";
-                  return (
-                    <button
-                      key={slot}
-                      className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedStatus(slot);
-                        setIsManualOverride(true);
-                        logDebug(`Selected manually: ${slot}`);
-                      }}
-                    >
-                      <span>{shortLabel}</span>
-                      {isAuto && <span className="auto-tag">Auto</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              <button className="sc-log-btn ai-log-btn" onClick={() => history.push('/ai-attendance-log/user')} title="Attendance Log History">
+                <IonIcon icon={calendarOutline} />
+              </button>
             </div>
-
-            <button className="sc-log-btn ai-log-btn" onClick={() => history.push('/ai-attendance-log/user')}>
-              <IonIcon icon={calendarOutline} />
-            </button>
           </div>
 
           {/* BODY */}
@@ -1143,16 +1191,18 @@ const AIAttendanceScanner: React.FC = () => {
 
             {/* LEFT: CAMERA WIDGET */}
             <div className="sc-cam-area">
-              <div className="sc-cam-card clay" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+              <div className="sc-cam-card clay">
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
 
                 <div className="sc-hud">
-                  <div className={`sc-ring ai-ring ${isProcessing ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
+                  <div className="sc-cyber-ring-outer" />
+                  <div className={`sc-ring ai-ring sc-cyber-ring-middle ${isProcessing ? 'ring-scan is-scanning' : scanSuccess ? 'ring-ok is-success' : ''}`} />
+                  <div className="sc-cyber-ring-inner" />
                   <div className="sc-corners">
                     <span className="sc-cor tl" /><span className="sc-cor tr" />
                     <span className="sc-cor bl" /><span className="sc-cor br" />
                   </div>
-                  <div className={`sc-laser ai-laser ${isProcessing ? 'laser-on' : ''}`} />
+                  <div className={`sc-laser ai-laser sc-cyber-laser ${isProcessing ? 'laser-on laser-active' : ''}`} />
                 </div>
 
                 <div className="sc-ind-row">
@@ -1364,6 +1414,49 @@ const AIAttendanceScanner: React.FC = () => {
 
                 /* ── IDLE CONTROL PANEL ── */
                 <div className="scanner-dashboard-card">
+
+                  {/* Shift Timing Window Selector Card */}
+                  <div className="status-override-container" style={{ marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div className="status-title-row">
+                      <span className="checklist-header" style={{ margin: 0 }}>Target Attendance Slot</span>
+                      <button
+                        onClick={() => setShowRulesModal(true)}
+                        style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
+                        View Rules
+                      </button>
+                    </div>
+
+                    <div className="status-btn-group">
+                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out", "Permission Out", "Permission In"].map(slot => {
+                        const isAuto = slot === getAutoStatus();
+                        const isActive = selectedStatus === slot;
+                        const shortLabel =
+                          slot === "Morning In" ? "Morning" :
+                          slot === "Lunch Out" ? "Lunch Out" :
+                          slot === "Lunch In" ? "Lunch In" :
+                          slot === "Evening Out" ? "Evening" :
+                          slot === "Permission Out" ? "Perm Out" : "Perm In";
+                        const slotClass =
+                          slot === "Morning In" ? "slot-morning" :
+                          slot === "Lunch Out" ? "slot-lunch-out" :
+                          slot === "Lunch In" ? "slot-lunch-in" :
+                          slot === "Evening Out" ? "slot-evening" :
+                          slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
+                        return (
+                          <button
+                            key={slot}
+                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
+                            onClick={() => handleSlotSelect(slot)}
+                          >
+                            <span>{shortLabel}</span>
+                            {isAuto && <span className="auto-tag">Auto</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   {/* Status indicator */}
                   <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
@@ -1710,8 +1803,8 @@ const AIAttendanceScanner: React.FC = () => {
                     attendanceDetails.isDuplicate ? '⚠️' : '✓'
                   )}
                 </div>
-                <h2 className="sc-success-popup-title">
-                  {attendanceDetails.isDuplicate ? 'Already Marked' : 'Attendance Logged'}
+                <h2 className="sc-success-popup-title" style={{ color: attendanceDetails.isDuplicate ? '#d97706' : '#059669' }}>
+                  {attendanceDetails.isDuplicate ? '⚠️ Already Marked' : '✅ Verified'}
                 </h2>
                 <div className="sc-success-popup-name">
                   {attendanceDetails.empName}
@@ -1719,18 +1812,21 @@ const AIAttendanceScanner: React.FC = () => {
                 <div className="sc-success-popup-id">
                   ID #{attendanceDetails.empId}
                 </div>
-                <div className="sc-success-popup-time">
-                  Time: {attendanceDetails.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div className="sc-success-popup-time" style={{ fontWeight: 850, color: attendanceDetails.isDuplicate ? '#d97706' : '#059669', fontSize: '0.95rem' }}>
+                  {attendanceDetails.status || 'Attendance Logged'}
+                </div>
+                <div className="sc-success-popup-time" style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Time: {attendanceDetails.time}
                 </div>
                 <div className="sc-success-popup-time" style={{ color: '#4f46e5', fontWeight: 800 }}>
                   Face Match: {attendanceDetails.confidence || 98}%
                 </div>
                 {attendanceDetails.customMessage && (
-                  <div className="sc-success-popup-msg">
+                  <div className="sc-success-popup-msg" style={{ background: attendanceDetails.isDuplicate ? '#fffbeb' : '#f0fdf4', color: attendanceDetails.isDuplicate ? '#b45309' : '#15803d', border: `1px solid ${attendanceDetails.isDuplicate ? '#fde68a' : '#bbf7d0'}` }}>
                     {attendanceDetails.customMessage}
                   </div>
                 )}
-                <button className="sc-success-popup-btn" onClick={resetScannerAndResume}>
+                <button className="sc-success-popup-btn" style={{ background: attendanceDetails.isDuplicate ? '#f59e0b' : '#10b981' }} onClick={resetScannerAndResume}>
                   Close
                 </button>
               </div>

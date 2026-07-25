@@ -60,6 +60,10 @@ const getSlotColorConfig = (slot?: string) => {
       return { label: '🥗 Lunch In', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
     case 'Evening Out':
       return { label: '🌇 Evening Out', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' };
+    case 'Permission Out':
+      return { label: '🚪 Perm Out', color: '#e11d48', bg: '#fff1f2', border: '#fecdd3' };
+    case 'Permission In':
+      return { label: '🏁 Perm In', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' };
     default:
       return { label: slot || 'Attendance', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
   }
@@ -86,6 +90,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [statusColor,  setStatusColor]  = useState("#8b5cf6");
   const [matchCount,   setMatchCount]   = useState(0);
   const [verifyingName,setVerifyingName]= useState("");
+  const [activeFaceCount, setActiveFaceCount] = useState<number>(0);
 
   const [userData,     setUserData]     = useState<any>(null);
   const [userProfile,  setUserProfile]  = useState<any>(null);
@@ -119,6 +124,8 @@ const SecurityAttendanceScanner: React.FC = () => {
     if (nextState) {
       setMessage("⏸️ Scanner Paused");
       setStatusColor("#f59e0b");
+      detectedFacesRef.current = [];
+      setActiveFaceCount(0);
     } else {
       setMessage("Awaiting scan...");
       setStatusColor("#8b5cf6");
@@ -127,6 +134,177 @@ const SecurityAttendanceScanner: React.FC = () => {
 
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const detectedFacesRef = useRef<any[]>([]);
+  const lastDetectedFacesTimestampRef = useRef<number>(0);
+  const latestServerIdentitiesRef = useRef<any[]>([]);
+
+  // Smooth 60 FPS motion lerp tracker cache
+  const smoothTrackedFacesRef = useRef<Map<string, any>>(new Map());
+
+  // Real-time client-side fast face detector (runs every 30ms for 0ms latency tracking & motion follow)
+  useEffect(() => {
+    let detector: any = null;
+    if (typeof window !== "undefined" && "FaceDetector" in window) {
+      try {
+        detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 6 });
+      } catch {}
+    }
+
+    let isMounted = true;
+    const runFastLocalDetector = async () => {
+      if (!isMounted || !cameraReady || !videoRef.current || isScannerPausedRef.current) return;
+      const video = videoRef.current;
+      if (video.readyState < 2) return;
+
+      const timeNow = Date.now();
+
+      if (detector) {
+        try {
+          const localDetections = await detector.detect(video);
+          if (Array.isArray(localDetections) && localDetections.length > 0) {
+            const vW = video.clientWidth || 640;
+            const vH = video.clientHeight || 480;
+            const iW = video.videoWidth || 640;
+            const iH = video.videoHeight || 480;
+            const sX = vW / iW;
+            const sY = vH / iH;
+
+            const existingServerFaces = latestServerIdentitiesRef.current.length > 0 ? latestServerIdentitiesRef.current : (detectedFacesRef.current || []);
+
+            const updatedLocalFaces = localDetections.map((d: any, idx: number) => {
+              const b = d.boundingBox;
+              const rawLeft = b.x ?? b.left ?? 0;
+              const rawTop = b.y ?? b.top ?? 0;
+              const rawW = b.width ?? 120;
+              const rawH = b.height ?? 120;
+
+              // Mirror transform for selfie/front camera
+              const left = vW - ((rawLeft + rawW) * sX);
+              const right = vW - (rawLeft * sX);
+              const top = rawTop * sY;
+              const bottom = (rawTop + rawH) * sY;
+
+              const faceW = Math.max(50, right - left);
+              const faceH = Math.max(50, bottom - top);
+              const centerX = left + faceW / 2;
+              const centerY = top + faceH / 2;
+              const radius = Math.max(faceW, faceH) / 2 + 18;
+
+              // Pair with server employee name if available
+              const matchedServer = existingServerFaces[idx] || existingServerFaces[0] || {};
+              const empName = matchedServer.empName || matchedServer.EmpName || matchedServer.empId || matchedServer.EmpId;
+
+              return {
+                id: `face_${idx}`,
+                centerX,
+                centerY,
+                radius,
+                empName: empName || (existingServerFaces.length > 0 ? 'Analyzing...' : 'Aligning Face...'),
+                isRecognized: matchedServer.isRecognized !== false || Boolean(empName),
+                alreadyMarked: matchedServer.alreadyMarked,
+                lastSeen: timeNow
+              };
+            });
+
+            if (updatedLocalFaces.length > 0) {
+              detectedFacesRef.current = updatedLocalFaces;
+              setActiveFaceCount(updatedLocalFaces.length);
+              lastDetectedFacesTimestampRef.current = timeNow;
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      // Fast Client-Side Canvas Dynamic 4-Column Multi-Face Region Locator Fallback
+      try {
+        const sampleCanvas = document.createElement("canvas");
+        sampleCanvas.width = 160;
+        sampleCanvas.height = 120;
+        const sCtx = sampleCanvas.getContext("2d");
+        if (sCtx && video) {
+          sCtx.drawImage(video, 0, 0, 160, 120);
+          const imgData = sCtx.getImageData(0, 0, 160, 120);
+          const data = imgData.data;
+
+          const vW = video.clientWidth || 640;
+          const vH = video.clientHeight || 480;
+          const sX = vW / 160;
+          const sY = vH / 120;
+
+          // Segment image into 4 horizontal columns for multi-person separation (3, 4+ faces)
+          const cols = [
+            { minX: 40, maxX: 0, minY: 120, maxY: 0, count: 0 },
+            { minX: 80, maxX: 40, minY: 120, maxY: 0, count: 0 },
+            { minX: 120, maxX: 80, minY: 120, maxY: 0, count: 0 },
+            { minX: 160, maxX: 120, minY: 120, maxY: 0, count: 0 }
+          ];
+
+          for (let y = 10; y < 110; y += 4) {
+            for (let x = 10; x < 150; x += 4) {
+              const idx = (y * 160 + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+
+              const isSkin = (r > 60 && g > 40 && b > 20 && (r - Math.min(g, b) > 15) && (Math.abs(r - g) > 15) && r > g && r > b);
+              if (isSkin) {
+                const cIdx = Math.min(3, Math.floor(x / 40));
+                const col = cols[cIdx];
+                col.count++;
+                if (x < col.minX) col.minX = x;
+                if (x > col.maxX) col.maxX = x;
+                if (y < col.minY) col.minY = y;
+                if (y > col.maxY) col.maxY = y;
+              }
+            }
+          }
+
+          const localFaces: any[] = [];
+          const serverFaces = latestServerIdentitiesRef.current.length > 0 ? latestServerIdentitiesRef.current : (detectedFacesRef.current || []);
+
+          cols.forEach((col, idx) => {
+            if (col.count > 12 && col.maxX > col.minX) {
+              const rawW = col.maxX - col.minX;
+              const rawH = col.maxY - col.minY;
+              const left = vW - ((col.minX + rawW) * sX);
+              const right = vW - (col.minX * sX);
+              const top = col.minY * sY;
+              const bottom = (col.minY + rawH) * sY;
+              const fW = Math.max(65, right - left);
+              const fH = Math.max(65, bottom - top);
+              const cX = left + fW / 2;
+              const cY = top + fH / 2;
+              const rad = Math.max(fW, fH) / 2 + 18;
+
+              // Find matched employee from server identities
+              const matchedServer = serverFaces[localFaces.length] || serverFaces[0] || {};
+              const empName = matchedServer.empName || matchedServer.EmpName || matchedServer.empId || matchedServer.EmpId;
+
+              localFaces.push({
+                id: `local_face_${idx}`,
+                centerX: cX,
+                centerY: cY,
+                radius: rad,
+                empName: empName || (serverFaces.length > 0 ? 'Analyzing...' : 'Aligning Face...'),
+                isRecognized: matchedServer.isRecognized !== false || Boolean(empName),
+                alreadyMarked: matchedServer.alreadyMarked,
+                lastSeen: timeNow
+              });
+            }
+          });
+
+          if (localFaces.length > 0) {
+            detectedFacesRef.current = localFaces;
+            setActiveFaceCount(localFaces.length);
+            lastDetectedFacesTimestampRef.current = timeNow;
+          }
+        }
+      } catch {}
+    };
+
+    const intervalId = setInterval(runFastLocalDetector, 35); // 30 FPS client-side detector loop
+    return () => { isMounted = false; clearInterval(intervalId); };
+  }, [cameraReady]);
 
   const drawMultiFaceOverlays = useCallback(() => {
     const canvas = overlayCanvasRef.current;
@@ -145,104 +323,177 @@ const SecurityAttendanceScanner: React.FC = () => {
 
     ctx.clearRect(0, 0, width, height);
 
-    const faces = detectedFacesRef.current;
-    if (!faces || faces.length === 0) return;
-
     const timeNow = Date.now();
+    if (lastDetectedFacesTimestampRef.current > 0 && (timeNow - lastDetectedFacesTimestampRef.current > 4500)) {
+      detectedFacesRef.current = [];
+      smoothTrackedFacesRef.current.clear();
+    }
+
+    const rawFaces = detectedFacesRef.current;
+    if (!rawFaces || rawFaces.length === 0) {
+      smoothTrackedFacesRef.current.clear();
+      return;
+    }
+
     const rotationAngle = (timeNow / 16) % (2 * Math.PI);
+    const activeCache = smoothTrackedFacesRef.current;
 
-    faces.forEach((face: any, index: number) => {
-      const box = face.box || face.location || (face.top ? face : null);
-      if (!box) return;
+    rawFaces.forEach((face: any, index: number) => {
+      let box = face.box || face.location || face.boundingBox || face.rect ||
+        (face.top !== undefined || face.Top !== undefined || face.y !== undefined || face.left !== undefined || face.Left !== undefined ? face : null);
 
-      const imgW = box.imgW || box.imageWidth || 640;
-      const imgH = box.imgH || box.imageHeight || 480;
+      if (!box && face.centerX === undefined) {
+        const total = rawFaces.length;
+        const colWidth = width / Math.max(1, total);
+        const colCenter = (index + 0.5) * colWidth;
+        box = {
+          left: colCenter - 70,
+          right: colCenter + 70,
+          top: (height / 2) - 70,
+          bottom: (height / 2) + 70,
+          imgW: width,
+          imgH: height
+        };
+      }
 
-      const scaleX = width / imgW;
-      const scaleY = height / imgH;
+      let targetCenterX = 0;
+      let targetCenterY = 0;
+      let targetRadius = 60;
 
-      const rawLeft = box.left ?? 0;
-      const rawRight = box.right ?? (rawLeft + 100);
-      const rawTop = box.top ?? 0;
-      const rawBottom = box.bottom ?? (rawTop + 100);
+      if (face.centerX !== undefined) {
+        targetCenterX = face.centerX;
+        targetCenterY = face.centerY;
+        targetRadius = face.radius;
+      } else {
+        const imgW = box.imgW || box.imageWidth || box.Width || 640;
+        const imgH = box.imgH || box.imageHeight || box.Height || 480;
 
-      const left = width - (rawRight * scaleX);
-      const right = width - (rawLeft * scaleX);
-      const top = rawTop * scaleY;
-      const bottom = rawBottom * scaleY;
+        const scaleX = width / imgW;
+        const scaleY = height / imgH;
 
-      const faceW = right - left;
-      const faceH = bottom - top;
-      const centerX = left + faceW / 2;
-      const centerY = top + faceH / 2;
-      const radius = Math.max(faceW, faceH) / 2 + 18;
+        let rawTop = 0;
+        let rawRight = 0;
+        let rawBottom = 0;
+        let rawLeft = 0;
 
-      const isRecognized = face.isRecognized !== false;
+        if (Array.isArray(box) && box.length >= 4) {
+          // Python face_recognition array: [top, right, bottom, left]
+          rawTop = Number(box[0]) || 0;
+          rawRight = Number(box[1]) || 0;
+          rawBottom = Number(box[2]) || 0;
+          rawLeft = Number(box[3]) || 0;
+        } else if (box && typeof box === 'object') {
+          rawTop = box.top ?? box.Top ?? box.y ?? box.y1 ?? 0;
+          rawLeft = box.left ?? box.Left ?? box.x ?? box.x1 ?? 0;
+          rawRight = box.right ?? box.Right ?? (box.w ? rawLeft + box.w : box.width ? rawLeft + box.width : rawLeft + 140);
+          rawBottom = box.bottom ?? box.Bottom ?? (box.h ? rawTop + box.h : box.height ? rawTop + box.height : rawTop + 140);
+        }
+
+        const left = width - (rawRight * scaleX);
+        const right = width - (rawLeft * scaleX);
+        const top = rawTop * scaleY;
+        const bottom = rawBottom * scaleY;
+
+        const faceW = Math.max(50, right - left);
+        const faceH = Math.max(50, bottom - top);
+        targetCenterX = left + faceW / 2;
+        targetCenterY = top + faceH / 2;
+        targetRadius = Math.max(faceW, faceH) / 2 + 18;
+      }
+
+      // Smooth motion lerp interpolation (0.35 factor for 60 FPS fluid tracking)
+      const key = face.id || `face_${index}`;
+      let cached = activeCache.get(key);
+      if (!cached) {
+        cached = {
+          currentX: targetCenterX,
+          currentY: targetCenterY,
+          currentR: targetRadius
+        };
+      }
+
+      cached.currentX += (targetCenterX - cached.currentX) * 0.35;
+      cached.currentY += (targetCenterY - cached.currentY) * 0.35;
+      cached.currentR += (targetRadius - cached.currentR) * 0.35;
+      activeCache.set(key, cached);
+
+      const centerX = cached.currentX;
+      const centerY = cached.currentY;
+      const radius = cached.currentR;
+
+      const isRecognized = face.isRecognized !== false || Boolean(face.empName || face.EmpName || face.empId || face.EmpId);
       const isDup = face.alreadyMarked;
       const color = isRecognized ? (isDup ? '#f59e0b' : '#10b981') : '#ef4444';
-      const name = face.empName || face.empId || 'Unknown Person';
+      const name = face.empName || face.EmpName || face.empId || face.EmpId || 'Face Detected';
 
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(rotationAngle * (index % 2 === 0 ? 1 : -1));
 
+      // Outer animated green dashed circle
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, 2 * Math.PI);
       ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
       ctx.setLineDash([14, 8]);
       ctx.shadowColor = color;
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = 18;
       ctx.stroke();
 
+      // Inner counter-rotating white circle
       ctx.rotate(-rotationAngle * 2);
       ctx.beginPath();
       ctx.arc(0, 0, Math.max(10, radius - 8), 0, 2 * Math.PI);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 2;
       ctx.setLineDash([6, 6]);
       ctx.stroke();
 
       ctx.restore();
 
-      const bLen = 14;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
+      // Glowing corner brackets
+      const bLen = 16;
+      const leftBound = centerX - radius + 10;
+      const rightBound = centerX + radius - 10;
+      const topBound = centerY - radius + 10;
+      const bottomBound = centerY + radius - 10;
 
-      ctx.beginPath(); ctx.moveTo(left, top + bLen); ctx.lineTo(left, top); ctx.lineTo(left + bLen, top); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(right - bLen, top); ctx.lineTo(right, top); ctx.lineTo(right, top + bLen); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(left, bottom - bLen); ctx.lineTo(left, bottom); ctx.lineTo(left + bLen, bottom); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(right - bLen, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, bottom - bLen); ctx.stroke();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+
+      ctx.beginPath(); ctx.moveTo(leftBound, topBound + bLen); ctx.lineTo(leftBound, topBound); ctx.lineTo(leftBound + bLen, topBound); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rightBound - bLen, topBound); ctx.lineTo(rightBound, topBound); ctx.lineTo(rightBound, topBound + bLen); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(leftBound, bottomBound - bLen); ctx.lineTo(leftBound, bottomBound); ctx.lineTo(leftBound + bLen, bottomBound); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rightBound - bLen, bottomBound); ctx.lineTo(rightBound, bottomBound); ctx.lineTo(rightBound, bottomBound - bLen); ctx.stroke();
 
       const badgeText = `${isRecognized ? (isDup ? '⚠️ ' : '✅ ') : '❓ '}${name}`;
-      ctx.font = '700 13px Inter, system-ui, sans-serif';
+      ctx.font = '800 13px Inter, system-ui, sans-serif';
       const textW = ctx.measureText(badgeText).width;
-      const bW = textW + 26;
-      const bH = 26;
+      const bW = textW + 28;
+      const bH = 28;
       const bX = centerX - bW / 2;
-      const bY = top - 38;
+      const bY = topBound - 38;
 
       ctx.save();
       ctx.beginPath();
       if ((ctx as any).roundRect) {
-        (ctx as any).roundRect(bX, bY, bW, bH, 13);
+        (ctx as any).roundRect(bX, bY, bW, bH, 14);
       } else {
         ctx.rect(bX, bY, bW, bH);
       }
-      ctx.fillStyle = isRecognized ? (isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)') : 'rgba(239, 68, 68, 0.9)';
+      ctx.fillStyle = isRecognized ? (isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)') : 'rgba(239, 68, 68, 0.95)';
       ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.fill();
 
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       ctx.shadowBlur = 0;
       ctx.fillText(badgeText, centerX, bY + bH / 2);
       ctx.restore();
@@ -352,7 +603,9 @@ const SecurityAttendanceScanner: React.FC = () => {
   const bleTimeoutRef   = useRef<any>(null);
   const matchCountRef   = useRef(0);
   const lastMatchedEmpIdRef = useRef("");
+  const lastScanTimeRef = useRef<number>(0);
   const verifyingNameRef = useRef("");
+  const alreadyMarkedSuppressedRef = useRef<string | null>(null);
   
   const selectedStatusRef = useRef(getAutoStatus());
 
@@ -371,6 +624,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   
   useEffect(() => {
     selectedStatusRef.current = selectedStatus;
+    alreadyMarkedSuppressedRef.current = null;
   }, [selectedStatus]);
 
   // Load Beacons on Mount
@@ -554,6 +808,8 @@ const SecurityAttendanceScanner: React.FC = () => {
         setScannedEmployee(null); setMessage("Align face to scan"); setStatusColor("#8b5cf6");
         setCapturedImg(null);
         setBleSignalStrength(null);
+        detectedFacesRef.current = [];
+        setActiveFaceCount(0);
       }
       autoScan();
     }, delay);
@@ -568,7 +824,39 @@ const SecurityAttendanceScanner: React.FC = () => {
     setStatusColor("#8b5cf6");
     setMatchCount(0);
     setCooldownCountdown(0);
+    detectedFacesRef.current = [];
+    setActiveFaceCount(0);
     scheduleNextScan(1000);
+  };
+
+  const handleSlotSelect = async (slot: string) => {
+    setSelectedStatus(slot);
+    selectedStatusRef.current = slot;
+    alreadyMarkedSuppressedRef.current = null;
+    logDebug(`Slot selected manually: ${slot}`);
+
+    if (slot === "Permission Out" || slot === "Permission In") {
+      const empId = userData?.empCode || userData?.EmpCode || "";
+      if (empId) {
+        try {
+          setMessage(`Checking Permission Approval for ${empId}...`);
+          setStatusColor("#3b82f6");
+          const res = await fetch(`${API_BASE}Checkin/GetActivePermissionForToday?empId=${empId}`);
+          if (res.ok) {
+            const permData = await res.json();
+            if (!permData.hasApprovedPermission) {
+              setMessage("⚠️ No Approved Permission Found for Today");
+              setStatusColor("#f59e0b");
+              speakText("No approved permission request found for today. Please request permission first.");
+            } else {
+              setMessage(`✅ Approved Permission: ${permData.approvedMinutes}m (Return window calculated from OUT scan)`);
+              setStatusColor("#10b981");
+              speakText(`Permission approved for ${permData.approvedMinutes} minutes.`);
+            }
+          }
+        } catch {}
+      }
+    }
   };
 
   const autoScan = async () => {
@@ -643,42 +931,125 @@ const SecurityAttendanceScanner: React.FC = () => {
       }
       const data = await response.json();
       logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
-      if (data.detectedFaces || data.matchedEmployees) {
-        detectedFacesRef.current = data.detectedFaces || data.matchedEmployees || [];
+
+      const newFaces = data.detectedFaces || data.matchedEmployees || [];
+      latestServerIdentitiesRef.current = newFaces;
+      detectedFacesRef.current = newFaces;
+      setActiveFaceCount(newFaces.length);
+      if (newFaces.length > 0) {
+        lastDetectedFacesTimestampRef.current = Date.now();
+      } else {
+        setMatchCount(0);
+        lastMatchedEmpIdRef.current = "";
+        setVerifyingName("");
+        if (!scanSuccessRef.current) {
+          setMessage("Align face to scan");
+          setStatusColor("#8b5cf6");
+        }
       }
-      
+
       if (data.matchedEmployees && Array.isArray(data.matchedEmployees) && data.matchedEmployees.length > 0) {
-        const validSaved = data.matchedEmployees.filter((e: any) => e.alreadyMarked !== true && e.invalidLocation !== true && e.invalidTime !== true);
+        const firstEmp = data.matchedEmployees[0];
+        const primaryEmpId = firstEmp?.empId || "";
+        const currentSlotKey = `${primaryEmpId}_${selectedStatusRef.current}`;
+
+        // Reset suppression if a different employee faces the camera
+        if (alreadyMarkedSuppressedRef.current && !alreadyMarkedSuppressedRef.current.startsWith(primaryEmpId)) {
+          alreadyMarkedSuppressedRef.current = null;
+        }
+
+        const isUnsavedIdentification = data.matchedEmployees.some((e: any) => e.saveNeeded === false);
+        if (isUnsavedIdentification) {
+          const empId = firstEmp.empId || "";
+          const empName = firstEmp.empName || "Employee";
+
+          if (lastMatchedEmpIdRef.current === empId) {
+            const nextCount = matchCountRef.current + 1;
+            setMatchCount(nextCount);
+            setVerifyingName(empName);
+            setMessage(`Verifying: ${empName}...`);
+            setStatusColor(nextCount === 1 ? "#3b82f6" : "#eab308");
+          } else {
+            setMatchCount(1);
+            lastMatchedEmpIdRef.current = empId;
+            setVerifyingName(empName);
+            setMessage(`Analyzing: ${empName}...`);
+            setStatusColor("#3b82f6");
+          }
+          scheduleNextScan(150);
+          return;
+        }
+
+        const validSaved = data.matchedEmployees.filter((e: any) => e.alreadyMarked !== true && e.invalidLocation !== true && e.invalidTime !== true && e.hasPermission !== false && e.success !== false);
         const allNames = data.matchedEmployees.map((e: any) => e.empName || e.empId).join(", ");
         const savedNames = validSaved.map((e: any) => e.empName || e.empId).join(", ");
 
         setMatchCount(3);
         setScanSuccess(true); scanSuccessRef.current = true;
+        lastScanTimeRef.current = Date.now();
+        alreadyMarkedSuppressedRef.current = currentSlotKey;
 
         if (validSaved.length > 0) {
           setStatusColor("#10b981");
+          const firstSaved = validSaved[0] || {};
+          let origTime = firstSaved.time || data.time;
+          let displayTime = origTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          if (origTime && origTime.includes(":")) {
+            try {
+              const parts = origTime.split(":");
+              const hr = parseInt(parts[0], 10);
+              const min = parts[1];
+              const sec = parts[2] ? `:${parts[2]}` : "";
+              const ampm = hr >= 12 ? "PM" : "AM";
+              const displayHr = hr % 12 || 12;
+              displayTime = `${displayHr.toString().padStart(2, '0')}:${min}${sec} ${ampm}`;
+            } catch {}
+          }
+
+          const slotName = firstSaved.status || selectedStatusRef.current || "Morning In";
           setScannedEmployee({
             empName: savedNames,
             empId: validSaved.map((e: any) => e.empId).join(", "),
-            status: validSaved[0]?.status || "Attendance Logged",
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: `${slotName} Marked Successfully`,
+            time: displayTime,
             isDuplicate: false,
-            confidence: validSaved[0]?.confidence || 95
+            confidence: firstSaved.confidence || 95
           });
           setMessage(`✅ Verified (${validSaved.length}): ${savedNames}`);
           speakText(`Attendance marked for ${savedNames}`);
         } else {
           setStatusColor("#f59e0b");
+          const firstMatched = data.matchedEmployees[0] || {};
+          let origTime = firstMatched.time || data.time;
+          let displayTime = origTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          if (origTime && origTime.includes(":")) {
+            try {
+              const parts = origTime.split(":");
+              const hr = parseInt(parts[0], 10);
+              const min = parts[1];
+              const sec = parts[2] ? `:${parts[2]}` : "";
+              const ampm = hr >= 12 ? "PM" : "AM";
+              const displayHr = hr % 12 || 12;
+              displayTime = `${displayHr.toString().padStart(2, '0')}:${min}${sec} ${ampm}`;
+            } catch {}
+          }
+
+          const slotName = firstMatched.status || selectedStatusRef.current || "Permission";
+          const isNoPerm = firstMatched.hasPermission === false || (firstMatched.success === false && firstMatched.message && firstMatched.message.includes("No Approved Permission"));
+          const alertTitle = isNoPerm ? "No Approved Permission Found" : `${slotName} Already Marked`;
+          const alertMsg = firstMatched.message || `${slotName} already marked at ${displayTime}`;
+
           setScannedEmployee({
             empName: allNames,
             empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
-            status: "Already Marked Today",
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: alertTitle,
+            time: displayTime,
+            customMessage: alertMsg,
             isDuplicate: true,
-            confidence: data.matchedEmployees[0]?.confidence || 90
+            confidence: firstMatched.confidence || 90
           });
-          setMessage(`⚠️ Cooldown: ${allNames}`);
-          speakText(`${allNames} attendance already marked today`);
+          setMessage(`⚠️ ${alertTitle}: ${allNames}`);
+          speakText(isNoPerm ? `No approved permission request found for today for ${allNames}` : `${allNames} ${slotName} already marked`);
         }
 
         setVerifyingName(""); lastMatchedEmpIdRef.current = "";
@@ -766,8 +1137,14 @@ const SecurityAttendanceScanner: React.FC = () => {
         }
       } else {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-        setStatusColor("#ef4444"); setMessage("❌ " + (data.message || "Face Not Recognized"));
-        scheduleNextScan(500);
+        if (!data.matchedEmployees || data.matchedEmployees.length === 0) {
+          setScannedEmployee(null);
+          alreadyMarkedSuppressedRef.current = null;
+          setStatusColor("#8b5cf6"); setMessage("Align face to scan");
+        } else {
+          setStatusColor("#ef4444"); setMessage("❌ " + (data.message || "Face Not Recognized"));
+        }
+        scheduleNextScan(600);
       }
     } catch (err: any) {
       logDebug("Err: " + err.message);
@@ -876,7 +1253,7 @@ const SecurityAttendanceScanner: React.FC = () => {
           }
           .status-btn-group {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 4px;
             background: #f8fafc;
             padding: 3px;
@@ -899,7 +1276,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               margin-top: 2px !important;
             }
             .status-btn-group {
-              grid-template-columns: repeat(4, 1fr) !important;
+              grid-template-columns: repeat(3, 1fr) !important;
               gap: 3px !important;
               padding: 2px !important;
               border-radius: 8px !important;
@@ -953,6 +1330,18 @@ const SecurityAttendanceScanner: React.FC = () => {
             box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25) !important;
             border-color: #8b5cf6 !important;
           }
+          .status-btn.slot-perm-out.active {
+            background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(225, 29, 72, 0.25) !important;
+            border-color: #e11d48 !important;
+          }
+          .status-btn.slot-perm-in.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+            border-color: #2563eb !important;
+          }
           .status-btn.slot-morning:not(.active):hover {
             background: rgba(16, 185, 129, 0.05);
             color: #059669;
@@ -972,6 +1361,16 @@ const SecurityAttendanceScanner: React.FC = () => {
             background: rgba(139, 92, 246, 0.05);
             color: #7c3aed;
             border-color: rgba(139, 92, 246, 0.25);
+          }
+          .status-btn.slot-perm-out:not(.active):hover {
+            background: rgba(225, 29, 72, 0.05);
+            color: #e11d48;
+            border-color: rgba(225, 29, 72, 0.25);
+          }
+          .status-btn.slot-perm-in:not(.active):hover {
+            background: rgba(37, 99, 235, 0.05);
+            color: #2563eb;
+            border-color: rgba(37, 99, 235, 0.25);
           }
           .auto-tag {
             position: absolute;
@@ -1042,46 +1441,19 @@ const SecurityAttendanceScanner: React.FC = () => {
               <p className="sc-subtitle">Officer Face Verification Scanner</p>
             </div>
 
-            {/* Status Override */}
-            <div className="status-override-container">
-              <div className="status-title-row">
-                <span className="checklist-header" style={{ margin: 0 }}>Attendance Timing Window</span>
-                <button 
-                  onClick={() => setShowRulesModal(true)}
-                  style={{ background: 'transparent', border: 'none', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
-                  View Rules
-                </button>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button 
+                onClick={() => setShowRulesModal(true)}
+                style={{ background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)', color: '#7c3aed', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+              >
+                <IonIcon icon={informationCircleOutline} style={{ fontSize: '16px' }} />
+                View Rules
+              </button>
 
-              <div className="status-btn-group">
-                {["Morning In", "Lunch Out", "Lunch In", "Evening Out"].map(slot => {
-                  const isAuto = slot === getAutoStatus();
-                  const isActive = selectedStatus === slot;
-                  const shortLabel = slot === "Morning In" ? "Morning" : slot === "Lunch Out" ? "Lunch Out" : slot === "Lunch In" ? "Lunch In" : "Evening";
-                  const slotClass = slot === "Morning In" ? "slot-morning" : slot === "Lunch Out" ? "slot-lunch-out" : slot === "Lunch In" ? "slot-lunch-in" : "slot-evening";
-                  return (
-                    <button
-                      key={slot}
-                      className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedStatus(slot);
-                        setIsManualOverride(true);
-                        logDebug(`Selected manually on Kiosk: ${slot}`);
-                      }}
-                    >
-                      <span>{shortLabel}</span>
-                      {isAuto && <span className="auto-tag">Auto</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              <button className="sc-log-btn" onClick={() => history.push('/ai-attendance-log/security')} title="Attendance Log History">
+                <IonIcon icon={calendarOutline} />
+              </button>
             </div>
-
-            <button className="sc-log-btn" onClick={() => history.push('/ai-attendance-log/security')} style={{ background: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.15)' }}>
-              <IonIcon icon={calendarOutline} />
-            </button>
           </div>
 
           {/* BODY */}
@@ -1089,9 +1461,16 @@ const SecurityAttendanceScanner: React.FC = () => {
 
             {/* LEFT: CAMERA */}
             <div className="sc-cam-area">
-              <div className="sc-cam-card clay" style={{ borderColor: '#e2e8f0', background: '#f8fafc', position: 'relative' }}>
+              <div className="sc-cam-card clay">
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
                 <canvas ref={overlayCanvasRef} className="sc-overlay-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
+
+                {activeFaceCount > 0 && (
+                  <div className="sc-face-count-badge">
+                    <span>👥</span>
+                    <span>{activeFaceCount} {activeFaceCount === 1 ? 'Face Detected' : 'Faces Detected'}</span>
+                  </div>
+                )}
 
                 <div className="sc-hud">
                   <svg className="sc-progress-svg" viewBox="0 0 120 120">
@@ -1100,12 +1479,14 @@ const SecurityAttendanceScanner: React.FC = () => {
                       cy="60"
                       r="50"
                       className="sc-progress-track"
+                      fill="none"
                     />
                     <circle
                       cx="60"
                       cy="60"
                       r="50"
                       className="sc-progress-bar"
+                      fill="none"
                       strokeDasharray={2 * Math.PI * 50}
                       strokeDashoffset={2 * Math.PI * 50 * (1 - (matchCount / 3))}
                       style={{
@@ -1318,6 +1699,57 @@ const SecurityAttendanceScanner: React.FC = () => {
                       ? 'Please step away from the camera' 
                       : message}
                   </div>
+                  {/* Status Selection Buttons Widget */}
+                  <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                    <div className="status-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span className="checklist-header" style={{ margin: 0, fontSize: '0.78rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Target Attendance Slot</span>
+                      <button
+                        onClick={() => setShowRulesModal(true)}
+                        style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
+                        View Rules
+                      </button>
+                    </div>
+
+                    <div className="status-btn-group" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out", "Permission Out", "Permission In"].map(slot => {
+                        const isAuto = slot === getAutoStatus();
+                        const isActive = selectedStatus === slot;
+                        const shortLabel =
+                          slot === "Morning In" ? "Morning" :
+                          slot === "Lunch Out" ? "Lunch Out" :
+                          slot === "Lunch In" ? "Lunch In" :
+                          slot === "Evening Out" ? "Evening" :
+                          slot === "Permission Out" ? "Perm Out" : "Perm In";
+                        const slotClass =
+                          slot === "Morning In" ? "slot-morning" :
+                          slot === "Lunch Out" ? "slot-lunch-out" :
+                          slot === "Lunch In" ? "slot-lunch-in" :
+                          slot === "Evening Out" ? "slot-evening" :
+                          slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
+                        return (
+                          <button
+                            key={slot}
+                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
+                            onClick={() => handleSlotSelect(slot)}
+                            style={{
+                              position: 'relative',
+                              padding: '8px 4px',
+                              borderRadius: '10px',
+                              fontWeight: 700,
+                              fontSize: '0.78rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <span>{shortLabel}</span>
+                            {isAuto && <span className="auto-tag">Auto</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   {/* Dashboard Checklist Widget */}
                   {(!isMobile || sheetState === "expanded") && (
@@ -1479,8 +1911,8 @@ const SecurityAttendanceScanner: React.FC = () => {
                     scannedEmployee.isDuplicate ? '⚠️' : '✓'
                   )}
                 </div>
-                <h2 className="sc-success-popup-title">
-                  {scannedEmployee.isDuplicate ? 'Already Marked' : 'Attendance Logged'}
+                <h2 className="sc-success-popup-title" style={{ color: scannedEmployee.isDuplicate ? '#d97706' : '#059669' }}>
+                  {scannedEmployee.isDuplicate ? '⚠️ Already Marked' : '✅ Verified'}
                 </h2>
                 <div className="sc-success-popup-name">
                   {scannedEmployee.empName}
@@ -1488,18 +1920,21 @@ const SecurityAttendanceScanner: React.FC = () => {
                 <div className="sc-success-popup-id">
                   ID #{scannedEmployee.empId}
                 </div>
-                <div className="sc-success-popup-time">
-                  Time: {scannedEmployee.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div className="sc-success-popup-time" style={{ fontWeight: 850, color: scannedEmployee.isDuplicate ? '#d97706' : '#059669', fontSize: '0.95rem' }}>
+                  {scannedEmployee.status || 'Attendance Logged'}
+                </div>
+                <div className="sc-success-popup-time" style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Time: {scannedEmployee.time}
                 </div>
                 <div className="sc-success-popup-time" style={{ color: '#8b5cf6', fontWeight: 800 }}>
                   Face Match: {scannedEmployee.confidence || 98}%
                 </div>
                 {scannedEmployee.customMessage && (
-                  <div className="sc-success-popup-msg">
+                  <div className="sc-success-popup-msg" style={{ background: scannedEmployee.isDuplicate ? '#fffbeb' : '#f0fdf4', color: scannedEmployee.isDuplicate ? '#b45309' : '#15803d', border: `1px solid ${scannedEmployee.isDuplicate ? '#fde68a' : '#bbf7d0'}` }}>
                     {scannedEmployee.customMessage}
                   </div>
                 )}
-                <button className="sc-success-popup-btn" style={{ background: '#8b5cf6' }} onClick={resetScannerAndResume}>
+                <button className="sc-success-popup-btn" style={{ background: scannedEmployee.isDuplicate ? '#f59e0b' : '#10b981' }} onClick={resetScannerAndResume}>
                   Close
                 </button>
               </div>
