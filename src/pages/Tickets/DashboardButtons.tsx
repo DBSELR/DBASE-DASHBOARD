@@ -29,6 +29,22 @@ type Props = {
   projectId: string;
 };
 
+const getCollegeDisplay = (remarks: any, subject: any) => {
+  if (!remarks || typeof remarks !== 'string') return "";
+  const cleanRemarks = remarks.trim();
+  if (cleanRemarks === "null" || cleanRemarks === "0" || cleanRemarks === "") return "";
+  
+  const explicitMatch = cleanRemarks.match(/(?:college|colleage)\s+code\s*[-:\s]*\s*(\d+)/i);
+  if (explicitMatch) {
+    return `college code-${explicitMatch[1]}`;
+  }
+  const regMatch = cleanRemarks.match(/\b\d{4}(\d{3})\d{5}\b/);
+  if (regMatch) {
+    return `college code-${regMatch[1]}`;
+  }
+  return "";
+};
+
 const ADMIN_CODES = ['1507', '1509', '1532', '1501', '1540', '1504'];
 
 const CHIPS = [
@@ -172,18 +188,25 @@ export default function DashboardButtons(props: Props) {
         raw = await handleResponse(res, "DASH_SPECIAL");
       }
 
-      const mapped = (raw || []).map((r: any) => ({
-        TICKETID: String(r[1] || r[0] || r.TICKETID),
-        Client: r[2] || r.CLIENT,
-        Project: r[3] || r.PROJECT,
-        Subject: r[6] || r.SUBJECT,
-        Remarks: r[11] || r[29] || r.REMARKS,
-        CloseRemark: r[22] || r.CloseRemark,
-        TDate: r[21] || r[8] || r.TDATE,
-        Employee: r[16] || r.EMPLOYEE,
-        TicketPriority: r[13] || r[11] || r.TICKETPRIORITY || "Normal",
-        AID: r[9] || r.AID
-      }));
+      const mapped = (raw || []).map((r: any) => {
+        const remarksStr = r[11] || r[29] || r.REMARKS || "";
+        const subjectStr = r[6] || r.SUBJECT || "";
+        const dbColcode = r[30] || r.COLCODE || r.Colcode || "";
+        const resolvedColcode = dbColcode ? `college code-${dbColcode}` : getCollegeDisplay(remarksStr, subjectStr);
+        return {
+          TICKETID: String(r[1] || r[0] || r.TICKETID),
+          Client: r[2] || r.CLIENT,
+          Project: r[3] || r.PROJECT,
+          Subject: r[6] || r.SUBJECT,
+          Remarks: remarksStr,
+          CloseRemark: r[22] || r.CloseRemark,
+          TDate: r[21] || r[8] || r.TDATE,
+          Employee: r[16] || r.EMPLOYEE,
+          TicketPriority: r[13] || r[11] || r.TICKETPRIORITY || "Normal",
+          AID: r[9] || r.AID,
+          Colcode: resolvedColcode
+        };
+      });
 
       setData(mapped);
     } catch (err) {
@@ -370,7 +393,16 @@ export default function DashboardButtons(props: Props) {
                   </span>
                 </div>
 
-                {r.Subject && <div className="dbase-card-subject" style={{ fontWeight: 600, fontSize: "15px", marginBottom: "6px" }}>{r.Subject}</div>}
+                {r.Subject && (
+                  <div className="dbase-card-subject" style={{ fontWeight: 600, fontSize: "15px", marginBottom: "6px" }}>
+                    {r.Subject}
+                    {r.Colcode && (
+                      <span style={{ fontSize: "13px", color: "var(--ion-color-medium)", marginLeft: "8px", fontWeight: "normal" }}>
+                        ({r.Colcode})
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="dbase-card-remarks">{r.Remarks}</div>
 

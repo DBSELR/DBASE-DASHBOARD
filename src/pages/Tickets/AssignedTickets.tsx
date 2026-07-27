@@ -7,12 +7,12 @@ import { downloadOutline, eyeOutline, checkmarkCircleOutline, timeOutline, calen
 import moment from "moment";
 import "./AssignedTickets.css";
 
-type Props = { 
-  apiBase: string; 
-  fromDate: string; 
-  toDate: string; 
-  clientId: string; 
-  projectId: string; 
+type Props = {
+  apiBase: string;
+  fromDate: string;
+  toDate: string;
+  clientId: string;
+  projectId: string;
   empCode: string;
   onCountChange?: (count: number) => void;
 };
@@ -32,7 +32,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
   const [empNames, setEmpNames] = useState<{ EmpCode: string; EmpName: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ open: false, msg: "", color: "success" });
-  
+
   /* Date Modal State */
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       const res = await fetch(url, { headers: getHeaders(true) });
       const raw = await handleResponse(res, "ASSIGNED");
       console.log("[AssignedTickets] LOADEMPTASKSLIST Payload:", raw);
-      
+
       if (raw && raw.length > 0) {
         const firstItem = raw[0];
         console.log("[AssignedTickets] Sample Item Structure:", firstItem);
@@ -160,10 +160,10 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
     const num = parseFloat(val);
     if (isNaN(num)) return val;
     if (num === 0) return "0 mins";
-    
+
     const hours = Math.floor(num);
     const minutes = Math.round((num - hours) * 60);
-    
+
     if (hours === 0) return `${minutes} mins`;
     if (minutes === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
     return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} mins`;
@@ -172,9 +172,9 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
   const updateVal = (id: string, field: keyof UpdateState, val: string) => {
     setUpdates(prev => ({
       ...prev,
-      [id]: { 
-        ...(prev[id] || { status: "", remark: "", supportEmpCode: "", ticketType: "", closingRemarks: "", quitRemarks: "", targetDate: "" }), 
-        [field]: val 
+      [id]: {
+        ...(prev[id] || { status: "", remark: "", supportEmpCode: "", ticketType: "", closingRemarks: "", quitRemarks: "", targetDate: "" }),
+        [field]: val
       }
     }));
   };
@@ -194,11 +194,11 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
 
   async function onUpdateStatus(ticket: any) {
     const up = updates[ticket.TICKETID] || { status: "", remark: "", supportEmpCode: "", ticketType: "", closingRemarks: "", quitRemarks: "", targetDate: "" };
-    
+
     if (up.status === "Q" && !up.quitRemarks.trim()) return alert("Please enter quitting reason");
     if (up.status === "C" && (!up.closingRemarks.trim() || !up.ticketType)) return alert("Please enter closing reason and ticket type");
     if (!up.status) return alert("Please select a status");
-    
+
     const payload = {
       _TICKETID: ticket.TICKETID,
       _EMPCODE_LOGIN: empCode,
@@ -211,7 +211,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
 
     try {
       const res = await fetch(`${apiBase}Tickets/UPDATE_ASSIGN_TICKET`, {
-        method: "POST", 
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(payload)
       });
@@ -221,9 +221,9 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       } else {
         setToast({ open: true, msg: "Update Failed", color: "danger" });
       }
-    } catch (err) { 
+    } catch (err) {
       console.error("[AssignedTickets] onUpdateStatus ERROR:", err);
-      setToast({ open: true, msg: "Update Failed", color: "danger" }); 
+      setToast({ open: true, msg: "Update Failed", color: "danger" });
     }
   }
 
@@ -270,14 +270,14 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
         console.warn("[AssignedTickets] Invalid URL detected in downloadHandler");
         return;
       }
-      
+
       const res = await fetch(url, { headers: getHeaders(true) });
       if (!res.ok) {
         console.error("[AssignedTickets] Download fetch failed:", res.status);
         window.open(url, '_blank');
         return;
       }
-      
+
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -301,7 +301,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
           const up = updates[x.TICKETID] || { status: "", remark: "", supportEmpCode: "", ticketType: "", closingRemarks: "", quitRemarks: "", targetDate: "" };
           const opts = getStatusOptions(x.Issue_Status);
           const statusClass = `ast-status-${x.Issue_Status.toLowerCase()}`;
-          
+
           return (
             <div key={`${x.TICKETID || idx}-${idx}`} className="ast-ticket-row-container ast-fade-up">
               <div className="ast-ticket-badge">
@@ -353,7 +353,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                       </div>
                     </div>
                   )}
-                  
+
                 </div>
 
                 {/* Column 3: Remarks */}
@@ -370,7 +370,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                 <div className="ast-update-fields">
                   <div className="ast-field-group">
                     <span className="ast-field-label">Transfer To :</span>
-                    <div 
+                    <div
                       className={`ast-inline-select searchable-trigger ${activeTicketDropdown === x.TICKETID ? 'active' : ''}`}
                       onClick={(e) => toggleDropdown(x.TICKETID, e)}
                     >
@@ -440,11 +440,11 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                   )}
                 </div>
 
-                  <div className="ast-action-footer">
-                   <div className="ast-attachment-btns">
+                <div className="ast-action-footer">
+                  <div className="ast-attachment-btns">
                     {x.File_Path && x.File_Path !== "0" && x.File_Path !== "null" && x.File_Path !== "" && (
-                      <button 
-                        className="ast-attachment-btn" 
+                      <button
+                        className="ast-attachment-btn"
                         onClick={() => {
                           const fileUrl = `https://tickets.dbasesolutions.in/issue_file/${x.File_Path}`;
                           console.log("[AssignedTickets] File click:", fileUrl);
@@ -456,8 +456,8 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                       </button>
                     )}
                     {x.Img_Path && x.Img_Path !== "0" && x.Img_Path !== "null" && x.Img_Path !== "FALSE" && x.Img_Path !== "" && (
-                      <button 
-                        className="ast-attachment-btn" 
+                      <button
+                        className="ast-attachment-btn"
                         onClick={() => {
                           const imgUrl = `https://tickets.dbasesolutions.in/issue_img/${x.Img_Path}`;
                           console.log("[AssignedTickets] Image click:", imgUrl);
@@ -482,7 +482,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
 
                   <button className="ast-primary-submit-btn" onClick={() => onUpdateStatus(x)}>
                     <IonIcon icon={checkmarkCircleOutline} />
-                    <span style={{color:"#fff"}}>Update Task</span>
+                    <span style={{ color: "#fff" }}>Update Task</span>
                   </button>
                 </div>
               </div>
@@ -533,7 +533,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       >
         <div className="pwt-modal-content">
           <h3 className="pwt-modal-title">Work Report: #{activeWorkTicket?.TICKETID}</h3>
-          
+
           <div className="ast-field-group vertical" style={{ width: '100%', marginBottom: '16px' }}>
             <span className="ast-field-label">Work Description</span>
             <textarea
@@ -590,14 +590,14 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       {activeTicketDropdown && createPortal(
         <>
           <div className="dropdown-outside-click-layer" onClick={() => setActiveTicketDropdown(null)} />
-          <div 
+          <div
             className="custom-inline-dropdown"
-            onMouseDown={(e) => e.stopPropagation()} 
-            style={{ 
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
               position: 'absolute',
-              top: `${dropdownPos.top}px`, 
-              left: `${dropdownPos.left}px`, 
-              width: `${dropdownPos.width}px` 
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              width: `${dropdownPos.width}px`
             }}
           >
             <div className="dropdown-search-sec">
@@ -617,10 +617,10 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                 </button>
               )}
             </div>
-            
+
             <div className="dropdown-body">
               {/* Optional: 'None' choice */}
-              <div 
+              <div
                 className="dropdown-emp-item"
                 onMouseDown={(event) => {
                   event.preventDefault();
@@ -637,14 +637,14 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
 
               {filteredEmployees.map((e, index) => {
                 const isSelected = updates[activeTicketDropdown!]?.supportEmpCode === e.EmpCode;
-                
+
                 // Clean initials logic (stripping numeric prefixes)
                 const nameWithoutId = e.EmpName.includes("-") ? e.EmpName.split("-")[1].trim() : e.EmpName;
                 const initials = (nameWithoutId.charAt(0) || "?").toUpperCase();
 
                 return (
-                  <div 
-                    key={index} 
+                  <div
+                    key={index}
                     className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
                     onMouseDown={(event) => {
                       event.preventDefault();
