@@ -548,7 +548,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             ToDate: payload._todate,
             LeaveType: leaveType,
             Reason: payload._remarks,
-            RaEmpCode: ra1EmpCode,
+            RaEmpCode: ra1EmpCode || user.ra1 || user.reportingAuthority || "",
             RequestType: requestType
           };
 
