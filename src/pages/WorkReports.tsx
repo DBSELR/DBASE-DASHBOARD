@@ -68,7 +68,7 @@ const WorkReports: React.FC = () => {
     "submit"
   );
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [workLocation, setWorkLocation] = useState<string | null>(null);
+  const [workLocation, setWorkLocation] = useState<string>("In-House");
   const [reportContent, setReportContent] = useState<string>("");
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString());
   const [showDateModal, setShowDateModal] = useState(false);
@@ -450,7 +450,7 @@ const WorkReports: React.FC = () => {
 
   const handleClear = () => {
     setSelectedClient(null);
-    setWorkLocation(null);
+    setWorkLocation("In-House");
     setReportContent("");
     setReportDate(new Date().toISOString());
   };
@@ -596,7 +596,7 @@ const WorkReports: React.FC = () => {
 
 
           {/* TEST BUTTONS BAR FOR WORK REPORT REMINDER */}
-          <div style={{
+          {/* <div style={{
             background: "rgba(220, 38, 38, 0.08)",
             border: "1.5px dashed rgba(220, 38, 38, 0.4)",
             borderRadius: "16px",
@@ -689,7 +689,7 @@ const WorkReports: React.FC = () => {
                 📡 Trigger Server Push (FCM + SignalR)
               </button>
             </div>
-          </div>
+          </div> */}
 
           {/* Custom Segments - Visible only on Mobile via CSS */}
           <div className="wr-segment-container">
