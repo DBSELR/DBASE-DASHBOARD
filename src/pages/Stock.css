@@ -154,7 +154,13 @@
 }
 
 .stock-grid--entry {
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 600px) {
+  .stock-grid--entry {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stock-field {
@@ -169,8 +175,14 @@
   min-width: 0;
 }
 
+@media (max-width: 768px) {
+  .stock-field--span-2 {
+    grid-column: span 1;
+  }
+}
+
 .stock-field--wide {
-  grid-column: span 3;
+  grid-column: 1 / -1;
   min-width: 0;
 }
 

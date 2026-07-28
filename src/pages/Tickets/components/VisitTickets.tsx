@@ -12,7 +12,15 @@ import {
   IonItem,
   IonLabel,
   IonInput,
+  IonPopover,
+  IonDatetime,
+  IonIcon
 } from "@ionic/react";
+import { calendarOutline, documentTextOutline, searchOutline } from "ionicons/icons";
+import { ChevronLeft } from "lucide-react";
+import { useHistory } from "react-router-dom";
+import "../../WorkReports.css";
+import "../../Stock.css";
 import "./VisitTickets.css";
 import moment from "moment";
 import { API_BASE } from "../../../config";
@@ -40,6 +48,7 @@ interface VisitTicket {
 }
 
 const VisitTickets: React.FC = () => {
+  const history = useHistory();
   const [tickets, setTickets] = useState<VisitTicket[]>([]);
   const [loading, setLoading] = useState(false);
 const today = moment().format("YYYY-MM-DD");
@@ -212,106 +221,126 @@ const formatTime = (time: string) => {
 };
 
   return (
-   <IonContent className="visit-page">
-  <div className="visit-container">
-
-    {/* Header */}
-    <div className="visit-top-header">
-      <h2 className="visit-title">Visits Management</h2>
-      <p className="visit-subtitle">
-        Closed Tickets & Visit History
-      </p>
-    </div>
-
-    {/* Sticky Section */}
-    <div className="visit-sticky-bar">
-
-      {/* Tabs */}
-      <div className="visit-tabs">
-        <button
-          type="button"
-          className={activeTab === "tickets" ? "visit-tab active" : "visit-tab"}
-          onClick={() => setActiveTab("tickets")}
-        >
-          Tickets
-        </button>
-
-        <button
-          type="button"
-          className={activeTab === "visits" ? "visit-tab active" : "visit-tab"}
-          onClick={() => setActiveTab("visits")}
-        >
-          Visits
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="visit-panel">
-        <div className="date-filter-container">
-
-          <IonItem className="date-filter-item">
-            <IonLabel position="stacked">From Date</IonLabel>
-            <IonInput
-              type="date"
-              value={fromDate}
-              onIonChange={(e) => setFromDate(e.detail.value || "")}
-            />
-          </IonItem>
-
-          <IonItem className="date-filter-item">
-            <IonLabel position="stacked">To Date</IonLabel>
-            <IonInput
-              type="date"
-              value={toDate}
-              onIonChange={(e) => setToDate(e.detail.value || "")}
-            />
-          </IonItem>
-
-          <div className="filter-button-group">
-        <IonButton
-  color="primary"
-  expand="block"
- onClick={() => {
-  const from = fromDate || today;
-  const to = toDate || today;
-
-  if (activeTab === "tickets") {
-    loadClosedTickets(from, to);
-  } else {
-    loadTickets(from, to);
-  }
-}}
->
-  Apply Filter
-</IonButton>
-
-            <IonButton
-  color="medium"
-  expand="block"
- onClick={() => {
-  setFromDate("");
-  setToDate("");
-
-  if (activeTab === "tickets") {
-    loadClosedTickets();
-  } else {
-    loadTickets();
-  }
-}}
->
-  Reset
-</IonButton>
+    <IonPage>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Visits Management</h1>
+                <p className="page-wr-subtitle">Closed Tickets & Visit History</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <IonIcon icon={documentTextOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+              </div>
+            </div>
           </div>
 
-        </div>
-      </div>
+          <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
+            
+            {/* Tabs (Maintained with stock-tabs styling) */}
+            <div className="stock-tabs" style={{ background: 'transparent', boxShadow: 'none', padding: '0 0 16px 0', borderBottom: '1px solid var(--stock-border)' }}>
+              <button
+                type="button"
+                className={`stock-tab ${activeTab === "tickets" ? "active" : ""}`}
+                onClick={() => setActiveTab("tickets")}
+                style={{ minWidth: '120px' }}
+              >
+                Tickets
+              </button>
+              <button
+                type="button"
+                className={`stock-tab ${activeTab === "visits" ? "active" : ""}`}
+                onClick={() => setActiveTab("visits")}
+                style={{ minWidth: '120px' }}
+              >
+                Visits
+              </button>
+            </div>
 
-    </div>
+            <div className="stock-grid" style={{ marginTop: '16px' }}>
+              
+              {/* From Date */}
+              <div className="stock-field">
+                <label>From Date</label>
+                <div id="from-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: fromDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                  {fromDate ? moment(fromDate).format("DD/MM/YYYY") : "Select Date"}
+                </div>
+                <IonPopover trigger="from-date-trigger" triggerAction="click" alignment="start">
+                  <IonDatetime
+                    presentation="date"
+                    value={fromDate}
+                    onIonChange={(e) => setFromDate((e.detail.value as string).split('T')[0])}
+                  />
+                </IonPopover>
+              </div>
 
-    {/* Table Panel */}
-    <div className="visit-panel">
+              {/* To Date */}
+              <div className="stock-field">
+                <label>To Date</label>
+                <div id="to-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: toDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                  {toDate ? moment(toDate).format("DD/MM/YYYY") : "Select Date"}
+                </div>
+                <IonPopover trigger="to-date-trigger" triggerAction="click" alignment="start">
+                  <IonDatetime
+                    presentation="date"
+                    value={toDate}
+                    onIonChange={(e) => setToDate((e.detail.value as string).split('T')[0])}
+                  />
+                </IonPopover>
+              </div>
 
-      <div className="visit-table-wrapper">
+              {/* Action Buttons */}
+              <div className="stock-field">
+                {/* Spacer label to align vertically with date inputs */}
+                <label className="hide-on-mobile">&nbsp;</label>
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', height: '100%', alignItems: 'flex-end' }}>
+                  <button 
+                    className="stock-button" 
+                    style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                    onClick={() => {
+                      const from = fromDate || today;
+                      const to = toDate || today;
+                      if (activeTab === "tickets") {
+                        loadClosedTickets(from, to);
+                      } else {
+                        loadTickets(from, to);
+                      }
+                    }}
+                  >
+                    Apply Filter
+                  </button>
+                  <button 
+                    className="stock-button stock-button--secondary" 
+                    style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                      if (activeTab === "tickets") {
+                        loadClosedTickets();
+                      } else {
+                        loadTickets();
+                      }
+                    }}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Table Panel */}
+          <div className="visit-panel" style={{ margin: '0 16px 20px 16px' }}>
+            <div className="visit-table-wrapper">
 
         {activeTab === "tickets" ? (
 
@@ -421,10 +450,11 @@ const formatTime = (time: string) => {
 
     </div>
 
-  </div>
+        </div>
 
-  <IonLoading isOpen={loading} message="Loading..." />
-</IonContent>
+        <IonLoading isOpen={loading} message="Loading..." />
+      </IonContent>
+    </IonPage>
   );
 };
 

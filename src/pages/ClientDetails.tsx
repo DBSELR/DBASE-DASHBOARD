@@ -23,12 +23,18 @@ import {
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE } from "../config";
-import { personOutline } from "ionicons/icons";
+import { personOutline, businessOutline } from "ionicons/icons";
+import { ChevronLeft } from "lucide-react";
+import { useHistory } from "react-router-dom";
 
 import ClientMapping from "./ClientMapping";
 import ClientProjectUsers from "./ClientProjectUsers";
 
+import "./WorkReports.css";
+import "./Stock.css";
+
 const ClientDetails: React.FC = () => {
+  const history = useHistory();
   // TAB STATE
   const [activeTab, setActiveTab] = useState("projects");
 
@@ -180,76 +186,87 @@ const ClientDetails: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent>
-        {/* Header Banner */}
-        <div className="salaries-top-header">
-          <h1>Client Dashboard</h1>
-          <p>View and manage client and project information.</p>
-        </div>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Client Dashboard</h1>
+                <p className="page-wr-subtitle">Manage clients and projects</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <IonIcon icon={businessOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+              </div>
+            </div>
+          </div>
 
-        {/* ✅ SUPER COMPRESSED TAB NAVIGATION */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "15px", marginRight: "15px", marginLeft: "15px", padding: "5px 0" }}>
-          <IonButton
-            style={{ height: "44px", minWidth: "150px", fontSize: "0.95rem" }}
-            className="header-nav-btn"
-            fill={activeTab === "projects" ? "solid" : "outline"}
-            onClick={() => setActiveTab("projects")}
-          >
-            Projects/Clients
-          </IonButton>
+          <div className="stock-panel" style={{ margin: '0 16px 20px 16px', padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+            
+            {/* Tabs */}
+            <div className="stock-tabs" style={{ marginBottom: '16px' }}>
+              <button
+                type="button"
+                className={`stock-tab ${activeTab === "projects" ? "active" : ""}`}
+                onClick={() => setActiveTab("projects")}
+              >
+                Projects & Clients
+              </button>
+              <button
+                type="button"
+                className={`stock-tab ${activeTab === "mapping" ? "active" : ""}`}
+                onClick={() => setActiveTab("mapping")}
+              >
+                Mapping
+              </button>
+              <button
+                type="button"
+                className={`stock-tab ${activeTab === "clientdetails" ? "active" : ""}`}
+                onClick={() => setActiveTab("clientdetails")}
+              >
+                Client Details
+              </button>
+            </div>
 
-          <IonButton
-            style={{ height: "44px", minWidth: "150px", fontSize: "0.95rem" }}
-            className="header-nav-btn"
-            fill={activeTab === "mapping" ? "solid" : "outline"}
-            onClick={() => setActiveTab("mapping")}
-          >
-            Mapping
-          </IonButton>
-
-          <IonButton
-            style={{ height: "44px", minWidth: "150px", fontSize: "0.95rem" }}
-            className="header-nav-btn"
-            fill={activeTab === "clientdetails" ? "solid" : "outline"}
-            onClick={() => setActiveTab("clientdetails")}
-          >
-            Client Details
-          </IonButton>
-        </div>
-
-
-        {/* PROJECTS TAB */}
-        {activeTab === "projects" && (
-          <IonGrid className="full-height-grid">
-            <IonRow>
-              {/* LEFT COLUMN: Project Master */}
-              <IonCol size="12" size-md="4" className="column-divider">
-                <div className="section-container">
-                  <h3 className="master-title">Project Master</h3>
-
-                  <IonItem lines="none" className="image-style-input">
-                    <IonInput
-                      placeholder="Project Name*"
+            {/* PROJECTS TAB */}
+            {activeTab === "projects" && (
+              <div className="stock-entry-layout">
+                {/* LEFT COLUMN: Project Master */}
+                <div className="stock-panel">
+                  <h3 className="stock-section-heading">Project Master</h3>
+                  
+                  <div className="stock-field" style={{ marginBottom: '16px' }}>
+                    <label>Project Name*</label>
+                    <input
+                      type="text"
+                      className="stock-input"
+                      placeholder="Enter Project Name"
                       value={newProjectName}
-                      onIonInput={(e) => setNewProjectName(e.detail.value!)}
+                      onChange={(e) => setNewProjectName(e.target.value)}
                     />
-                  </IonItem>
-
-                  <div className="button-row-image">
-                    <IonButton className="blue-btn-image" onClick={saveProjectMaster}>
-                      SAVE
-                    </IonButton>
-                    <IonButton className="blue-btn-image" onClick={clearForm}>
-                      CLEAR
-                    </IonButton>
                   </div>
 
-                  <div className="image-table-container">
-                    <table className="image-table">
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <button className="stock-button" style={{ flex: 1 }} onClick={saveProjectMaster}>
+                      Save
+                    </button>
+                    <button className="stock-button stock-button--secondary" style={{ flex: 1 }} onClick={() => setNewProjectName("")}>
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="stock-table-wrapper" style={{ maxHeight: '300px', minHeight: 'auto' }}>
+                    <table className="stock-table">
                       <thead>
                         <tr>
                           <th style={{ width: "30%" }}>P_ID</th>
-                          <th style={{ width: "70%" }}>Project</th>
+                          <th style={{ width: "70%" }}>Project Name</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -263,160 +280,120 @@ const ClientDetails: React.FC = () => {
                     </table>
                   </div>
                 </div>
-              </IonCol>
 
-              {/* RIGHT COLUMN: Client Master */}
-              <IonCol size="12" size-md="8">
-                <div className="section-container">
-                  <h3 className="master-title">Client Master</h3>
+                {/* RIGHT COLUMN: Client Master */}
+                <div className="stock-panel">
+                  <h3 className="stock-section-heading">Client Master</h3>
 
-                  <IonRow>
-                    <IonCol size="12" size-md="4">
-                      <IonItem lines="none" className="image-style-input">
-                        <IonSelect
-                          placeholder="Client Type*"
-                          value={clientMasterForm._ClientType}
-                          onIonChange={(e) =>
-                            setClientMasterForm({
-                              ...clientMasterForm,
-                              _ClientType: e.detail.value,
-                            })
-                          }
-                        >
-                          <IonSelectOption value="Client">Client</IonSelectOption>
-                          <IonSelectOption value="Party">Party</IonSelectOption>
+                  <div className="stock-grid" style={{ marginBottom: '24px' }}>
+                    <div className="stock-field">
+                      <label>Client Type*</label>
+                      <select
+                        className="stock-select"
+                        value={clientMasterForm._ClientType}
+                        onChange={(e) => setClientMasterForm({ ...clientMasterForm, _ClientType: e.target.value })}
+                      >
+                        <option value="Client">Client</option>
+                        <option value="Party">Party</option>
+                      </select>
+                    </div>
 
-                        </IonSelect>
-                      </IonItem>
-                    </IonCol>
+                    <div className="stock-field">
+                      <label>Client Name*</label>
+                      <input
+                        type="text"
+                        className="stock-input"
+                        placeholder="Enter Client Name"
+                        value={clientMasterForm._ClientName}
+                        onChange={(e) => setClientMasterForm({ ...clientMasterForm, _ClientName: e.target.value })}
+                      />
+                    </div>
 
-                    <IonCol size="12" size-md="4">
-                      <IonItem lines="none" className="image-style-input">
-                        <IonInput
-                          placeholder="Client Name*"
-                          value={clientMasterForm._ClientName}
-                          onIonInput={(e) =>
-                            setClientMasterForm({
-                              ...clientMasterForm,
-                              _ClientName: e.detail.value!,
-                            })
-                          }
-                        />
-                      </IonItem>
-                    </IonCol>
-
-                    <IonCol size="12" size-md="4">
-                      <IonItem lines="none" className="image-style-input">
-                        <IonInput
-                          placeholder="Client Location*"
-                          value={clientMasterForm._ClientLocation}
-                          onIonInput={(e) =>
-                            setClientMasterForm({
-                              ...clientMasterForm,
-                              _ClientLocation: e.detail.value!,
-                            })
-                          }
-                        />
-                      </IonItem>
-                    </IonCol>
-                  </IonRow>
+                    <div className="stock-field">
+                      <label>Client Location*</label>
+                      <input
+                        type="text"
+                        className="stock-input"
+                        placeholder="Enter Location"
+                        value={clientMasterForm._ClientLocation}
+                        onChange={(e) => setClientMasterForm({ ...clientMasterForm, _ClientLocation: e.target.value })}
+                      />
+                    </div>
+                  </div>
 
                   {[1, 2, 3].map((num) => (
-                    <div key={num} className="admin-section-image">
-                      <h4 className="admin-title">Administration Details{num}</h4>
-                      <IonRow>
-                        <IonCol size="12" size-md="3">
-                          <IonItem lines="none" className="image-style-input">
-                            <IonInput
-                              placeholder="Name*"
-                              value={(clientMasterForm as any)[`_P${num}_NAME`]}
-                              onIonInput={(e) =>
-                                setClientMasterForm({
-                                  ...clientMasterForm,
-                                  [`_P${num}_NAME`]: e.detail.value!,
-                                })
-                              }
-                            />
-                          </IonItem>
-                        </IonCol>
-                        <IonCol size="12" size-md="3">
-                          <IonItem lines="none" className="image-style-input">
-                            <IonInput
-                              placeholder="Designation*"
-                              value={(clientMasterForm as any)[`_P${num}_DESIGN`]}
-                              onIonInput={(e) =>
-                                setClientMasterForm({
-                                  ...clientMasterForm,
-                                  [`_P${num}_DESIGN`]: e.detail.value!,
-                                })
-                              }
-                            />
-                          </IonItem>
-                        </IonCol>
-                        <IonCol size="12" size-md="3">
-                          <IonItem lines="none" className="image-style-input">
-                            <IonInput
-                              placeholder="Mobile No*"
-                              value={(clientMasterForm as any)[`_P${num}_MOBILE`]}
-                              onIonInput={(e) =>
-                                setClientMasterForm({
-                                  ...clientMasterForm,
-                                  [`_P${num}_MOBILE`]: e.detail.value!,
-                                })
-                              }
-                            />
-                          </IonItem>
-                        </IonCol>
-                        <IonCol size="12" size-md="3">
-                          <IonItem lines="none" className="image-style-input">
-                            <IonInput
-                              placeholder="E-Mail*"
-                              value={(clientMasterForm as any)[`_P${num}_EMAIL`]}
-                              onIonInput={(e) =>
-                                setClientMasterForm({
-                                  ...clientMasterForm,
-                                  [`_P${num}_EMAIL`]: e.detail.value!,
-                                })
-                              }
-                            />
-                          </IonItem>
-                        </IonCol>
-                      </IonRow>
+                    <div key={num} style={{ marginBottom: '24px' }}>
+                      <h4 className="stock-subheading" style={{ color: 'var(--stock-muted)', borderBottom: '1px solid var(--stock-border)', paddingBottom: '8px', marginBottom: '16px' }}>
+                        Administration Details {num}
+                      </h4>
+                      <div className="stock-grid">
+                        <div className="stock-field">
+                          <label>Name</label>
+                          <input
+                            type="text"
+                            className="stock-input"
+                            placeholder="Enter Name"
+                            value={(clientMasterForm as any)[`_P${num}_NAME`]}
+                            onChange={(e) => setClientMasterForm({ ...clientMasterForm, [`_P${num}_NAME`]: e.target.value })}
+                          />
+                        </div>
+                        <div className="stock-field">
+                          <label>Designation</label>
+                          <input
+                            type="text"
+                            className="stock-input"
+                            placeholder="Enter Designation"
+                            value={(clientMasterForm as any)[`_P${num}_DESIGN`]}
+                            onChange={(e) => setClientMasterForm({ ...clientMasterForm, [`_P${num}_DESIGN`]: e.target.value })}
+                          />
+                        </div>
+                        <div className="stock-field">
+                          <label>Mobile No</label>
+                          <input
+                            type="text"
+                            className="stock-input"
+                            placeholder="Enter Mobile"
+                            value={(clientMasterForm as any)[`_P${num}_MOBILE`]}
+                            onChange={(e) => setClientMasterForm({ ...clientMasterForm, [`_P${num}_MOBILE`]: e.target.value })}
+                          />
+                        </div>
+                        <div className="stock-field">
+                          <label>E-Mail</label>
+                          <input
+                            type="email"
+                            className="stock-input"
+                            placeholder="Enter E-Mail"
+                            value={(clientMasterForm as any)[`_P${num}_EMAIL`]}
+                            onChange={(e) => setClientMasterForm({ ...clientMasterForm, [`_P${num}_EMAIL`]: e.target.value })}
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
 
-                  <div className="button-row-image-center">
-                    <IonButton className="blue-btn-image" onClick={saveClientMaster}>
-                      SAVE CLIENT
-                    </IonButton>
-                    <IonButton className="blue-btn-image" onClick={clearForm}>
-                      CLEAR
-                    </IonButton>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                    <button className="stock-button stock-button--secondary" onClick={clearForm}>
+                      Clear Form
+                    </button>
+                    <button className="stock-button" onClick={saveClientMaster}>
+                      Save Client
+                    </button>
                   </div>
                 </div>
-              </IonCol>
-            </IonRow>
-          </IonGrid>
-        )}
+              </div>
+            )}
 
-        {/* MAPPING TAB */}
-        {activeTab === "mapping" && <ClientMapping />}
+            {/* MAPPING TAB */}
+            {activeTab === "mapping" && <ClientMapping />}
 
-        {/* CLIENT DETAILS TAB */}
-        {activeTab === "clientdetails" && <ClientProjectUsers />}
-
-        {/* FLOAT ICON */}
-        <div className="bottom-right-actions">
-          <div className="action-icon-box">
-            <IonIcon icon={personOutline} />
+            {/* CLIENT DETAILS TAB */}
+            {activeTab === "clientdetails" && <ClientProjectUsers />}
+          
           </div>
         </div>
 
         {/* LOADING */}
-        <IonLoading
-          isOpen={showLoading}
-          message="Saving..."
-        />
+        <IonLoading isOpen={showLoading} message="Saving..." />
 
         {/* TOAST */}
         <IonToast

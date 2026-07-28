@@ -445,144 +445,103 @@ const UserAccessSection: React.FC = () => {
   // UI
   // ===================================================================================
   return (
-    <div className="src-card" style={{ boxShadow: 'none', background: 'transparent', padding: 0 }}>
-
+    <div style={{ background: 'transparent', padding: 0 }}>
       {/* USER TYPE */}
-      <div className="src-input-box" style={{ maxWidth: '400px' }}>
-        <IonSelect
+      <div className="stock-field" style={{ maxWidth: '400px', marginBottom: '16px' }}>
+        <label>User Type</label>
+        <select
+          className="stock-select"
           value={userAccessType}
-          interface="popover"
-          placeholder="Select Type"
-          onIonChange={(e) =>
-            setUserAccessType(e.detail.value)
-          }
+          onChange={(e) => setUserAccessType(e.target.value as "UserGroup" | "Users")}
         >
-          <IonSelectOption value="UserGroup">
-            User Group
-          </IonSelectOption>
-
-          <IonSelectOption value="Users">
-            Select User
-          </IonSelectOption>
-        </IonSelect>
+          <option value="UserGroup">User Group</option>
+          <option value="Users">Select User</option>
+        </select>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          marginTop: "20px",
-        }}
-      >
-
+      <div className="stock-grid" style={{ marginTop: "20px" }}>
         {/* LEFT PANEL */}
-        <div>
-          <div className="src-pane-header">
+        <div className="stock-panel" style={{ padding: '12px' }}>
+          <h3 className="stock-section-heading" style={{ margin: '0 0 12px 0' }}>
             {userAccessType === "UserGroup" ? "User Groups" : "Users"}
-          </div>
-
-          <div
-            className="src-scroll-list"
-            style={{
-              height: "450px",
-              marginTop: "10px"
-            }}
-          >
-
+          </h3>
+          <div className="src-scroll-list" style={{ height: "400px", overflowY: "auto" }}>
             {userAccessType === "UserGroup" ? (
-
               groups.map((group) => (
                 <div
                   key={group}
-                  className="src-checkbox-row"
-                  onClick={() =>
-                    setSelectedUserGroup(group)
-                  }
-                  style={{ border: selectedUserGroup === group ? '1.5px solid var(--src-primary)' : '1px solid #f1f5f9' }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px', border: selectedUserGroup === group ? '1.5px solid var(--ion-color-primary)' : '1px solid var(--stock-border)',
+                    borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', background: selectedUserGroup === group ? 'var(--ion-color-light)' : 'transparent'
+                  }}
+                  onClick={() => setSelectedUserGroup(group)}
                 >
-                  <span style={{ fontWeight: 600 }}>{group}</span>
-
-                  <IonCheckbox
-                    checked={
-                      selectedUserGroup === group
-                    }
-                  />
+                  <span style={{ fontWeight: 600, color: 'var(--stock-text)' }}>{group}</span>
+                  <IonCheckbox checked={selectedUserGroup === group} style={{ margin: 0 }} />
                 </div>
               ))
-
             ) : (
-
               sortedEmployees.map((emp) => (
                 <div
                   key={emp.EmpCode}
-                  className="src-checkbox-row"
-                  onClick={() =>
-                    setSelectedUserCode(
-                      emp.EmpCode
-                    )
-                  }
-                  style={{ border: selectedUserCode === emp.EmpCode ? '1.5px solid var(--src-primary)' : '1px solid #f1f5f9' }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px', border: selectedUserCode === emp.EmpCode ? '1.5px solid var(--ion-color-primary)' : '1px solid var(--stock-border)',
+                    borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', background: selectedUserCode === emp.EmpCode ? 'var(--ion-color-light)' : 'transparent'
+                  }}
+                  onClick={() => setSelectedUserCode(emp.EmpCode)}
                 >
-                  <div className="src-emp-info">
-                    <div className="src-emp-name">{emp.EmpName}</div>
-                    <small className="src-emp-code">{emp.EmpCode}</small>
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--stock-text)' }}>{emp.EmpName}</div>
+                    <small style={{ color: 'var(--stock-muted)' }}>{emp.EmpCode}</small>
                   </div>
-
-                  <IonCheckbox
-                    checked={
-                      selectedUserCode ===
-                      emp.EmpCode
-                    }
-                  />
+                  <IonCheckbox checked={selectedUserCode === emp.EmpCode} style={{ margin: 0 }} />
                 </div>
               ))
-
             )}
-
           </div>
         </div>
 
         {/* RIGHT PANEL */}
-        <div>
-          <div className="src-pane-header">Permissions</div>
+        <div className="stock-panel" style={{ padding: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 className="stock-section-heading" style={{ margin: 0 }}>Permissions</h3>
+            <button className="stock-button" onClick={saveUserAccess} style={{ padding: '6px 12px', minWidth: '100px', fontSize: '13px' }}>
+              Save
+            </button>
+          </div>
 
           {loading ? (
-            <div className="src-empty-state">Loading...</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--stock-muted)' }}>Loading...</div>
           ) : (
-            <div className="src-scroll-list" style={{ height: '450px', marginTop: '10px' }}>
-
+            <div className="src-scroll-list" style={{ height: '360px', overflowY: 'auto' }}>
               {permissions.map((menu) => (
                 <div
                   key={menu.SlNo}
-                  className="src-checkbox-row"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px', borderBottom: '1px solid var(--stock-border)'
+                  }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--stock-text)' }}>
                     {menu.SlNo}. {menu.MenuText}
                   </div>
-
                   <IonCheckbox
                     checked={menu.Selected}
-                    onIonChange={(e) =>
-                      togglePermission(
-                        menu.SlNo,
-                        e.detail.checked
-                      )
-                    }
+                    onIonChange={(e) => togglePermission(menu.SlNo, e.detail.checked)}
+                    style={{ margin: 0 }}
                   />
                 </div>
               ))}
               {permissions.length === 0 && (
-                <div className="src-empty-state">Select a {userAccessType === "UserGroup" ? "Group" : "User"} to view permissions</div>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--stock-muted)' }}>
+                  Select a {userAccessType === "UserGroup" ? "Group" : "User"} to view permissions
+                </div>
               )}
-
             </div>
           )}
-
-
-
         </div>
-
       </div>
     </div>
   );
@@ -598,21 +557,7 @@ const Sources: React.FC = () => {
   const showToast = (msg: string, color: "success" | "danger" | "warning" = "success") =>
     setToast({ open: true, msg, color });
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
-    dept: true,
-    holidays: true,
-    checkin: true,
-    designation: true,
-    vendor: true,
-    maint: true,
-    notif: true,
-    import: true,
-    reporting: true,
-  });
-
-  const toggleCollapse = (section: string) => {
-    setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
+  const [activeTab, setActiveTab] = useState("holidays");
 
   const user = useMemo(() => {
     try {
@@ -1049,11 +994,13 @@ const Sources: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent className="ion-no-padding">
-        <div className="src-container src-animate">
-          <div className="page-wr-header" style={{ width: '100%', margin: '16px 0 24px 0' }}>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
             <div className="page-wr-header-left">
-              <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
                 <ChevronLeft />
               </button>
               <div>
@@ -1071,359 +1018,347 @@ const Sources: React.FC = () => {
             </div>
           </div>
 
-          <div className="src-dashboard-grid">
-            {/* User Access Section — Director only (EmpCode 1501) */}
-            {String(user?.EmpCode ?? user?.empCode ?? "") === "1501" && (
-              <div className="src-card src-card-full src-card-accordion">
-                <Accordion className="src-accordion-root">
-                  <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
-                    <div className="src-card-title-group">
-                      <div className="src-card-icon-box"><UserAccessIcon /></div>
-                      <div className="src-card-title">User Access</div>
-                    </div>
-                  </AccordionSummary>
-                  <AccordionDetails className="src-accordion-details" style={{ padding: '20px' }}>
-                    <UserAccessSection />
-                  </AccordionDetails>
-                </Accordion>
+          <div className="stock-panel" style={{ margin: '0 16px 20px 16px', padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+            
+            {/* Tabs */}
+            <div className="stock-tabs" style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px', paddingBottom: '8px' }}>
+              {String(user?.EmpCode ?? user?.empCode ?? "") === "1501" && (
+                <button
+                  type="button"
+                  className={`stock-tab ${activeTab === "userAccess" ? "active" : ""}`}
+                  style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }}
+                  onClick={() => setActiveTab("userAccess")}
+                >
+                  User Access
+                </button>
+              )}
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "holidays" ? "active" : ""}`} onClick={() => setActiveTab("holidays")}>
+                Holidays
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "dept" ? "active" : ""}`} onClick={() => setActiveTab("dept")}>
+                Departments
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "designation" ? "active" : ""}`} onClick={() => setActiveTab("designation")}>
+                Designations
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "checkin" ? "active" : ""}`} onClick={() => setActiveTab("checkin")}>
+                Check-In
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "vendor" ? "active" : ""}`} onClick={() => setActiveTab("vendor")}>
+                Vendors
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "broadcast" ? "active" : ""}`} onClick={() => setActiveTab("broadcast")}>
+                Broadcast
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "import" ? "active" : ""}`} onClick={() => setActiveTab("import")}>
+                Import
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "maint" ? "active" : ""}`} onClick={() => setActiveTab("maint")}>
+                Maintenance
+              </button>
+            </div>
+
+            {/* TAB CONTENT: User Access */}
+            {activeTab === "userAccess" && String(user?.EmpCode ?? user?.empCode ?? "") === "1501" && (
+              <div className="stock-panel">
+                <UserAccessSection />
               </div>
             )}
 
-            {/* 3. Holidays Management dropdown */}
-            <div className="src-card src-card-full src-card-accordion">
-              <Accordion expanded={expanded} onChange={() => setExpanded(!expanded)} className="src-accordion-root">
-                <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
-                  <div className="src-card-title-group">
-                    <div className="src-card-icon-box"><HolidayIcon /></div>
-                    <div className="src-card-title">Holidays Management</div>
+            {/* TAB CONTENT: Holidays */}
+            {activeTab === "holidays" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Holidays Management</h3>
+                <div className="stock-grid" style={{ marginBottom: '16px' }}>
+                  
+                  <div className="stock-field">
+                    <label>Year</label>
+                    <div id="hyear-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: Hyear ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                      {Hyear ? new Date(Hyear).toLocaleDateString() : "Select Year"}
+                    </div>
+                    <IonPopover trigger="hyear-trigger" triggerAction="click" alignment="start">
+                      <IonDatetime presentation="date" value={Hyear} onIonChange={(e) => setHyear((e.detail.value as string).split('T')[0])} />
+                    </IonPopover>
                   </div>
-                </AccordionSummary>
-                <AccordionDetails className="src-accordion-details">
-                  <IonGrid>
-                    <IonRow className="ion-align-items-center">
-                      <IonCol size="12" sizeMd="4">
-                        <TextField fullWidth type="date" label="Year" InputLabelProps={{ shrink: true }} value={Hyear} onChange={(e) => setHyear(e.target.value)} />
-                      </IonCol>
-                      <IonCol size="12" sizeMd="4">
-                        <TextField fullWidth type="month" label="Month" InputLabelProps={{ shrink: true }} value={HMnth} onChange={(e) => setHMnth(e.target.value)} />
-                      </IonCol>
-                      <IonCol size="12" sizeMd="4" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        {!HExistYr && Hyear && (
-                          <button className="src-btn src-btn-warning src-btn-block" onClick={insertSundays} style={{ height: '56px' }}>
-                            <IonIcon icon={downloadOutline} style={{ fontSize: '20px' }} /> SUNDAYS
-                          </button>
-                        )}
-                        <button className="src-btn src-btn-primary src-btn-block" onClick={addHoliday} style={{ height: '56px' }}>
-                          <IonIcon icon={addHDayCtrlIconName} style={{ fontSize: '20px' }} /> {addHDayCtrlName.toUpperCase()}
+                  
+                  <div className="stock-field">
+                    <label>Month</label>
+                    <div id="hmnth-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: HMnth ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                      {HMnth ? HMnth : "Select Month"}
+                    </div>
+                    <IonPopover trigger="hmnth-trigger" triggerAction="click" alignment="start">
+                      <IonDatetime presentation="month-year" value={HMnth ? HMnth + "-01" : undefined} onIonChange={(e) => setHMnth((e.detail.value as string).substring(0, 7))} />
+                    </IonPopover>
+                  </div>
+                  
+                  <div className="stock-field">
+                    <label style={{ visibility: 'hidden' }}>Actions</label>
+                    <div style={{ display: 'flex', gap: '8px', height: '100%' }}>
+                      {!HExistYr && Hyear && (
+                        <button className="stock-button stock-button--secondary" onClick={insertSundays} style={{ width: '100%', minHeight: '38px', padding: '0 8px' }}>
+                          Sundays
                         </button>
-                      </IonCol>
-                    </IonRow>
-                    {!addHDay && (
-                      <IonRow className="ion-margin-top">
-                        <IonCol size="12" sizeMd="4">
-                          <TextField fullWidth type="date" label="Date" InputLabelProps={{ shrink: true }} value={HDate} onChange={(e) => setHDate(e.target.value)} />
-                        </IonCol>
-                        <IonCol size="12" sizeMd="8">
-                          <TextField fullWidth label="Remarks" value={HRemarks} onChange={(e) => setHRemarks(e.target.value)} />
-                        </IonCol>
-                      </IonRow>
-                    )}
-                    <IonRow className="ion-margin-top">
-                      <IonCol size="12">
-                        <div className="src-scroll-list" style={{ maxHeight: "400px", padding: '10px' }}>
-                          <div className="src-grid-header">
-                            <div style={{ flex: 1 }}>Date</div>
-                            <div style={{ flex: 1, textAlign: 'center' }}>Status</div>
-                            <div style={{ flex: 1, textAlign: 'right' }}>Remark</div>
-                          </div>
-                          {dt_Holidays.map((x, i) => (
-                            <div key={i} className="src-grid-row" onClick={() => { setAddHDay(false); setAddHDayCtrlName("Save Holiday"); setAddHDayCtrlIconName(saveOutline); setHDate(moment(x.HolidayDate).format("YYYY-MM-DD")); setHRemarks(x.Remark); }}>
-                              <div style={{ flex: 1, fontWeight: 700 }}>{i + 1} -- {moment(x.HolidayDate).format("DD-MM-YYYY")}</div>
-                              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                                <FormControlLabel
-                                  control={<IonCheckbox checked={x.FLAG} onIonChange={(e) => { e.stopPropagation(); toggleHolidayActive(x.HolidayDate, e.detail.checked); }} />}
-                                  label="Active"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                              <div style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'var(--src-primary)', textTransform: 'uppercase' }}>
-                                {x.Remark}
-                              </div>
-                            </div>
-                          ))}
-                          {dt_Holidays.length === 0 && <EmptyState msg="No holidays found." />}
+                      )}
+                      <button className="stock-button" onClick={addHoliday} style={{ width: '100%', minHeight: '38px', padding: '0 8px' }}>
+                        {addHDayCtrlName}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {!addHDay && (
+                  <div className="stock-grid" style={{ marginBottom: '16px' }}>
+                    <div className="stock-field">
+                      <label>Date</label>
+                      <div id="hdate-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: HDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                        {HDate ? new Date(HDate).toLocaleDateString() : "Select Date"}
+                      </div>
+                      <IonPopover trigger="hdate-trigger" triggerAction="click" alignment="start">
+                        <IonDatetime presentation="date" value={HDate} onIonChange={(e) => setHDate((e.detail.value as string).split('T')[0])} />
+                      </IonPopover>
+                    </div>
+                    <div className="stock-field">
+                      <label>Remarks</label>
+                      <input type="text" className="stock-input" value={HRemarks} onChange={(e) => setHRemarks(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+                  <table className="stock-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th style={{ textAlign: 'center' }}>Status</th>
+                        <th style={{ textAlign: 'right' }}>Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dt_Holidays.map((x, i) => (
+                        <tr key={i} onClick={() => { setAddHDay(false); setAddHDayCtrlName("Save Holiday"); setAddHDayCtrlIconName(saveOutline); setHDate(moment(x.HolidayDate).format("YYYY-MM-DD")); setHRemarks(x.Remark); }} style={{ cursor: 'pointer' }}>
+                          <td style={{ fontWeight: 600 }}>{i + 1} - {moment(x.HolidayDate).format("DD-MM-YYYY")}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <IonCheckbox checked={x.FLAG} onIonChange={(e) => { e.stopPropagation(); toggleHolidayActive(x.HolidayDate, e.detail.checked); }} />
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ion-color-primary)' }}>{x.Remark}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {dt_Holidays.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>No holidays found.</div>}
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Departments */}
+            {activeTab === "dept" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Departments</h3>
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <label>Department Name</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" className="stock-input" value={DeptName} placeholder="e.g. Finance" onChange={(e) => setDeptName(e.target.value)} />
+                    <button className="stock-button" onClick={saveDepartment}>Save</button>
+                  </div>
+                </div>
+                <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+                  <table className="stock-table">
+                    <thead><tr><th>Department</th></tr></thead>
+                    <tbody>
+                      {depList.map(d => (
+                        <tr key={d.DID} onClick={() => { setDeptName(d.Department); setTempDeptId(d.DID); }} style={{ cursor: 'pointer' }}>
+                          <td>{d.Department}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Designations */}
+            {activeTab === "designation" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Designations</h3>
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <label>Designation Name</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" className="stock-input" value={Designation} placeholder="e.g. Lead" onChange={(e) => setDesignation(e.target.value)} />
+                    <button className="stock-button" onClick={saveDesignation}>Save</button>
+                  </div>
+                </div>
+                <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+                  <table className="stock-table">
+                    <thead><tr><th>Designation</th></tr></thead>
+                    <tbody>
+                      {disgList.map(d => (
+                        <tr key={d.DS_ID} onClick={() => { setDesignation(d.Designation); setTempDisgId(d.DS_ID); }} style={{ cursor: 'pointer' }}>
+                          <td>{d.Designation}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Checkin */}
+            {activeTab === "checkin" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Check-In Access</h3>
+                <div className="src-scroll-list" style={{ maxHeight: "400px" }}>
+                  {checkMap.map(r => (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--stock-border)' }} key={r.EmpCode}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: 'var(--stock-text)' }}>{r.EmpName}</div>
+                        <small style={{ color: 'var(--stock-muted)' }}>{r.EmpCode}</small>
+                      </div>
+                      <IonCheckbox checked={r.IsChekin_Enable} onIonChange={(e) => saveCheckinAccess(r.EmpCode, e.detail.checked)} style={{ margin: 0 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Vendors */}
+            {activeTab === "vendor" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Vendors</h3>
+                <div className="stock-grid" style={{ marginBottom: '16px' }}>
+                  <div className="stock-field">
+                    <label>Vendor Name</label>
+                    <input type="text" className="stock-input" value={Vendor_Name} placeholder="Vendor Name" onChange={(e) => setVendor_Name(e.target.value)} />
+                  </div>
+                  <div className="stock-field">
+                    <label>Type</label>
+                    <select className="stock-select" value={Vendor_Type} onChange={(e) => setVendor_Type(e.target.value)}>
+                      <option value="Service">Service</option>
+                      <option value="Product">Product</option>
+                    </select>
+                  </div>
+                  <div className="stock-field">
+                    <label>GST</label>
+                    <input type="text" className="stock-input" value={GST_No} placeholder="GST" onChange={(e) => setGST_No(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                  <button className="stock-button" onClick={saveVendor}>Save Vendor</button>
+                </div>
+                
+                <div className="src-scroll-list" style={{ maxHeight: "350px" }}>
+                  {vendors.map(v => (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--stock-border)', cursor: 'pointer' }} key={v.VID} onClick={() => { setVID(String(v.VID)); setVendor_Name(v.Vendor_Name); setVendor_Type(v.Vendor_Type); setGST_No(v.GST_No); }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: 'var(--stock-text)' }}>{v.Vendor_Name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--stock-muted)' }}>{v.Vendor_Type} {v.GST_No && `• GST: ${v.GST_No}`}</div>
+                      </div>
+                      <ChevronRight />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Broadcast */}
+            {activeTab === "broadcast" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Broadcast</h3>
+                <div className="stock-grid">
+                  <div className="stock-panel" style={{ padding: '12px', background: 'var(--stock-bg)' }}>
+                    <div className="stock-field" style={{ marginBottom: '16px' }}>
+                      <label>Composer</label>
+                      <input type="text" className="stock-input" value={Notification} placeholder="Message content..." onChange={(e) => setNotification(e.target.value)} />
+                    </div>
+                    <button className="stock-button" onClick={saveNotifications}>Send Broadcast</button>
+
+                    <div className="src-scroll-list" style={{ marginTop: "20px", maxHeight: '300px' }}>
+                      {dt_Notifications_Data.map(n => (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--stock-border)' }} key={n.OrderId} onClick={() => clickNotifRow(n)}>
+                          <span style={{ fontWeight: 600, color: 'var(--stock-text)' }}>{n.Notification_Text}</span>
+                          <IonCheckbox checked={n.Isactive} onIonChange={(e) => updateNotifStatus(n.OrderId || n.NID, e.detail.checked)} style={{ margin: 0 }} />
                         </div>
-                      </IonCol>
-                    </IonRow>
-                  </IonGrid>
-                </AccordionDetails>
-              </Accordion>
-            </div>
-
-            <div className={`src-card ${collapsed.dept ? "collapsed" : ""}`}>
-              <SectionHeader icon={<DeptIcon />} title="Departments" isCollapsed={collapsed.dept} onToggle={() => toggleCollapse("dept")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-wrapper">
-                    <label className="src-label">Name</label>
-                    <div className="src-input-box">
-                      <IonInput value={DeptName} placeholder="e.g. Finance" onIonInput={(e) => setDeptName(e.detail.value!)} />
+                      ))}
                     </div>
                   </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDepartment}>Save</button>
-                  <div className="src-table-wrapper">
-                    <div className="src-table-header"><div className="src-table-col">Department</div></div>
-                    {depList.map(d => (
-                      <div className="src-table-row" key={d.DID} onClick={() => { setDeptName(d.Department); setTempDeptId(d.DID); }}>
-                        <div className="src-table-col">{d.Department}</div>
-                      </div>
-                    ))}
-                    {depList.length === 0 && <EmptyState msg="No departments." />}
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <div className={`src-card ${collapsed.designation ? "collapsed" : ""}`}>
-              <SectionHeader icon={<DesignationIcon />} title="Designations" isCollapsed={collapsed.designation} onToggle={() => toggleCollapse("designation")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-wrapper">
-                    <label className="src-label">Name</label>
-                    <div className="src-input-box">
-                      <IonInput value={Designation} placeholder="e.g. Lead" onIonInput={(e) => setDesignation(e.detail.value!)} />
-                    </div>
-                  </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveDesignation}>Save</button>
-                  <div className="src-table-wrapper">
-                    <div className="src-table-header"><div className="src-table-col">Designation</div></div>
-                    {disgList.map(d => (
-                      <div className="src-table-row" key={d.DS_ID} onClick={() => { setDesignation(d.Designation); setTempDisgId(d.DS_ID); }}>
-                        <div className="src-table-col">{d.Designation}</div>
-                      </div>
-                    ))}
-                    {disgList.length === 0 && <EmptyState msg="No designations." />}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={`src-card ${collapsed.checkin ? "collapsed" : ""}`}>
-              <SectionHeader icon={<CheckinIcon />} title="Check-In Access" isCollapsed={collapsed.checkin} onToggle={() => toggleCollapse("checkin")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-scroll-list" style={{ maxHeight: "300px" }}>
-                    {checkMap.map(r => (
-                      <div className="src-checkbox-row" key={r.EmpCode}>
-                        <div className="src-emp-info">
-                          <span className="src-emp-name">{r.EmpName}</span>
-                          <span className="src-emp-code">{r.EmpCode}</span>
-                        </div>
-                        <IonCheckbox checked={r.IsChekin_Enable} onIonChange={(e) => saveCheckinAccess(r.EmpCode, e.detail.checked)} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Vendors */}
-            <div className={`src-card ${collapsed.vendor ? "collapsed" : ""}`}>
-              <SectionHeader icon={<VendorIcon />} title="Vendors" isCollapsed={collapsed.vendor} onToggle={() => toggleCollapse("vendor")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-box" style={{ marginBottom: "10px" }}>
-                    <IonInput value={Vendor_Name} placeholder="Vendor Name" onIonInput={(e) => setVendor_Name(e.detail.value!)} />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "15px" }}>
-                    <div className="src-input-box">
-                      <IonSelect value={Vendor_Type} interface="popover" placeholder="Type" onIonChange={(e) => setVendor_Type(e.detail.value)}>
-                        <IonSelectOption value="Service">Service</IonSelectOption>
-                        <IonSelectOption value="Product">Product</IonSelectOption>
-                      </IonSelect>
-                    </div>
-                    <div className="src-input-box">
-                      <IonInput value={GST_No} placeholder="GST" onIonInput={(e) => setGST_No(e.detail.value!)} />
-                    </div>
-                  </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveVendor}>Save</button>
-                  <div className="src-scroll-list" style={{ maxHeight: "350px", marginTop: "20px" }}>
-                    {vendors.map(v => (
-                      <div className="src-table-row premium-list-item" key={v.VID} onClick={() => { setVID(String(v.VID)); setVendor_Name(v.Vendor_Name); setVendor_Type(v.Vendor_Type); setGST_No(v.GST_No); }}>
-                        <div className="src-card-icon-box" style={{ width: "12px", height: "12px", minWidth: "12px", marginRight: "8px", background: "var(--src-primary-glow)" }}>
-                          <VendorIcon />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--src-text-heading)" }}>{v.Vendor_Name}</div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--src-primary)", fontWeight: 600, display: "flex", gap: "8px", marginTop: "2px" }}>
-                            <span>{v.Vendor_Type}</span>
-                            {v.GST_No && <span style={{ color: "var(--src-text-muted)" }}>• GST: {v.GST_No}</span>}
+                  <div className="stock-panel" style={{ padding: '12px', background: 'var(--stock-bg)' }}>
+                    <h4 className="stock-section-heading" style={{ fontSize: '14px', marginBottom: '8px' }}>Participants ({dt_Notifications.filter(x => x.Isactive).length})</h4>
+                    <input type="text" className="stock-input" value={notifSearch} placeholder="Filter participants..." onChange={(e) => setNotifSearch(e.target.value)} style={{ marginBottom: '12px' }} />
+                    <div className="src-scroll-list" style={{ maxHeight: '350px' }}>
+                      {dt_Notifications.filter(x => !notifSearch || x.EmpName.toLowerCase().includes(notifSearch.toLowerCase())).map((emp, i) => (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--stock-border)', cursor: 'pointer' }} key={i} onClick={() => {
+                          const next = !emp.Isactive;
+                          setDt_Notifications(p => p.map((x, j) => i === j ? { ...x, Isactive: next } : x));
+                        }}>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--stock-text)' }}>{emp.EmpName}</div>
+                            <small style={{ color: 'var(--stock-muted)' }}>{emp.EmpCode}</small>
                           </div>
+                          <IonCheckbox checked={emp.Isactive} style={{ margin: 0 }} />
                         </div>
-                        <div className="src-card-chevron"><ChevronRight /></div>
-                      </div>
-                    ))}
-                    {vendors.length === 0 && <EmptyState msg="No vendors registered." />}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 6. Broadcast dropdown */}
-            <div className="src-card src-card-accordion">
-              <Accordion expanded={notifExpanded} onChange={() => setNotifExpanded(!notifExpanded)} className="src-accordion-root">
-                <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
-                  <div className="src-card-title-group">
-                    <div className="src-card-icon-box"><NotifIcon /></div>
-                    <div className="src-card-title">Broadcast</div>
-                  </div>
-                </AccordionSummary>
-                <AccordionDetails className="src-accordion-details">
-                  <div className="src-notif-row">
-                    <div className="src-pane">
-                      <div className="src-pane-title">Composer</div>
-                      <div className="src-input-box" style={{ minHeight: "80px", marginBottom: "15px" }}>
-                        <IonInput value={Notification} placeholder="Message content..." onIonInput={(e) => setNotification(e.detail.value!)} />
-                      </div>
-                      <button className="src-btn src-btn-primary" onClick={saveNotifications}>Send Broadcast</button>
+            {/* TAB CONTENT: Import */}
+            {activeTab === "import" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Process Import</h3>
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <label>Select Entity</label>
+                  <select className="stock-select" value={ImportFile} onChange={(e) => setImportFile(e.target.value)}>
+                    <option value="Productivity">Productivity</option>
+                    <option value="Attendance">Attendance</option>
+                  </select>
+                </div>
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <input type="file" className="stock-input" onChange={(e) => setFiles(e.target.files)} />
+                </div>
+                <button className="stock-button stock-button--secondary" onClick={handleImport}>Execute Import</button>
+              </div>
+            )}
 
-                      <div className="src-scroll-list" style={{ marginTop: "20px" }}>
-                        {dt_Notifications_Data.map(n => (
-                          <div className="src-checkbox-row" key={n.OrderId} onClick={() => clickNotifRow(n)}>
-                            <div className="src-emp-info">
-                              <span style={{ fontWeight: 600 }}>{n.Notification_Text}</span>
-                            </div>
-                            <IonCheckbox checked={n.Isactive} onIonChange={(e) => updateNotifStatus(n.OrderId || n.NID, e.detail.checked)} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="src-pane">
-                      <div className="src-pane-title">Participants ({dt_Notifications.filter(x => x.Isactive).length})</div>
-                      <div className="src-input-box" style={{ marginBottom: "10px" }}>
-                        <IonInput value={notifSearch} placeholder="Filter participants..." onIonInput={(e) => setNotifSearch(e.detail.value!)} />
-                      </div>
-                      <div className="src-scroll-list">
-                        {dt_Notifications.filter(x => !notifSearch || x.EmpName.toLowerCase().includes(notifSearch.toLowerCase())).map((emp, i) => (
-                          <div className="src-checkbox-row" key={i} onClick={() => {
-                            const next = !emp.Isactive;
-                            setDt_Notifications(p => p.map((x, j) => i === j ? { ...x, Isactive: next } : x));
-                          }}>
-                            <div className="src-emp-info">
-                              <span className="src-emp-name">{emp.EmpName}</span>
-                              <span className="src-emp-code">{emp.EmpCode}</span>
-                            </div>
-                            <IonCheckbox checked={emp.Isactive} />
-                          </div>
-                        ))}
-                      </div>
+            {/* TAB CONTENT: Maintenance */}
+            {activeTab === "maint" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading">Maintenance</h3>
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <label>Work Description</label>
+                  <input type="text" className="stock-input" value={Maintance} placeholder="Work Description" onChange={(e) => setMaintance(e.target.value)} />
+                </div>
+                <div className="stock-grid" style={{ marginBottom: '16px' }}>
+                  <div className="stock-field">
+                    <label>Assigned Staff</label>
+                    <div className="stock-input" onClick={() => setMaintEmpPopover(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                      {MaintEmpName || "Select Staff"}
                     </div>
                   </div>
-                </AccordionDetails>
-              </Accordion>
-            </div>
-            {/* 7. Import */}
-            <div className={`src-card ${collapsed.import ? "collapsed" : ""}`}>
-              <SectionHeader icon={<ImportIcon />} title="Process Import" isCollapsed={collapsed.import} onToggle={() => toggleCollapse("import")} />
-              <div className="src-card-body-wrapper">
-                <div className="src-card-body">
-                  <div className="src-input-box" style={{ marginBottom: "10px" }}>
-                    <IonSelect value={ImportFile} interface="popover" placeholder="Select Entity" onIonChange={(e) => setImportFile(e.detail.value)}>
-                      <IonSelectOption value="Productivity">Productivity</IonSelectOption>
-                      <IonSelectOption value="Attendance">Attendance</IonSelectOption>
-                    </IonSelect>
+                  <div className="stock-field">
+                    <label>Cycle Days</label>
+                    <input type="number" className="stock-input" value={cycledays} placeholder="Days" onChange={(e) => setCycledays(e.target.value)} />
                   </div>
-                  <input type="file" onChange={(e) => setFiles(e.target.files)} style={{ width: "100%", marginBottom: "15px" }} />
-                  <button className="src-btn src-btn-accent src-btn-block" onClick={handleImport}>Execute Import</button>
+                </div>
+                <button className="stock-button" onClick={saveMaint}>Save Maintenance</button>
+                
+                <div className="stock-table-wrapper" style={{ marginTop: '20px', maxHeight: '300px' }}>
+                  <table className="stock-table">
+                    <thead><tr><th>Work</th><th style={{ textAlign: 'right' }}>Days Left</th></tr></thead>
+                    <tbody>
+                      {ds_Maintance ? ds_Maintance.map(m => (
+                        <tr key={m.M_id} onClick={() => editMaint(m)} style={{ cursor: 'pointer' }}>
+                          <td>{m.Maint_Work}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ion-color-primary)' }}>{m.Days_Left}d</td>
+                        </tr>
+                      )) : null}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
-            {/* 8. Maintenance dropdown */}
-            <div className="src-card src-card-full src-card-accordion">
-              <Accordion expanded={maintExpanded} onChange={() => setMaintExpanded(!maintExpanded)} className="src-accordion-root">
-                <AccordionSummary expandIcon={<div className="src-accordion-chevron"><ChevronDown /></div>} className="src-accordion-summary">
-                  <div className="src-card-title-group">
-                    <div className="src-card-icon-box"><MaintIcon /></div>
-                    <div className="src-card-title">Maintenance</div>
-                  </div>
-                </AccordionSummary>
-                <AccordionDetails className="src-accordion-details">
-                  <div className="src-input-box" style={{ marginBottom: "10px" }}>
-                    <IonInput value={Maintance} placeholder="Work Description" onIonInput={(e) => setMaintance(e.detail.value!)} />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "15px" }}>
-                    <div className="src-input-box" onClick={() => setMaintEmpPopover(true)}>
-                      <div style={{ padding: "8px 0" }}>{MaintEmpName || "Staff"}</div>
-                    </div>
-                    <div className="src-input-box">
-                      <IonInput type="number" value={cycledays} placeholder="Days" onIonInput={(e) => setCycledays(e.detail.value!)} />
-                    </div>
-                  </div>
-                  <button className="src-btn src-btn-primary src-btn-block" onClick={saveMaint}>Save Maintenance</button>
-                  <div className="src-table-wrapper" style={{ marginTop: '20px' }}>
-                    {ds_Maintance ? ds_Maintance.map(m => (
-                      <div className="src-table-row" key={m.M_id} onClick={() => editMaint(m)}>
-                        <div style={{ flex: 1 }}>{m.Maint_Work}</div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--src-primary)" }}>{m.Days_Left}d</div>
-                      </div>
-                    )) : <EmptyState msg="No items." />}
-                  </div>
-                </AccordionDetails>
-              </Accordion>
-            </div>
+            )}
 
-          
-
-            {/* 9. Reporting Matrix */}
-            {/* <div className={`src-card ${collapsed.reporting ? "collapsed" : ""}`}>
-  <SectionHeader
-    icon={<DeptIcon />}
-    title="Reporting Matrix"
-    isCollapsed={collapsed.reporting}
-    onToggle={() => toggleCollapse("reporting")}   // ✅ FIX
-  />
-
-  <div className="src-card-body-wrapper">
-    <div className="src-card-body">
-
-      <div className="src-table-wrapper">
-
-        <div className="src-table-header">
-          <div className="src-table-col">Request Type</div>
-          <div className="src-table-col">Condition</div>
-          <div className="src-table-col">RA1</div>
-          <div className="src-table-col">RA2</div>
-          <div className="src-table-col">RA3</div>
-          <div className="src-table-col">RA4</div>
-        </div>
-
-        {[
-          ["Equipment", "Up to ₹5,000", "Level1 RA", "Network Admin", "Admin", "-"],
-          ["Equipment", "Above ₹5,000", "Level1 RA", "Network Admin", "Admin", "Director"],
-          ["Work Report", "Daily", "Level1 RA", "-", "-", "-"],
-          ["Leave", "2 Days or Less per month", "Level1 RA", "HR", "-", "-"],
-          ["Leave", "2-4 Days per month", "Level1 RA", "Level2 RA", "HR", "-"],
-          ["Leave", "More Than 4 Days per month", "Level1 RA", "Level2 RA", "HR", "Director"],
-          ["Permission", "-", "Level1 RA", "HR", "-", "-"],
-          ["On Duty", "Local Travel / Same Day", "Level1 RA", "HR", "-", "-"],
-          ["On Duty", "Outstation / Multiple Days", "Level1 RA", "HR", "Director", "-"],
-          ["Over Time", "Up to 4 Hour", "Level1 RA", "HR", "-", "-"],
-          ["Over Time", "4-8 Hour", "Level1 RA", "Level2 RA", "HR", "-"],
-          ["Over Time", "More than 8 Hour", "Level1 RA", "Level2 RA", "HR", "Director"],
-          ["Special Request", "-", "Level1 RA", "HR", "Admin", "Director"],
-        ].map((row, index) => (
-          <div className="src-table-row" key={index}>
-            {row.map((col, i) => (
-              <div className="src-table-col" key={i}>{col}</div>
-            ))}
-          </div>
-        ))}
-
-      </div>
-
-    </div>
-  </div>
-</div> */}
           </div>
         </div>
 

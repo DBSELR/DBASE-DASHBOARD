@@ -318,287 +318,109 @@ const ClientProjectUsers: React.FC = () => {
     };
 
     return (
-
-        <div className="tab-content-wrapper">
-
-            <div className="section-container">
-
-                {/* Header */}
-                <h3 className="master-title">
-                    Client Details
-                </h3>
-
-                {/* Dropdowns */}
-                <IonRow className="dropdown-row-notched">
-
-                    {/* Client */}
-                    <IonCol size="12" size-md="6">
-
-                        <div className="notched-input-container">
-
-                            <label className="notched-label">
-                                Client Name*
-                            </label>
-
-                            <IonItem
-                                lines="none"
-                                className="notched-item"
-                            >
-
-                                <IonSelect
-                                    placeholder="Select Client"
-                                    value={selectedClientName}
-                                    onIonChange={(e) =>
-                                        loadProjectSourcesByName(
-                                            e.detail.value
-                                        )
-                                    }
-                                    interface="popover"
-                                    className="image-select-notched"
-                                >
-
-                                    {clientSourcesList.map((c, i) => (
-
-                                        <IonSelectOption
-                                            key={i}
-                                            value={c[1]}
-                                        >
-                                            {c[1]}
-                                        </IonSelectOption>
-
-                                    ))}
-
-                                </IonSelect>
-
-                            </IonItem>
-
-                        </div>
-
-                    </IonCol>
-
-                    {/* Project */}
-                    <IonCol size="12" size-md="6">
-
-                        <div className="notched-input-container">
-
-                            <label className="notched-label theme-label">
-                                Project Name*
-                            </label>
-
-                            <IonItem
-                                lines="none"
-                                className="notched-item theme-border"
-                            >
-
-                                <IonSelect
-                                    placeholder="Select Project"
-                                    value={selectedProjectName}
-                                    onIonChange={(e) =>
-                                        loadClientUserDetailsByName(
-                                            e.detail.value
-                                        )
-                                    }
-                                    disabled={!selectedClientName}
-                                    interface="popover"
-                                    className="image-select-notched theme-text"
-                                >
-
-                                    {projectSourcesList.map((p, i) => (
-
-                                        <IonSelectOption
-                                            key={i}
-                                            value={p[1]}
-                                        >
-                                            {p[1]}
-                                        </IonSelectOption>
-
-                                    ))}
-
-                                </IonSelect>
-
-                            </IonItem>
-
-                        </div>
-
-                    </IonCol>
-
-                </IonRow>
-
-                {/* User Details */}
-                <h3
-                    className="master-title"
-                    style={{ marginTop: "30px" }}
-                >
-                    Project User Details
-                </h3>
-
-                <IonGrid>
-
-                    {[1, 2, 3, 4].map((num) => (
-
-                        <IonRow
-                            key={num}
-                            className="user-detail-row-image"
-                        >
-
-                            <IonCol
-                                size="2"
-                                className="user-label-col"
-                            >
-
-                                <b className="user-text-label">
-                                    User{num}
-                                </b>
-
-                            </IonCol>
-
-                            <IonCol size="10">
-
-                                <IonRow>
-
-                                    {/* Name */}
-                                    <IonCol size="12" size-md="3">
-
-                                        <IonItem
-                                            lines="none"
-                                            className="image-style-input"
-                                        >
-
-                                            <IonInput
-                                                placeholder="Name*"
-                                                value={
-                                                    userDetailsForm[`_U${num}_NAME`]
-                                                }
-                                                onIonInput={(e) =>
-                                                    setUserDetailsForm({
-                                                        ...userDetailsForm,
-                                                        [`_U${num}_NAME`]:
-                                                            e.detail.value!,
-                                                    })
-                                                }
-                                            />
-
-                                        </IonItem>
-
-                                    </IonCol>
-
-                                    {/* Designation */}
-                                    <IonCol size="12" size-md="3">
-
-                                        <IonItem
-                                            lines="none"
-                                            className="image-style-input"
-                                        >
-
-                                            <IonInput
-                                                placeholder="Designation*"
-                                                value={
-                                                    userDetailsForm[`_U${num}_DESIGN`]
-                                                }
-                                                onIonInput={(e) =>
-                                                    setUserDetailsForm({
-                                                        ...userDetailsForm,
-                                                        [`_U${num}_DESIGN`]:
-                                                            e.detail.value!,
-                                                    })
-                                                }
-                                            />
-
-                                        </IonItem>
-
-                                    </IonCol>
-
-                                    {/* Mobile */}
-                                    <IonCol size="12" size-md="3">
-
-                                        <IonItem
-                                            lines="none"
-                                            className="image-style-input"
-                                        >
-
-                                            <IonInput
-                                                placeholder="Mobile No*"
-                                                value={
-                                                    userDetailsForm[`_U${num}_MOBILE`]
-                                                }
-                                                onIonInput={(e) =>
-                                                    setUserDetailsForm({
-                                                        ...userDetailsForm,
-                                                        [`_U${num}_MOBILE`]:
-                                                            e.detail.value!,
-                                                    })
-                                                }
-                                            />
-
-                                        </IonItem>
-
-                                    </IonCol>
-
-                                    {/* Email */}
-                                    <IonCol size="12" size-md="3">
-
-                                        <IonItem
-                                            lines="none"
-                                            className="image-style-input"
-                                        >
-
-                                            <IonInput
-                                                placeholder="E-Mail*"
-                                                value={
-                                                    userDetailsForm[`_U${num}_EMAIL`]
-                                                }
-                                                onIonInput={(e) =>
-                                                    setUserDetailsForm({
-                                                        ...userDetailsForm,
-                                                        [`_U${num}_EMAIL`]:
-                                                            e.detail.value!,
-                                                    })
-                                                }
-                                            />
-
-                                        </IonItem>
-
-                                    </IonCol>
-
-                                </IonRow>
-
-                            </IonCol>
-
-                        </IonRow>
-
-                    ))}
-
-                </IonGrid>
-
-                {/* Buttons */}
-                <div className="button-row-image-centers">
-
-                    <IonButton
-                        className="blue-btn-image"
-                        onClick={saveUserDetails}
-                    >
-                        SAVE
-                    </IonButton>
-
-                    <IonButton
-                        className="blue-btn-image"
-                        onClick={clearForm}
-                    >
-                        CLEAR
-                    </IonButton>
-
-                </div>
-
+        <div className="tab-content-wrapper" style={{ padding: '0 16px', background: 'transparent' }}>
+      <div className="stock-panel">
+        <h3 className="stock-section-heading" style={{ marginBottom: '24px' }}>Project User Details</h3>
+
+        {/* Dropdowns */}
+        <div className="stock-grid" style={{ marginBottom: '24px' }}>
+          {/* Client */}
+          <div className="stock-field">
+            <label>Client Name*</label>
+            <select
+              className="stock-select"
+              value={selectedClientName}
+              onChange={(e) => loadProjectSourcesByName(e.target.value)}
+            >
+              <option value="">Select Client</option>
+              {clientSourcesList.map((c, i) => (
+                <option key={i} value={c[1]}>
+                  {c[1]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Project */}
+          <div className="stock-field">
+            <label>Project Name*</label>
+            <select
+              className="stock-select"
+              value={selectedProjectName}
+              onChange={(e) => loadClientUserDetailsByName(e.target.value)}
+              disabled={!selectedClientName}
+            >
+              <option value="">Select Project</option>
+              {projectSourcesList.map((p, i) => (
+                <option key={i} value={p[1]}>
+                  {p[1]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* User Details */}
+        {[1, 2, 3, 4].map((num) => (
+          <div key={num} style={{ marginBottom: '24px' }}>
+            <h4 className="stock-subheading" style={{ color: 'var(--stock-muted)', borderBottom: '1px solid var(--stock-border)', paddingBottom: '8px', marginBottom: '16px' }}>
+              User {num}
+            </h4>
+            <div className="stock-grid">
+              <div className="stock-field">
+                <label>Name</label>
+                <input
+                  type="text"
+                  className="stock-input"
+                  placeholder="Enter Name"
+                  value={userDetailsForm[`_U${num}_NAME`]}
+                  onChange={(e) => setUserDetailsForm({ ...userDetailsForm, [`_U${num}_NAME`]: e.target.value })}
+                />
+              </div>
+              <div className="stock-field">
+                <label>Designation</label>
+                <input
+                  type="text"
+                  className="stock-input"
+                  placeholder="Enter Designation"
+                  value={userDetailsForm[`_U${num}_DESIGN`]}
+                  onChange={(e) => setUserDetailsForm({ ...userDetailsForm, [`_U${num}_DESIGN`]: e.target.value })}
+                />
+              </div>
+              <div className="stock-field">
+                <label>Mobile No</label>
+                <input
+                  type="text"
+                  className="stock-input"
+                  placeholder="Enter Mobile"
+                  value={userDetailsForm[`_U${num}_MOBILE`]}
+                  onChange={(e) => setUserDetailsForm({ ...userDetailsForm, [`_U${num}_MOBILE`]: e.target.value })}
+                />
+              </div>
+              <div className="stock-field">
+                <label>E-Mail</label>
+                <input
+                  type="email"
+                  className="stock-input"
+                  placeholder="Enter E-Mail"
+                  value={userDetailsForm[`_U${num}_EMAIL`]}
+                  onChange={(e) => setUserDetailsForm({ ...userDetailsForm, [`_U${num}_EMAIL`]: e.target.value })}
+                />
+              </div>
             </div>
+          </div>
+        ))}
 
-            {/* Floating Icon */}
-            <div className="bottom-right-actions">
-
-                <div className="action-icon-box">
-                    <IonIcon icon={personOutline} />
-                </div>
-
-            </div>
+        {/* Buttons */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+          <button className="stock-button stock-button--secondary" onClick={clearForm}>
+            Clear Form
+          </button>
+          <button className="stock-button" onClick={saveUserDetails}>
+            Save User Details
+          </button>
+        </div>
+      </div>
 
             {/* Loading */}
             <IonLoading

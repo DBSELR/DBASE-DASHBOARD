@@ -13,6 +13,7 @@ import {
   IonLoading,
   IonModal,
   IonPage,
+  IonPopover,
   IonRefresher,
   IonRefresherContent,
   IonRow,
@@ -28,9 +29,10 @@ import {
   IonMenuButton,
   IonCheckbox,
 } from "@ionic/react";
+import { createPortal } from "react-dom";
 import { useHistory } from "react-router-dom";
 import { ChevronLeft, Wallet } from "lucide-react";
-import { arrowForward, close, calendar, person, documentText, eyeOutline, checkmarkCircle } from "ionicons/icons";
+import { arrowForward, close, calendar, person, documentText, eyeOutline, checkmarkCircle, search, chevronDown } from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
 import type { RefresherEventDetail } from "@ionic/core";
@@ -516,7 +518,14 @@ const Transactions: React.FC = () => {
   const billFileInputRef = useRef<HTMLInputElement>(null);
   const [remarks, setRemarks] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
- const [menuOpen, setMenuOpen] = useState(false);
+
+  // Searchable Employee Dropdown for Admin Voucher Filter
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState<boolean>(false);
+  const [employeeDropdownPos, setEmployeeDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 240 });
+  const [empSearchTerm, setEmpSearchTerm] = useState<string>("");
+  const empTriggerRef = useRef<HTMLDivElement>(null);
+
+  const [menuOpen, setMenuOpen] = useState(false);
 const streamRef = useRef<MediaStream | null>(null);
 
 // ✅ Upload file input
@@ -1231,12 +1240,38 @@ const triggerBillUpload = () => {
     downloadCsv(`advances_${moment().format("YYYYMMDD_HHmmss")}.csv`, header, rows);
   };
 
+  useEffect(() => {
+    const updatePosition = () => {
+      if (isEmployeeDropdownOpen && empTriggerRef.current) {
+        const rect = empTriggerRef.current.getBoundingClientRect();
+        setEmployeeDropdownPos({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width
+        });
+      }
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isEmployeeDropdownOpen]);
+
+  const filteredEmployees = employees.filter((emp) => {
+    const term = empSearchTerm.toLowerCase();
+    return String(emp.EmpCode).toLowerCase().includes(term) ||
+           String(emp.EmpName).toLowerCase().includes(term);
+  });
+
   /* -------- UI -------- */
   return (
     <IonPage>
 
 
-      <IonContent className="transactions-container">
+      <IonContent className="stock-container" style={{ padding: 0 }}>
         <IonRefresher slot="fixed" onIonRefresh={onRefresh}>
           <IonRefresherContent />
         </IonRefresher>
@@ -1251,106 +1286,111 @@ const triggerBillUpload = () => {
           color={toastColor}
         />
 
-        {/* Custom Premium Header */}
-        <div className="page-txn-header">
-          <div className="page-txn-header-left">
-            <button className="page-txn-back-btn" onClick={() => history.goBack()}>
-              <ChevronLeft size={24} color="#ffffff" />
-            </button>
-            <div>
-              <h1 className="page-txn-title">Transactions</h1>
-              <span className="page-txn-subtitle">{userProfile?.Department || "Account Overview"}</span>
+        <div className="stock-sticky-bar">
+          {/* Custom Premium Header */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Transactions</h1>
+                <p className="page-wr-subtitle">{userProfile?.Department || "Account Overview"}</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <Wallet size={24} color="var(--ion-color-primary)" />
+              </div>
             </div>
           </div>
-          <div className="page-txn-header-right">
-            <div className="page-txn-header-icon-box">
-              <Wallet size={26} color="var(--ion-color-primary)" />
+
+          {/* --- Premium Balance Cards --- */}
+          <div className="balance-grid" style={{ padding: '0 16px', marginBottom: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="premium-card card--hand">
+              <div className="card-label">
+                <IonIcon icon={arrowForward} style={{ transform: 'rotate(90deg)', fontSize: '16px' }} />
+                In Hand
+              </div>
+              <div className="card-value">₹ {handCash}/-</div>
+            </div>
+
+            <div className="premium-card card--advance">
+              <div className="card-label">
+                <IonIcon icon={arrowForward} style={{ transform: 'rotate(-45deg)', fontSize: '16px' }} />
+                Advance
+              </div>
+              <div className="card-value">₹ {advanceCash}/-</div>
             </div>
           </div>
-        </div>
 
-        {/* --- Premium Balance Cards --- */}
-        <div className="balance-grid">
-          <div className="premium-card card--hand">
-            <div className="card-label">
-              <IonIcon icon={arrowForward} style={{ transform: 'rotate(90deg)', fontSize: '14px' }} />
-              In Hand
-            </div>
-            <div className="card-value">₹ {handCash}/-</div>
-          </div>
-
-          <div className="premium-card card--advance">
-            <div className="card-label">
-              <IonIcon icon={arrowForward} style={{ fontSize: '14px' }} />
-              Advance
-            </div>
-            <div className="card-value">₹ {advanceCash}/-</div>
-          </div>
-        </div>
-
-        {/* --- Custom Native-Like Tabs --- */}
-        <div className="custom-tabs">
-          <div
-            className={`txn-tab-item ${activeTab === "transfer" ? "active" : ""}`}
-            onClick={() => setActiveTab("transfer")}
-          >
-            Transfer
-          </div>
-
-          <div
-            className={`txn-tab-item ${activeTab === "voucher" ? "active" : ""}`}
-            onClick={() => setActiveTab("voucher")}
-          >
-            Voucher
-          </div>
-
-          {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-            <div
-              className={`txn-tab-item ${activeTab === "advances" ? "active" : ""}`}
-              onClick={() => setActiveTab("advances")}
+          {/* --- Custom Native-Like Tabs --- */}
+          <div className="stock-tabs" style={{ margin: '0 16px' }}>
+            <button
+              type="button"
+              className={`stock-tab ${activeTab === "transfer" ? "active" : ""}`}
+              onClick={() => setActiveTab("transfer")}
             >
-              Advances
-            </div>
-          )}
+              Transfer
+            </button>
+
+            <button
+              type="button"
+              className={`stock-tab ${activeTab === "voucher" ? "active" : ""}`}
+              onClick={() => setActiveTab("voucher")}
+            >
+              Voucher
+            </button>
+
+            {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+              <button
+                type="button"
+                className={`stock-tab ${activeTab === "advances" ? "active" : ""}`}
+                onClick={() => setActiveTab("advances")}
+              >
+                Advances
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Transfer tab */}
         {activeTab === "transfer" && (
-          <div className="tab-pad">
-            <div className="section-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="section-title">
-                  <IonIcon icon={arrowForward} /> New Transfer
-                </div>
+          <div style={{ margin: '0 16px 20px 16px' }}>
+            <div className="stock-panel">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <h3 className="stock-section-heading" style={{ margin: 0 }}>
+                  <IonIcon icon={arrowForward} style={{ marginRight: '6px' }} /> New Transfer
+                </h3>
                 <div>
-                  <button className="premium-export-btn" onClick={exportTransactions}>
+                  <button className="stock-button stock-button--secondary stock-button--small" onClick={exportTransactions} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <IonIcon icon={documentText} /> Download Excel
                   </button>
                 </div>
               </div>
-              <div className="form-grid">
-                <div className="input-group">
-                  <div className="input-label">Payment Type</div>
-                  <IonSelect
-                    interface="popover"
-                    className="modern-select"
-                    placeholder="Select Type"
-                    value={paymentType}
-                    onIonChange={(e) => onPaymentTypeChange(e.detail.value)}
-                  >
-                    <IonSelectOption value="Office Expenses">Office Expenses</IonSelectOption>
-                    {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-                      <IonSelectOption value="Advance">Advance</IonSelectOption>
-                    )}
-                    <IonSelectOption value="Advance Repayment">Advance Repayment</IonSelectOption>
-                    {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-                      <IonSelectOption value="Salary">Salary</IonSelectOption>
-                    )}
-                  </IonSelect>
+              <div className="stock-grid">
+                <div className="stock-field">
+                  <label>Payment Type</label>
+                  <div className="stock-select-wrapper">
+                    <select
+                      className="stock-select"
+                      value={paymentType}
+                      onChange={(e) => onPaymentTypeChange(e.target.value)}
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Office Expenses">Office Expenses</option>
+                      {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+                        <option value="Advance">Advance</option>
+                      )}
+                      <option value="Advance Repayment">Advance Repayment</option>
+                      {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
+                        <option value="Salary">Salary</option>
+                      )}
+                    </select>
+                  </div>
                   {!!advRepayFrom && (
                     <div
-                      className="mini-button"
-                      style={{ marginTop: '4px', fontSize: '12px', color: 'var(--ion-color-primary)', fontWeight: 600, cursor: 'pointer' }}
+                      style={{ marginTop: '6px', fontSize: '13px', color: 'var(--stock-accent)', fontWeight: 700, cursor: 'pointer' }}
                       onClick={() => setOpenVoucherEmpModal(true)}
                     >
                       From: {advRepayFrom}
@@ -1358,136 +1398,140 @@ const triggerBillUpload = () => {
                   )}
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">Transfer To</div>
-                  <IonSelect
-                    interface="popover"
-                    className="modern-select"
-                    placeholder="Select Recipient"
-                    value={transferTo}
-                    onIonChange={(e) => setTransferTo(e.detail.value)}
-                  >
-                    {(employeesTemp || employees).map((emp) => (
-                      <IonSelectOption key={emp.EmpCode} value={`${emp.EmpCode}-${emp.EmpName}`}>
-                        {emp.EmpName}
-                      </IonSelectOption>
-                    ))}
-                  </IonSelect>
+                <div className="stock-field">
+                  <label>Transfer To</label>
+                  <div className="stock-select-wrapper">
+                    <select
+                      className="stock-select"
+                      value={transferTo}
+                      onChange={(e) => setTransferTo(e.target.value)}
+                    >
+                      <option value="">Select Recipient</option>
+                      {(employeesTemp || employees).map((emp) => (
+                        <option key={emp.EmpCode} value={`${emp.EmpCode}-${emp.EmpName}`}>
+                          {emp.EmpName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">Amount (₹)</div>
-                  <IonInput
-                    className="modern-input"
+                <div className="stock-field">
+                  <label>Amount (₹)</label>
+                  <input
+                    className="stock-input"
                     placeholder="0.00"
                     type="number"
                     value={amount}
-                    onIonChange={(e) => {
-                      const v = e.detail.value || "";
-                      setAmount(v);
-                    }}
-                    onIonBlur={() => {
+                    onChange={(e) => setAmount(e.target.value)}
+                    onBlur={() => {
                       if (amount) checkAmount(amount);
                     }}
                   />
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">Transfer Mode</div>
-                  <IonSelect
-                    interface="popover"
-                    className="modern-select"
-                    placeholder="Select Mode"
-                    value={transferMode}
-                    onIonChange={(e) => setTransferMode(e.detail.value)}
-                  >
-                    <IonSelectOption value="By Cash">By Cash</IonSelectOption>
-                    <IonSelectOption value="Credit Card">Credit Card</IonSelectOption>
-                    <IonSelectOption value="PhonePay">PhonePay</IonSelectOption>
-                    <IonSelectOption value="Google Pay">Google Pay</IonSelectOption>
-                    <IonSelectOption value="Paytm">Paytm</IonSelectOption>
-                    <IonSelectOption value="Bank Transfer">Bank Transfer</IonSelectOption>
-                  </IonSelect>
+                <div className="stock-field">
+                  <label>Transfer Mode</label>
+                  <div className="stock-select-wrapper">
+                    <select
+                      className="stock-select"
+                      value={transferMode}
+                      onChange={(e) => setTransferMode(e.target.value)}
+                    >
+                      <option value="">Select Mode</option>
+                      <option value="By Cash">By Cash</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="PhonePay">PhonePay</option>
+                      <option value="Google Pay">Google Pay</option>
+                      <option value="Paytm">Paytm</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="input-group">
-                  <div className="input-label">Remarks</div>
-                  <IonInput
-                    className="modern-input"
+                <div className="stock-field stock-field--wide">
+                  <label>Remarks</label>
+                  <input
+                    className="stock-input"
                     placeholder="Enter remarks"
                     value={remarks}
-                    onIonChange={(e) => setRemarks(e.detail.value || "")}
+                    onChange={(e) => setRemarks(e.target.value)}
                   />
                 </div>
-
               </div>
 
-              <div className="button-row">
-                <IonButton className="btn-primary" expand="block" onClick={saveTransfer}>
-                  <IonIcon icon={arrowForward} slot="start" />
-                  Transfer
-                </IonButton>
-                <IonButton className="btn-outline" fill="outline" expand="block" onClick={clearTransfer}>
-                  <IonIcon icon={close} slot="start" />
-                  Cancel
-                </IonButton>
+              <div className="stock-actions" style={{ marginTop: '20px' }}>
+                <button className="stock-button" onClick={saveTransfer} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <IonIcon icon={arrowForward} /> Transfer
+                </button>
+                <button className="stock-button stock-button--secondary" onClick={clearTransfer} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <IonIcon icon={close} /> Cancel
+                </button>
               </div>
             </div>
 
             {/* Filters + list */}
-            <div className="section-card">
-              <div className="section-title">
+            <div className="stock-panel">
+              <h3 className="stock-section-heading">
                 {userProfile ? `${userProfile.EmpID} - ${userProfile.EmpName}` : EmpCodeName}
-              </div>
+              </h3>
 
               {/* ── Filter Bar ── */}
-              <div className="txn-filter-grid">
-                <div className="input-group">
-                  <div className="input-label">Year</div>
-                  <IonSelect
-                    interface="popover"
-                    className="modern-select"
-                    value={selectedYear}
-                    onIonChange={(e) => {
-                      const y = e.detail.value;
-                      setSelectedYear(y);
-                      fetchTransactions(EmpCode, { year: y });
-                    }}
-                  >
-                    <IonSelectOption value="">All Years</IonSelectOption>
-                    {fiscalYears.map((fy) => (
-                      <IonSelectOption key={fy} value={fy}>{fy}</IonSelectOption>
-                    ))}
-                  </IonSelect>
+              <div className="stock-grid">
+                <div className="stock-field">
+                  <label>Year</label>
+                  <div className="stock-select-wrapper">
+                    <select
+                      className="stock-select"
+                      value={selectedYear}
+                      onChange={(e) => {
+                        const y = e.target.value;
+                        setSelectedYear(y);
+                        fetchTransactions(EmpCode, { year: y });
+                      }}
+                    >
+                      <option value="">All Years</option>
+                      {fiscalYears.map((fy) => (
+                        <option key={fy} value={fy}>{fy}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-
-                <div className="input-group">
-                  <div className="input-label">From Date</div>
-                  <input
-                    type="date"
-                    className="native-date-input"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                <div className="stock-field">
+                  <label>From Date</label>
+                  <div id="txn-start-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: startDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {startDate ? new Date(startDate).toLocaleDateString() : "Select Date"}
+                  </div>
+                  <IonPopover trigger="txn-start-date-trigger" triggerAction="click" alignment="start">
+                    <IonDatetime
+                      presentation="date"
+                      value={startDate}
+                      onIonChange={(e) => setStartDate((e.detail.value as string).split('T')[0])}
+                    />
+                  </IonPopover>
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">To Date</div>
-                  <input
-                    type="date"
-                    className="native-date-input"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                <div className="stock-field">
+                  <label>To Date</label>
+                  <div id="txn-end-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: endDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {endDate ? new Date(endDate).toLocaleDateString() : "Select Date"}
+                  </div>
+                  <IonPopover trigger="txn-end-date-trigger" triggerAction="click" alignment="start">
+                    <IonDatetime
+                      presentation="date"
+                      value={endDate}
+                      onIonChange={(e) => setEndDate((e.detail.value as string).split('T')[0])}
+                    />
+                  </IonPopover>
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label" style={{ visibility: 'hidden' }}>Action</div>
-                  <div className="filter-action-row">
+                <div className="stock-field">
+                  <label style={{ visibility: 'hidden' }}>Action</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <button
-                      className="filter-apply-btn"
+                      className="stock-button"
                       disabled={filterLoading}
-                      style={{ opacity: filterLoading ? 0.6 : 1, cursor: filterLoading ? "not-allowed" : "pointer" }}
+                      style={{ flex: 1, opacity: filterLoading ? 0.6 : 1 }}
                       onClick={async () => {
                         filterSearchRef.current = true;
                         setFilterLoading(true);
@@ -1497,7 +1541,7 @@ const triggerBillUpload = () => {
                     >
                       {filterLoading ? "Searching…" : "Search"}
                     </button>
-                    <button className="filter-clear-btn" onClick={() => {
+                    <button className="stock-button stock-button--secondary" style={{ flex: 1 }} onClick={() => {
                       setStartDate(""); setEndDate(""); setSelectedYear("");
                       setTransCredDebt("All"); setSelectedTxnType("All");
                       fetchTransactions(EmpCode, { start: "", end: "", year: "", type: "All", head: "All" });
@@ -1570,41 +1614,39 @@ const triggerBillUpload = () => {
           </div>
         )}
 
-        {/* Voucher tab */}
         {activeTab === "voucher" && (
-          <div className="tab-pad">
-            <div className="section-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="section-title">
-                  <IonIcon icon={arrowForward} /> Verified Vouchers
-                </div>
+          <div style={{ margin: '0 16px 20px 16px' }}>
+            <div className="stock-panel">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <h3 className="stock-section-heading" style={{ margin: 0 }}>
+                  <IonIcon icon={arrowForward} style={{ marginRight: '6px' }} /> Verified Vouchers
+                </h3>
                 <div>
-                  <button className="premium-export-btn" onClick={exportVouchers}>
+                  <button className="stock-button stock-button--secondary stock-button--small" onClick={exportVouchers} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <IonIcon icon={documentText} /> Download Excel
                   </button>
                 </div>
               </div>
-              <div className="form-grid">
-                <div className="input-group">
-                  <div className="input-label">Voucher Head</div>
-                  <IonSelect
-                    interface="popover"
-                    className="modern-select"
-                    placeholder="Select Head"
-                    value={invoiceHeads}
-                    onIonChange={(e) => handleVoucherHeadsChange(e.detail.value)}
-                  >
-                    <IonSelectOption value="0">--Select--</IonSelectOption>
-                    <IonSelectOption value="OfficeExpenses">Office Expenses</IonSelectOption>
-                    <IonSelectOption value="Toll">Toll</IonSelectOption>
-                    <IonSelectOption value="Fuel">Fuel</IonSelectOption>
-                    <IonSelectOption value="TA">TA</IonSelectOption>
-                    <IonSelectOption value="DA">DA</IonSelectOption>
-                  </IonSelect>
+              <div className="stock-grid">
+                <div className="stock-field">
+                  <label>Voucher Head</label>
+                  <div className="stock-select-wrapper">
+                    <select
+                      className="stock-select"
+                      value={invoiceHeads}
+                      onChange={(e) => handleVoucherHeadsChange(e.target.value)}
+                    >
+                      <option value="0">--Select--</option>
+                      <option value="OfficeExpenses">Office Expenses</option>
+                      <option value="Toll">Toll</option>
+                      <option value="Fuel">Fuel</option>
+                      <option value="TA">TA</option>
+                      <option value="DA">DA</option>
+                    </select>
+                  </div>
                   {!!selectEmpHint && (
                     <div
-                      className="mini-button"
-                      style={{ marginTop: '4px', fontSize: '12px', color: 'var(--ion-color-primary)', fontWeight: 600, cursor: 'pointer' }}
+                      style={{ marginTop: '6px', fontSize: '13px', color: 'var(--stock-accent)', fontWeight: 700, cursor: 'pointer' }}
                       onClick={() => setOpenDA_TA_Modal(true)}
                     >
                       {selectEmpHint}
@@ -1612,47 +1654,51 @@ const triggerBillUpload = () => {
                   )}
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">Voucher Date</div>
-                  <input
-                    type="date"
-                    className="native-date-input"
-                    disabled={isDateDisabled}
-                    value={invoiceDate ? moment(invoiceDate).format("YYYY-MM-DD") : ""}
-                    onChange={(e) => setInvoiceDate(e.target.value ? moment(e.target.value).toISOString() : undefined)}
-                    style={{ opacity: isDateDisabled ? 0.5 : 1 }}
-                  />
+                <div className="stock-field">
+                  <label>Voucher Date</label>
+                  <div id="voucher-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: isDateDisabled ? 'default' : 'pointer', minHeight: '38px', color: invoiceDate ? 'var(--stock-text)' : 'var(--stock-muted)', opacity: isDateDisabled ? 0.5 : 1 }}>
+                    {invoiceDate ? new Date(invoiceDate).toLocaleDateString() : "Select Date"}
+                  </div>
+                  {!isDateDisabled && (
+                    <IonPopover trigger="voucher-date-trigger" triggerAction="click" alignment="start">
+                      <IonDatetime
+                        presentation="date"
+                        value={invoiceDate ? moment(invoiceDate).toISOString() : undefined}
+                        onIonChange={(e) => setInvoiceDate(e.detail.value ? (e.detail.value as string) : undefined)}
+                      />
+                    </IonPopover>
+                  )}
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">Amount (₹)</div>
-                  <IonInput
-                    className="modern-input"
+                <div className="stock-field">
+                  <label>Amount (₹)</label>
+                  <input
+                    className="stock-input"
                     placeholder="0.00"
                     type="number"
                     value={voucherAmount}
-                    onIonChange={(e) => setVoucherAmount(e.detail.value!)}
+                    onChange={(e) => setVoucherAmount(e.target.value)}
                   />
                 </div>
 
-                <div className="input-group">
-                  <div className="input-label">Description</div>
-                  <IonInput
-                    className="modern-input"
+                <div className="stock-field">
+                  <label>Description</label>
+                  <input
+                    className="stock-input"
                     placeholder="Brief description..."
                     value={voucherDesc}
-                    onIonChange={(e) => setVoucherDesc(e.detail.value!)}
+                    onChange={(e) => setVoucherDesc(e.target.value)}
                   />
                 </div>
               </div>
 
               <div className="image-pickers" style={{ marginTop: '20px' }}>
                 <div
-  className="picker-card"
-  onClick={() => openCamera("voucher", "environment")}
->
+                  className="picker-card"
+                  onClick={() => openCamera("voucher", "environment")}
+                >
                   {photoVoucher ? (
-                    <img src={photoVoucher} alt="Voucher" className="picker-preview" />
+                    <img src={photoVoucher} alt="Voucher" className="picker-preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div className="picker-placeholder">
                       <IonIcon icon={arrowForward} style={{ transform: 'rotate(-90deg)' }} />
@@ -1669,11 +1715,11 @@ const triggerBillUpload = () => {
                 </div>
 
                 <div
-  className="picker-card"
-  onClick={() => openCamera("bill", "environment")}
->
+                  className="picker-card"
+                  onClick={() => openCamera("bill", "environment")}
+                >
                   {photoBill ? (
-                    <img src={photoBill} alt="Bill" className="picker-preview" />
+                    <img src={photoBill} alt="Bill" className="picker-preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div className="picker-placeholder">
                       <IonIcon icon={arrowForward} style={{ transform: 'rotate(-90deg)' }} />
@@ -1690,47 +1736,43 @@ const triggerBillUpload = () => {
                 </div>
               </div>
 
-              <div className="button-row">
-                <IonButton className="btn-primary" expand="block" onClick={saveVoucher}>
-                  <IonIcon icon={arrowForward} slot="start" />
-                  Submit
-                </IonButton>
-                <IonButton className="btn-outline" fill="outline" expand="block" onClick={voucherClear}>
-                  <IonIcon icon={close} slot="start" />
-                  Cancel
-                </IonButton>
+              <div className="stock-actions" style={{ marginTop: '20px' }}>
+                <button className="stock-button" onClick={saveVoucher} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <IonIcon icon={arrowForward} /> Submit
+                </button>
+                <button className="stock-button stock-button--secondary" onClick={voucherClear} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <IonIcon icon={close} /> Cancel
+                </button>
               </div>
             </div>
-
+            
             {/* Voucher filter (Admin only) */}
             {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-              <div className="section-card" style={{ padding: '12px 20px' }}>
-                <div className="input-group">
-                  <div className="input-label">Filter by Employee</div>
+              <div className="stock-panel">
+                <div className="stock-field">
+                  <label>Filter by Employee</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <IonSelect
-                      interface="popover"
-                      className="modern-select"
-                      style={{ flex: 1 }}
-                      placeholder="Show All"
-                      value={voucherEmpView}
-                      onIonChange={async (e) => {
-                        const val = e.detail.value as string;
-                        setVoucherEmpView(val);
-                        const code = val ? val.split("-")[0] : "ALL";
-                        await fetchVouchers(code as any);
-                      }}
-                    >
-                      {employees.map((emp) => (
-                        <IonSelectOption key={emp.EmpCode} value={`${emp.EmpCode}-${emp.EmpName}`}>
-                          {emp.EmpName}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <div
+                        ref={empTriggerRef}
+                        className={`dbase-inline-select searchable-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEmpSearchTerm("");
+                          setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen);
+                        }}
+                        style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)' }}
+                      >
+                        <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: '600' }}>
+                          {voucherEmpView || "Show All"}
+                        </span>
+                        <IonIcon icon={chevronDown} className="select-chevron" />
+                      </div>
+                    </div>
                     {voucherEmpView && (
                       <IonIcon
                         icon={close}
-                        style={{ fontSize: '24px', color: '#94a3b8' }}
+                        style={{ fontSize: '24px', color: '#94a3b8', cursor: 'pointer' }}
                         onClick={async () => {
                           setVoucherEmpView(null);
                           await fetchVouchers("ALL");
@@ -1786,18 +1828,18 @@ const triggerBillUpload = () => {
         {/* Advances tab */}
         {activeTab === "advances" &&
           (UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
-            <div className="tab-pad">
-              <div className="section-card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div className="section-title">
-                      <IonIcon icon={arrowForward} /> Search by Reference
-                    </div>
-                    <div>
-                      <button className="premium-export-btn" onClick={exportAdvances}>
-                        <IonIcon icon={documentText} /> Download Excel
-                      </button>
-                    </div>
+            <div style={{ margin: '0 16px 20px 16px' }}>
+              <div className="stock-panel">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <h3 className="stock-section-heading" style={{ margin: 0 }}>
+                    <IonIcon icon={arrowForward} style={{ marginRight: '6px' }} /> Search by Reference
+                  </h3>
+                  <div>
+                    <button className="stock-button stock-button--secondary stock-button--small" onClick={exportAdvances} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <IonIcon icon={documentText} /> Download Excel
+                    </button>
                   </div>
+                </div>
                 <div className="advances-table-wrapper">
                   <table className="advances-table">
                     <thead>
@@ -2090,6 +2132,91 @@ const triggerBillUpload = () => {
             </div>
           </IonContent>
         </IonModal>
+        {/* Employee Dropdown Portal (Voucher Filter) */}
+        {isEmployeeDropdownOpen && createPortal(
+          <>
+            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsEmployeeDropdownOpen(false); }} />
+            <div
+              className="custom-inline-dropdown"
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: `${employeeDropdownPos.top}px`,
+                left: `${employeeDropdownPos.left}px`,
+                width: `${employeeDropdownPos.width}px`
+              }}
+            >
+              <div className="dropdown-search-sec">
+                <IonIcon icon={search} className="dropdown-search-icon" />
+                <input
+                  type="text"
+                  className="dropdown-pure-input"
+                  placeholder="Search employee..."
+                  value={empSearchTerm}
+                  onChange={(e) => setEmpSearchTerm(e.target.value)}
+                  autoFocus
+                  onMouseDown={(e) => e.stopPropagation()}
+                />
+                {empSearchTerm && (
+                  <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                    <IonIcon icon={close} />
+                  </button>
+                )}
+              </div>
+
+              <div className="dropdown-body">
+                <div
+                  className={`dropdown-emp-item ${!voucherEmpView ? 'selected' : ''}`}
+                  onClick={async () => {
+                    setVoucherEmpView(null);
+                    setIsEmployeeDropdownOpen(false);
+                    await fetchVouchers("ALL");
+                  }}
+                >
+                  <div className="dr-info">
+                    <span className="dr-name">Show All</span>
+                  </div>
+                  {!voucherEmpView && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                </div>
+
+                {filteredEmployees.map((emp, index) => {
+                  const empId = String(emp.EmpCode);
+                  const empName = String(emp.EmpName);
+                  const isSelected = voucherEmpView === `${empId}-${empName}`;
+                  const initials = (empName.charAt(0) || "?").toUpperCase();
+
+                  return (
+                    <div
+                      key={index}
+                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                      onClick={async () => {
+                        const val = `${empId}-${empName}`;
+                        setVoucherEmpView(val);
+                        setIsEmployeeDropdownOpen(false);
+                        await fetchVouchers(empId as any);
+                      }}
+                    >
+                      <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
+                        {initials}
+                      </div>
+                      <div className="dr-info">
+                        <span className="dr-name">{empName}</span>
+                        <span className="dr-id">ID: {empId}</span>
+                      </div>
+                      {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                    </div>
+                  );
+                })}
+                {filteredEmployees.length === 0 && (
+                  <div className="dr-no-results">
+                    <p>No matches for "{empSearchTerm}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
       </IonContent>
     </IonPage>
   );

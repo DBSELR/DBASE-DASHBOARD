@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./Stock.css";
-import { ArrowBigRight, Contrast, Space } from "lucide-react";
+import { ArrowBigRight, Contrast, Space, ChevronLeft } from "lucide-react";
 import { API_BASE } from "../config";
-
-
+import { useHistory } from "react-router-dom";
+import { IonIcon, IonPopover, IonDatetime } from "@ionic/react";
+import { cubeOutline, chevronDown, search, close, checkmarkCircle } from "ionicons/icons";
+import { createPortal } from "react-dom";
 ///api/Stock
 
 const stockTypes = [
@@ -161,6 +163,8 @@ const makeApiDate = (value: string) => {
 };
 
 const Stock = () => {
+  const history = useHistory();
+
   // ===== ACCESS CONTROL =====
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -245,6 +249,34 @@ if (!isAuthorized) {
   const [searchName, setSearchName] = useState<string>("");
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // --- Employee Dropdown State ---
+  const empTriggerRef = useRef<HTMLDivElement>(null);
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [empSearchTerm, setEmpSearchTerm] = useState("");
+  const [employeeDropdownPos, setEmployeeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (isEmployeeDropdownOpen && empTriggerRef.current) {
+      const rect = empTriggerRef.current.getBoundingClientRect();
+      setEmployeeDropdownPos({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, [isEmployeeDropdownOpen]);
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      const empId = String(emp[0]).toLowerCase();
+      const empName = String(emp[1]).toLowerCase();
+      const term = empSearchTerm.toLowerCase();
+      return empId.includes(term) || empName.includes(term);
+    });
+  }, [employees, empSearchTerm]);
+  // -------------------------------
+
   const captureVideoRef = useRef<HTMLVideoElement | null>(null);
   const scanStreamRef = useRef<MediaStream | null>(null);
   const captureStreamRef = useRef<MediaStream | null>(null);
@@ -984,11 +1016,22 @@ if (!isAuthorized) {
   return (
     <div className="stock-container">
       <div className="stock-sticky-bar">
-        <div className="stock-top-header">
-          <h1 className="stock-title">Stock Management</h1>
-          <p className="stock-subtitle">Track stock entry, issue history, and current item status.</p>
+        <div className="page-wr-header" style={{ marginBottom: '16px', borderRadius: '16px', padding: '16px' }}>
+          <div className="page-wr-header-left">
+            <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+              <ChevronLeft size={22} color="white" />
+            </button>
+            <div>
+              <h1 className="page-wr-title">Stock Management</h1>
+              <p className="page-wr-subtitle">Track stock entry, issue history, and current item status.</p>
+            </div>
+          </div>
+          <div className="page-wr-header-right">
+            <div className="page-wr-header-icon-box">
+              <IonIcon icon={cubeOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+            </div>
+          </div>
         </div>
-
         <div className="stock-tabs">
           <button
             type="button"
@@ -1015,18 +1058,20 @@ if (!isAuthorized) {
             <div className="stock-grid stock-grid--entry">
               <div className="stock-field">
                 <label>Stock Type</label>
-                <select
-                  value={stockEntry._StockType}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  className="stock-select"
-                >
-                  <option value="">Select Type</option>
-                  {stockTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                <div className="stock-select-wrapper">
+                  <select
+                    value={stockEntry._StockType}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    className="stock-select"
+                  >
+                    <option value="">Select Type</option>
+                    {stockTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="stock-field">
@@ -1061,46 +1106,53 @@ if (!isAuthorized) {
 
               <div className="stock-field">
                 <label>Status</label>
-                <select
-                  value={stockEntry._IS_RETURNED}
-                  onChange={(e) => setStockEntry({ ...stockEntry, _IS_RETURNED: e.target.value })}
-                  className="stock-select"
-                >
-                  {stockEntryStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="stock-field stock-field--scan">
-                <div className="stock-field-row">
-                  <label>Serial No</label>
-                  <button type="button" onClick={startBarcodeScanner} className="stock-scan-button">
-                    Scan Barcode
-                  </button>
+                <div className="stock-select-wrapper">
+                  <select
+                    value={stockEntry._IS_RETURNED}
+                    onChange={(e) => setStockEntry({ ...stockEntry, _IS_RETURNED: e.target.value })}
+                    className="stock-select"
+                  >
+                    {stockEntryStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <input
-                  value={stockEntry._Sno}
-                  onChange={(e) => setStockEntry({ ...stockEntry, _Sno: e.target.value })}
-                  placeholder="Scan or type Serial No"
-                  className="stock-input"
-                />
-                {scannerError && <div className="stock-field-error">{scannerError}</div>}
               </div>
 
               <div className="stock-field">
                 <label>W Date</label>
-                <input
-                  type="date"
-                  value={stockEntry._Wdate}
-                  onChange={(e) => setStockEntry({ ...stockEntry, _Wdate: e.target.value })}
-                  className="stock-input"
-                />
+                <div id="wdate-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: stockEntry._Wdate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                  {stockEntry._Wdate ? new Date(stockEntry._Wdate).toLocaleDateString() : "Select Date"}
+                </div>
+                <IonPopover trigger="wdate-trigger" triggerAction="click" alignment="start">
+                  <IonDatetime
+                    presentation="date"
+                    value={stockEntry._Wdate}
+                    onIonChange={(e) => setStockEntry({ ...stockEntry, _Wdate: (e.detail.value as string).split('T')[0] })}
+                  />
+                </IonPopover>
               </div>
 
-              <div className="stock-field stock-field--span-2">
+              <div className="stock-field stock-field--scan stock-field--span-2">
+                <label>Serial No</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    value={stockEntry._Sno}
+                    onChange={(e) => setStockEntry({ ...stockEntry, _Sno: e.target.value })}
+                    placeholder="Scan or type Serial No"
+                    className="stock-input"
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                  <button type="button" onClick={startBarcodeScanner} className="stock-scan-button" style={{ minHeight: '38px', whiteSpace: 'nowrap' }}>
+                    Scan Barcode
+                  </button>
+                </div>
+                {scannerError && <div className="stock-field-error">{scannerError}</div>}
+              </div>
+
+              <div className="stock-field stock-field--wide">
                 <label>Details</label>
                 <input
                   value={stockEntry._Details}
@@ -1254,31 +1306,35 @@ if (!isAuthorized) {
           <div className="stock-search-box">
             <h4 className="stock-subheading">Search Stock</h4>
             <div className="stock-search-row">
-              <select
-                value={searchType}
-                onChange={(e) => setSearchType(e.target.value)}
-                className="stock-select"
-              >
-                <option value="">Search by Stock Type</option>
-                {stockTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              <div className="stock-select-wrapper">
+                <select
+                  value={searchType}
+                  onChange={(e) => setSearchType(e.target.value)}
+                  className="stock-select"
+                >
+                  <option value="">Search by Stock Type</option>
+                  {stockTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <select
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-                className="stock-select"
-              >
-                <option value="">Search by Stock Name</option>
-                {stockNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+              <div className="stock-select-wrapper">
+                <select
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  className="stock-select"
+                >
+                  <option value="">Search by Stock Name</option>
+                  {stockNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <button type="button" onClick={handleSearch} className="stock-button stock-button--ghost stock-button--small">
                 Search
@@ -1346,21 +1402,23 @@ if (!isAuthorized) {
           <div className="stock-grid">
             <div className="stock-field">
               <label>Stock Code</label>
-              <select
-                value={stockIssue._StockCode}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  void loadStockByCode(value);
-                }}
-                className="stock-select"
-              >
-                <option value="">Select Code</option>
-                {stockCodes.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
+              <div className="stock-select-wrapper">
+                <select
+                  value={stockIssue._StockCode}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    void loadStockByCode(value);
+                  }}
+                  className="stock-select"
+                >
+                  <option value="">Select Code</option>
+                  {stockCodes.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="stock-field">
@@ -1415,43 +1473,51 @@ if (!isAuthorized) {
 
             <div className="stock-field">
               <label>Select Employee</label>
-              <select
-                value={stockIssue._IssuedName}
-                onChange={(e) => setStockIssue({ ...stockIssue, _IssuedName: e.target.value })}
-                className="stock-select"
+              <div
+                ref={empTriggerRef}
+                className={`dbase-inline-select searchable-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen);
+                }}
+                style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)' }}
               >
-
-                {employees.map((emp) => (
-                  <option key={emp[0]} value={emp[1]}>
-                    {emp[1]}
-                  </option>
-                ))}
-              </select>
+                <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: '600', color: stockIssue._IssuedName ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                  {stockIssue._IssuedName || "Select Employee"}
+                </span>
+                <IonIcon icon={chevronDown} className="select-chevron" />
+              </div>
             </div>
 
             <div className="stock-field">
               <label>Date</label>
-              <input
-                type="date"
-                value={stockIssue._IssueDate}
-                onChange={(e) => setStockIssue({ ...stockIssue, _IssueDate: e.target.value })}
-                className="stock-input"
-              />
+              <div id="issue-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: stockIssue._IssueDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                {stockIssue._IssueDate ? new Date(stockIssue._IssueDate).toLocaleDateString() : "Select Date"}
+              </div>
+              <IonPopover trigger="issue-date-trigger" triggerAction="click" alignment="start">
+                <IonDatetime
+                  presentation="date"
+                  value={stockIssue._IssueDate}
+                  onIonChange={(e) => setStockIssue({ ...stockIssue, _IssueDate: (e.detail.value as string).split('T')[0] })}
+                />
+              </IonPopover>
             </div>
 
             <div className="stock-field">
               <label>Status</label>
-              <select
-                value={stockIssue._IS_RETURNED}
-                onChange={(e) => setStockIssue({ ...stockIssue, _IS_RETURNED: e.target.value })}
-                className="stock-select"
-              >
-                {stockIssueStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
+              <div className="stock-select-wrapper">
+                <select
+                  value={stockIssue._IS_RETURNED}
+                  onChange={(e) => setStockIssue({ ...stockIssue, _IS_RETURNED: e.target.value })}
+                  className="stock-select"
+                >
+                  {stockIssueStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1520,6 +1586,84 @@ if (!isAuthorized) {
           </div>
         </div>
       )}
+
+      {/* Employee Dropdown Portal */}
+      {isEmployeeDropdownOpen && createPortal(
+        <>
+          <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsEmployeeDropdownOpen(false); }} />
+          <div
+            className="custom-inline-dropdown"
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: `${employeeDropdownPos.top}px`,
+              left: `${employeeDropdownPos.left}px`,
+              width: `${employeeDropdownPos.width}px`
+            }}
+          >
+            <div className="dropdown-search-sec">
+              <IonIcon icon={search} className="dropdown-search-icon" />
+              <input
+                type="text"
+                className="dropdown-pure-input"
+                placeholder="Search employee..."
+                value={empSearchTerm}
+                onChange={(e) => setEmpSearchTerm(e.target.value)}
+                autoFocus
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+              {empSearchTerm && (
+                <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                  <IonIcon icon={close} />
+                </button>
+              )}
+            </div>
+
+            <div className="dropdown-body">
+              {filteredEmployees.map((emp, index) => {
+                const empId = String(emp[0]);
+                let empName = String(emp[1]);
+                if (empName.startsWith(empId + "-")) {
+                  empName = empName.replace(empId + "-", "").trim();
+                }
+                const isSelected = stockIssue._IssuedName === emp[1];
+                const cleanNameForInitials = empName.includes("-")
+                  ? empName.split("-").slice(1).join("-").trim()
+                  : empName;
+                const initials = (cleanNameForInitials.charAt(0) || "?").toUpperCase();
+
+                return (
+                  <div
+                    key={index}
+                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setStockIssue({ ...stockIssue, _IssuedName: emp[1] });
+                      setIsEmployeeDropdownOpen(false);
+                      setEmpSearchTerm("");
+                    }}
+                  >
+                    <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
+                      {initials}
+                    </div>
+                    <div className="dr-info">
+                      <span className="dr-name">{empName}</span>
+                      <span className="dr-id">ID: {empId}</span>
+                    </div>
+                    {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                  </div>
+                );
+              })}
+              {filteredEmployees.length === 0 && (
+                <div className="dr-no-results">
+                  <p>No matches for "{empSearchTerm}"</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
     </div>
   );
 };

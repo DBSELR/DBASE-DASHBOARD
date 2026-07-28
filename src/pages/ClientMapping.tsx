@@ -169,158 +169,103 @@ const ClientMapping: React.FC = () => {
   // ======================================================
 
   return (
-    <div className="tab-content-wrapper">
-      <div className="section-container">
-        {/* ============================================= */}
-        {/* BUTTONS */}
-        {/* ============================================= */}
+    <div className="tab-content-wrapper" style={{ padding: '0 16px', background: 'transparent' }}>
+      
+      {/* ============================================= */}
+      {/* BUTTONS */}
+      {/* ============================================= */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', justifyContent: 'flex-start' }}>
+        <button className="stock-button" onClick={saveMapping} style={{ minWidth: '120px' }}>
+          Save Mapping
+        </button>
+        <button className="stock-button stock-button--secondary" onClick={clearForm} style={{ minWidth: '120px' }}>
+          Clear
+        </button>
+      </div>
 
-        <div className="mapping-top-buttons">
-          <IonButton
-            className="blue-btn-image"
-            onClick={saveMapping}
-          >
-            SAVE
-          </IonButton>
-
-          <IonButton
-            className="blue-btn-image"
-            onClick={clearForm}
-          >
-            CLEAR
-          </IonButton>
-        </div>
-
-        {/* ============================================= */}
-        {/* TABLES */}
-        {/* ============================================= */}
-
-        <IonRow className="mapping-grid-row">
-          {/* ========================================= */}
-          {/* CLIENTS TABLE */}
-          {/* ========================================= */}
-
-          <IonCol size="12" size-md="6">
-            <div className="mapping-panel">
+      {/* ============================================= */}
+      {/* TABLES */}
+      {/* ============================================= */}
+      <IonRow style={{ margin: '0 -8px' }}>
+        {/* ========================================= */}
+        {/* CLIENTS TABLE */}
+        {/* ========================================= */}
+        <IonCol size="12" size-md="6" style={{ padding: '0 8px' }}>
+          <div className="stock-panel" style={{ height: '100%' }}>
+            <h3 className="stock-section-heading">Clients</h3>
+            <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
               <IonRadioGroup
                 value={selectedClientID}
-                onIonChange={(e) =>
-                  loadMappedProjects(e.detail.value)
-                }
+                onIonChange={(e) => loadMappedProjects(e.detail.value)}
               >
-                <table className="mapping-table">
+                <table className="stock-table">
                   <thead>
                     <tr>
-                      <th>Client_Id</th>
-                      <th>Client_Name</th>
-                      <th className="center-text">
-                        Select
-                      </th>
+                      <th>ID</th>
+                      <th>Client Name</th>
+                      <th style={{ textAlign: 'center' }}>Select</th>
                     </tr>
                   </thead>
-
                   <tbody>
-                    {clientMappingList.map(
-                      (client, index) => (
-                        <tr
-                          key={index}
-                          onClick={() =>
-                            loadMappedProjects(
-                              client[0]
-                            )
-                          }
-                          className={
-                            selectedClientID ===
-                              client[0]
-                              ? "row-selected"
-                              : ""
-                          }
-                        >
-                          <td>{client[0]}</td>
-
-                          <td>{client[1]}</td>
-
-                          <td className="center-text">
-                            <IonRadio
-                              value={client[0]}
-                              className="mapping-radio"
-                            />
-                          </td>
-                        </tr>
-                      )
-                    )}
+                    {clientMappingList.map((client, index) => (
+                      <tr
+                        key={index}
+                        onClick={() => loadMappedProjects(client[0])}
+                        style={{ cursor: 'pointer', background: selectedClientID === client[0] ? 'var(--ion-color-light)' : 'transparent' }}
+                      >
+                        <td>{client[0]}</td>
+                        <td>{client[1]}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <IonRadio value={client[0]} style={{ margin: 0 }} />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </IonRadioGroup>
             </div>
-          </IonCol>
+          </div>
+        </IonCol>
 
-          {/* ========================================= */}
-          {/* PROJECTS TABLE */}
-          {/* ========================================= */}
-
-          <IonCol size="12" size-md="6">
-            <div className="mapping-panel">
-              <table className="mapping-table">
+        {/* ========================================= */}
+        {/* PROJECTS TABLE */}
+        {/* ========================================= */}
+        <IonCol size="12" size-md="6" style={{ padding: '0 8px', marginTop: window.innerWidth <= 768 ? '16px' : '0' }}>
+          <div className="stock-panel" style={{ height: '100%' }}>
+            <h3 className="stock-section-heading">Projects</h3>
+            <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+              <table className="stock-table">
                 <thead>
                   <tr>
-                    <th className="center-text">
-                      Select
-                    </th>
-
-                    <th>P_ID</th>
-
-                    <th>Project</th>
+                    <th style={{ textAlign: 'center' }}>Select</th>
+                    <th>ID</th>
+                    <th>Project Name</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {projectMappingList.map(
-                    (project, index) => (
-                      <tr
-                        key={index}
-                        onClick={() =>
-                          toggleProject(
-                            project[0].toString()
-                          )
-                        }
-                      >
-                        <td className="center-text">
-                          <IonCheckbox
-                            checked={selectedProjectIDs.includes(
-                              project[0].toString()
-                            )}
-                            onIonChange={() =>
-                              toggleProject(
-                                project[0].toString()
-                              )
-                            }
-                            className="mapping-checkbox"
-                          />
-                        </td>
-
-                        <td>{project[0]}</td>
-
-                        <td>{project[1]}</td>
-                      </tr>
-                    )
-                  )}
+                  {projectMappingList.map((project, index) => (
+                    <tr
+                      key={index}
+                      onClick={() => toggleProject(project[0].toString())}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td style={{ textAlign: 'center' }}>
+                        <IonCheckbox
+                          checked={selectedProjectIDs.includes(project[0].toString())}
+                          onIonChange={() => toggleProject(project[0].toString())}
+                          style={{ margin: 0 }}
+                        />
+                      </td>
+                      <td>{project[0]}</td>
+                      <td>{project[1]}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </IonCol>
-        </IonRow>
-      </div>
-
-      {/* ============================================= */}
-      {/* FLOATING ICON */}
-      {/* ============================================= */}
-
-      <div className="bottom-right-actions">
-        <div className="action-icon-box">
-          <IonIcon icon={personOutline} />
-        </div>
-      </div>
+          </div>
+        </IonCol>
+      </IonRow>
 
       {/* ============================================= */}
       {/* LOADING */}

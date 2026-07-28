@@ -4,22 +4,19 @@ import { BarcodeFormat, BrowserMultiFormatReader } from "@zxing/library"; // Imp
 import jsQR from "jsqr";
 import {
   IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
   IonContent,
-  IonButton,
-  IonImg,
   IonIcon,
-  IonLabel,
-  IonRow,
 } from "@ionic/react";
 import { cameraOutline, refreshOutline, scanOutline } from "ionicons/icons";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import "./Stock.css";
 
 const CameraPage: React.FC = () => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [barcodeData, setBarcodeData] = useState<string>("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const history = useHistory();
 
   // Take Photo using Camera
   const takePhoto = async () => {
@@ -85,71 +82,65 @@ const CameraPage: React.FC = () => {
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonToolbar color="Tertiary" className="menu-toolbar">
-            <img
-              src="./images/dbase.png"
-              alt="DBase Logo"
-              className="menu-logo"
-            />
-          </IonToolbar>
-        </IonToolbar>
-      </IonHeader>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Scanner</h1>
+                <p className="page-wr-subtitle">Scan QR Codes and Barcodes</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <IonIcon icon={scanOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+              </div>
+            </div>
+          </div>
 
-      <IonContent className="ion-padding">
-        <div className="camera-container">
+          <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
+            
+            <div className="stock-actions" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button className="stock-button" onClick={takePhoto} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                <IonIcon icon={cameraOutline} style={{ fontSize: '18px' }} />
+                Take Photo
+              </button>
+            </div>
 
-          <IonRow className="button-row">
-            <IonButton
-              expand="block"
-              className="login-btn2"
-              style={{ "--box-shadow": "none" }}
-              color={"#f57c00"}
-              onClick={takePhoto}
-            >
-              <IonIcon icon={cameraOutline} slot="start" />
-              Take Photo
-            </IonButton>
-          </IonRow>
+            {photo && (
+              <div style={{ marginTop: '20px' }}>
+                <div style={{ width: '100%', borderRadius: 'var(--stock-radius-md)', overflow: 'hidden', border: '1px solid var(--stock-border)' }}>
+                  <img src={photo} alt="Captured" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px', objectFit: 'contain', background: '#000' }} />
+                </div>
+                <canvas ref={canvasRef} style={{ display: "none" }} />
 
-          {photo && (
-            <>
-              <IonImg src={photo} alt="Captured" />
-              <canvas ref={canvasRef} style={{ display: "none" }} />
+                <div className="stock-actions" style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <button className="stock-button stock-button--secondary" onClick={scanBarcodeFromImage} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                    <IonIcon icon={scanOutline} style={{ fontSize: '18px' }} />
+                    Scan Barcode / QR Code
+                  </button>
 
-              <IonRow className="button-row">
-                <IonButton
-                  expand="block"
-                  className="login-btn2"
-                  style={{ "--box-shadow": "none" }}
-                  color={"#f57c00"}
-                  onClick={scanBarcodeFromImage}
-                >
-                  <IonIcon icon={scanOutline} slot="start" />
-                  Scan Barcode / QR Code
-                </IonButton>
+                  <button className="stock-button stock-button--secondary" onClick={() => setPhoto(null)} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                    <IonIcon icon={refreshOutline} style={{ fontSize: '18px' }} />
+                    Retake Photo
+                  </button>
+                </div>
+              </div>
+            )}
 
-                <IonButton
-                  expand="block"
-                  className="login-btn2"
-                  style={{ "--box-shadow": "none" }}
-                  color={"#f57c00"}
-                  onClick={() => setPhoto(null)}
-                >
-                  <IonIcon icon={refreshOutline} slot="start" />
-                  Retake Photo
-                </IonButton>
-              </IonRow>
-            </>
-          )}
+            {barcodeData && (
+              <div style={{ marginTop: '20px', padding: '16px', background: 'var(--stock-elevated-bg)', borderRadius: 'var(--stock-radius-lg)', border: '1px solid var(--stock-border)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--stock-muted)', marginBottom: '8px' }}>Scanned Data:</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--stock-text)', wordBreak: 'break-word' }}>{barcodeData}</div>
+              </div>
+            )}
 
-          {barcodeData && (
-            <IonLabel className="barcode-data" id="margin-b">
-              <h3>Scanned Data:</h3>
-              <h1>{barcodeData}</h1>
-            </IonLabel>
-          )}
+          </div>
         </div>
       </IonContent>
     </IonPage>
