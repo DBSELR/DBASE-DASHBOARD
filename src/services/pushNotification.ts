@@ -69,6 +69,26 @@ const registerNative = async (empCode: string) => {
       return;
     }
 
+    // Create Android High Importance Channel for Heads-up floating notifications
+    if (Capacitor.getPlatform() === 'android') {
+      try {
+        await PushNotifications.createChannel({
+          id: 'work_report_high_importance',
+          name: 'Work Report High Importance Alerts',
+          description: 'Heads-up banner alerts for daily work report reminders',
+          importance: 5, // 5 = IMPORTANCE_HIGH (Floating Heads-Up Banner on Android)
+          visibility: 1, // PUBLIC (Show on lockscreen)
+          sound: 'default',
+          vibration: true,
+          lights: true,
+          lightColor: '#DC2626'
+        });
+        console.log("✅ [Push] Android High Importance Channel Created");
+      } catch (channelErr) {
+        console.warn("⚠️ [Push] Error creating native channel:", channelErr);
+      }
+    }
+
     if (!nativeListenersRegistered) {
       nativeListenersRegistered = true;
 

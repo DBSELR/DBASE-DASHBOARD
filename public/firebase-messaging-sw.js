@@ -25,8 +25,8 @@ try {
   messaging.onBackgroundMessage((payload) => {
     console.log("📩 Background Message", payload);
 
-    const title = payload.notification?.title || payload.data?.title || "New Task Assigned";
-    const body = payload.notification?.body || payload.data?.body || "You have a pending task assigned to you.";
+    const title = payload.notification?.title || payload.data?.title || "🚨 Daily Work Report Reminder";
+    const body = payload.notification?.body || payload.data?.body || "Please submit your daily work report for today.";
     const image = payload.notification?.image || payload.data?.image || null;
 
     const targetUrl = payload.data?.url || "/workreport";
@@ -36,11 +36,16 @@ try {
       badge: "/images/dbs-logo-short.png",
       image: image,
       vibrate: [300, 100, 300, 100, 300],
-      tag: payload.data?.type || "app-notification",
-      renotify: true,
+      tag: payload.data?.type || "work_report_reminder",
+      renotify: false,
+      requireInteraction: true,
       data: {
         url: targetUrl
-      }
+      },
+      actions: [
+        { action: "submit", title: "📝 Submit Work Report" },
+        { action: "dismiss", title: "✖ Dismiss" }
+      ]
     };
 
     self.registration.showNotification(title, notificationOptions);
@@ -48,6 +53,10 @@ try {
 
   self.addEventListener("notificationclick", (event) => {
     event.notification.close();
+
+    if (event.action === "dismiss") {
+      return;
+    }
 
     const targetUrl = event.notification?.data?.url || "/workreport";
 

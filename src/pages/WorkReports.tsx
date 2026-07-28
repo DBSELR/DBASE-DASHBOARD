@@ -595,8 +595,8 @@ const WorkReports: React.FC = () => {
 
 
 
-          {/* TEMPORARY TEST BUTTONS BAR */}
-          {/* <div style={{
+          {/* TEST BUTTONS BAR FOR WORK REPORT REMINDER */}
+          <div style={{
             background: "rgba(220, 38, 38, 0.08)",
             border: "1.5px dashed rgba(220, 38, 38, 0.4)",
             borderRadius: "16px",
@@ -608,7 +608,7 @@ const WorkReports: React.FC = () => {
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                🧪 Notification Testing Toolbar (Temporary)
+                🧪 Notification Testing Toolbar
               </span>
               <span style={{ fontSize: "12px", color: "#888" }}>Test Red Alert & Push System</span>
             </div>
@@ -689,7 +689,7 @@ const WorkReports: React.FC = () => {
                 📡 Trigger Server Push (FCM + SignalR)
               </button>
             </div>
-          </div> */}
+          </div>
 
           {/* Custom Segments - Visible only on Mobile via CSS */}
           <div className="wr-segment-container">
