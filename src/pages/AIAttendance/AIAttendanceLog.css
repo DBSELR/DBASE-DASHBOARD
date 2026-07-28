@@ -360,6 +360,9 @@
 .emp-card.sc-present { border-left-color: #10b981; }
 .emp-card.sc-lop     { border-left-color: #ef4444; }
 .emp-card.sc-grace   { border-left-color: #f59e0b; }
+.emp-card.sc-absent  { border-left-color: #ef4444; }
+.emp-card.sc-sunday  { border-left-color: #8b5cf6; }
+.emp-card.sc-holiday { border-left-color: #6366f1; }
 .emp-card.sc-unknown { border-left-color: #64748b; }
 
 .emp-card-head {
@@ -392,6 +395,9 @@
 .status-badge.sc-present { background: #dcfce7; color: #15803d; }
 .status-badge.sc-lop     { background: #fee2e2; color: #b91c1c; }
 .status-badge.sc-grace   { background: #fef3c7; color: #b45309; }
+.status-badge.sc-absent  { background: #fee2e2; color: #b91c1c; }
+.status-badge.sc-sunday  { background: #f3e8ff; color: #6b21a8; }
+.status-badge.sc-holiday { background: #e0e7ff; color: #3730a3; }
 .status-badge.sc-unknown { background: #f1f5f9; color: #475569; }
 
 /* ── ATTENDANCE TIMELINE ── */

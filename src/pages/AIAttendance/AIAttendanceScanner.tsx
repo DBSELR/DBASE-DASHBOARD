@@ -599,10 +599,10 @@ const AIAttendanceScanner: React.FC = () => {
           });
           setResultMessage(`⚠️ ${empName}`); speakText(`${empName} ${slotName} already marked`);
 
-          // Auto-resume scanner after 4 seconds
+          // Auto-resume scanner after 1.5 seconds
           setTimeout(() => {
             resetScannerAndResume();
-          }, 4000);
+          }, 1500);
           return;
         }
 
@@ -631,10 +631,10 @@ const AIAttendanceScanner: React.FC = () => {
             fetchGraceSummary(empId);
           }
 
-          // Auto-resume scanner after 3 seconds
+          // Auto-resume scanner after 1.5 seconds
           setTimeout(() => {
             resetScannerAndResume();
-          }, 3000);
+          }, 1500);
         } else {
           setAttendanceDetails(null);
           setResultMessage("Align face to scan");

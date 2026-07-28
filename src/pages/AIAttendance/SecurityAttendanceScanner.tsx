@@ -338,166 +338,137 @@ const SecurityAttendanceScanner: React.FC = () => {
     const rotationAngle = (timeNow / 16) % (2 * Math.PI);
     const activeCache = smoothTrackedFacesRef.current;
 
-    rawFaces.forEach((face: any, index: number) => {
-      let box = face.box || face.location || face.boundingBox || face.rect ||
-        (face.top !== undefined || face.Top !== undefined || face.y !== undefined || face.left !== undefined || face.Left !== undefined ? face : null);
+    // Pick ONLY the single primary face
+    const face = rawFaces[0];
+    if (!face) return;
 
-      if (!box && face.centerX === undefined) {
-        const total = rawFaces.length;
-        const colWidth = width / Math.max(1, total);
-        const colCenter = (index + 0.5) * colWidth;
-        box = {
-          left: colCenter - 70,
-          right: colCenter + 70,
-          top: (height / 2) - 70,
-          bottom: (height / 2) + 70,
-          imgW: width,
-          imgH: height
-        };
-      }
+    let box = face.box || face.location || face.boundingBox || face.rect ||
+      (face.top !== undefined || face.Top !== undefined || face.y !== undefined || face.left !== undefined || face.Left !== undefined ? face : null);
 
-      let targetCenterX = 0;
-      let targetCenterY = 0;
-      let targetRadius = 60;
+    let targetCenterX = width / 2;
+    let targetCenterY = height / 2;
+    let targetRadius = 75;
 
-      if (face.centerX !== undefined) {
-        targetCenterX = face.centerX;
-        targetCenterY = face.centerY;
-        targetRadius = face.radius;
-      } else {
-        const imgW = box.imgW || box.imageWidth || box.Width || 640;
-        const imgH = box.imgH || box.imageHeight || box.Height || 480;
+    if (face.centerX !== undefined) {
+      targetCenterX = face.centerX;
+      targetCenterY = face.centerY;
+      targetRadius = face.radius;
+    } else if (box && typeof box === 'object') {
+      const imgW = box.imgW || box.imageWidth || box.Width || 640;
+      const imgH = box.imgH || box.imageHeight || box.Height || 480;
 
-        const scaleX = width / imgW;
-        const scaleY = height / imgH;
+      const scaleX = width / imgW;
+      const scaleY = height / imgH;
 
-        let rawTop = 0;
-        let rawRight = 0;
-        let rawBottom = 0;
-        let rawLeft = 0;
+      let rawTop = box.top ?? box.Top ?? box.y ?? box.y1 ?? 0;
+      let rawLeft = box.left ?? box.Left ?? box.x ?? box.x1 ?? 0;
+      let rawRight = box.right ?? box.Right ?? (box.w ? rawLeft + box.w : box.width ? rawLeft + box.width : rawLeft + 140);
+      let rawBottom = box.bottom ?? box.Bottom ?? (box.h ? rawTop + box.h : box.height ? rawTop + box.height : rawTop + 140);
 
-        if (Array.isArray(box) && box.length >= 4) {
-          // Python face_recognition array: [top, right, bottom, left]
-          rawTop = Number(box[0]) || 0;
-          rawRight = Number(box[1]) || 0;
-          rawBottom = Number(box[2]) || 0;
-          rawLeft = Number(box[3]) || 0;
-        } else if (box && typeof box === 'object') {
-          rawTop = box.top ?? box.Top ?? box.y ?? box.y1 ?? 0;
-          rawLeft = box.left ?? box.Left ?? box.x ?? box.x1 ?? 0;
-          rawRight = box.right ?? box.Right ?? (box.w ? rawLeft + box.w : box.width ? rawLeft + box.width : rawLeft + 140);
-          rawBottom = box.bottom ?? box.Bottom ?? (box.h ? rawTop + box.h : box.height ? rawTop + box.height : rawTop + 140);
-        }
+      const left = width - (rawRight * scaleX);
+      const right = width - (rawLeft * scaleX);
+      const top = rawTop * scaleY;
+      const bottom = rawBottom * scaleY;
 
-        const left = width - (rawRight * scaleX);
-        const right = width - (rawLeft * scaleX);
-        const top = rawTop * scaleY;
-        const bottom = rawBottom * scaleY;
+      const faceW = Math.max(60, right - left);
+      const faceH = Math.max(60, bottom - top);
+      targetCenterX = left + faceW / 2;
+      targetCenterY = top + faceH / 2;
+      targetRadius = Math.max(faceW, faceH) / 2 + 18;
+    }
 
-        const faceW = Math.max(50, right - left);
-        const faceH = Math.max(50, bottom - top);
-        targetCenterX = left + faceW / 2;
-        targetCenterY = top + faceH / 2;
-        targetRadius = Math.max(faceW, faceH) / 2 + 18;
-      }
+    // Smooth motion lerp interpolation
+    const key = "primary_single_target";
+    let cached = activeCache.get(key);
+    if (!cached) {
+      cached = {
+        currentX: targetCenterX,
+        currentY: targetCenterY,
+        currentR: targetRadius
+      };
+    }
 
-      // Smooth motion lerp interpolation (0.35 factor for 60 FPS fluid tracking)
-      const key = face.id || `face_${index}`;
-      let cached = activeCache.get(key);
-      if (!cached) {
-        cached = {
-          currentX: targetCenterX,
-          currentY: targetCenterY,
-          currentR: targetRadius
-        };
-      }
+    cached.currentX += (targetCenterX - cached.currentX) * 0.35;
+    cached.currentY += (targetCenterY - cached.currentY) * 0.35;
+    cached.currentR += (targetRadius - cached.currentR) * 0.35;
+    activeCache.set(key, cached);
 
-      cached.currentX += (targetCenterX - cached.currentX) * 0.35;
-      cached.currentY += (targetCenterY - cached.currentY) * 0.35;
-      cached.currentR += (targetRadius - cached.currentR) * 0.35;
-      activeCache.set(key, cached);
+    const centerX = cached.currentX;
+    const centerY = cached.currentY;
+    const radius = cached.currentR;
 
-      const centerX = cached.currentX;
-      const centerY = cached.currentY;
-      const radius = cached.currentR;
+    const isRecognized = face.isRecognized !== false || Boolean(face.empName || face.EmpName || face.empId || face.EmpId);
+    const isDup = face.alreadyMarked;
+    const color = isDup ? '#f59e0b' : '#10b981';
+    const name = face.empName || face.EmpName || face.empId || face.EmpId || 'Face Aligned';
 
-      const isRecognized = face.isRecognized !== false || Boolean(face.empName || face.EmpName || face.empId || face.EmpId);
-      const isDup = face.alreadyMarked;
-      const color = isRecognized ? (isDup ? '#f59e0b' : '#10b981') : '#ef4444';
-      const name = face.empName || face.EmpName || face.empId || face.EmpId || 'Face Detected';
+    ctx.save();
+    ctx.translate(centerX, centerY);
 
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(rotationAngle * (index % 2 === 0 ? 1 : -1));
+    // Outer animated biometric dashed circle
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3.5;
+    ctx.setLineDash([14, 8]);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18;
+    ctx.stroke();
 
-      // Outer animated green dashed circle
+    // Inner counter-rotating white circle
+    ctx.rotate(-rotationAngle * 2);
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(10, radius - 8), 0, 2 * Math.PI);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.stroke();
+
+    // Stabilization Hold Progress Arc (1.5s - 3.0s fill)
+    const holdRatio = Math.min(1, Math.max(0, matchCountRef.current / 2));
+    if (holdRatio > 0) {
       ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3.5;
-      ctx.setLineDash([14, 8]);
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 18;
+      ctx.arc(0, 0, radius + 8, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * holdRatio));
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 4.5;
+      ctx.setLineDash([]);
+      ctx.shadowColor = '#3b82f6';
+      ctx.shadowBlur = 14;
       ctx.stroke();
+    }
 
-      // Inner counter-rotating white circle
-      ctx.rotate(-rotationAngle * 2);
-      ctx.beginPath();
-      ctx.arc(0, 0, Math.max(10, radius - 8), 0, 2 * Math.PI);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 6]);
-      ctx.stroke();
+    ctx.restore();
 
-      ctx.restore();
+    // Single clean badge
+    const badgeText = `${isRecognized ? (isDup ? '⚠️ ' : '✅ ') : '🎯 '}${name}`;
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    const textW = ctx.measureText(badgeText).width;
+    const bW = textW + 28;
+    const bH = 28;
+    const bX = centerX - bW / 2;
+    const bY = centerY - radius - 38;
 
-      // Glowing corner brackets
-      const bLen = 16;
-      const leftBound = centerX - radius + 10;
-      const rightBound = centerX + radius - 10;
-      const topBound = centerY - radius + 10;
-      const bottomBound = centerY + radius - 10;
+    ctx.save();
+    ctx.beginPath();
+    if ((ctx as any).roundRect) {
+      (ctx as any).roundRect(bX, bY, bW, bH, 14);
+    } else {
+      ctx.rect(bX, bY, bW, bH);
+    }
+    ctx.fillStyle = isRecognized ? (isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)') : 'rgba(139, 92, 246, 0.95)';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    ctx.fill();
 
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
-      ctx.beginPath(); ctx.moveTo(leftBound, topBound + bLen); ctx.lineTo(leftBound, topBound); ctx.lineTo(leftBound + bLen, topBound); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(rightBound - bLen, topBound); ctx.lineTo(rightBound, topBound); ctx.lineTo(rightBound, topBound + bLen); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(leftBound, bottomBound - bLen); ctx.lineTo(leftBound, bottomBound); ctx.lineTo(leftBound + bLen, bottomBound); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(rightBound - bLen, bottomBound); ctx.lineTo(rightBound, bottomBound); ctx.lineTo(rightBound, bottomBound - bLen); ctx.stroke();
-
-      const badgeText = `${isRecognized ? (isDup ? '⚠️ ' : '✅ ') : '❓ '}${name}`;
-      ctx.font = '800 13px Inter, system-ui, sans-serif';
-      const textW = ctx.measureText(badgeText).width;
-      const bW = textW + 28;
-      const bH = 28;
-      const bX = centerX - bW / 2;
-      const bY = topBound - 38;
-
-      ctx.save();
-      ctx.beginPath();
-      if ((ctx as any).roundRect) {
-        (ctx as any).roundRect(bX, bY, bW, bH, 14);
-      } else {
-        ctx.rect(bX, bY, bW, bH);
-      }
-      ctx.fillStyle = isRecognized ? (isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)') : 'rgba(239, 68, 68, 0.95)';
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 12;
-      ctx.fill();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.shadowBlur = 0;
-      ctx.fillText(badgeText, centerX, bY + bH / 2);
-      ctx.restore();
-    });
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 0;
+    ctx.fillText(badgeText, centerX, bY + bH / 2 + 4);
+    ctx.restore();
   }, []);
 
   useEffect(() => {
@@ -871,7 +842,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 360;
+      const maxDim = 320;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
       let targetWidth = videoWidth;
@@ -891,7 +862,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
       const ctx = canvas.getContext("2d");
       if (!ctx || !videoRef.current) {
-        scheduleNextScan(1000);
+        scheduleNextScan(400);
         return;
       }
 
@@ -901,12 +872,11 @@ const SecurityAttendanceScanner: React.FC = () => {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      const image = canvas.toDataURL("image/jpeg", 0.8);
+      const image = canvas.toDataURL("image/jpeg", 0.75);
       setCapturedImg(image);
       
       logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
 
-      const isLastFrame = matchCountRef.current === 2;
       const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": "dbase-ai-master-key-2026" },
@@ -917,7 +887,7 @@ const SecurityAttendanceScanner: React.FC = () => {
           bluetoothConnected: bleVerifiedRef.current,
           bluetoothDeviceName: bleDeviceNameRef.current,
           bluetoothDeviceId: bleDeviceIdRef.current,
-          saveNeeded: isLastFrame,
+          saveNeeded: true,
           status: selectedStatusRef.current
         })
       });
@@ -958,33 +928,11 @@ const SecurityAttendanceScanner: React.FC = () => {
           alreadyMarkedSuppressedRef.current = null;
         }
 
-        const isUnsavedIdentification = data.matchedEmployees.some((e: any) => e.saveNeeded === false);
-        if (isUnsavedIdentification) {
-          const empId = firstEmp.empId || "";
-          const empName = firstEmp.empName || "Employee";
-
-          if (lastMatchedEmpIdRef.current === empId) {
-            const nextCount = matchCountRef.current + 1;
-            setMatchCount(nextCount);
-            setVerifyingName(empName);
-            setMessage(`Verifying: ${empName}...`);
-            setStatusColor(nextCount === 1 ? "#3b82f6" : "#eab308");
-          } else {
-            setMatchCount(1);
-            lastMatchedEmpIdRef.current = empId;
-            setVerifyingName(empName);
-            setMessage(`Analyzing: ${empName}...`);
-            setStatusColor("#3b82f6");
-          }
-          scheduleNextScan(150);
-          return;
-        }
-
         const validSaved = data.matchedEmployees.filter((e: any) => e.alreadyMarked !== true && e.invalidLocation !== true && e.invalidTime !== true && e.hasPermission !== false && e.success !== false);
         const allNames = data.matchedEmployees.map((e: any) => e.empName || e.empId).join(", ");
         const savedNames = validSaved.map((e: any) => e.empName || e.empId).join(", ");
 
-        setMatchCount(3);
+        setMatchCount(2);
         setScanSuccess(true); scanSuccessRef.current = true;
         lastScanTimeRef.current = Date.now();
         alreadyMarkedSuppressedRef.current = currentSlotKey;
@@ -1055,7 +1003,7 @@ const SecurityAttendanceScanner: React.FC = () => {
         setVerifyingName(""); lastMatchedEmpIdRef.current = "";
         setTimeout(() => {
           resetScannerAndResume();
-        }, 4000);
+        }, 1500);
         return;
       }
 
@@ -1465,12 +1413,7 @@ const SecurityAttendanceScanner: React.FC = () => {
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
                 <canvas ref={overlayCanvasRef} className="sc-overlay-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
 
-                {activeFaceCount > 0 && (
-                  <div className="sc-face-count-badge">
-                    <span>👥</span>
-                    <span>{activeFaceCount} {activeFaceCount === 1 ? 'Face Detected' : 'Faces Detected'}</span>
-                  </div>
-                )}
+
 
                 <div className="sc-hud">
                   <svg className="sc-progress-svg" viewBox="0 0 120 120">

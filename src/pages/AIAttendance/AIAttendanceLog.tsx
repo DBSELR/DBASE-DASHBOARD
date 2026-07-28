@@ -42,23 +42,23 @@ interface AttendanceRecord {
 
 
 const AVATAR_CONFIG = [
-  { grad: 'linear-gradient(145deg,#312e81 0%,#4f46e5 45%,#818cf8 100%)', glow: 'rgba(79,70,229,0.50)'  }, // deep indigo
+  { grad: 'linear-gradient(145deg,#312e81 0%,#4f46e5 45%,#818cf8 100%)', glow: 'rgba(79,70,229,0.50)' }, // deep indigo
   { grad: 'linear-gradient(145deg,#4c1d95 0%,#7c3aed 45%,#a78bfa 100%)', glow: 'rgba(124,58,237,0.50)' }, // deep violet
-  { grad: 'linear-gradient(145deg,#831843 0%,#be185d 45%,#f472b6 100%)', glow: 'rgba(190,24,93,0.50)'  }, // deep pink
-  { grad: 'linear-gradient(145deg,#881337 0%,#be123c 45%,#fb7185 100%)', glow: 'rgba(190,18,60,0.50)'  }, // deep rose
-  { grad: 'linear-gradient(145deg,#7c2d12 0%,#c2410c 45%,#fb923c 100%)', glow: 'rgba(194,65,12,0.50)'  }, // deep orange
-  { grad: 'linear-gradient(145deg,#78350f 0%,#b45309 45%,#fcd34d 100%)', glow: 'rgba(180,83,9,0.50)'   }, // deep amber
-  { grad: 'linear-gradient(145deg,#14532d 0%,#15803d 45%,#4ade80 100%)', glow: 'rgba(21,128,61,0.50)'  }, // deep green
+  { grad: 'linear-gradient(145deg,#831843 0%,#be185d 45%,#f472b6 100%)', glow: 'rgba(190,24,93,0.50)' }, // deep pink
+  { grad: 'linear-gradient(145deg,#881337 0%,#be123c 45%,#fb7185 100%)', glow: 'rgba(190,18,60,0.50)' }, // deep rose
+  { grad: 'linear-gradient(145deg,#7c2d12 0%,#c2410c 45%,#fb923c 100%)', glow: 'rgba(194,65,12,0.50)' }, // deep orange
+  { grad: 'linear-gradient(145deg,#78350f 0%,#b45309 45%,#fcd34d 100%)', glow: 'rgba(180,83,9,0.50)' }, // deep amber
+  { grad: 'linear-gradient(145deg,#14532d 0%,#15803d 45%,#4ade80 100%)', glow: 'rgba(21,128,61,0.50)' }, // deep green
   { grad: 'linear-gradient(145deg,#134e4a 0%,#0f766e 45%,#2dd4bf 100%)', glow: 'rgba(15,118,110,0.50)' }, // deep teal
-  { grad: 'linear-gradient(145deg,#1e3a8a 0%,#1d4ed8 45%,#60a5fa 100%)', glow: 'rgba(29,78,216,0.50)'  }, // deep blue
-  { grad: 'linear-gradient(145deg,#0c4a6e 0%,#0369a1 45%,#38bdf8 100%)', glow: 'rgba(3,105,161,0.50)'  }, // deep sky
+  { grad: 'linear-gradient(145deg,#1e3a8a 0%,#1d4ed8 45%,#60a5fa 100%)', glow: 'rgba(29,78,216,0.50)' }, // deep blue
+  { grad: 'linear-gradient(145deg,#0c4a6e 0%,#0369a1 45%,#38bdf8 100%)', glow: 'rgba(3,105,161,0.50)' }, // deep sky
 ];
 
 const SLOTS = [
-  { key: 'Morning In' as const, short: 'M-IN',  color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
-  { key: 'Lunch Out'  as const, short: 'L-OUT', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
-  { key: 'Lunch In'   as const, short: 'L-IN',  color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
-  { key: 'Evening Out'as const, short: 'E-OUT', color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3' },
+  { key: 'Morning In' as const, short: 'M-IN', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
+  { key: 'Lunch Out' as const, short: 'L-OUT', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
+  { key: 'Lunch In' as const, short: 'L-IN', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+  { key: 'Evening Out' as const, short: 'E-OUT', color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3' },
 ];
 
 const AIAttendanceLog: React.FC = () => {
@@ -73,27 +73,59 @@ const AIAttendanceLog: React.FC = () => {
       try {
         const p = JSON.parse(stored);
         return String(p?.empCode || p?.EmpCode || p?.empId || p?.Emp_ID || p?.emp_id || "").trim();
-      } catch {}
+      } catch { }
     }
     return "";
   })();
 
   const ADMIN_IDS = ["1501", "1509", "1601", "1508"];
   const isAdmin = ADMIN_IDS.includes(loggedInId) || (Boolean(loggedInId) && ADMIN_IDS.includes(String(parseInt(loggedInId, 10))));
-  
+
   // Security console (all employees' logs) is ONLY accessible by ADMIN_IDS.
   // All regular employees strictly view their own personal attendance logs.
   const effectiveMode = isAdmin ? (mode === "user" ? "user" : "security") : "user";
   const history = useHistory();
   const dateInputRef = useRef<HTMLInputElement>(null);
 
-  const [loading, setLoading]           = useState(true);
-  const [searchQuery, setSearchQuery]   = useState("");
-  const [userLogs, setUserLogs]         = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [userLogs, setUserLogs] = useState<AttendanceRecord[]>([]);
   const [securityLogs, setSecurityLogs] = useState<AttendanceRecord[]>([]);
-  const [currentUser, setCurrentUser]   = useState<any>(null);
-  const [isSyncing, setIsSyncing]       = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => todayStr());
+  const [companyHolidays, setCompanyHolidays] = useState<{ date: string; remark: string }[]>([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || "";
+    const hdrs: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-key': 'dbase-ai-master-key-2026',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+    fetch(API_BASE + 'Checkin/GetCompanyHolidays', { headers: hdrs })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data)) setCompanyHolidays(d.data);
+      })
+      .catch(console.error);
+  }, []);
+
+  function getNonScanStatus(dateStr: string): string {
+    if (!dateStr) return "Absent";
+    const h = companyHolidays.find(x => x.date === dateStr);
+    if (h && h.remark) {
+      return h.remark;
+    }
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        if (d.getDay() === 0) return "Sunday";
+      }
+    } catch { }
+    return "Absent";
+  }
 
   function formatDateLocal(d: Date) {
     const yyyy = d.getFullYear();
@@ -113,8 +145,8 @@ const AIAttendanceLog: React.FC = () => {
   }
 
   function displayLabel(dateStr: string) {
-    if (dateStr === todayStr())         return "Today";
-    if (dateStr === dateOffset(1))      return "Yesterday";
+    if (dateStr === todayStr()) return "Today";
+    if (dateStr === dateOffset(1)) return "Yesterday";
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
       weekday: 'long', month: 'short', day: 'numeric'
     });
@@ -132,7 +164,7 @@ const AIAttendanceLog: React.FC = () => {
   /* ── initial user load ── */
   useEffect(() => {
     const stored = localStorage.getItem("user");
-    if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch {} }
+    if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch { } }
   }, []);
 
   /* ── load branches dynamically ── */
@@ -145,18 +177,18 @@ const AIAttendanceLog: React.FC = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       };
       fetch(API_BASE + 'Checkin/GetBranches', { headers: hdrs })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && Array.isArray(d.data)) setBranches(["ALL", ...d.data]);
-      })
-      .catch(console.error);
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && Array.isArray(d.data)) setBranches(["ALL", ...d.data]);
+        })
+        .catch(console.error);
     }
   }, [effectiveMode]);
 
   /* ── re-fetch when mode or date changes ── */
   useEffect(() => {
     fetchLogs(true);
-}, [effectiveMode, selectedDate, selectedBranch]);
+  }, [effectiveMode, selectedDate, selectedBranch]);
 
   /* ── auto-sync in security mode (only when viewing today) ── */
   useEffect(() => {
@@ -197,16 +229,16 @@ const AIAttendanceLog: React.FC = () => {
             const p = JSON.parse(stored);
             empCode = String(p?.empCode || p?.EmpCode || p?.empId || p?.Emp_ID || p?.emp_id || "").trim();
             empName = String(p?.empName || p?.EmpName || p?.emp_name || "").trim();
-          } catch {}
+          } catch { }
         }
 
         const map = (r: any, date: string): AttendanceRecord => ({
           'Emp ID': r.empId || '-',
           Name: r.name || '',
           'Morning In': r.morningIn || '-',
-          'Lunch Out':  r.lunchOut  || '-',
-          'Lunch In':   r.lunchIn   || '-',
-          'Evening Out':r.eveningOut|| '-',
+          'Lunch Out': r.lunchOut || '-',
+          'Lunch In': r.lunchIn || '-',
+          'Evening Out': r.eveningOut || '-',
           lateMinutes: r.lateMinutes || '0',
           graceType: r.graceType || '',
           attendanceStatus: r.attendanceStatus || '',
@@ -246,23 +278,25 @@ const AIAttendanceLog: React.FC = () => {
                 })
                 .map((r: any) => map(r, date));
             }
-          } catch {}
+          } catch { }
           return [];
         }));
 
         const flat = all.flat();
-        setUserLogs(dates.map(date =>
-          flat.find(l => l.date === date) || {
+        setUserLogs(dates.map(date => {
+          const found = flat.find(l => l.date === date);
+          if (found) return found;
+          return {
             Name: empName || "Employee", 'Emp ID': empCode || "-",
             'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-',
-            attendanceStatus: 'Absent', date
-          }
-        ));
+            attendanceStatus: getNonScanStatus(date), date
+          };
+        }));
 
       } else {
         let branchEmployees: any[] = [];
         let fetchedBranchRoster = false;
-        
+
         if (selectedBranch !== "ALL") {
           try {
             const br = await fetch(API_BASE + `Checkin/GetEmployeesByBranch?branch=${encodeURIComponent(selectedBranch)}`, {
@@ -282,7 +316,7 @@ const AIAttendanceLog: React.FC = () => {
         if (selectedBranch !== "ALL") {
           attendanceUrl += `&branch=${encodeURIComponent(selectedBranch)}`;
         }
-        
+
         const res = await fetch(attendanceUrl, { headers });
         if (!res.ok) { console.error("[AIAttendanceLog] fetch", res.status); return; }
         const d = await res.json();
@@ -314,7 +348,7 @@ const AIAttendanceLog: React.FC = () => {
           }));
 
           let finalLogs: AttendanceRecord[] = [];
-          
+
           if (selectedBranch === "ALL") {
             finalLogs = mapped;
           } else if (!fetchedBranchRoster) {
@@ -327,10 +361,10 @@ const AIAttendanceLog: React.FC = () => {
                 const mName = String(m.Name || "").trim().toLowerCase();
                 const eName = String(emp.empName || "").trim().toLowerCase();
                 return (mId && (mId === eCode || (parseInt(mId, 10) > 0 && parseInt(mId, 10) === parseInt(eCode, 10)))) ||
-                       (mName && eName && (mName === eName || mName.includes(eName) || eName.includes(mName)));
+                  (mName && eName && (mName === eName || mName.includes(eName) || eName.includes(mName)));
               });
               if (found) return found;
-              
+
               return {
                 'Emp ID': emp.empCode || '-',
                 Name: emp.empName || 'Unknown',
@@ -340,7 +374,7 @@ const AIAttendanceLog: React.FC = () => {
                 'Evening Out': '-',
                 lateMinutes: '0',
                 graceType: '-',
-                attendanceStatus: 'Absent',
+                attendanceStatus: getNonScanStatus(selectedDate),
                 branch: emp.branch || selectedBranch
               };
             });
@@ -386,20 +420,23 @@ const AIAttendanceLog: React.FC = () => {
     if (!s || s === '-') return 'sc-unknown';
     const l = s.toLowerCase();
     if (l === 'present') return 'sc-present';
-    if (l === 'lop')     return 'sc-lop';
+    if (l === 'lop') return 'sc-lop';
+    if (l === 'absent') return 'sc-absent';
+    if (l.includes('sunday') || l.includes('weekly off')) return 'sc-sunday';
+    if (l.includes('holiday') || l.includes('saturday') || l.includes('bhogi') || l.includes('sankranthi') || l.includes('ugadi') || l.includes('ramzan') || l.includes('ram') || l.includes('friday') || l.includes('jayanti') || l.includes('republic') || l.includes('new year')) return 'sc-holiday';
     return 'sc-grace';
   }
 
   /* ── stats ── */
-  const totalV   = securityLogs.length;
-  const mornV    = securityLogs.filter(l => l['Morning In'] !== '-').length;
-  const lunchV   = securityLogs.filter(l => l['Lunch Out'] !== '-' || l['Lunch In'] !== '-').length;
+  const totalV = securityLogs.length;
+  const mornV = securityLogs.filter(l => l['Morning In'] !== '-').length;
+  const lunchV = securityLogs.filter(l => l['Lunch Out'] !== '-' || l['Lunch In'] !== '-').length;
   const eveningV = securityLogs.filter(l => l['Evening Out'] !== '-').length;
 
   const filtered = securityLogs.filter(log => {
     const q = searchQuery.toLowerCase();
     return (log.Name || '').toLowerCase().includes(q) ||
-           (log['Emp ID'] || '').toLowerCase().includes(q);
+      (log['Emp ID'] || '').toLowerCase().includes(q);
   });
 
   /* ─────────────────────────────────────────
@@ -431,29 +468,29 @@ const AIAttendanceLog: React.FC = () => {
             <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ position: 'relative' }}>
                 <button
-                    className="branch-btn"
-                    onClick={() => setShowBranchDropdown(!showBranchDropdown)}
-                    style={{ background: 'var(--ion-color-primary, #0d9488)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
+                  className="branch-btn"
+                  onClick={() => setShowBranchDropdown(!showBranchDropdown)}
+                  style={{ background: 'var(--ion-color-primary, #0d9488)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
                 >
-                    {selectedBranch} 
-                    <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
+                  {selectedBranch}
+                  <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
                 </button>
                 {showBranchDropdown && (
-                    <div className="branch-dropdown" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '6px', zIndex: 100, minWidth: '140px', border: '1px solid #e2e8f0' }}>
-                        {branches.map((branch) => (
-                            <div
-                                key={branch}
-                                className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
-                                onClick={() => {
-                                    setSelectedBranch(branch);
-                                    setShowBranchDropdown(false);
-                                }}
-                                style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
-                            >
-                                {branch}
-                            </div>
-                        ))}
-                    </div>
+                  <div className="branch-dropdown" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '6px', zIndex: 100, minWidth: '140px', border: '1px solid #e2e8f0' }}>
+                    {branches.map((branch) => (
+                      <div
+                        key={branch}
+                        className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
+                        onClick={() => {
+                          setSelectedBranch(branch);
+                          setShowBranchDropdown(false);
+                        }}
+                        style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
+                      >
+                        {branch}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -500,7 +537,7 @@ const AIAttendanceLog: React.FC = () => {
           ) : effectiveMode === "user" ? (
 
             <div className="user-console-wrapper">
-              
+
               {/* DATE NAVIGATOR */}
               <div className="date-search-row" style={{ justifyContent: 'center' }}>
                 <div className="date-nav-pill">
@@ -638,11 +675,11 @@ const AIAttendanceLog: React.FC = () => {
                   const sc = statusClass(status);
 
                   return (
-                    <div 
-                      key={log.date} 
+                    <div
+                      key={log.date}
                       className={`timeline-item card-panel animate-fade-in ${isCurrent ? 'active-history-item' : ''}`}
                       onClick={() => log.date && setSelectedDate(log.date)}
-                      style={{ 
+                      style={{
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         border: isCurrent ? '1.5px solid var(--ion-color-primary)' : '1px solid #e2e8f0',
@@ -682,12 +719,12 @@ const AIAttendanceLog: React.FC = () => {
                             else if (key === 'Evening Out') { city = log.eveningOutCity || ""; lat = log.eveningOutLat || 0; lng = log.eveningOutLng || 0; }
 
                             return (
-                              <div key={key} style={{ 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                alignItems: 'center', 
-                                padding: '6px', 
-                                borderRadius: '10px', 
+                              <div key={key} style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                padding: '6px',
+                                borderRadius: '10px',
                                 background: filled ? '#f8fafc' : '#f1f5f9',
                                 border: '1px solid #e2e8f0'
                               }}>
@@ -722,10 +759,10 @@ const AIAttendanceLog: React.FC = () => {
               {/* STATS STRIP */}
               <div className="console-stats-grid">
                 {([
-                  { label: 'TOTAL',      count: totalV,   cls: 'stat-total',   icon: personOutline },
-                  { label: 'MORNING IN', count: mornV,    cls: 'stat-morning', icon: checkmarkCircleOutline },
-                  { label: 'LUNCH',      count: lunchV,   cls: 'stat-break',   icon: timeOutline },
-                  { label: 'SHIFT END',  count: eveningV, cls: 'stat-evening', icon: closeCircleOutline },
+                  { label: 'TOTAL', count: totalV, cls: 'stat-total', icon: personOutline },
+                  { label: 'MORNING IN', count: mornV, cls: 'stat-morning', icon: checkmarkCircleOutline },
+                  { label: 'LUNCH', count: lunchV, cls: 'stat-break', icon: timeOutline },
+                  { label: 'SHIFT END', count: eveningV, cls: 'stat-evening', icon: closeCircleOutline },
                 ] as const).map(({ label, count, cls, icon }) => (
                   <div key={label} className={`stat-widget-card ${cls}`}>
                     <div className="stat-icon-wrapper"><IonIcon icon={icon} /></div>
@@ -810,10 +847,10 @@ const AIAttendanceLog: React.FC = () => {
               ) : (
                 <div className="emp-cards-grid">
                   {filtered.map((log, idx) => {
-                    const sc        = statusClass(log.attendanceStatus);
-                    const cfg       = avatarCfg(log.Name);
-                    const inits     = getInitials(log.Name);
-                    const late      = parseInt(log.lateMinutes || '0');
+                    const sc = statusClass(log.attendanceStatus);
+                    const cfg = avatarCfg(log.Name);
+                    const inits = getInitials(log.Name);
+                    const late = parseInt(log.lateMinutes || '0');
                     const checkedIn = SLOTS.filter(s => log[s.key] && log[s.key] !== '-').length;
 
                     return (
@@ -844,7 +881,7 @@ const AIAttendanceLog: React.FC = () => {
                         {/* ── ATTENDANCE TIMELINE ── */}
                         <div className="att-timeline">
                           {SLOTS.map((s, si) => {
-                            const val    = log[s.key];
+                            const val = log[s.key];
                             const filled = val && val !== '-';
                             const isLast = si === SLOTS.length - 1;
 
