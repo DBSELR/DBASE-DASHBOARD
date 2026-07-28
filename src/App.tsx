@@ -56,6 +56,7 @@ import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
 import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
 import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceScanner";
 import AIAttendanceLog from "./pages/AIAttendance/AIAttendanceLog";
+import { HRAttendanceMatrix } from "./pages/AIAttendance/HRAttendanceMatrix";
 import AIAttendanceRuleMaster from "./pages/AIAttendance/AIAttendanceRuleMaster";
 import getCurrentPosition from "./pages/getCurrentPosition";
 import OMRJsonImport from "./pages/OMRJsonImport";
@@ -189,6 +190,7 @@ const App: React.FC = () => {
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
                   <Route exact path="/security-attendance" component={SecurityAttendanceScanner} />
                   <Route exact path="/ai-attendance-log/:mode" component={AIAttendanceLog} />
+                  {/* <Route exact path="/hr-attendance-matrix" component={HRAttendanceMatrix} /> */}
                   <Route exact path="/ai-attendance-rule-master" component={AIAttendanceRuleMaster} />
                   <Route exact path="/test-location" component={getCurrentPosition} />
                   <Route exact path="/omr-json-import" component={OMRJsonImport} />

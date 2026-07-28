@@ -19,6 +19,9 @@ interface AttendanceRecord {
   'Evening Out': string;
   date?: string;
   lateMinutes?: string;
+  morningLateMinutes?: string | number;
+  lunchLateMinutes?: string | number;
+  totalLateMinutes?: string | number;
   graceType?: string;
   attendanceStatus?: string;
   branch?: string;
@@ -232,30 +235,48 @@ const AIAttendanceLog: React.FC = () => {
           } catch { }
         }
 
-        const map = (r: any, date: string): AttendanceRecord => ({
-          'Emp ID': r.empId || '-',
-          Name: r.name || '',
-          'Morning In': r.morningIn || '-',
-          'Lunch Out': r.lunchOut || '-',
-          'Lunch In': r.lunchIn || '-',
-          'Evening Out': r.eveningOut || '-',
-          lateMinutes: r.lateMinutes || '0',
-          graceType: r.graceType || '',
-          attendanceStatus: r.attendanceStatus || '',
-          date,
-          morningInLat: r.morningInLat,
-          morningInLng: r.morningInLng,
-          morningInCity: r.morningInCity,
-          lunchOutLat: r.lunchOutLat,
-          lunchOutLng: r.lunchOutLng,
-          lunchOutCity: r.lunchOutCity,
-          lunchInLat: r.lunchInLat,
-          lunchInLng: r.lunchInLng,
-          lunchInCity: r.lunchInCity,
-          eveningOutLat: r.eveningOutLat,
-          eveningOutLng: r.eveningOutLng,
-          eveningOutCity: r.eveningOutCity,
-        });
+        const map = (r: any, date: string): AttendanceRecord => {
+          const mLateVal = r.morningLateMinutes ?? r.MorningLateMinutes ?? r.lateMinutes ?? r.LateMinutes ?? '0';
+          const lLateVal = r.lunchLateMinutes ?? r.LunchLateMinutes ?? r.lunch_late_minutes ?? r.LunchLateMins ?? '0';
+          let tLateVal = r.totalLateMinutes ?? r.TotalLateMinutes ?? r.total_late_minutes ?? '0';
+
+          const mNum = parseInt(String(mLateVal), 10) || 0;
+          const lNum = parseInt(String(lLateVal), 10) || 0;
+          let tNum = parseInt(String(tLateVal), 10) || 0;
+
+          if (tNum === 0 && (mNum > 0 || lNum > 0)) {
+            tNum = mNum + lNum;
+            tLateVal = String(tNum);
+          }
+
+          return {
+            'Emp ID': r.empId || r.Emp_ID || '-',
+            Name: r.name || r.Emp_Name || '',
+            'Morning In': r.morningIn || r.Morning_In || '-',
+            'Lunch Out': r.lunchOut || r.Lunch_Out || '-',
+            'Lunch In': r.lunchIn || r.Lunch_In || '-',
+            'Evening Out': r.eveningOut || r.Evening_Out || '-',
+            lateMinutes: String(mLateVal),
+            morningLateMinutes: mNum,
+            lunchLateMinutes: lNum,
+            totalLateMinutes: tNum,
+            graceType: r.graceType || r.GraceType || '',
+            attendanceStatus: r.attendanceStatus || r.AttendanceStatus || '',
+            date,
+            morningInLat: r.morningInLat,
+            morningInLng: r.morningInLng,
+            morningInCity: r.morningInCity,
+            lunchOutLat: r.lunchOutLat,
+            lunchOutLng: r.lunchOutLng,
+            lunchOutCity: r.lunchOutCity,
+            lunchInLat: r.lunchInLat,
+            lunchInLng: r.lunchInLng,
+            lunchInCity: r.lunchInCity,
+            eveningOutLat: r.eveningOutLat,
+            eveningOutLng: r.eveningOutLng,
+            eveningOutCity: r.eveningOutCity,
+          };
+        };
 
         const all = await Promise.all(dates.map(async date => {
           try {
@@ -283,12 +304,14 @@ const AIAttendanceLog: React.FC = () => {
         }));
 
         const flat = all.flat();
-        setUserLogs(dates.map(date => {
+        setUserLogs(dates.map((date): AttendanceRecord => {
           const found = flat.find(l => l.date === date);
           if (found) return found;
           return {
             Name: empName || "Employee", 'Emp ID': empCode || "-",
             'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-',
+            lateMinutes: '0', morningLateMinutes: '0', lunchLateMinutes: '0', totalLateMinutes: '0',
+            graceType: '',
             attendanceStatus: getNonScanStatus(date), date
           };
         }));
@@ -322,30 +345,48 @@ const AIAttendanceLog: React.FC = () => {
         const d = await res.json();
         if (d.success && Array.isArray(d.data)) {
 
-          const mapped: AttendanceRecord[] = d.data.map((r: any) => ({
-            'Emp ID': r.empId || '-',
-            Name: r.name || 'Unknown',
-            'Morning In': r.morningIn || '-',
-            'Lunch Out': r.lunchOut || '-',
-            'Lunch In': r.lunchIn || '-',
-            'Evening Out': r.eveningOut || '-',
-            lateMinutes: r.lateMinutes || '0',
-            graceType: r.graceType || '-',
-            attendanceStatus: r.attendanceStatus || '-',
-            branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
-            morningInLat: r.morningInLat,
-            morningInLng: r.morningInLng,
-            morningInCity: r.morningInCity,
-            lunchOutLat: r.lunchOutLat,
-            lunchOutLng: r.lunchOutLng,
-            lunchOutCity: r.lunchOutCity,
-            lunchInLat: r.lunchInLat,
-            lunchInLng: r.lunchInLng,
-            lunchInCity: r.lunchInCity,
-            eveningOutLat: r.eveningOutLat,
-            eveningOutLng: r.eveningOutLng,
-            eveningOutCity: r.eveningOutCity,
-          }));
+          const mapped: AttendanceRecord[] = d.data.map((r: any) => {
+            const mLateVal = r.morningLateMinutes ?? r.MorningLateMinutes ?? r.lateMinutes ?? r.LateMinutes ?? '0';
+            const lLateVal = r.lunchLateMinutes ?? r.LunchLateMinutes ?? r.lunch_late_minutes ?? r.LunchLateMins ?? '0';
+            let tLateVal = r.totalLateMinutes ?? r.TotalLateMinutes ?? r.total_late_minutes ?? '0';
+
+            const mNum = parseInt(String(mLateVal), 10) || 0;
+            const lNum = parseInt(String(lLateVal), 10) || 0;
+            let tNum = parseInt(String(tLateVal), 10) || 0;
+
+            if (tNum === 0 && (mNum > 0 || lNum > 0)) {
+              tNum = mNum + lNum;
+              tLateVal = String(tNum);
+            }
+
+            return {
+              'Emp ID': r.empId || r.Emp_ID || '-',
+              Name: r.name || r.Emp_Name || 'Unknown',
+              'Morning In': r.morningIn || r.Morning_In || '-',
+              'Lunch Out': r.lunchOut || r.Lunch_Out || '-',
+              'Lunch In': r.lunchIn || r.Lunch_In || '-',
+              'Evening Out': r.eveningOut || r.Evening_Out || '-',
+              lateMinutes: String(mLateVal),
+              morningLateMinutes: mNum,
+              lunchLateMinutes: lNum,
+              totalLateMinutes: tNum,
+              graceType: r.graceType || r.GraceType || '-',
+              attendanceStatus: r.attendanceStatus || r.AttendanceStatus || '-',
+              branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
+              morningInLat: r.morningInLat,
+              morningInLng: r.morningInLng,
+              morningInCity: r.morningInCity,
+              lunchOutLat: r.lunchOutLat,
+              lunchOutLng: r.lunchOutLng,
+              lunchOutCity: r.lunchOutCity,
+              lunchInLat: r.lunchInLat,
+              lunchInLng: r.lunchInLng,
+              lunchInCity: r.lunchInCity,
+              eveningOutLat: r.eveningOutLat,
+              eveningOutLng: r.eveningOutLng,
+              eveningOutCity: r.eveningOutCity,
+            };
+          });
 
           let finalLogs: AttendanceRecord[] = [];
 
@@ -372,7 +413,7 @@ const AIAttendanceLog: React.FC = () => {
                 'Lunch Out': '-',
                 'Lunch In': '-',
                 'Evening Out': '-',
-                lateMinutes: '0',
+                lateMinutes: '0', morningLateMinutes: '0', lunchLateMinutes: '0', totalLateMinutes: '0',
                 graceType: '-',
                 attendanceStatus: getNonScanStatus(selectedDate),
                 branch: emp.branch || selectedBranch
@@ -517,6 +558,29 @@ const AIAttendanceLog: React.FC = () => {
                 Absents Report
               </button>
 
+              {/* HR Monthly Matrix Button */}
+              {/* <button
+                onClick={() => history.push('/hr-attendance-matrix')}
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '24px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <IonIcon icon={calendarOutline} style={{ fontSize: '14px' }} />
+                HR Late Matrix
+              </button> */}
+
               <div className="live-sync-indicator">
                 <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
                 <span className="sync-text">{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
@@ -575,11 +639,11 @@ const AIAttendanceLog: React.FC = () => {
 
               {/* SELECTED DAY SUMMARY CARD */}
               {(() => {
-                const selectedLog = userLogs.find(l => l.date === selectedDate) || {
+                const selectedLog: AttendanceRecord = userLogs.find(l => l.date === selectedDate) || {
                   Name: currentUser?.empName || currentUser?.EmpName || "Employee",
                   'Emp ID': loggedInId,
                   'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-',
-                  date: selectedDate, lateMinutes: '0', graceType: '', attendanceStatus: ''
+                  date: selectedDate, lateMinutes: '0', morningLateMinutes: '0', lunchLateMinutes: '0', totalLateMinutes: '0', graceType: '', attendanceStatus: ''
                 };
                 const absent = SLOTS.every(s => selectedLog[s.key] === '-');
                 const checkedInScans = SLOTS.filter(s => selectedLog[s.key] && selectedLog[s.key] !== '-').length;
@@ -646,17 +710,30 @@ const AIAttendanceLog: React.FC = () => {
                     </div>
 
                     {/* Details footer */}
-                    {(late > 0 || (selectedLog.graceType && selectedLog.graceType !== '-')) && (
-                      <div className="emp-late-bar" style={{ marginTop: '16px' }}>
-                        <span className="late-icon">⏱</span>
-                        <span className="late-text">
-                          {late > 0 ? <>Late by <strong>{late} min</strong></> : "On-Time Status"}
-                        </span>
-                        {selectedLog.graceType && selectedLog.graceType !== '-' && (
-                          <span className={`grace-chip ${sc}`}>{selectedLog.graceType}</span>
-                        )}
-                      </div>
-                    )}
+                    {(() => {
+                      const mLate = parseInt(String(selectedLog.morningLateMinutes || selectedLog.lateMinutes || '0'), 10) || 0;
+                      const lLate = parseInt(String(selectedLog.lunchLateMinutes || '0'), 10) || 0;
+                      let tLate = parseInt(String(selectedLog.totalLateMinutes || '0'), 10) || 0;
+                      if (tLate === 0) tLate = mLate + lLate;
+
+                      if (mLate === 0 && lLate === 0 && tLate === 0 && (!selectedLog.graceType || selectedLog.graceType === '-')) {
+                        return null;
+                      }
+
+                      return (
+                        <div className="emp-late-bar" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className="late-icon">⏱</span>
+                          <span className="late-text">
+                            Morning: <strong>{mLate}m</strong>
+                            {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
+                            <> | Total: <strong>{tLate}m</strong></>
+                          </span>
+                          {selectedLog.graceType && selectedLog.graceType !== '-' && (
+                            <span className={`grace-chip ${sc}`}>{selectedLog.graceType}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
@@ -742,6 +819,31 @@ const AIAttendanceLog: React.FC = () => {
                           })}
                         </div>
                       )}
+
+                      {(() => {
+                        const mLate = parseInt(String(log.morningLateMinutes || log.lateMinutes || '0'), 10) || 0;
+                        const lLate = parseInt(String(log.lunchLateMinutes || '0'), 10) || 0;
+                        let tLate = parseInt(String(log.totalLateMinutes || '0'), 10) || 0;
+                        if (tLate === 0) tLate = mLate + lLate;
+
+                        if (mLate === 0 && lLate === 0 && tLate === 0 && (!log.graceType || log.graceType === '-')) {
+                          return null;
+                        }
+
+                        return (
+                          <div className="emp-late-bar" style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '4px 8px', borderRadius: '8px' }}>
+                            <span className="late-icon">⏱</span>
+                            <span className="late-text" style={{ fontSize: '10px' }}>
+                              Morning: <strong>{mLate}m</strong>
+                              {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
+                              <> | Total: <strong>{tLate}m</strong></>
+                            </span>
+                            {log.graceType && log.graceType !== '-' && (
+                              <span className={`grace-chip ${sc}`} style={{ fontSize: '9px' }}>{log.graceType}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -927,15 +1029,30 @@ const AIAttendanceLog: React.FC = () => {
                         </div>
 
                         {/* ── LATE FOOTER ── */}
-                        {late > 0 && (
-                          <div className="emp-late-bar">
-                            <span className="late-icon">⏱</span>
-                            <span className="late-text">Late by <strong>{late} min</strong></span>
-                            {log.graceType && log.graceType !== '-' && (
-                              <span className={`grace-chip ${sc}`}>{log.graceType}</span>
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          const mLate = parseInt(String(log.morningLateMinutes || log.lateMinutes || '0'), 10) || 0;
+                          const lLate = parseInt(String(log.lunchLateMinutes || '0'), 10) || 0;
+                          let tLate = parseInt(String(log.totalLateMinutes || '0'), 10) || 0;
+                          if (tLate === 0) tLate = mLate + lLate;
+
+                          if (mLate === 0 && lLate === 0 && tLate === 0 && (!log.graceType || log.graceType === '-')) {
+                            return null;
+                          }
+
+                          return (
+                            <div className="emp-late-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span className="late-icon">⏱</span>
+                              <span className="late-text">
+                                Morning: <strong>{mLate}m</strong>
+                                {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
+                                <> | Total: <strong>{tLate}m</strong></>
+                              </span>
+                              {log.graceType && log.graceType !== '-' && (
+                                <span className={`grace-chip ${sc}`}>{log.graceType}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
