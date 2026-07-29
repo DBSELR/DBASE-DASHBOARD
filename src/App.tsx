@@ -96,6 +96,23 @@ const App: React.FC = () => {
 
   const [theme, setTheme] = useState<string>(localStorage.getItem("themeColor") || "orange");
   const [isDarkMode, setIsDarkMode] = useState<boolean>(localStorage.getItem("themeMode") === "dark");
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleLogoutEvent = () => {
+      setIsLoggingOut(true);
+      setTimeout(() => {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        window.location.replace("/login");
+      }, 1200);
+    };
+
+    window.addEventListener("app:logout", handleLogoutEvent);
+    return () => {
+      window.removeEventListener("app:logout", handleLogoutEvent);
+    };
+  }, []);
 
   useEffect(() => {
     loadThemeSettings();
@@ -152,7 +169,7 @@ const App: React.FC = () => {
             </Switch>
           </IonRouterOutlet>
         ) : (
-          <IonSplitPane contentId="main">
+          <IonSplitPane contentId="main" className={isLoggingOut ? "logout-zoom-out" : ""}>
             <Menu />
             <IonRouterOutlet id="main">
               <Switch>

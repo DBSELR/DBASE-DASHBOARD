@@ -194,12 +194,7 @@ const Menu: React.FC = () => {
 
   const handleLogout = () => {
     setLoading(true);
-    setTimeout(() => {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      setUserData(null);
-      window.location.replace("/login");
-    }, 500);
+    window.dispatchEvent(new Event("app:logout"));
   };
 
   // Function to handle tab click and close menu

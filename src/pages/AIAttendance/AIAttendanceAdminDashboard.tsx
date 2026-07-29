@@ -51,8 +51,7 @@ const AIAttendanceAdminDashboard: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    history.push('/login');
+    window.dispatchEvent(new Event("app:logout"));
   };
 
   return (

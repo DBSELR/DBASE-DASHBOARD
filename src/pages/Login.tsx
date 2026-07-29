@@ -7,6 +7,7 @@ import type { Engine } from "tsparticles-engine";
 import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
 import { registerNativePush } from "../services/pushNotification";
+import { User, Lock, Eye, EyeOff, Bot } from "lucide-react";
 
 import "./Login.css";
 
@@ -17,6 +18,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [toastActive, setToastActive] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const [themeColors, setThemeColors] = useState<string[]>(["#f57c00", "#ffab40", "#fb923c"]);
   const [primaryColor, setPrimaryColor] = useState<string>("#f57c00");
@@ -102,8 +104,11 @@ const Login: React.FC = () => {
     console.error("❌ registerNativePush failed:", err);
   }
 
-  window.location.href = "/home";
-
+  // Trigger door animation and delay routing
+  setIsAuthenticating(true);
+  setTimeout(() => {
+    window.location.href = "/home";
+  }, 1200);
 
       } else {
         showToast("Login failed! Please try again.");
@@ -119,13 +124,7 @@ const Login: React.FC = () => {
   return (
     <IonPage>
       <IonContent className="db-login-page-container" scrollY={true}>
-        <div className="db-login-page">
-
-          {/* Toast */}
-          <div className={`db-validation-toast ${toastActive ? "active" : ""}`}>
-            <span className="db-toast-icon">⚠️</span>
-            <span className="db-toast-msg">{errorMsg}</span>
-          </div>
+        <div className={`db-login-page ${isAuthenticating ? 'door-portal-zoom' : ''}`}>
 
           {/* Background */}
           <div className="db-login-bg-shapes">
@@ -206,46 +205,65 @@ const Login: React.FC = () => {
           {/* Login */}
           {step === 3 && (
             <div className="db-login-screen">
-              <form
-                className="db-login-card"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleLogin();
-                }}
-              >
-                {/* Username */}
-                            <div className="db-input-group">
-              <label className="db-input-label">Username</label>
+              <div className={`db-login-card-wrapper ${isAuthenticating ? 'door-open' : ''} ${toastActive ? 'shake-error' : ''}`}>
+                
+                {/* 3D Error Avatar Peek */}
+                <div className={`db-error-peek-container ${toastActive ? "active" : ""}`}>
+                  <div className="db-error-avatar-3d">
+                    <Bot size={28} color="#fff" />
+                  </div>
+                  <div className="db-error-speech-bubble">
+                    {errorMsg === "Invalid username or password!" ? "Please Check your Login Credentials" : errorMsg}
+                  </div>
+                </div>
 
-              <input
-                type="text"
-                ref={usernameRef}
-                className="db-input-field"
-                placeholder="Username"
-              />
-            </div>
+                <div className="db-login-card-glow"></div>
+                <form
+                  className="db-login-card"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleLogin();
+                  }}
+                >
+                  
+                  <div className="db-login-card-header">
+                    <h2 className="db-login-title">Welcome Back</h2>
+                    <p className="db-login-subtitle">Sign in to continue to Dbase</p>
+                  </div>
+                {/* Username */}
+                <div className="db-input-group">
+                  <label className="db-input-label">Username</label>
+                  <div className="db-input-wrapper">
+                    <User className="db-input-icon" size={20} />
+                    <input
+                      type="text"
+                      ref={usernameRef}
+                      className="db-input-field with-icon"
+                      placeholder="Enter your username"
+                    />
+                  </div>
+                </div>
 
                 {/* Password */}
-<div className="db-input-group">
-  <label className="db-input-label">Password</label>
-
-  <div className="db-input-wrapper">
-    <input
-      type={showPassword ? "text" : "password"}
-      ref={passwordRef}
-      className="db-input-field"
-      placeholder="Password"
-    />
-
-    <button
-      type="button"
-      className="db-password-toggle"
-      onClick={() => setShowPassword(!showPassword)}
-    >
-      {showPassword ? "👁️" : "🙈"}
-    </button>
-  </div>
-</div>
+                <div className="db-input-group">
+                  <label className="db-input-label">Password</label>
+                  <div className="db-input-wrapper">
+                    <Lock className="db-input-icon" size={20} />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      ref={passwordRef}
+                      className="db-input-field with-icon"
+                      placeholder="Enter your password"
+                    />
+                    <button
+                      type="button"
+                      className="db-password-toggle"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
+                    </button>
+                  </div>
+                </div>
 
                 {/* IMPORTANT FIX: ONLY SUBMIT BUTTON */}
                 <button
@@ -256,6 +274,7 @@ const Login: React.FC = () => {
                   {loading ? "Authenticating..." : "Login"}
                 </button>
               </form>
+              </div>
             </div>
           )}
 

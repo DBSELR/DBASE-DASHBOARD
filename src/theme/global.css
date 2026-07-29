@@ -334,3 +334,22 @@ body[data-theme="dbase"] {
 .hidden-select-overlay::part(icon) {
   display: none !important;
 }
+
+/* ── Logout Global Animation ── */
+.logout-zoom-out {
+  animation: appZoomOut 1.2s cubic-bezier(0.64, 0.04, 0.35, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes appZoomOut {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0;
+    filter: blur(10px);
+  }
+}

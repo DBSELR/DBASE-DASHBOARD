@@ -947,11 +947,7 @@ const EmpProfile: React.FC = () => {
 
   const handleLogout = () => {
     setLoading(true);
-    setTimeout(() => {
-      localStorage.removeItem("user");
-      setUserData(null);
-      window.location.replace("/login");
-    }, 500);
+    window.dispatchEvent(new Event("app:logout"));
   };
   const handleInputChange = (e: any) => {
     const { name, value } = e.target;
