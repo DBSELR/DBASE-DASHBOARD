@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import {
   IonButton, IonIcon, IonLoading, IonToast, IonSelect, IonSelectOption, IonModal, IonDatetime
 } from "@ionic/react";
-import { downloadOutline, eyeOutline, checkmarkCircleOutline, timeOutline, calendarOutline, clipboardOutline, searchOutline, closeCircle, checkmarkCircle } from "ionicons/icons";
+import { downloadOutline, eyeOutline, checkmarkCircleOutline, timeOutline, calendarOutline, clipboardOutline, searchOutline, closeCircle, checkmarkCircle, chevronDownOutline, chevronUpOutline } from "ionicons/icons";
 import moment from "moment";
 import "./AssignedTickets.css";
 
@@ -45,6 +45,14 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
 
   /* Update State */
   const [updates, setUpdates] = useState<Record<string, UpdateState>>({});
+  const [collapsedTickets, setCollapsedTickets] = useState<Record<string, boolean>>({});
+
+  const toggleCollapse = (ticketId: string) => {
+    setCollapsedTickets(prev => ({
+      ...prev,
+      [ticketId]: !prev[ticketId]
+    }));
+  };
 
   // Custom Searchable Dropdown States (Portal)
   const [activeTicketDropdown, setActiveTicketDropdown] = useState<string | null>(null);
@@ -217,6 +225,36 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       });
       if (res.ok) {
         setToast({ open: true, msg: "Ticket Status Updated", color: "success" });
+
+        if (up.status === "C") {
+          try {
+            const desc = `${ticket.Remarks || ""}\nClosed Ticket: ${up.closingRemarks}`.trim();
+            const wrPayload = {
+              _TICKETID: String(ticket.TICKETID),
+              _EMPLOYEEID: String(empCode),
+              _CLIENT_NAME: String(ticket.Client),
+              _PROJECT_NAMEE: String(ticket.Project || ""),
+              _WORKDESCRIPTION: `${ticket.TICKETID}_${desc}__${up.closingRemarks}`,
+              _SERVICE_TYPE: String(serviceType)
+            };
+
+            console.log("[AssignedTickets] Auto-saving Work Report for Closed Ticket:", wrPayload);
+            const wrRes = await fetch(`${apiBase}Tickets/SaveWorkReport_TicketWise`, {
+              method: "POST",
+              headers: getHeaders(),
+              body: JSON.stringify(wrPayload)
+            });
+
+            if (wrRes.ok) {
+              console.log("[AssignedTickets] Auto Work Report Saved Successfully");
+            } else {
+              console.error("[AssignedTickets] Auto Work Report Save Failed");
+            }
+          } catch (wrErr) {
+            console.error("[AssignedTickets] Auto-save Work Report error:", wrErr);
+          }
+        }
+
         await loadData();
       } else {
         setToast({ open: true, msg: "Update Failed", color: "danger" });
@@ -301,6 +339,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
           const up = updates[x.TICKETID] || { status: "", remark: "", supportEmpCode: "", ticketType: "", closingRemarks: "", quitRemarks: "", targetDate: "" };
           const opts = getStatusOptions(x.Issue_Status);
           const statusClass = `ast-status-${x.Issue_Status.toLowerCase()}`;
+          const isCollapsed = collapsedTickets[x.TICKETID] || false;
 
           return (
             <div key={`${x.TICKETID || idx}-${idx}`} className="ast-ticket-row-container ast-fade-up">
@@ -308,184 +347,209 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                 #{x.TICKETID}
               </div>
 
-              <div className="ast-card-header">
-                <span className="ast-spacer"></span>
-                <span className={`ast-status-badge ${statusClass}`}>
-                  {getStatusLabel(x.Issue_Status)}
+              <div 
+                className="ast-card-header" 
+                onClick={() => toggleCollapse(x.TICKETID)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 16px 8px 110px',
+                  cursor: 'pointer',
+                  background: '#f8fafc',
+                  borderBottom: '1px solid rgba(0,0,0,0.05)',
+                  userSelect: 'none'
+                }}
+              >
+                <span 
+                  className="ast-card-summary-text" 
+                  style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: '13px', 
+                    whiteSpace: 'nowrap', 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    color: 'var(--ion-color-dark)',
+                    maxWidth: '60%',
+                    display: isCollapsed ? 'inline' : 'none'
+                  }}
+                >
+                  {x.Client} • {x.Subject}
                 </span>
+                <span className="ast-spacer" style={{ flex: 1 }}></span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className={`ast-status-badge ${statusClass}`}>
+                    {getStatusLabel(x.Issue_Status)}
+                  </span>
+                  <IonIcon icon={isCollapsed ? chevronDownOutline : chevronUpOutline} style={{ fontSize: '20px', color: 'var(--ion-color-medium)' }} />
+                </div>
               </div>
 
-              <div className="ast-ticket-main-grid">
-                {/* Column 1: Client & Subject */}
-                <div className="ast-grid-column">
-                  <div className="ast-info-item">
-                    <span className="ast-label">Client / Proj :</span>
-                    <span className="ast-value">{x.Client} • {x.Project}</span>
-                  </div>
-                  <div className="ast-info-item">
-                    <span className="ast-label">Details :</span>
-                    <span className="ast-value small-text">{x.clint_detail}</span>
-                  </div>
-                  <div className="ast-info-item">
-                    <span className="ast-label">Subject :</span>
-                    <span className="ast-value highlight">{x.Subject}</span>
-                  </div>
-                </div>
-
-                {/* Column 2: Metadata & Target Date */}
-                <div className="ast-grid-column">
-                  <div className="ast-info-item">
-                    <span className="ast-label">Priority :</span>
-                    <span className="ast-value" style={{ color: x.TicketPriority?.toLowerCase() === 'high' ? '#ef4444' : 'inherit' }}>
-                      {x.TicketPriority}
-                    </span>
-                  </div>
-                  <div className="ast-info-item">
-                    <span className="ast-label">Assigned :</span>
-                    <span className="ast-value">{x.TDate}</span>
-                  </div>
-                  {x.Target_Time && (
-                    <div className="ast-info-item">
-                      <span className="ast-label">Target Time :</span>
-                      <div className="ast-inline-date-picker">
-                        <IonIcon icon={timeOutline} style={{ color: '#f59e0b', fontSize: '14px' }} />
-                        <span className="ast-value highlight-timer">{formatTargetTime(x.Target_Time)}</span>
+              {!isCollapsed && (
+                <>
+                  <div className="ast-ticket-main-grid">
+                    {/* Column 1: Client & Subject */}
+                    <div className="ast-grid-column">
+                      <div className="ast-info-item">
+                        <span className="ast-label">Client / Proj :</span>
+                        <span className="ast-value">{x.Client} • {x.Project}</span>
+                      </div>
+                      <div className="ast-info-item">
+                        <span className="ast-label">Details :</span>
+                        <span className="ast-value small-text">{x.clint_detail}</span>
+                      </div>
+                      <div className="ast-info-item">
+                        <span className="ast-label">Subject :</span>
+                        <span className="ast-value highlight">{x.Subject}</span>
                       </div>
                     </div>
-                  )}
 
-                </div>
+                    {/* Column 2: Metadata & Target Date */}
+                    <div className="ast-grid-column">
+                      <div className="ast-info-item">
+                        <span className="ast-label">Priority :</span>
+                        <span className="ast-value" style={{ color: x.TicketPriority?.toLowerCase() === 'high' ? '#ef4444' : 'inherit' }}>
+                          {x.TicketPriority}
+                        </span>
+                      </div>
+                      <div className="ast-info-item">
+                        <span className="ast-label">Assigned :</span>
+                        <span className="ast-value">{x.TDate}</span>
+                      </div>
+                      {x.Target_Time && (
+                        <div className="ast-info-item">
+                          <span className="ast-label">Target Time :</span>
+                          <div className="ast-inline-date-picker">
+                            <IonIcon icon={timeOutline} style={{ color: '#f59e0b', fontSize: '14px' }} />
+                            <span className="ast-value highlight-timer">{formatTargetTime(x.Target_Time)}</span>
+                          </div>
+                        </div>
+                      )}
 
-                {/* Column 3: Remarks */}
-                <div className="ast-grid-column remarks-column">
-                  <div className="ast-info-item vertical">
-                    <span className="ast-label">Issue Remarks :</span>
-                    <div className="ast-value-remarks">{x.Remarks}</div>
-                  </div>
-                </div>
-              </div>
+                    </div>
 
-              {/* Action Area (Updates) */}
-              <div className="ast-update-container">
-                <div className="ast-update-fields">
-                  <div className="ast-field-group">
-                    <span className="ast-field-label">Transfer To :</span>
-                    <div
-                      className={`ast-inline-select searchable-trigger ${activeTicketDropdown === x.TICKETID ? 'active' : ''}`}
-                      onClick={(e) => toggleDropdown(x.TICKETID, e)}
-                    >
-                      <span className="ast-select-text">
-                        {empNames.find(e => e.EmpCode === up.supportEmpCode)?.EmpName || "None"}
-                      </span>
+                    {/* Column 3: Remarks */}
+                    <div className="ast-grid-column remarks-column">
+                      <div className="ast-info-item vertical">
+                        <span className="ast-label">Issue Remarks :</span>
+                        <div className="ast-value-remarks">{x.Remarks}</div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="ast-field-group">
-                    <span className="ast-field-label">Action Status :</span>
-                    <div className="ast-inline-select status-select">
-                      <IonSelect
-                        value={up.status}
-                        onIonChange={e => updateVal(x.TICKETID, "status", e.detail.value)}
-                        interface="popover"
-                        placeholder="Status"
-                      >
-                        {opts.map((o, oidx) => (
-                          <IonSelectOption key={`${o.id || oidx}`} value={o.id}>{o.value}</IonSelectOption>
-                        ))}
-                      </IonSelect>
-                    </div>
-                  </div>
-
-                  {up.status === "C" && (
-                    <>
+                  {/* Action Area (Updates) */}
+                  <div className="ast-update-container">
+                    <div className="ast-update-fields">
                       <div className="ast-field-group">
-                        <span className="ast-field-label">Ticket Type :</span>
-                        <div className="ast-inline-select">
+                        <span className="ast-field-label">Transfer To :</span>
+                        <div
+                          className={`ast-inline-select searchable-trigger ${activeTicketDropdown === x.TICKETID ? 'active' : ''}`}
+                          onClick={(e) => toggleDropdown(x.TICKETID, e)}
+                        >
+                          <span className="ast-select-text">
+                            {empNames.find(e => e.EmpCode === up.supportEmpCode)?.EmpName || "None"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="ast-field-group">
+                        <span className="ast-field-label">Action Status :</span>
+                        <div className="ast-inline-select status-select">
                           <IonSelect
-                            value={up.ticketType}
-                            onIonChange={e => updateVal(x.TICKETID, "ticketType", e.detail.value)}
+                            value={up.status}
+                            onIonChange={e => updateVal(x.TICKETID, "status", e.detail.value)}
                             interface="popover"
+                            placeholder="Status"
                           >
-                            <IonSelectOption value="S">Support</IonSelectOption>
-                            <IonSelectOption value="B">Bug</IonSelectOption>
-                            <IonSelectOption value="M">Modification</IonSelectOption>
-                            <IonSelectOption value="N">New Implementation</IonSelectOption>
-                            <IonSelectOption value="D">Duplicate</IonSelectOption>
-                            <IonSelectOption value="I">Irrelevant</IonSelectOption>
+                            {opts.map((o, oidx) => (
+                              <IonSelectOption key={`${o.id || oidx}`} value={o.id}>{o.value}</IonSelectOption>
+                            ))}
                           </IonSelect>
                         </div>
                       </div>
-                      <div className="ast-field-group flexible">
-                        <span className="ast-field-label">Closing Msg :</span>
-                        <input
-                          className="ast-inline-input"
-                          placeholder="Why closing?"
-                          value={up.closingRemarks}
-                          onChange={e => updateVal(x.TICKETID, "closingRemarks", e.target.value)}
-                        />
-                      </div>
-                    </>
-                  )}
 
-                  {up.status === "Q" && (
-                    <div className="ast-field-group flexible">
-                      <span className="ast-field-label">Quit Msg :</span>
-                      <input
-                        className="ast-inline-input alert"
-                        placeholder="Reason to quit?"
-                        value={up.quitRemarks}
-                        onChange={e => updateVal(x.TICKETID, "quitRemarks", e.target.value)}
-                      />
+                      {up.status === "C" && (
+                        <>
+                          <div className="ast-field-group">
+                            <span className="ast-field-label">Ticket Type :</span>
+                            <div className="ast-inline-select">
+                              <IonSelect
+                                value={up.ticketType}
+                                onIonChange={e => updateVal(x.TICKETID, "ticketType", e.detail.value)}
+                                interface="popover"
+                              >
+                                <IonSelectOption value="S">Support</IonSelectOption>
+                                <IonSelectOption value="B">Bug</IonSelectOption>
+                                <IonSelectOption value="M">Modification</IonSelectOption>
+                                <IonSelectOption value="N">New Implementation</IonSelectOption>
+                                <IonSelectOption value="D">Duplicate</IonSelectOption>
+                                <IonSelectOption value="I">Irrelevant</IonSelectOption>
+                              </IonSelect>
+                            </div>
+                          </div>
+                          <div className="ast-field-group flexible">
+                            <span className="ast-field-label">Closing Msg :</span>
+                            <input
+                              className="ast-inline-input"
+                              placeholder="Why closing?"
+                              value={up.closingRemarks}
+                              onChange={e => updateVal(x.TICKETID, "closingRemarks", e.target.value)}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {up.status === "Q" && (
+                        <div className="ast-field-group flexible">
+                          <span className="ast-field-label">Quit Msg :</span>
+                          <input
+                            className="ast-inline-input alert"
+                            placeholder="Reason to quit?"
+                            value={up.quitRemarks}
+                            onChange={e => updateVal(x.TICKETID, "quitRemarks", e.target.value)}
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="ast-action-footer">
-                  <div className="ast-attachment-btns">
-                    {x.File_Path && x.File_Path !== "0" && x.File_Path !== "null" && x.File_Path !== "" && (
-                      <button
-                        className="ast-attachment-btn"
-                        onClick={() => {
-                          const fileUrl = `https://tickets.dbasesolutions.in/issue_file/${x.File_Path}`;
-                          console.log("[AssignedTickets] File click:", fileUrl);
-                          downloadHandler(fileUrl, x.File_Path);
-                        }}
-                      >
-                        <IonIcon icon={downloadOutline} />
-                        <span>File</span>
+                    <div className="ast-action-footer">
+                      <div className="ast-attachment-btns">
+                        {x.File_Path && x.File_Path !== "0" && x.File_Path !== "null" && x.File_Path !== "" && (
+                          <button
+                            className="ast-attachment-btn"
+                            onClick={() => {
+                              const fileUrl = `https://tickets.dbasesolutions.in/issue_file/${x.File_Path}`;
+                              console.log("[AssignedTickets] File click:", fileUrl);
+                              downloadHandler(fileUrl, x.File_Path);
+                            }}
+                          >
+                            <IonIcon icon={downloadOutline} />
+                            <span>File</span>
+                          </button>
+                        )}
+                        {x.Img_Path && x.Img_Path !== "0" && x.Img_Path !== "null" && x.Img_Path !== "FALSE" && x.Img_Path !== "" && (
+                          <button
+                            className="ast-attachment-btn"
+                            onClick={() => {
+                              const imgUrl = `https://tickets.dbasesolutions.in/issue_img/${x.Img_Path}`;
+                              console.log("[AssignedTickets] Image click:", imgUrl);
+                              downloadHandler(imgUrl, x.Img_Path);
+                            }}
+                          >
+                            <IonIcon icon={eyeOutline} />
+                            <span>View</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <button className="ast-primary-submit-btn" onClick={() => onUpdateStatus(x)}>
+                        <IonIcon icon={checkmarkCircleOutline} />
+                        <span style={{ color: "#fff" }}>Update Task</span>
                       </button>
-                    )}
-                    {x.Img_Path && x.Img_Path !== "0" && x.Img_Path !== "null" && x.Img_Path !== "FALSE" && x.Img_Path !== "" && (
-                      <button
-                        className="ast-attachment-btn"
-                        onClick={() => {
-                          const imgUrl = `https://tickets.dbasesolutions.in/issue_img/${x.Img_Path}`;
-                          console.log("[AssignedTickets] Image click:", imgUrl);
-                          downloadHandler(imgUrl, x.Img_Path);
-                        }}
-                      >
-                        <IonIcon icon={eyeOutline} />
-                        <span>View</span>
-                      </button>
-                    )}
-                    {/* <button 
-                      className="ast-attachment-btn highlight-btn" 
-                      onClick={() => {
-                        setActiveWorkTicket(x);
-                        setWorkReportModalOpen(true);
-                      }}
-                    >
-                      <IonIcon icon={clipboardOutline} />
-                      <span>Work Report</span>
-                    </button> */}
+                    </div>
                   </div>
-
-                  <button className="ast-primary-submit-btn" onClick={() => onUpdateStatus(x)}>
-                    <IonIcon icon={checkmarkCircleOutline} />
-                    <span style={{ color: "#fff" }}>Update Task</span>
-                  </button>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           );
 
@@ -494,8 +558,8 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
 
       {data.length === 0 && !loading && (
         <div className="ast-empty">
-          <IonIcon icon={timeOutline} style={{ fontSize: "48px", opacity: 0.5, marginBottom: "16px" }} />
-          <p>You don't have any assigned tickets.</p>
+          <IonIcon icon={timeOutline} style={{ fontSize: "24px", opacity: 0.5, marginBottom: "8px" }} />
+          <p style={{ margin: 0, fontSize: "13px" }}>You don't have any assigned tickets.</p>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSelect, IonSelectOption, IonLoading, IonToast } from "@ionic/react";
-import { downloadOutline, eyeOutline, sendOutline, timeOutline, personOutline, calendarOutline, chevronDownOutline, searchOutline, closeCircle, checkmarkCircle } from "ionicons/icons";
+import { downloadOutline, eyeOutline, sendOutline, timeOutline, personOutline, calendarOutline, chevronDownOutline, chevronUpOutline, searchOutline, closeCircle, checkmarkCircle } from "ionicons/icons";
 import { IonModal, IonDatetime } from "@ionic/react";
 import "./SupportTickets.css";
 
@@ -26,6 +26,14 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [startDateModalOpen, setStartDateModalOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
+  const [collapsedTickets, setCollapsedTickets] = useState<Record<string, boolean>>({});
+
+  const toggleCollapse = (ticketId: string) => {
+    setCollapsedTickets(prev => ({
+      ...prev,
+      [ticketId]: !prev[ticketId]
+    }));
+  };
 
   // Custom Searchable Dropdown States (Portal)
   const [activeTicketDropdown, setActiveTicketDropdown] = useState<string | null>(null);
@@ -334,6 +342,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
             const isAssigned = (x.T_STATUS || "").toLowerCase() === 'assigned';
             const statusColor = getStatusColor(x.T_STATUS);
             const statusLabel = getStatusLabel(x.T_STATUS);
+            const isCollapsed = collapsedTickets[x.TICKETID] || false;
             
             return (
               <div 
@@ -345,142 +354,192 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                   {x.TICKETID}
                 </div>
 
-                <div className="dbase-ticket-main-grid">
-                  {/* Column 1: Core Info */}
-                  <div className="dbase-grid-column">
-                    <div className="dbase-info-item">
-                      <span className="dbase-label">Client :</span>
-                      <span className="dbase-value">{x.Client}</span>
-                    </div>
-                    <div className="dbase-info-item">
-                      <span className="dbase-label">Project :</span>
-                      <span className="dbase-value">{x.Project}</span>
-                    </div>
-                    <div className="dbase-info-item">
-                      <span className="dbase-label">Priority :</span>
-                      <span className="dbase-value" style={{ color: x.TicketPriority?.toLowerCase() === 'high' ? '#ff5630' : 'inherit' }}>
-                        {x.TicketPriority}
-                      </span>
-                    </div>
-                    <div className="dbase-info-item">
-                      <span className="dbase-label">Reopen :</span>
-                      <span className="dbase-value">{x.T_STATUS === 'r' ? 'Yes' : ''}</span>
-                    </div>
-                  </div>
-
-                  {/* Column 2: Date & Details */}
-                  <div className="dbase-grid-column">
-                    <div className="dbase-info-item">
-                      <span className="dbase-label">Date :</span>
-                      <span className="dbase-value">{x.TDate}</span>
-                    </div>
-                    <div className="dbase-info-item">
-                      <span className="dbase-label">Client Details :</span>
-                      <span className="dbase-value small-text">{x.Client_Name} {x.Client_MobileNo}</span>
-                    </div>
-                  </div>
-
-                  {/* Column 3: Remarks */}
-                  <div className="dbase-grid-column remarks-column">
-                    <div className="dbase-info-item vertical">
-                      <span className="dbase-label">Remarks :</span>
-                      <span className="dbase-value-remarks">{x.Remarks}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Action Bar */}
-                <div className="dbase-action-bar">
-                  <div className="dbase-action-left">
-                    <div className="dbase-action-item">
-                      <span className="dbase-action-label">Assignee :</span>
-                      <div 
-                        className={`dbase-inline-select searchable-trigger ${activeTicketDropdown === x.TICKETID ? 'active' : ''}`}
-                        onClick={(e) => toggleDropdown(x.TICKETID, e)}
-                      >
-                        <span className="dbase-select-text">
-                          {empList.find(e => e.EmpCode === state.emp)?.EmpName || "Select Employee"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="dbase-action-item">
-                      <span className="dbase-action-label">Time(TM) :</span>
-                      <div className="dbase-inline-select mini">
-                        <IonSelect
-                          interface="popover"
-                          value={state.tmTime}
-                          onIonChange={(e) => {
-                            updateAssignState(x.TICKETID, "tmTime", e.detail.value);
-                            if (isAssigned && isTM) {
-                              void updateTMEstimate(x.TICKETID, e.detail.value);
-                            }
-                          }}
-                        >
-                          {estTimeOptions.map(t => (
-                            <IonSelectOption key={t.v} value={t.v}>{t.d}</IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </div>
-                    </div>
-
-                    <div className="dbase-action-item">
-                      <span className="dbase-action-label">Time(TL) :</span>
-                      <div className="dbase-inline-select mini">
-                        <IonSelect
-                          interface="popover"
-                          value={state.tlTime}
-                          onIonChange={(e) => updateAssignState(x.TICKETID, "tlTime", e.detail.value)}
-                        >
-                          {estTimeOptions.map(t => (
-                            <IonSelectOption key={t.v} value={t.v}>{t.d}</IonSelectOption>
-                          ))}
-                        </IonSelect>
-                      </div>
-                    </div>
-
-                    <button 
-                      className="dbase-send-icon-btn"
-                      onClick={() => {
-                        if (isTL) saveAssignment(x.TICKETID, 'TL');
-                        else if (isTM) saveAssignment(x.TICKETID, 'TM');
-                      }}
-                    >
-                      <IonIcon icon={sendOutline} />
-                    </button>
-                  </div>
-
-                  <div className="dbase-action-right">
-                    <div className="dbase-file-status">
-                      <span className="status-label">File :</span>
-                      {x.File_Path && x.File_Path !== "0" && x.File_Path !== "null" && x.File_Path !== "" ? (
-                        <IonIcon 
-                          icon={downloadOutline} 
-                          className="status-icon active" 
-                          onClick={() => {
-                            const fileUrl = `https://tickets.dbasesolutions.in/issue_file/${x.File_Path}`;
-                            console.log("[SupportTickets] File click:", fileUrl);
-                            downloadHandler(fileUrl, x.File_Path);
-                          }}
-                        />
-                      ) : <span className="status-none">None</span>}
-                    </div>
-                    <div className="dbase-file-status">
-                      <span className="status-label">Image :</span>
-                      {x.Img_Path && x.Img_Path !== "0" && x.Img_Path !== "null" && x.Img_Path !== "FALSE" && x.Img_Path !== "" ? (
-                        <IonIcon 
-                          icon={eyeOutline} 
-                          className="status-icon active" 
-                          onClick={() => {
-                            const imgUrl = `https://tickets.dbasesolutions.in/issue_img/${x.Img_Path}`;
-                            console.log("[SupportTickets] Image click:", imgUrl);
-                            downloadHandler(imgUrl, x.Img_Path);
-                          }}
-                        />
-                      ) : <span className="status-none">None</span>}
-                    </div>
+                <div 
+                  className="dbase-card-header" 
+                  onClick={() => toggleCollapse(x.TICKETID)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 16px 8px 110px',
+                    cursor: 'pointer',
+                    background: '#f8fafc',
+                    borderBottom: '1px solid rgba(0,0,0,0.05)',
+                    userSelect: 'none'
+                  }}
+                >
+                  <span 
+                    className="dbase-card-summary-text" 
+                    style={{ 
+                      fontWeight: 'bold', 
+                      fontSize: '13px', 
+                      whiteSpace: 'nowrap', 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis', 
+                      color: 'var(--ion-color-dark)',
+                      maxWidth: '60%',
+                      display: isCollapsed ? 'inline' : 'none'
+                    }}
+                  >
+                    {x.Client} • {x.Project}
+                  </span>
+                  <span className="dbase-spacer" style={{ flex: 1 }}></span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="dbase-status-badge" style={{
+                      background: statusColor,
+                      padding: '4px 12px',
+                      borderRadius: '10px',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      color: '#fff',
+                      textTransform: 'uppercase'
+                    }}>
+                      {statusLabel}
+                    </span>
+                    <IonIcon icon={isCollapsed ? chevronDownOutline : chevronUpOutline} style={{ fontSize: '20px', color: 'var(--ion-color-medium)' }} />
                   </div>
                 </div>
+
+                {!isCollapsed && (
+                  <>
+                    <div className="dbase-ticket-main-grid">
+                      {/* Column 1: Core Info */}
+                      <div className="dbase-grid-column">
+                        <div className="dbase-info-item">
+                          <span className="dbase-label">Client :</span>
+                          <span className="dbase-value">{x.Client}</span>
+                        </div>
+                        <div className="dbase-info-item">
+                          <span className="dbase-label">Project :</span>
+                          <span className="dbase-value">{x.Project}</span>
+                        </div>
+                        <div className="dbase-info-item">
+                          <span className="dbase-label">Priority :</span>
+                          <span className="dbase-value" style={{ color: x.TicketPriority?.toLowerCase() === 'high' ? '#ff5630' : 'inherit' }}>
+                            {x.TicketPriority}
+                          </span>
+                        </div>
+                        <div className="dbase-info-item">
+                          <span className="dbase-label">Reopen :</span>
+                          <span className="dbase-value">{x.T_STATUS === 'r' ? 'Yes' : ''}</span>
+                        </div>
+                      </div>
+
+                      {/* Column 2: Date & Details */}
+                      <div className="dbase-grid-column">
+                        <div className="dbase-info-item">
+                          <span className="dbase-label">Date :</span>
+                          <span className="dbase-value">{x.TDate}</span>
+                        </div>
+                        <div className="dbase-info-item">
+                          <span className="dbase-label">Client Details :</span>
+                          <span className="dbase-value small-text">{x.Client_Name} {x.Client_MobileNo}</span>
+                        </div>
+                      </div>
+
+                      {/* Column 3: Remarks */}
+                      <div className="dbase-grid-column remarks-column">
+                        <div className="dbase-info-item vertical">
+                          <span className="dbase-label">Remarks :</span>
+                          <span className="dbase-value-remarks">{x.Remarks}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Bar */}
+                    <div className="dbase-action-bar">
+                      <div className="dbase-action-left">
+                        <div className="dbase-action-item">
+                          <span className="dbase-action-label">Assignee :</span>
+                          <div 
+                            className={`dbase-inline-select searchable-trigger ${activeTicketDropdown === x.TICKETID ? 'active' : ''}`}
+                            onClick={(e) => toggleDropdown(x.TICKETID, e)}
+                          >
+                            <span className="dbase-select-text">
+                              {empList.find(e => e.EmpCode === state.emp)?.EmpName || "Select Employee"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="dbase-action-item">
+                          <span className="dbase-action-label">Time(TM) :</span>
+                          <div className="dbase-inline-select mini">
+                            <IonSelect
+                              interface="popover"
+                              value={state.tmTime}
+                              onIonChange={(e) => {
+                                updateAssignState(x.TICKETID, "tmTime", e.detail.value);
+                                if (isAssigned && isTM) {
+                                  void updateTMEstimate(x.TICKETID, e.detail.value);
+                                }
+                              }}
+                            >
+                              {estTimeOptions.map(t => (
+                                <IonSelectOption key={t.v} value={t.v}>{t.d}</IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </div>
+                        </div>
+
+                        <div className="dbase-action-item">
+                          <span className="dbase-action-label">Time(TL) :</span>
+                          <div className="dbase-inline-select mini">
+                            <IonSelect
+                              interface="popover"
+                              value={state.tlTime}
+                              onIonChange={(e) => updateAssignState(x.TICKETID, "tlTime", e.detail.value)}
+                            >
+                              {estTimeOptions.map(t => (
+                                <IonSelectOption key={t.v} value={t.v}>{t.d}</IonSelectOption>
+                              ))}
+                            </IonSelect>
+                          </div>
+                        </div>
+
+                        <button 
+                          className="dbase-send-icon-btn"
+                          onClick={() => {
+                            if (isTL) saveAssignment(x.TICKETID, 'TL');
+                            else if (isTM) saveAssignment(x.TICKETID, 'TM');
+                          }}
+                        >
+                          <IonIcon icon={sendOutline} />
+                        </button>
+                      </div>
+
+                      <div className="dbase-action-right">
+                        <div className="dbase-file-status">
+                          <span className="status-label">File :</span>
+                          {x.File_Path && x.File_Path !== "0" && x.File_Path !== "null" && x.File_Path !== "" ? (
+                            <IonIcon 
+                              icon={downloadOutline} 
+                              className="status-icon active" 
+                              onClick={() => {
+                                const fileUrl = `https://tickets.dbasesolutions.in/issue_file/${x.File_Path}`;
+                                console.log("[SupportTickets] File click:", fileUrl);
+                                downloadHandler(fileUrl, x.File_Path);
+                              }}
+                            />
+                          ) : <span className="status-none">None</span>}
+                        </div>
+                        <div className="dbase-file-status">
+                          <span className="status-label">Image :</span>
+                          {x.Img_Path && x.Img_Path !== "0" && x.Img_Path !== "null" && x.Img_Path !== "FALSE" && x.Img_Path !== "" ? (
+                            <IonIcon 
+                              icon={eyeOutline} 
+                              className="status-icon active" 
+                              onClick={() => {
+                                const imgUrl = `https://tickets.dbasesolutions.in/issue_img/${x.Img_Path}`;
+                                console.log("[SupportTickets] Image click:", imgUrl);
+                                downloadHandler(imgUrl, x.Img_Path);
+                              }}
+                            />
+                          ) : <span className="status-none">None</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             );
 
@@ -488,16 +547,16 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
         </div>
 
         {dataSupport.length === 0 && !loading && (
-          <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--ion-color-medium)" }}>
+          <div style={{ textAlign: "center", padding: "20px 16px", color: "var(--ion-color-medium)" }}>
             <div style={{ 
-              width: '80px', height: '80px', background: 'rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.1)', 
+              width: '40px', height: '40px', background: 'rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.1)', 
               borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 20px'
+              margin: '0 auto 10px'
             }}>
-              <IonIcon icon={sendOutline} style={{ fontSize: "32px", opacity: 0.5, color: 'var(--ion-color-primary)' }} />
+              <IonIcon icon={sendOutline} style={{ fontSize: "18px", opacity: 0.5, color: 'var(--ion-color-primary)' }} />
             </div>
-            <h3 style={{ margin: 0, color: 'var(--ion-text-color)', fontWeight: 700 }}>No Support Tickets</h3>
-            <p style={{ marginTop: '8px', fontSize: '0.9rem' }}>Check different dates or wait for new requests.</p>
+            <h4 style={{ margin: 0, color: 'var(--ion-text-color)', fontWeight: 700, fontSize: "14px" }}>No Support Tickets</h4>
+            <p style={{ marginTop: '4px', fontSize: '0.8rem', marginBlockEnd: 0 }}>Check different dates or wait for new requests.</p>
           </div>
         )}
       </div>

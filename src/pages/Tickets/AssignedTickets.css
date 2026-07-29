@@ -2,7 +2,6 @@
 .ast-root {
   padding: 16px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  min-height: 100vh;
 }
 
 .ast-ticket-list {
@@ -329,7 +328,7 @@
 
 .ast-empty {
   text-align: center;
-  padding: 100px 20px;
+  padding: 20px 10px;
   color: #000;
 }
 
