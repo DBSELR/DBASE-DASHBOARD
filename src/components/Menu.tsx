@@ -38,6 +38,8 @@ import {
   person,
   calendarClear,
   chatbox,
+  chevronBackOutline,
+  chevronForwardOutline,
 } from "ionicons/icons";
 
 import "../theme/Common.css";
@@ -111,7 +113,18 @@ const Menu: React.FC = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem("sidebarCollapsed") === "true";
+  });
   const menuListRef = useRef<HTMLIonListElement | null>(null);
+
+  const toggleSidebar = () => {
+    setIsCollapsed(prev => {
+      const newState = !prev;
+      localStorage.setItem("sidebarCollapsed", String(newState));
+      return newState;
+    });
+  };
 
   const dummyProfilePic = "/images/avatar.png"; // Use absolute path for better reliability
 
@@ -197,25 +210,35 @@ const Menu: React.FC = () => {
     window.dispatchEvent(new Event("app:logout"));
   };
 
-  // Function to handle tab click and close menu
-  const handleTabClick = (path: string) => {
-    history.push(path);
+  const scrollToActiveOption = () => {
+    setTimeout(() => {
+      const listEl = document.querySelector('.scrollable-list') as HTMLElement;
+      const activeEl = document.querySelector('.scrollable-list .item-active') as HTMLElement;
+      if (listEl && activeEl) {
+        const topPos = activeEl.offsetTop - (listEl.clientHeight / 2) + (activeEl.clientHeight / 2);
+        listEl.scrollTop = Math.max(0, topPos);
+      } else if (listEl) {
+        listEl.scrollTop = 0;
+      }
+    }, 60);
+  };
 
-    // Close menu after navigation
-    const menu = document.querySelector(
-      "ion-menu"
-    ) as HTMLIonMenuElement | null;
+  // Function to handle tab click and close menu cleanly
+  const handleTabClick = (path: string) => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    history.push(path);
+    const menu = document.querySelector("ion-menu") as HTMLIonMenuElement | null;
     if (menu) {
       menu.close();
     }
   };
 
-  // Scroll to top when menu opens
+  // Scroll to active option when menu items load or location changes
   useEffect(() => {
-    if (menuListRef.current) {
-      menuListRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [menuItems]); // Trigger scroll reset when menu loads
+    scrollToActiveOption();
+  }, [menuItems, location.pathname]);
 
   if (loading) {
     return (
@@ -229,14 +252,28 @@ const Menu: React.FC = () => {
 
   return (
     <>
-      <IonMenu contentId="main" menuId="main-menu" type="overlay" className="menu-background modern-glass-menu">
-        <IonContent className="menu-background modern-glass-content" scrollY={false} style={{ '--background': 'transparent' }}>
+      <IonMenu
+        contentId="main"
+        menuId="main-menu"
+        type="overlay"
+        onIonWillOpen={() => {
+          scrollToActiveOption();
+        }}
+        onIonWillClose={() => {
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+        }}
+        className={`menu-background modern-glass-menu ${isCollapsed ? 'collapsed' : ''}`}
+      >
+        
+
+        <IonContent className={`menu-background modern-glass-content ${isCollapsed ? 'collapsed' : ''}`} scrollY={false} style={{ '--background': 'transparent' }}>
           
           {/* ── Bouncing Floater Ball ── */}
           <BouncingBall />
 
-          <div className="menu-inner-wrapper" style={{ position: 'relative', zIndex: 1, height: '100%', overflowY: 'auto' }}>
-
+          <div className="menu-inner-wrapper" style={{ position: 'relative', zIndex: 1, height: '100%', overflow: 'hidden' }}>
             {/* ── Profile Card (static, never scrolls) ── */}
             <div className="modern-menu-header premium-trendy-bg">
               <div className="profile-photo-wrapper">
@@ -274,11 +311,11 @@ const Menu: React.FC = () => {
                       key={index}
                       button
                       lines="none"
-                      onClick={() => history.push(menuItem[4])}
+                      onClick={() => handleTabClick(menuItem[4])}
                       className={location.pathname === menuItem[4] ? "item-active" : ""}
                       style={{ "--item-index": index + 1 } as React.CSSProperties}
                     >
-                      <div className="menu-item-row">
+                      <div className="menu-item-row" title={menuItem[1]}>
                         <div className="menu-icon-chip">
                           <IonIcon icon={getIcon(menuItem[2])} />
                         </div>
@@ -314,7 +351,7 @@ const Menu: React.FC = () => {
                   className="logout-item"
                   style={{ "--item-index": menuItems.length + 2 } as React.CSSProperties}
                 >
-                  <div className="menu-item-row">
+                  <div className="menu-item-row" title="Logout">
                     <div className="menu-icon-chip">
                       <IonIcon icon={logOut} />
                     </div>
@@ -327,6 +364,14 @@ const Menu: React.FC = () => {
           </div>
         </IonContent>
       </IonMenu>
+
+      {/* Toggle button rendered OUTSIDE IonMenu to bypass Shadow DOM overflow clipping */}
+      <button
+        className={`sidebar-toggle-btn ${isCollapsed ? 'is-collapsed' : ''}`}
+        onClick={toggleSidebar}
+      >
+        <IonIcon icon={isCollapsed ? chevronForwardOutline : chevronBackOutline} />
+      </button>
 
       <FloatingTabBar />
     </>
