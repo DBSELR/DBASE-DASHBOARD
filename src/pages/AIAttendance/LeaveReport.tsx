@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IonPage, IonContent, IonIcon, IonModal, IonDatetime, IonButton, IonToast, IonHeader } from '@ionic/react';
+import { IonPage, IonContent, IonIcon, IonModal, IonDatetime, IonButton, IonToast, IonPopover, IonSpinner } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
 import {
   arrowBackOutline,
@@ -256,147 +256,185 @@ const loadData = async () => {
 
 
 
+  function statusClass(s?: string) {
+    if (!s || s === '-') return 'sc-unknown';
+    const l = s.toLowerCase();
+    if (l === 'present') return 'sc-present';
+    if (l === 'lop') return 'sc-lop';
+    if (l === 'absent') return 'sc-absent';
+    if (l.includes('sunday') || l.includes('weekly off')) return 'sc-sunday';
+    if (l.includes('holiday') || l.includes('saturday') || l.includes('bhogi') || l.includes('sankranthi') || l.includes('ugadi') || l.includes('ramzan') || l.includes('ram') || l.includes('friday') || l.includes('jayanti') || l.includes('republic') || l.includes('new year')) return 'sc-holiday';
+    return 'sc-grace';
+  }
+
   const renderSafe = (val: any) => (typeof val === "string" ? val : "");
 
   return (
-    <IonPage className="leave-report-container">
-      <IonHeader className="ion-no-border" style={{ background: '#f8fafc' }}>
-        <div className="lr-trendy-header">
-          <button className="back-btn" onClick={() => history.goBack()}>
-            <IonIcon icon={arrowBackOutline} />
-          </button>
-          <div style={{ flex: 1 }}>
-            <h1 className="lr-main-title">Absents Report</h1>
-            <p style={{ margin: '4px 0 0',color: 'white', fontSize: '13px', opacity: 0.8 }}>Branch-wise Leave & Permissions</p>
-          </div>
-        </div>
-      </IonHeader>
+    <IonPage>
       <IonContent fullscreen scrollY>
-
-        <div className="lr-filters-section">
-          <div className="lr-filter-card">
-            <div className="lr-date-row">
-              <div className="lr-date-field" onClick={() => setStartModalOpen(true)}>
-                <label>From Date</label>
-                <div className="lr-date-input">
-                  <IonIcon icon={calendarOutline} />
-                  {moment(fromDate).format("DD MMM YYYY")}
-                </div>
-              </div>
-              <div className="lr-date-field" onClick={() => setEndModalOpen(true)}>
-                <label>To Date</label>
-                <div className="lr-date-input">
-                  <IonIcon icon={calendarOutline} />
-                  {moment(toDate).format("DD MMM YYYY")}
-                </div>
+        <div className="wr-container stock-container" style={{ padding: '0', minHeight: 'auto', backgroundColor: 'transparent', overflow: 'visible' }}>
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px', position: 'sticky', top: '16px', zIndex: 9999 }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
+              </button>
+              <div>
+                <h1 className="page-wr-title">
+                  ABSENTS REPORT
+                </h1>
+                <p className="page-wr-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span className="subtitle-pulse-dot" />
+                  <span>Branch-wise Leave & Permissions</span>
+                </p>
               </div>
             </div>
-
-            <div className="lr-branch-row">
-              <div className="lr-branch-selector">
-                <button
-                    className="lr-branch-btn"
-                    onClick={() => setShowBranchDropdown(!showBranchDropdown)}
-                >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <IonIcon icon={layersOutline} style={{ color: 'var(--ion-color-primary, #0d9488)' }} />
-                      {selectedBranch === "ALL" ? "All Branches" : selectedBranch}
-                    </span>
-                    <IonIcon icon={showBranchDropdown ? chevronBackOutline : chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)' }} />
-                </button>
-                {showBranchDropdown && (
-                    <div className="lr-branch-dropdown">
-                        {branches.map((branch) => (
-                            <div
-                                key={branch}
-                                className={`lr-branch-item ${selectedBranch === branch ? "active" : ""}`}
-                                onClick={() => {
-                                    setSelectedBranch(branch);
-                                    setShowBranchDropdown(false);
-                                }}
-                            >
-                                {branch === "ALL" ? "All Branches" : branch}
-                            </div>
-                        ))}
-                    </div>
-                )}
-              </div>
-              <button
-                className="lr-load-btn"
-              onClick={downloadPDF}
-            disabled={leaves.length === 0}
-            >
-            <IonIcon icon={documentOutline} />
-             PDF
-            </button>
-              <button className="lr-load-btn" onClick={loadData} disabled={isLoading}>
-  {isLoading ? (
-    "Loading..."
-  ) : (
-    <>
-      <IonIcon icon={searchOutline} />
-      Search
-    </>
-  )}
-            </button>
-           </div>
           </div>
-        </div>
+
+          <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="stock-panel" style={{ padding: '20px', display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', gap: '16px', alignItems: 'flex-end', borderRadius: '16px' }}>
+              
+              {/* Branch Dropdown */}
+              <div style={{ position: 'relative', minWidth: '200px', flexShrink: 0 }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>Branch</label>
+                <button
+                  id="branch-btn-lr"
+                  className="branch-btn"
+                  onClick={() => setShowBranchDropdown(true)}
+                  style={{ background: '#f8fafc', color: '#1e293b', border: '1px solid #e2e8f0', padding: '0 16px', height: '46px', borderRadius: '12px', fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <IonIcon icon={layersOutline} style={{ color: 'var(--ion-color-primary, #0d9488)', fontSize: '18px' }} />
+                    {selectedBranch === "ALL" ? "All Branches" : selectedBranch}
+                  </div>
+                  <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
+                </button>
+                <IonPopover
+                  trigger="branch-btn-lr"
+                  isOpen={showBranchDropdown}
+                  onDidDismiss={() => setShowBranchDropdown(false)}
+                  alignment="end"
+                  side="bottom"
+                  arrow={false}
+                  style={{ '--background': 'transparent', '--box-shadow': 'none' }}
+                >
+                  <div className="branch-dropdown" style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', padding: '6px', minWidth: '200px', border: '1px solid #e2e8f0', maxHeight: '250px', overflowY: 'auto' }}>
+                    {branches.map((branch) => (
+                      <div
+                        key={branch}
+                        className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
+                        onClick={() => {
+                          setSelectedBranch(branch);
+                          setShowBranchDropdown(false);
+                        }}
+                        style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
+                      >
+                        {branch === "ALL" ? "All Branches" : branch}
+                      </div>
+                    ))}
+                  </div>
+                </IonPopover>
+              </div>
+
+              {/* From Date */}
+              <div style={{ flexShrink: 0, minWidth: '160px' }} onClick={() => setStartModalOpen(true)}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>From Date</label>
+                <div className="stock-input" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '0 16px', height: '46px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                  <IonIcon icon={calendarOutline} style={{ color: 'var(--ion-color-primary, #0d9488)', fontSize: '18px' }} />
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{moment(fromDate).format("DD MMM YYYY")}</span>
+                </div>
+              </div>
+              
+              {/* To Date */}
+              <div style={{ flexShrink: 0, minWidth: '160px' }} onClick={() => setEndModalOpen(true)}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>To Date</label>
+                <div className="stock-input" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '0 16px', height: '46px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                  <IonIcon icon={calendarOutline} style={{ color: 'var(--ion-color-primary, #0d9488)', fontSize: '18px' }} />
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{moment(toDate).format("DD MMM YYYY")}</span>
+                </div>
+              </div>
+              
+              {/* PDF Button */}
+              <button
+                onClick={downloadPDF}
+                disabled={leaves.length === 0}
+                style={{ flexShrink: 0, background: '#f8fafc', color: 'var(--ion-color-primary, #0d9488)', border: '1px solid #e2e8f0', padding: '0 16px', height: '46px', borderRadius: '12px', fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s', opacity: leaves.length === 0 ? 0.5 : 1 }}
+              >
+                <IonIcon icon={documentOutline} style={{ fontSize: '18px' }} />
+                PDF
+              </button>
+
+              {/* Search Button */}
+              <button 
+                onClick={loadData} 
+                disabled={isLoading}
+                style={{ 
+                  flexShrink: 0, background: 'var(--ion-color-primary, #0d9488)', color: 'white', border: 'none', padding: '0 24px', height: '46px', borderRadius: '12px', fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)', minWidth: '120px'
+                }}
+              >
+                {isLoading ? <IonSpinner name="crescent" style={{ width: '20px', height: '20px' }} /> : (
+                  <>
+                    <IonIcon icon={searchOutline} style={{ fontSize: '18px' }} />
+                    Search
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
 
         <div className="lr-results-section">
-          <h2 className="lr-section-title">Absents List</h2>
-          
-          <div className="lr-cards-grid">
-            {leaves.length > 0 ? (
-              leaves.map((entry: any, index: number) => {
-                const status = renderSafe(entry.L_status).toLowerCase();
-                const isPermission = renderSafe(entry.ltype) === "Permission";
-                
-                return (
-                  <div key={entry.lid || index} className={`lr-card status-${status}`}>
-                    <div className="lr-card-header">
-                      <div className="lr-emp-info">
-                       <span className="lr-emp-name">
-    {entry.empcode} - {entry.empname}
-</span>
-                        <span className="lr-emp-code">{entry.ltype}</span>
-                      </div>
-                      <div className={`lr-status-badge ${status}`}>
-    {entry.L_status}
-</div>
-                    </div>
-                    
-                    <div className="lr-card-details">
-                      <div className="lr-detail-row">
-                        <IonIcon icon={calendarOutline} />
-                        <div className="lr-detail-text">
-                          {renderSafe(entry.lfrom)} {entry.lto && typeof entry.lto === 'string' && entry.lto !== entry.lfrom ? `- ${entry.lto}` : ""}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+              {leaves.length > 0 ? (
+                leaves.map((entry: any, index: number) => {
+                  const status = renderSafe(entry.L_status).toLowerCase();
+                  const isPermission = renderSafe(entry.ltype) === "Permission";
+                  const scClass = statusClass(status);
+                  
+                  return (
+                    <div key={entry.lid || index} className={`stock-panel ${scClass}`} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 700, fontSize: '15px', color: '#1e293b' }}>
+                            {entry.empcode} - {entry.empname}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>{entry.ltype}</span>
+                        </div>
+                        <div className={`grace-chip ${scClass}`} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, textTransform: 'uppercase' }}>
+                          {entry.L_status}
                         </div>
                       </div>
                       
-                      {isPermission && typeof entry.Ptime === "string" && entry.Ptime && (
-                        <div className="lr-detail-row">
-                          <IonIcon icon={timeOutline} />
-                          <div className="lr-detail-text">{entry.Ptime}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#475569' }}>
+                          <IonIcon icon={calendarOutline} style={{ fontSize: '16px', color: '#94a3b8', marginTop: '2px' }} />
+                          <div style={{ flex: 1, fontWeight: 500 }}>
+                            {renderSafe(entry.lfrom)} {entry.lto && typeof entry.lto === 'string' && entry.lto !== entry.lfrom ? `- ${entry.lto}` : ""}
+                          </div>
                         </div>
-                      )}
-                      
-                      <div className="lr-detail-row">
-                        <IonIcon icon={chatbubbleEllipsesOutline} />
-                        <div className="lr-detail-text" style={{ fontStyle: 'italic', opacity: 0.8 }}>
-                          {entry.remarks}
+                        
+                        {isPermission && typeof entry.Ptime === "string" && entry.Ptime && (
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#475569' }}>
+                            <IonIcon icon={timeOutline} style={{ fontSize: '16px', color: '#94a3b8', marginTop: '2px' }} />
+                            <div style={{ flex: 1, fontWeight: 500 }}>{entry.Ptime}</div>
+                          </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#475569' }}>
+                          <IonIcon icon={chatbubbleEllipsesOutline} style={{ fontSize: '16px', color: '#94a3b8', marginTop: '2px' }} />
+                          <div style={{ flex: 1, fontStyle: 'italic', opacity: 0.8 }}>
+                            {entry.remarks}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="lr-empty-state">
-                <IonIcon icon={layersOutline} />
-                <p>No leaves found for the selected criteria.</p>
-              </div>
-            )}
+                  );
+                })
+              ) : (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                  <IonIcon icon={layersOutline} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }} />
+                  <p style={{ fontWeight: 500, fontSize: '15px' }}>No leaves found for the selected criteria.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -177,7 +177,7 @@
 /* --- View Toggle --- */
 .home-view-toggle {
   display: flex;
-  background: rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.1);
+  /* background: rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.1); */
   border-radius: 12px;
   padding: 4px;
   align-items: center;

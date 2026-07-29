@@ -13,64 +13,6 @@
 /* =========================================
    HEADER
    ========================================= */
-.log-header {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-  padding: env(safe-area-inset-top) 24px 18px 24px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  position: sticky;
-  top: 0;
-  z-index: 200;
-  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.05);
-  padding-top: 10px;
-}
-
-.back-btn {
-  flex-shrink: 0;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #334155;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.back-btn:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-.back-btn:active { transform: scale(0.92); }
-.back-btn ion-icon { font-size: 20px; }
-
-.title-area { display: flex; flex-direction: column; flex-grow: 1;  }
-.title-text {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 900;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
-}
-.subtitle-text {
-  margin: 4px 0 0;
-  font-size: 10px;
-  font-weight: 800;
-  color: #64748b;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 .subtitle-pulse-dot {
   width: 6px;
   height: 6px;
@@ -135,8 +77,8 @@
    BODY
    ========================================= */
 .log-body {
-  padding: 24px 20px 100px;
-  max-width: 720px;
+  padding: 16px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
@@ -213,16 +155,6 @@
   gap: 12px;
   margin-bottom: 24px;
 }
-.stat-widget-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 16px 20px;
-  display: flex; align-items: center; gap: 14px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.stat-widget-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08); }
 
 .stat-icon-wrapper {
   width: 46px; height: 46px; border-radius: 14px;
@@ -305,18 +237,7 @@
 .today-btn:hover { opacity: 0.95; transform: translateY(-1px); }
 .today-btn:active { transform: translateY(0); }
 
-/* Search pill */
-.search-pill {
-  flex: 1; min-width: 220px;
-  display: flex; align-items: center; gap: 10px;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 10px 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-  transition: all 0.2s;
-}
-.search-pill:focus-within { border-color: #818cf8; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
+/* Search styling inside stock-input */
 
 .search-icon { font-size: 18px; color: #94a3b8; flex-shrink: 0; }
 .search-input {
@@ -345,25 +266,14 @@
   display: flex; flex-direction: column; gap: 14px;
 }
 
-.emp-card {
-  background: #ffffff;
-  border-radius: 24px;
-  border: 1.5px solid #e2e8f0;
-  border-left-width: 6px;
-  padding: 20px;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.03);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.emp-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08); }
-
 /* Status color accents */
-.emp-card.sc-present { border-left-color: #10b981; }
-.emp-card.sc-lop     { border-left-color: #ef4444; }
-.emp-card.sc-grace   { border-left-color: #f59e0b; }
-.emp-card.sc-absent  { border-left-color: #ef4444; }
-.emp-card.sc-sunday  { border-left-color: #8b5cf6; }
-.emp-card.sc-holiday { border-left-color: #6366f1; }
-.emp-card.sc-unknown { border-left-color: #64748b; }
+.stock-panel.sc-present { border-left-color: #10b981; }
+.stock-panel.sc-lop     { border-left-color: #ef4444; }
+.stock-panel.sc-grace   { border-left-color: #f59e0b; }
+.stock-panel.sc-absent  { border-left-color: #ef4444; }
+.stock-panel.sc-sunday  { border-left-color: #8b5cf6; }
+.stock-panel.sc-holiday { border-left-color: #6366f1; }
+.stock-panel.sc-unknown { border-left-color: #64748b; }
 
 .emp-card-head {
   display: flex; align-items: center; gap: 14px;

@@ -1160,35 +1160,35 @@ const AIAttendanceScanner: React.FC = () => {
           }
         `}</style>
 
-        <div className="sc-shell">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
 
-          {/* HEADER */}
-          <div className="sc-header">
-            <button className="sc-back" onClick={() => history.goBack()}>
-              <IonIcon icon={arrowBackOutline} />
-            </button>
-            <div className="sc-title-wrap">
-              <h1 className="sc-title">AI FACE ATTENDANCE</h1>
-              <p className="sc-subtitle">Biometric Check-In Portal</p>
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
+              </button>
+              <div>
+                <h1 className="page-wr-title">AI Face Attendance</h1>
+                <p className="page-wr-subtitle">Biometric Check-In Portal</p>
+              </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 onClick={() => setShowRulesModal(true)}
-                style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', color: '#4f46e5', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
               >
                 <IonIcon icon={informationCircleOutline} style={{ fontSize: '16px' }} />
                 View Rules
               </button>
-
-              <button className="sc-log-btn ai-log-btn" onClick={() => history.push('/ai-attendance-log/user')} title="Attendance Log History">
-                <IonIcon icon={calendarOutline} />
-              </button>
+              <div className="page-wr-header-icon-box" onClick={() => history.push('/ai-attendance-log/user')} style={{ cursor: 'pointer' }}>
+                <IonIcon icon={calendarOutline} style={{ fontSize: '26px', color: 'var(--ion-color-primary)' }} />
+              </div>
             </div>
           </div>
 
           {/* BODY */}
-          <div className="sc-body">
+          <div className="sc-body" style={{ height: 'calc(100vh - 120px)' }}>
 
             {/* LEFT: CAMERA WIDGET */}
             <div className="sc-cam-area">
@@ -1310,7 +1310,7 @@ const AIAttendanceScanner: React.FC = () => {
               {scanSuccess && attendanceDetails ? (
 
                 /* ── SUCCESS RESULT CARD ── */
-                <div className="scanner-dashboard-card animate__animated animate__fadeInUp animate__fast">
+                <div className="stock-panel animate__animated animate__fadeInUp animate__fast">
                   <div className="sc-res-top">
                     <div className={`sc-res-avatar ${attendanceDetails.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
                       {capturedImg ? (
@@ -1390,22 +1390,12 @@ const AIAttendanceScanner: React.FC = () => {
                   )}
 
                   <button
+                    className="stock-button stock-button--primary"
                     onClick={resetScannerAndResume}
                     style={{
                       width: '100%',
-                      height: '46px',
-                      background: '#f1f5f9',
-                      border: 'none',
-                      borderRadius: '12px',
-                      color: '#475569',
-                      fontSize: '0.88rem',
-                      fontWeight: 700,
                       marginTop: '20px',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                    onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
                   >
                     Clear Result & Scan Again
                   </button>
@@ -1414,7 +1404,7 @@ const AIAttendanceScanner: React.FC = () => {
               ) : (
 
                 /* ── IDLE CONTROL PANEL ── */
-                <div className="scanner-dashboard-card">
+                <div className="stock-panel">
 
                   {/* Shift Timing Window Selector Card */}
                   <div className="status-override-container" style={{ marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>

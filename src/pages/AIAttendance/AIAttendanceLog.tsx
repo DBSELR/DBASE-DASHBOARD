@@ -1,4 +1,4 @@
-import { IonContent, IonPage, IonIcon, IonSpinner } from "@ionic/react";
+import { IonContent, IonPage, IonIcon, IonSpinner, IonPopover } from "@ionic/react";
 import {
   arrowBackOutline, calendarOutline, searchOutline,
   personOutline, timeOutline, checkmarkCircleOutline,
@@ -484,112 +484,104 @@ const AIAttendanceLog: React.FC = () => {
      RENDER
   ───────────────────────────────────────── */
   return (
-    <IonPage className="log-page-container">
-      <IonContent fullscreen className="log-page-content" scrollY>
-
-        {/* ── HEADER ── */}
-        <div className="log-header">
-          <button className="back-btn" onClick={() => history.goBack()}>
-            <IonIcon icon={arrowBackOutline} />
-          </button>
-          <div className="title-area">
-            <h1 className="title-text">
-              {effectiveMode === "user" ? "MY ATTENDANCE" : "ATTENDANCE RECORDS"}
-            </h1>
-            <p className="subtitle-text">
-              <span className="subtitle-pulse-dot" />
-              <span>
-                {effectiveMode === "user"
-                  ? `${currentUser?.empName || currentUser?.EmpName || "Employee"} — 7-Day Log`
-                  : "Live verification console"}
-              </span>
-            </p>
-          </div>
-          {effectiveMode === "security" && (
-            <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ position: 'relative' }}>
-                <button
-                  className="branch-btn"
-                  onClick={() => setShowBranchDropdown(!showBranchDropdown)}
-                  style={{ background: 'var(--ion-color-primary, #0d9488)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
-                >
-                  {selectedBranch}
-                  <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
-                </button>
-                {showBranchDropdown && (
-                  <div className="branch-dropdown" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '6px', zIndex: 100, minWidth: '140px', border: '1px solid #e2e8f0' }}>
-                    {branches.map((branch) => (
-                      <div
-                        key={branch}
-                        className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
-                        onClick={() => {
-                          setSelectedBranch(branch);
-                          setShowBranchDropdown(false);
-                        }}
-                        style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
-                      >
-                        {branch}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Leave Report Button */}
-              <button
-                onClick={() => history.push('/leave-report')}
-                style={{
-                  background: 'var(--ion-color-primary, #0d9488)',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '6px 14px',
-                  borderRadius: '24px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <IonIcon icon={documentTextOutline} style={{ fontSize: '14px' }} />
-                Absents Report
+    <IonPage>
+      <IonContent fullscreen scrollY>
+        <div className="wr-container stock-container" style={{ padding: '0', minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px', position: 'sticky', top: '16px', zIndex: 9999 }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
               </button>
-
-              {/* HR Monthly Matrix Button */}
-              {/* <button
-                onClick={() => history.push('/hr-attendance-matrix')}
-                style={{
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '6px 14px',
-                  borderRadius: '24px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <IonIcon icon={calendarOutline} style={{ fontSize: '14px' }} />
-                HR Late Matrix
-              </button> */}
-
-              <div className="live-sync-indicator">
-                <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
-                <span className="sync-text">{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
-                <button className="sync-now-btn" onClick={() => fetchLogs(true)}>
-                  <IonIcon icon={refreshOutline} />
-                </button>
+              <div>
+                <h1 className="page-wr-title">
+                  {effectiveMode === "user" ? "My Attendance" : "Attendance Records"}
+                </h1>
+                <p className="page-wr-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span className="subtitle-pulse-dot" />
+                  <span>
+                    {effectiveMode === "user"
+                      ? `${currentUser?.empName || currentUser?.EmpName || "Employee"} — 7-Day Log`
+                      : "Live verification console"}
+                  </span>
+                </p>
               </div>
             </div>
-          )}
+
+            <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {effectiveMode === "security" ? (
+                <>
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      id="branch-btn"
+                      className="branch-btn"
+                      onClick={() => setShowBranchDropdown(true)}
+                      style={{ background: 'var(--ion-color-primary, #0d9488)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
+                    >
+                      {selectedBranch}
+                      <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
+                    </button>
+                    <IonPopover
+                      trigger="branch-btn"
+                      isOpen={showBranchDropdown}
+                      onDidDismiss={() => setShowBranchDropdown(false)}
+                      alignment="end"
+                      side="bottom"
+                      arrow={false}
+                      style={{ '--background': 'transparent', '--box-shadow': 'none' }}
+                    >
+                      <div className="branch-dropdown" style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', padding: '6px', minWidth: '140px', border: '1px solid #e2e8f0' }}>
+                        {branches.map((branch) => (
+                          <div
+                            key={branch}
+                            className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
+                            onClick={() => {
+                              setSelectedBranch(branch);
+                              setShowBranchDropdown(false);
+                            }}
+                            style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
+                          >
+                            {branch}
+                          </div>
+                        ))}
+                      </div>
+                    </IonPopover>
+                  </div>
+
+                  <button
+                    onClick={() => history.push('/leave-report')}
+                    style={{
+                      background: 'var(--ion-color-primary, #0d9488)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '6px 14px',
+                      borderRadius: '24px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <IonIcon icon={documentTextOutline} style={{ fontSize: '14px' }} />
+                    Absents Report
+                  </button>
+
+                  <div className="live-sync-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.15)', padding: '6px 12px', borderRadius: '16px' }}>
+                    <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
+                    <span className="sync-text" style={{ fontSize: '11px', fontWeight: 800, color: 'white' }}>{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
+                    <button className="sync-now-btn" onClick={() => fetchLogs(true)} style={{ background: 'transparent', border: 'none', color: 'white', display: 'flex', cursor: 'pointer' }}>
+                      <IonIcon icon={refreshOutline} />
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <div className="log-body">
@@ -652,7 +644,7 @@ const AIAttendanceLog: React.FC = () => {
                 const late = parseInt(selectedLog.lateMinutes || '0');
 
                 return (
-                  <div className={`emp-card ${sc} animate-fade-in`} style={{ marginBottom: '24px', borderLeftWidth: '6px' }}>
+                  <div className={`stock-panel ${sc} animate-fade-in`} style={{ marginBottom: '24px', borderLeft: '6px solid', borderRadius: '16px' }}>
                     <div className="emp-card-head" style={{ marginBottom: '18px' }}>
                       <div className="emp-avatar-circle" style={{
                         background: 'linear-gradient(145deg, var(--ion-color-primary) 0%, #a855f7 100%)',
@@ -856,7 +848,7 @@ const AIAttendanceLog: React.FC = () => {
             /* ════════════════════════════════════════
                SECURITY — ATTENDANCE BOARD
             ════════════════════════════════════════ */
-            <div className="security-console-wrapper">
+            <div className="security-console-wrapper" style={{ position: 'relative', zIndex: 1 }}>
 
               {/* STATS STRIP */}
               <div className="console-stats-grid">
@@ -866,7 +858,7 @@ const AIAttendanceLog: React.FC = () => {
                   { label: 'LUNCH', count: lunchV, cls: 'stat-break', icon: timeOutline },
                   { label: 'SHIFT END', count: eveningV, cls: 'stat-evening', icon: closeCircleOutline },
                 ] as const).map(({ label, count, cls, icon }) => (
-                  <div key={label} className={`stat-widget-card ${cls}`}>
+                  <div key={label} className={`stock-panel ${cls}`} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', borderRadius: '16px' }}>
                     <div className="stat-icon-wrapper"><IonIcon icon={icon} /></div>
                     <div className="stat-info">
                       <span className="stat-num">{count}</span>
@@ -914,7 +906,7 @@ const AIAttendanceLog: React.FC = () => {
                 </div>
 
                 {/* Search */}
-                <div className="search-pill">
+                <div className="stock-input" style={{ flex: 1, minWidth: '220px', display: 'flex', alignItems: 'center', gap: '10px', background: '#fff' }}>
                   <IonIcon icon={searchOutline} className="search-icon" />
                   <input
                     type="text"
@@ -956,7 +948,7 @@ const AIAttendanceLog: React.FC = () => {
                     const checkedIn = SLOTS.filter(s => log[s.key] && log[s.key] !== '-').length;
 
                     return (
-                      <div key={idx} className={`emp-card ${sc} animate-fade-in`}>
+                      <div key={idx} className={`stock-panel ${sc} animate-fade-in`} style={{ borderLeft: '6px solid', borderRadius: '16px' }}>
 
                         {/* ── CARD HEADER ── */}
                         <div className="emp-card-head">
