@@ -6,8 +6,14 @@ ion-menu.menu-background {
   max-width: 280px !important;
   min-width: 280px !important;
   transition: min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 100 !important;
+  z-index: 1000 !important;
   overflow: visible !important;
+  contain: none !important;
+}
+
+/* Ensure the main content doesn't cover the overflowing menu toggle button */
+ion-split-pane > #main {
+  z-index: 1 !important;
 }
 
 ion-menu.menu-background.collapsed {
@@ -31,6 +37,7 @@ ion-menu.menu-background::part(container) {
   border-right: 1px solid #e2e8f0;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.03);
   overflow: visible !important;
+  contain: none !important;
 }
 
 .menu-inner-wrapper {
@@ -66,9 +73,9 @@ ion-menu.menu-background::part(container) {
 
 /* ── Toggle Button (Straddling Right Border) ── */
 .sidebar-toggle-btn {
-  position: fixed;
+  position: absolute;
   top: 24px;
-  left: calc(280px - 14px);
+  right: -14px;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -80,7 +87,7 @@ ion-menu.menu-background::part(container) {
   justify-content: center;
   cursor: pointer;
   z-index: 99999;
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -93,10 +100,6 @@ ion-menu.menu-background::part(container) {
 
 .sidebar-toggle-btn:active {
   transform: scale(0.95);
-}
-
-.sidebar-toggle-btn.is-collapsed {
-  left: calc(85px - 14px);
 }
 
 /* Header Subtle overlay patterns */

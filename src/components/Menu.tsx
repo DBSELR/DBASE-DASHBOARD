@@ -62,7 +62,7 @@ const BouncingBall: React.FC = () => {
         const parentWidth = 304; 
         const parentHeight = window.innerHeight;
         
-        const ballSize = 120; // bigger blur ball
+        const ballSize = 80; // hard ball size
 
         x += dx;
         y += dy;
@@ -91,13 +91,12 @@ const BouncingBall: React.FC = () => {
         position: 'absolute',
         top: 0,
         left: 0,
-        width: '120px',
-        height: '120px',
+        width: '80px',
+        height: '80px',
         borderRadius: '50%',
-        background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), var(--ion-color-primary, #f15a24))',
-        boxShadow: '0 8px 32px var(--ion-color-primary, #f15a24)',
+        background: 'radial-gradient(circle at 30% 30%, #ffffff 0%, var(--ion-color-primary, #f15a24) 60%, var(--ion-color-primary-shade, #9c2807) 100%)',
+        boxShadow: '0 8px 24px rgba(var(--ion-color-primary-rgb, 241, 90, 36), 0.3), inset -5px -5px 15px rgba(0,0,0,0.2)',
         opacity: 0.5,
-        filter: 'blur(8px)',
         pointerEvents: 'none',
         zIndex: 0, // Behind the menu content
         willChange: 'transform'
@@ -266,7 +265,13 @@ const Menu: React.FC = () => {
         }}
         className={`menu-background modern-glass-menu ${isCollapsed ? 'collapsed' : ''}`}
       >
-        
+        {/* Toggle button straddling the border */}
+        <button
+          className={`sidebar-toggle-btn ${isCollapsed ? 'is-collapsed' : ''}`}
+          onClick={toggleSidebar}
+        >
+          <IonIcon icon={isCollapsed ? chevronForwardOutline : chevronBackOutline} />
+        </button>
 
         <IonContent className={`menu-background modern-glass-content ${isCollapsed ? 'collapsed' : ''}`} scrollY={false} style={{ '--background': 'transparent' }}>
           
@@ -364,15 +369,6 @@ const Menu: React.FC = () => {
           </div>
         </IonContent>
       </IonMenu>
-
-      {/* Toggle button rendered OUTSIDE IonMenu to bypass Shadow DOM overflow clipping */}
-      <button
-        className={`sidebar-toggle-btn ${isCollapsed ? 'is-collapsed' : ''}`}
-        onClick={toggleSidebar}
-      >
-        <IonIcon icon={isCollapsed ? chevronForwardOutline : chevronBackOutline} />
-      </button>
-
       <FloatingTabBar />
     </>
   );
