@@ -229,4 +229,14 @@ export const apiService = {
         console.log("API: Get Task Tags", tid);
         return apiService.get(`/Tickets/Get_Task_Tags?TID=${tid}`);
     },
+
+    saveWorkReport: async (reportData: any) => {
+        console.log("API: Save Work Report", reportData);
+        return apiService.post("/Workreport/saveworkReport", reportData);
+    },
+
+    loadWorkReportClients: async () => {
+        console.log("API: Load Work Report Clients");
+        return apiService.get("/Workreport/Load_Clients?College");
+    },
 };

@@ -772,6 +772,65 @@ const Tasks: React.FC = () => {
     }
   };
 
+  const saveAutoWorkReportForTask = async (actionType: "Completed" | "No Change" | "Updated", remarks: string) => {
+    if (!activeTask) return;
+    try {
+      console.log(`Saving auto work report for task ${actionType}...`);
+      
+      let clientId = 1; // Fallback default client ID
+      const clientsRes = await apiService.loadWorkReportClients();
+      if (Array.isArray(clientsRes) && clientsRes.length > 0) {
+        const match = clientsRes.find((c: any) => {
+          if (!Array.isArray(c)) return false;
+          const name = String(c[1] || "").toLowerCase();
+          return name.includes("in-house") || name.includes("dbase") || name.includes("internal") || name.includes("self") || name.includes("office");
+        });
+        if (match) {
+          clientId = Number(match[0]);
+        } else {
+          clientId = Number(clientsRes[0][0]);
+        }
+      }
+      
+      const taskDesc = activeTask.TDesc || "";
+      let reportContent = "";
+      if (actionType === "Completed") {
+        reportContent = `Completed Task #${activeTask.TID}: ${taskDesc}${remarks && remarks !== "Task completed" ? ` - Remarks: ${remarks}` : ""}`.trim();
+      } else if (actionType === "No Change") {
+        reportContent = `Task Progress Update #${activeTask.TID}: ${taskDesc} - Status: No Change`.trim();
+      } else {
+        reportContent = `Task Progress Update #${activeTask.TID}: ${taskDesc} - Status: Updated - Remarks: ${remarks}`.trim();
+      }
+      
+      const reportPayload = {
+        _clientId: clientId,
+        _work_location: "In-House",
+        _work_report: reportContent,
+        _empcode: currentEmpCode
+      };
+      
+      console.log("Submitting Auto Work Report Payload:", reportPayload);
+      const reportResponse = await apiService.saveWorkReport(reportPayload);
+      console.log("Auto Work Report Save Response:", reportResponse);
+
+      // Also save a work report for the task assigner (creator) if they are a different user
+      const ctx = buildTaskContext(activeTask);
+      if (ctx.creatorEmpCode && ctx.creatorEmpCode !== currentEmpCode) {
+        const creatorPayload = {
+          _clientId: clientId,
+          _work_location: "In-House",
+          _work_report: reportContent,
+          _empcode: ctx.creatorEmpCode
+        };
+        console.log("Submitting Auto Work Report Payload for Assigner:", creatorPayload);
+        const creatorResponse = await apiService.saveWorkReport(creatorPayload);
+        console.log("Auto Work Report Assigner Save Response:", creatorResponse);
+      }
+    } catch (wrError) {
+      console.error("⚠️ Failed to automatically save work report:", wrError);
+    }
+  };
+
   const handleProgress = async () => {
     if (!activeTask) return;
 
@@ -790,6 +849,10 @@ const Tasks: React.FC = () => {
         _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.saveTaskStatus(statusData);
+
+      // Auto Work Report
+      await saveAutoWorkReportForTask("No Change", "No Change");
+
       await refreshTaskHistory(activeTask.TID);
       setToastMessage("Progress recorded");
     } catch (error) {
@@ -815,6 +878,9 @@ const Tasks: React.FC = () => {
         _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.saveTaskStatus(statusData);
+
+      // Auto Work Report
+      await saveAutoWorkReportForTask("Updated", updateStatusInfo);
 
       // --- SEND PUSH NOTIFICATION ---
       try {
@@ -877,6 +943,9 @@ const Tasks: React.FC = () => {
         _SenEName: `${currentEmpCode}-${currentEmpName}`
       };
       await apiService.saveTaskStatus(statusData);
+
+      // Auto Work Report
+      await saveAutoWorkReportForTask("Completed", updateStatusInfo || "Task completed");
 
       // --- SEND PUSH NOTIFICATION ---
       try {
