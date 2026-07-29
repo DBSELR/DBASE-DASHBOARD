@@ -485,7 +485,7 @@ const AIAttendanceLog: React.FC = () => {
   ───────────────────────────────────────── */
   return (
     <IonPage>
-      <IonContent fullscreen scrollY>
+      <IonContent fullscreen scrollY className="log-page-content">
         <div className="wr-container stock-container" style={{ padding: '0', minHeight: 'auto', backgroundColor: 'transparent' }}>
           
           {/* ── Premium Header ── */}
@@ -509,7 +509,7 @@ const AIAttendanceLog: React.FC = () => {
               </div>
             </div>
 
-            <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="page-wr-header-right page-wr-header-right-custom">
               {effectiveMode === "security" ? (
                 <>
                   <div style={{ position: 'relative' }}>

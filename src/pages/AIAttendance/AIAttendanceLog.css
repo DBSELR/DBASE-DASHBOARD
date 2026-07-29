@@ -379,3 +379,27 @@
   box-shadow: 0 10px 25px rgba(99, 102, 241, 0.08) !important;
   background: linear-gradient(to bottom, #ffffff, #faf5ff) !important;
 }
+
+/* =========================================
+   MOBILE HEADER FIXES
+   ========================================= */
+.page-wr-header-right-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .log-page-content .page-wr-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px !important;
+  }
+  
+  .log-page-content .page-wr-header-right-custom {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+  }
+}

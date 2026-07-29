@@ -795,6 +795,50 @@ const AIAttendanceScanner: React.FC = () => {
     }
   };
 
+  const renderSlotSelector = () => (
+    <div className="status-override-container" style={{ marginBottom: isMobile ? '12px' : '18px', paddingBottom: isMobile ? '0' : '16px', borderBottom: isMobile ? 'none' : '1px solid #f1f5f9' }}>
+      <div className="status-title-row">
+        <span className="checklist-header" style={{ margin: 0 }}>Target Attendance Slot</span>
+        <button
+          onClick={() => setShowRulesModal(true)}
+          style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer' }}
+        >
+          <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
+          View Rules
+        </button>
+      </div>
+
+      <div className="status-btn-group">
+        {["Morning In", "Lunch Out", "Lunch In", "Evening Out", "Permission Out", "Permission In"].map(slot => {
+          const isAuto = slot === getAutoStatus();
+          const isActive = selectedStatus === slot;
+          const shortLabel =
+            slot === "Morning In" ? "Morning" :
+            slot === "Lunch Out" ? "Lunch Out" :
+            slot === "Lunch In" ? "Lunch In" :
+            slot === "Evening Out" ? "Evening" :
+            slot === "Permission Out" ? "Perm Out" : "Perm In";
+          const slotClass =
+            slot === "Morning In" ? "slot-morning" :
+            slot === "Lunch Out" ? "slot-lunch-out" :
+            slot === "Lunch In" ? "slot-lunch-in" :
+            slot === "Evening Out" ? "slot-evening" :
+            slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
+          return (
+            <button
+              key={slot}
+              className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
+              onClick={() => handleSlotSelect(slot)}
+            >
+              <span>{shortLabel}</span>
+              {isAuto && <span className="auto-tag">Auto</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <IonPage>
       <IonContent fullscreen scrollY={true} className="scanner-pg">
@@ -1176,19 +1220,28 @@ const AIAttendanceScanner: React.FC = () => {
             <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 onClick={() => setShowRulesModal(true)}
-                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: isMobile ? '8px' : '8px 14px', borderRadius: isMobile ? '50%' : '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', width: isMobile ? '36px' : 'auto', height: isMobile ? '36px' : 'auto' }}
               >
-                <IonIcon icon={informationCircleOutline} style={{ fontSize: '16px' }} />
-                View Rules
+                <IonIcon icon={informationCircleOutline} style={{ fontSize: isMobile ? '20px' : '16px', margin: 0 }} />
+                {!isMobile && "View Rules"}
               </button>
-              <div className="page-wr-header-icon-box" onClick={() => history.push('/ai-attendance-log/user')} style={{ cursor: 'pointer' }}>
-                <IonIcon icon={calendarOutline} style={{ fontSize: '26px', color: 'var(--ion-color-primary)' }} />
-              </div>
+              {!isMobile && (
+                <div className="page-wr-header-icon-box" onClick={() => history.push('/ai-attendance-log/user')} style={{ cursor: 'pointer' }}>
+                  <IonIcon icon={calendarOutline} style={{ fontSize: '26px', color: 'var(--ion-color-primary)' }} />
+                </div>
+              )}
             </div>
           </div>
 
           {/* BODY */}
           <div className="sc-body" style={{ height: 'calc(100vh - 120px)' }}>
+
+            {/* Target Attendance Slot on Mobile (Above Camera) */}
+            {isMobile && !scanSuccess && (
+              <div style={{ padding: '0 16px', marginBottom: '8px', zIndex: 10 }}>
+                {renderSlotSelector()}
+              </div>
+            )}
 
             {/* LEFT: CAMERA WIDGET */}
             <div className="sc-cam-area">
@@ -1294,7 +1347,7 @@ const AIAttendanceScanner: React.FC = () => {
               style={
                 isMobile
                   ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
-                  : {}
+                  : { height: '100%', overflowY: 'auto', paddingRight: '8px' }
               }
             >
               <div
@@ -1406,48 +1459,8 @@ const AIAttendanceScanner: React.FC = () => {
                 /* ── IDLE CONTROL PANEL ── */
                 <div className="stock-panel">
 
-                  {/* Shift Timing Window Selector Card */}
-                  <div className="status-override-container" style={{ marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div className="status-title-row">
-                      <span className="checklist-header" style={{ margin: 0 }}>Target Attendance Slot</span>
-                      <button
-                        onClick={() => setShowRulesModal(true)}
-                        style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer' }}
-                      >
-                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
-                        View Rules
-                      </button>
-                    </div>
-
-                    <div className="status-btn-group">
-                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out", "Permission Out", "Permission In"].map(slot => {
-                        const isAuto = slot === getAutoStatus();
-                        const isActive = selectedStatus === slot;
-                        const shortLabel =
-                          slot === "Morning In" ? "Morning" :
-                          slot === "Lunch Out" ? "Lunch Out" :
-                          slot === "Lunch In" ? "Lunch In" :
-                          slot === "Evening Out" ? "Evening" :
-                          slot === "Permission Out" ? "Perm Out" : "Perm In";
-                        const slotClass =
-                          slot === "Morning In" ? "slot-morning" :
-                          slot === "Lunch Out" ? "slot-lunch-out" :
-                          slot === "Lunch In" ? "slot-lunch-in" :
-                          slot === "Evening Out" ? "slot-evening" :
-                          slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
-                        return (
-                          <button
-                            key={slot}
-                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
-                            onClick={() => handleSlotSelect(slot)}
-                          >
-                            <span>{shortLabel}</span>
-                            {isAuto && <span className="auto-tag">Auto</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  {/* Shift Timing Window Selector Card (Desktop only) */}
+                  {!isMobile && renderSlotSelector()}
 
                   {/* Status indicator */}
                   <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>

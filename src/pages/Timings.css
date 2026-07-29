@@ -106,7 +106,8 @@
 
 @media (max-width: 1024px) {
   .tm-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column-reverse;
   }
 }
 
@@ -329,4 +330,57 @@
 
 .tm-animate {
   animation: slideIn 0.3s ease forwards;
+}
+
+/* =========================================
+   MOBILE RESPONSIVENESS
+   ========================================= */
+@media (max-width: 768px) {
+  .tm-page-content {
+    padding: 12px;
+  }
+  
+  .tm-header {
+    padding: 14px;
+    margin-bottom: 20px;
+  }
+
+  .tm-card {
+    padding: 16px;
+  }
+  
+  .tm-card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tm-card-title {
+    font-size: 1.1rem;
+  }
+
+  .tm-emp-code {
+    font-size: 0.75rem;
+  }
+
+  .tm-stats-container {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .tm-stat-item {
+    padding: 12px 8px;
+  }
+
+  .tm-stat-value {
+    font-size: 1.25rem;
+  }
+
+  .tm-stat-label {
+    font-size: 0.65rem;
+  }
+
+  /* Keep tm-perm-header and tm-time-controls as row on mobile */
+  .tm-time-controls {
+    gap: 8px;
+  }
 }
