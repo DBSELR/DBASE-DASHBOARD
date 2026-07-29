@@ -459,14 +459,13 @@ export default function Tickets() {
 
             {/* Support Section */}
             {showSupportPanel && (
-              <div className={`dbase-tickets-accordion-item ${expandedSection === 'support' ? 'expanded' : ''}`}>
-                <div className="dbase-tickets-accordion-header" onClick={() => toggleSection('support')}>
+              <div className="dbase-tickets-accordion-item expanded">
+                <div className="dbase-tickets-accordion-header" style={{ cursor: 'default' }}>
                   <div className="dbase-tickets-accordion-title">
                     <UserCheck size={20} className="dbase-tickets-header-icon" />
                     Support Ticket(s)
                     {supportCount > 0 && <span className="dbase-tickets-count-badge">{supportCount}</span>}
                   </div>
-                  <ChevronDown size={20} className="dbase-tickets-chevron" />
                 </div>
                 <div className="dbase-tickets-accordion-content">
                   <div className="work-queue-scroller">
@@ -575,14 +574,13 @@ export default function Tickets() {
             )}
 
             {/* Assigned Tasks */}
-            <div className={`dbase-tickets-accordion-item ${expandedSection === 'assigned' ? 'expanded' : ''}`}>
-              <div className="dbase-tickets-accordion-header" onClick={() => toggleSection('assigned')}>
+            <div className="dbase-tickets-accordion-item expanded">
+              <div className="dbase-tickets-accordion-header" style={{ cursor: 'default' }}>
                 <div className="dbase-tickets-accordion-title">
                   <LayoutGrid size={20} className="dbase-tickets-header-icon" />
                   Assigned Ticket(s)
                   {assignedCount > 0 && <span className="dbase-tickets-count-badge">{assignedCount}</span>}
                 </div>
-                <ChevronDown size={20} className="dbase-tickets-chevron" />
               </div>
               <div className="dbase-tickets-accordion-content">
                 <div className="work-queue-scroller">
