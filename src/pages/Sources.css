@@ -836,10 +836,10 @@
 }
 
 /* Change all icons from purple to white where appropriate */
-.MuiSvgIcon-root {
-  /* color: white !important; */
-  /* Disabled aggressive override */
-}
+/* .MuiSvgIcon-root {
+  color: white !important;
+  Disabled aggressive override
+} */
 
 /* Keep icons white even on hover */
 .MuiSvgIcon-root:hover {

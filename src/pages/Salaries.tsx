@@ -7,23 +7,19 @@ import {
   IonRow,
   IonCol,
   IonLoading,
-  IonHeader,
-  IonToolbar,
+  IonPage,
+  IonIcon,
 } from "@ionic/react";
 
 import {
-  Tabs,
-  Tab,
   Box,
   Checkbox,
-  TextField,
-  Button,
   Tooltip,
 } from "@mui/material";
 
-import TodayIcon from "@mui/icons-material/Today";
-import ClearIcon from "@mui/icons-material/Clear";
-import DownloadIcon from "@mui/icons-material/GetApp";
+import { useHistory } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import { documentTextOutline } from "ionicons/icons";
 
 import moment from "moment";
 import axios from "axios";
@@ -93,6 +89,7 @@ const mapGroupColor = (color: any) => {
 
 
 const Salaries: React.FC = () => {
+  const history = useHistory();
   const [tabValue, setTabValue] = useState(0);
 
   // States from Angular Logic
@@ -605,325 +602,315 @@ const UpdateAdjustmentField = async (
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <LocalizationProvider dateAdapter={AdapterMoment}>
-        <IonHeader className="ion-no-border">
-          <Box className="salaries-top-header">
-            <h1>Salaries Dashboard</h1>
-            <p>Official payroll management and holiday processing.</p>
-          </Box>
-        </IonHeader>
-        <IonContent className="salary-container">
-          <Box sx={{ width: "100%" }}>
-            <Tabs
-              value={tabValue}
-              onChange={(e, newValue) => setTabValue(newValue)}
-              className="salary-tabs"
-              variant="fullWidth"
-            >
-              <Tab label="Assign Holidays" className="salary-tab" />
-              <Tab label="Generate Salaries" className="salary-tab" />
-            </Tabs>
+    <IonPage>
+      <ThemeProvider theme={theme}>
+        <LocalizationProvider dateAdapter={AdapterMoment}>
+          <IonContent className="page-content">
+            <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+              
+              {/* ── Premium Header ── */}
+              <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+                <div className="page-wr-header-left">
+                  <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                    <ChevronLeft size={22} color="white" />
+                  </button>
+                  <div>
+                    <h1 className="page-wr-title">Salaries Dashboard</h1>
+                    <p className="page-wr-subtitle">Official payroll management and holiday processing.</p>
+                  </div>
+                </div>
+                <div className="page-wr-header-right">
+                  <div className="page-wr-header-icon-box">
+                    <IonIcon icon={documentTextOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Custom Native-Like Tabs --- */}
+              <div className="stock-tabs" style={{ margin: '0 16px' }}>
+                <button
+                  type="button"
+                  className={`stock-tab ${tabValue === 0 ? "active" : ""}`}
+                  onClick={() => setTabValue(0)}
+                >
+                  Assign Holidays
+                </button>
+                <button
+                  type="button"
+                  className={`stock-tab ${tabValue === 1 ? "active" : ""}`}
+                  onClick={() => setTabValue(1)}
+                >
+                  Generate Salaries
+                </button>
+              </div>
 
             {/* TAB 1: ASSIGN HOLIDAYS */}
             {tabValue === 0 && (
-              <IonGrid className="ion-no-margin">
-                <IonRow className="salary-header-row">
-                  <IonCol size="12">
-                    <Box sx={{ display: "flex", alignItems: "center", gap: "40px", width: "100%", justifyContent: "flex-start" }}>
-                      <DatePicker
-                        views={["month", "year"]}
-                        label="Mon-Year"
-                        format="MMM-YYYY"
-                        value={Hyear}
-                        onChange={(newValue) => {
-                          setHyear(newValue);
-                          setHMnth(newValue);
-                        }}
-                        slotProps={{
-                          textField: {
-                            size: "small",
-                            fullWidth: true,
-                            className: "date-input-field",
-                          },
-                        }}
-                        sx={{ width: "500px" }}
-                      />
-                      <Button
-                        variant="outlined"
-                        className="update-btn"
-                        onClick={UpdateEmpHoliday}
-                        disabled={!SelectHls || !SelectEmp}
-                        style={{ height: "40px", minWidth: "120px" }}
-                      >
-                        <DownloadIcon />
-                        &nbsp;Update
-                      </Button>
-                    </Box>
-                  </IonCol>
-                </IonRow>
+              <div className="stock-panel" style={{ margin: '20px 16px' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '20px' }}>
+                  <DatePicker
+                    views={["month", "year"]}
+                    label="Mon-Year"
+                    format="MMM-YYYY"
+                    value={Hyear}
+                    onChange={(newValue) => {
+                      setHyear(newValue);
+                      setHMnth(newValue);
+                    }}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        className: "date-input-field",
+                      },
+                    }}
+                  />
+                  <button
+                    className="stock-button"
+                    onClick={UpdateEmpHoliday}
+                    disabled={!SelectHls || !SelectEmp}
+                    style={{ height: '40px' }}
+                  >
+                    Update
+                  </button>
+                </div>
 
-                <IonRow>
-                  {/* EMPLOYEES LIST */}
-                  <IonCol size-lg="6" size-md="6" size-sm="12" size="12">
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 0", flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <Checkbox
-                          checked={SelectEmp}
-                          indeterminate={someSelectEmp}
-                          onChange={selectUnselectAllEmp}
-                          size="small"
-                          sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
-                        />
-                        <b style={{ fontSize: "14px" }}>Select All Employees</b>
+                <IonGrid className="ion-no-margin">
+                  <IonRow>
+                    {/* EMPLOYEES LIST */}
+                    <IonCol size-lg="6" size-md="6" size-sm="12" size="12">
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 0", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <Checkbox
+                            checked={SelectEmp}
+                            indeterminate={someSelectEmp}
+                            onChange={selectUnselectAllEmp}
+                            size="small"
+                            sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
+                          />
+                          <b style={{ fontSize: "14px", color: "var(--stock-text)" }}>Select All Employees</b>
+                        </div>
+
+                        {/* GROUP WISE SELECTION */}
+                        {Array.from(new Set(dt_emp_Active.map(x => x.EmpGroupColor))).filter(Boolean).map((color, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              const updated = dt_emp_Active.map(e =>
+                                e.EmpGroupColor === color ? { ...e, isSelected: !e.isSelected } : e
+                              );
+                              setDt_emp_Active(updated);
+                              const selectedCount = updated.filter(x => x.isSelected).length;
+                              setSelectEmp(selectedCount === updated.length);
+                              setSomeSelectEmp(selectedCount > 0 && selectedCount < updated.length);
+                              InsertETable(updated);
+                            }}
+                            style={{
+                              backgroundColor: mapGroupColor(color),
+                              width: "24px",
+                              height: "24px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              border: "1px solid #ccc",
+                              display: "inline-block"
+                            }}
+                            title="Select Group"
+                          />
+                        ))}
                       </div>
 
-                      {/* GROUP WISE SELECTION */}
-                      {Array.from(new Set(dt_emp_Active.map(x => x.EmpGroupColor))).filter(Boolean).map((color, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            const updated = dt_emp_Active.map(e =>
-                              e.EmpGroupColor === color ? { ...e, isSelected: !e.isSelected } : e
-                            );
-                            setDt_emp_Active(updated);
-                            const selectedCount = updated.filter(x => x.isSelected).length;
-                            setSelectEmp(selectedCount === updated.length);
-                            setSomeSelectEmp(selectedCount > 0 && selectedCount < updated.length);
-                            InsertETable(updated);
-                          }}
-                          style={{
-                            backgroundColor: mapGroupColor(color),
-                            width: "24px",
-                            height: "24px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            border: "1px solid #ccc",
-                            display: "inline-block"
-                          }}
-                          title="Select Group"
-                        />
-                      ))}
-                    </div>
+                      <div className="employee-list">
+                        {dt_emp_Active.map((x: any, i: number) => (
+                          <Tooltip title={x.Holidays || ""} key={i}>
+                            <div
+                              className={`Dynamic-card-style1 ${x.isSelected ? "highlighted" : ""}`}
+                              style={{
+                                backgroundColor: x.isSelected ? "var(--salary-row-highlight)" : mapGroupColor(x.EmpGroupColor) || "#9cbce0"
+                              }}
+                            >
+                              <div className="badgeplain">{i + 1}</div>
+                              <div className="checkbox-row">
+                                <Checkbox
+                                  size="small"
+                                  sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
+                                  checked={x.isSelected || false}
+                                  onChange={(e) => singleChangeEmp(e, x.EmpName)}
+                                />
+                                <span className="emp-name-text">{x.EmpName}</span>
+                              </div>
+                            </div>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </IonCol>
 
-                    <div className="employee-list">
-                      {dt_emp_Active.map((x: any, i: number) => (
-                        <Tooltip title={x.Holidays || ""} key={i}>
-                          <div
-                            className={`Dynamic-card-style1 ${x.isSelected ? "highlighted" : ""
-                              }`}
-                            style={{
-                              backgroundColor: x.isSelected ? "var(--salary-row-highlight)" : mapGroupColor(x.EmpGroupColor) || "#9cbce0"
-                            }}
-                          >
-                            <div className="badgeplain">{i + 1}</div>
-                            <div className="checkbox-row">
-                              <Checkbox
-                                size="small"
-                                sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
-                                checked={x.isSelected || false}
-                                onChange={(e) => singleChangeEmp(e, x.EmpName)}
-                              />
-                              <span className="emp-name-text">{x.EmpName}</span>
+                    {/* HOLIDAYS LIST */}
+                    <IonCol size-lg="6" size-md="6" size-sm="12" size="12">
+                      <div style={{ padding: "10px 0", display: "flex", alignItems: "center" }}>
+                        {HMnth && (
+                          <>
+                            <Checkbox
+                              size="small"
+                              sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
+                              checked={SelectHls}
+                              indeterminate={someSelectHls}
+                              onChange={selectUnselectAllHls}
+                            />
+                            <b style={{ fontSize: "14px", color: "var(--stock-text)" }}>Select All Holidays</b>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="holiday-list">
+                        {dt_Holidays.map((x: any, i: number) => (
+                          <div className="card-style" key={i} style={{ backgroundColor: 'var(--stock-elevated-bg)', borderColor: 'var(--stock-border)' }}>
+                            <Checkbox
+                              size="small"
+                              sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
+                              checked={x.isSelected || false}
+                              onChange={(e) => singleChangeHls(e, x.HolidayDate)}
+                            />
+                            <div className="holiday-info" style={{ color: 'var(--stock-text)' }}>
+                              <span className="holiday-date">
+                                {i + 1} -- {moment(x.HolidayDate).format("DD-MM-YYYY")}
+                              </span>
+                              <span className="holiday-remark">{x.Remark}</span>
                             </div>
                           </div>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  </IonCol>
-
-                  {/* HOLIDAYS LIST */}
-                  <IonCol size-lg="6" size-md="6" size-sm="12" size="12">
-                    <div style={{ padding: "10px 0" }}>
-                      {HMnth && (
-                        <>
-                          <Checkbox
-                            size="small"
-                            sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
-                            checked={SelectHls}
-                            indeterminate={someSelectHls}
-                            onChange={selectUnselectAllHls}
-                          />
-                          <b>Select All Holidays</b>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="holiday-list">
-                      {dt_Holidays.map((x: any, i: number) => (
-                        <div className="card-style" key={i}>
-                          <Checkbox
-                            size="small"
-                            sx={{ "& .MuiSvgIcon-root": { fontSize: "18px !important" } }}
-                            checked={x.isSelected || false}
-                            onChange={(e) => singleChangeHls(e, x.HolidayDate)}
-                          />
-                          <div className="holiday-info">
-                            <span className="holiday-date">
-                              {i + 1} -- {moment(x.HolidayDate).format("DD-MM-YYYY")}
-                            </span>
-                            <span className="holiday-remark">{x.Remark}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </IonCol>
-                </IonRow>
-              </IonGrid>
+                        ))}
+                      </div>
+                    </IonCol>
+                  </IonRow>
+                </IonGrid>
+              </div>
             )}
 
             {/* TAB 2: GENERATE SALARIES */}
             {tabValue === 1 && (
-              <>
-                <IonGrid className="ion-no-margin">
-                  <IonRow className="salary-header-row">
-                    <IonCol size="12">
-                      <Box sx={{ display: "flex", alignItems: "center", gap: "40px", width: "100%", justifyContent: "flex-start" }}>
-                        <DatePicker
-                          views={["month", "year"]}
-                          label="Mon-Year"
-                          format="MMM-YYYY"
-                          value={SalMY}
-                          onChange={(newValue) => setSalMY(newValue)}
-                          slotProps={{
-                            textField: {
-                              size: "small",
-                              fullWidth: true,
-                              className: "date-input-field",
-                            },
-                          }}
-                          sx={{ width: "500px" }}
-                        />
-                        <Button
-                          variant="outlined"
-                          className="update-btn"
-                          onClick={Generate_Sal}
-                          style={{ height: "40px", minWidth: "120px" }}
-                        >
-                          <DownloadIcon />
-                          &nbsp;Generate
-                        </Button>
-                      </Box>
-                    </IonCol>
-                  </IonRow>
+              <div className="stock-panel" style={{ margin: '20px 16px' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '10px' }}>
+                  <DatePicker
+                    views={["month", "year"]}
+                    label="Mon-Year"
+                    format="MMM-YYYY"
+                    value={SalMY}
+                    onChange={(newValue) => setSalMY(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        className: "date-input-field",
+                      },
+                    }}
+                  />
+                  <button
+                    className="stock-button"
+                    onClick={Generate_Sal}
+                    style={{ height: '40px' }}
+                  >
+                    Generate
+                  </button>
+                </div>
 
-                  <IonRow style={{ padding: "0 10px" }}>
-                    <IonCol size="12" style={{ display: "flex", alignItems: "center" }}>
-                      <Checkbox
-                        checked={SalReset}
-                        onChange={(e: any) => setSalReset(e.target.checked)}
-                        size="small"
-                      />
-                      <b>Reset Adjustments</b>
-                    </IonCol>
-                  </IonRow>
-                </IonGrid>
+                <div style={{ display: "flex", alignItems: "center", marginBottom: '20px' }}>
+                  <Checkbox
+                    checked={SalReset}
+                    onChange={(e: any) => setSalReset(e.target.checked)}
+                    size="small"
+                  />
+                  <b style={{ fontSize: "14px", color: "var(--stock-text)" }}>Reset Adjustments</b>
+                </div>
 
-                <IonGrid className="ion-no-padding" style={{ marginTop: 0 }}>
-                  <div className="adjustment-list-container">
-                    <IonRow className="ion-grid-heading-row" style={{ position: "sticky", top: 0, zIndex: 10 }}>
-                      <IonCol size="4"><input value="Employee Name" readOnly /></IonCol>
-                      <IonCol size="2"><input value="Add_Days" readOnly /></IonCol>
-                      <IonCol size="2"><input value="Remarks" readOnly /></IonCol>
-                      <IonCol size="2"><input value="Advance" readOnly /></IonCol>
-                      <IonCol size="2"><input value="Adv. Repay" readOnly /></IonCol>
+                <div className="adjustment-list-container" style={{ backgroundColor: 'var(--stock-elevated-bg)', borderRadius: '12px', border: '1px solid var(--stock-border)', overflow: 'hidden' }}>
+                  <IonGrid className="ion-no-padding" style={{ marginTop: 0 }}>
+                    <IonRow className="ion-grid-heading-row" style={{ position: "sticky", top: 0, zIndex: 10, backgroundColor: 'var(--stock-bg)' }}>
+                      <IonCol size="4"><input value="Employee Name" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
+                      <IonCol size="2"><input value="Add_Days" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
+                      <IonCol size="2"><input value="Remarks" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
+                      <IonCol size="2"><input value="Advance" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
+                      <IonCol size="2"><input value="Adv. Repay" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
                     </IonRow>
                     {dt_SalAdjust.map((x: any, i: number) => (
-                      <IonRow key={i} className="adjustment-row">
+                      <IonRow key={i} className="adjustment-row" style={{ borderBottom: '1px solid var(--stock-border)' }}>
                         <IonCol size="4">
                           <input
                             type="text"
-                            className="adjustment-input"
+                            className="adjustment-input stock-input"
                             readOnly
                             value={x.Empname}
+                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
                           <input
                             type="number"
-                            className="adjustment-input"
+                            className="adjustment-input stock-input"
                             placeholder="Add Days"
                             value={x.Add_Days || ""}
-                          onChange={(e) => {
-  const value = e.target.value;
-
-  const updated = [...dt_SalAdjust];
-  updated[i].Add_Days = value;
-  setDt_SalAdjust(updated);
-
-  UpdateAdjustmentField(
-    x.Empcode,
-    "Add_Days",
-    value
-  );
-}}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const updated = [...dt_SalAdjust];
+                              updated[i].Add_Days = value;
+                              setDt_SalAdjust(updated);
+                              UpdateAdjustmentField(x.Empcode, "Add_Days", value);
+                            }}
+                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
                           <input
                             type="text"
-                            className="adjustment-input"
+                            className="adjustment-input stock-input"
                             placeholder="Remarks"
                             value={x.Remarks || ""}
-                          onChange={(e) => {
-  const value = e.target.value;
-
-  const updated = [...dt_SalAdjust];
-  updated[i].Remarks = value;
-  setDt_SalAdjust(updated);
-
-  UpdateAdjustmentField(
-    x.Empcode,
-    "Remarks",
-    value
-  );
-}}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const updated = [...dt_SalAdjust];
+                              updated[i].Remarks = value;
+                              setDt_SalAdjust(updated);
+                              UpdateAdjustmentField(x.Empcode, "Remarks", value);
+                            }}
+                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
                           <input
                             type="text"
-                            className="adjustment-input"
+                            className="adjustment-input stock-input"
                             readOnly
                             placeholder="Advance"
                             value={x.Advance || ""}
+                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
                           <input
                             type="text"
-                            className="adjustment-input"
+                            className="adjustment-input stock-input"
                             placeholder="Adv. Repay"
                             value={x.Advance_Ded || ""}
-                          onChange={(e) => {
-  const value = e.target.value;
-
-  const updated = [...dt_SalAdjust];
-  updated[i].Advance_Ded = value;
-  setDt_SalAdjust(updated);
-
-  UpdateAdjustmentField(
-    x.Empcode,
-    "Advance_Ded",
-    value
-  );
-}}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const updated = [...dt_SalAdjust];
+                              updated[i].Advance_Ded = value;
+                              setDt_SalAdjust(updated);
+                              UpdateAdjustmentField(x.Empcode, "Advance_Ded", value);
+                            }}
+                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                       </IonRow>
                     ))}
-                  </div>
-                </IonGrid>
-              </>
+                  </IonGrid>
+                </div>
+              </div>
             )}
-          </Box>
 
-          <IonLoading isOpen={loading} message="Processing..." />
-        </IonContent>
-
-        <div className="headerblank"></div>
-      </LocalizationProvider>
-    </ThemeProvider>
+            <IonLoading isOpen={loading} message="Processing..." />
+            
+            </div>
+          </IonContent>
+        </LocalizationProvider>
+      </ThemeProvider>
+    </IonPage>
   );
 };
 

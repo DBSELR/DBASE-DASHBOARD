@@ -3,7 +3,9 @@ import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import "./Reports.css";
+import { IonPage, IonContent, IonIcon } from "@ionic/react";
+import { documentTextOutline, downloadOutline, refreshOutline, printOutline } from "ionicons/icons";
+import "./Stock.css";
 
 const LOG = (...args: any[]) => console.log("[Reports]", ...args);
 const GROUP = (title: string) => console.group("[Reports]", title);
@@ -30,12 +32,12 @@ const Reports: React.FC = () => {
         const parsed = JSON.parse(user);
         setUserData(parsed);
         if (
-  parsed.designation !== "Director" &&
-  parsed.designation !== "HR" &&
-  parsed.designation !== "In-Charge F&A"
-) {
-  setReportType("Salary Generation Details");
-}
+          parsed.designation !== "Director" &&
+          parsed.designation !== "HR" &&
+          parsed.designation !== "In-Charge F&A"
+        ) {
+          setReportType("Salary Generation Details");
+        }
         LOG("User loaded:", parsed);
       } catch (e) {
         console.error("[Reports] Failed to parse user from localStorage:", e);
@@ -144,320 +146,270 @@ const Reports: React.FC = () => {
     setPdfUrl("");
   };
 
-  // const handleFormat = async () => {
-  //   try {
-  //     const monthYearSend = moment(monthYear).format("MM-YYYY");
-  //     const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
-  //     const token = (localStorage.getItem("token") || "").replace(/"/g, "");
-
-  //     const fullPath = API_BASE.endsWith('/') && path.startsWith('/')
-  //       ? API_BASE + path.slice(1)
-  //       : API_BASE + path;
-
-  //     const res = await fetch(fullPath, {
-  //       method: "GET",
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       },
-  //     });
-
-  //     if (!res.ok) throw new Error("Format export failed.");
-
-  //     const blob = await res.blob();
-  //     const url = URL.createObjectURL(blob);
-  //     window.open(url);
-  //   } catch (error: any) {
-  //     alert("Error exporting format: " + error.message);
-  //   }
-  // };
-
   const handleFormat = async () => {
-  try {
-    const monthYearSend = moment(monthYear).format("MM-YYYY");
-    const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
+    try {
+      const monthYearSend = moment(monthYear).format("MM-YYYY");
+      const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
 
-    const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+      const token = (localStorage.getItem("token") || "").replace(/"/g, "");
 
-    const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
-      ? API_BASE + path.slice(1)
-      : API_BASE + path;
+      const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
+        ? API_BASE + path.slice(1)
+        : API_BASE + path;
 
-    const res = await fetch(fullPath, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      const res = await fetch(fullPath, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    if (!res.ok) throw new Error("HDFC export failed.");
+      if (!res.ok) throw new Error("HDFC export failed.");
 
-    const blob = await res.blob();
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition");
+      let fileName = `HDFCFORMAT-${monthYearSend}.txt`;
 
-    const disposition = res.headers.get("content-disposition");
-
-    let fileName = `HDFCFORMAT-${monthYearSend}.txt`;
-
-    if (disposition) {
-      const match = disposition.match(/filename="?([^"]+)"?/);
-      if (match && match[1]) {
-        fileName = match[1];
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
       }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert("Error exporting HDFC format: " + error.message);
     }
+  };
 
-    const url = window.URL.createObjectURL(blob);
+  const handleNonHDFCFormat = async () => {
+    try {
+      const monthYearSend = moment(monthYear).format("MM-YYYY");
+      const path = `Reports/Load_NonHDFCTextExport?MY=${monthYearSend}`;
+      const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+      const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
+        ? API_BASE + path.slice(1)
+        : API_BASE + path;
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
+      const res = await fetch(fullPath, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error: any) {
-    alert("Error exporting HDFC format: " + error.message);
-  }
-};
+      if (!res.ok) throw new Error("Non HDFC export failed.");
 
-const handleNonHDFCFormat = async () => {
-  try {
-    const monthYearSend = moment(monthYear).format("MM-YYYY");
-    const path = `Reports/Load_NonHDFCTextExport?MY=${monthYearSend}`;
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition");
+      let fileName = `NONHDFCFORMAT-${monthYearSend}.txt`;
 
-    const token = (localStorage.getItem("token") || "").replace(/"/g, "");
-
-    const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
-      ? API_BASE + path.slice(1)
-      : API_BASE + path;
-
-    const res = await fetch(fullPath, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!res.ok) throw new Error("Non HDFC export failed.");
-
-    const blob = await res.blob();
-
-    const disposition = res.headers.get("content-disposition");
-
-    let fileName = `NONHDFCFORMAT-${monthYearSend}.txt`;
-
-    if (disposition) {
-      const match = disposition.match(/filename="?([^"]+)"?/);
-      if (match && match[1]) {
-        fileName = match[1];
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
       }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert("Error exporting Non HDFC format: " + error.message);
     }
+  };
 
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error: any) {
-    alert("Error exporting Non HDFC format: " + error.message);
-  }
-};
   const userDesig = userData?.designation;
 
-const reportOptions =
-  userDesig === "Director" ||
-  userDesig === "HR" ||
-  userDesig === "In-Charge F&A"
-    ? [
-        "Employee List",
-        "Salary Statement",
-        "Salary Generation Details",
-        "Salary Generation Abstract",
-        "Work Report",
-        "Timings & Leaves",
-        "stock",
-        "Vouchers",
-        "Employee Check-In/s"
-      ]
-    : [
-        "Salary Generation Details"
-      ];
+  const reportOptions =
+    userDesig === "Director" ||
+    userDesig === "HR" ||
+    userDesig === "In-Charge F&A"
+      ? [
+          "Employee List",
+          "Salary Statement",
+          "Salary Generation Details",
+          "Salary Generation Abstract",
+          "Work Report",
+          "Timings & Leaves",
+          "stock",
+          "Vouchers",
+          "Employee Check-In/s"
+        ]
+      : [
+          "Salary Generation Details"
+        ];
 
   return (
-    <div className="rpt-main-container">
-      <div className="page-wr-header" style={{ width: '100%', margin: '0 0 24px 0' }}>
-        <div className="page-wr-header-left">
-          <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
-            <ChevronLeft size={22} />
-          </button>
-          <div>
-            <h1 className="page-wr-title">Report Center</h1>
-            <p className="page-wr-subtitle">Generate and view your professional reports</p>
+    <IonPage>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          {/* ── Premium Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Report Center</h1>
+                <p className="page-wr-subtitle">Generate and view your professional reports</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-header-icon-box">
+                <IonIcon icon={documentTextOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+              </div>
+            </div>
           </div>
+
+          <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
+            <div className="stock-grid">
+              
+              {/* Employee Input */}
+              <div className="stock-field">
+                <label>Employee</label>
+                <input
+                  type="text"
+                  className="stock-input"
+                  value={userData ? `${userData.empCode} - ${userData.empName}` : ""}
+                  readOnly
+                  style={{ backgroundColor: 'var(--stock-elevated-bg)' }}
+                />
+              </div>
+
+              {/* Report Selection */}
+              <div className="stock-field">
+                <label>Select Report</label>
+                <div className="stock-select-wrapper">
+                  <select
+                    className="stock-select"
+                    value={reportType || ""}
+                    onChange={(e) => setReportType(e.target.value)}
+                  >
+                    <option value="" disabled>--- Choose Report ---</option>
+                    {reportOptions.map((report) => (
+                      <option key={report} value={report}>{report}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* From Date */}
+              <div className="stock-field">
+                <label>From Date</label>
+                <input
+                  type="date"
+                  className="stock-input"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="stock-field">
+                <label>To Date</label>
+                <input
+                  type="date"
+                  className="stock-input"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </div>
+
+              {/* Month & Year */}
+              <div className="stock-field">
+                <label>Month & Year</label>
+                <input
+                  type="month"
+                  className="stock-input"
+                  value={monthYear}
+                  onChange={(e) => setMonthYear(e.target.value)}
+                />
+              </div>
+
+              {/* Status */}
+              <div className="stock-field">
+                <label>Status</label>
+                <div className="stock-select-wrapper">
+                  <select
+                    className="stock-select"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="Regular">Regular</option>
+                    <option value="Irregular">Irregular</option>
+                  </select>
+                </div>
+              </div>
+              
+            </div>
+
+            {/* Action Buttons */}
+            <div className="stock-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginTop: '24px' }}>
+              <button className="stock-button" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <IonIcon icon={printOutline} style={{ fontSize: '18px' }} /> Print Report
+              </button>
+              
+              <button className="stock-button stock-button--secondary" onClick={handleClear} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <IonIcon icon={refreshOutline} style={{ fontSize: '18px' }} /> Clear
+              </button>
+
+              {(userDesig === "Director" || userDesig === "HR" || userDesig === "In-Charge F&A") && (
+                <>
+                  <button className="stock-button stock-button--secondary" onClick={handleFormat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> HDFC Format
+                  </button>
+                  <button className="stock-button stock-button--secondary" onClick={handleNonHDFCFormat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Non-HDFC Format
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* PDF View Section */}
+          {showPdf && (
+            <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--stock-border)', marginBottom: '16px' }}>
+                <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--stock-text)' }}>Report Preview</span>
+                <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ion-color-primary)', fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>Open in New Tab</a>
+              </div>
+              
+              <iframe src={pdfUrl} title="PDF Preview" style={{ width: '100%', height: '65vh', border: 'none', borderRadius: 'var(--stock-radius-md)', backgroundColor: '#fff' }} />
+
+              <div className="stock-actions" style={{ marginTop: '20px' }}>
+                <button
+                  className="stock-button"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = pdfUrl;
+                    a.download = "report.pdf";
+                    a.click();
+                  }}
+                >
+                  <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Download PDF
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="page-wr-header-right">
-          <div className="page-wr-header-icon-box">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ion-color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div className="rpt-card rpt-fade-in stagger-2">
-        <div className="rpt-form-grid">
-          {/* User Info */}
-          <div className="rpt-input-group">
-            <label className="rpt-label">Employee</label>
-            <input
-              type="text"
-              className="rpt-input"
-              value={userData ? `${userData.empCode} - ${userData.empName}` : ""}
-              readOnly
-            />
-          </div>
-
-          {/* Report Selection */}
-          <div className="rpt-input-group">
-            <label className="rpt-label">Select Report</label>
-            <select
-  className="rpt-select"
-  value={reportType || ""}
-  onChange={(e) => setReportType(e.target.value)}
->
-  <option value="" disabled>
-    --- Choose Report ---
-  </option>
-
-  {reportOptions.map((report) => (
-    <option
-      key={report}
-      value={report}
-    >
-      {report}
-    </option>
-  ))}
-</select>
-          </div>
-
-          {/* From Date */}
-          <div className="rpt-input-group">
-            <label className="rpt-label">From Date</label>
-            <input
-              type="date"
-              className="rpt-input"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-            />
-          </div>
-
-          {/* To Date */}
-          <div className="rpt-input-group">
-            <label className="rpt-label">To Date</label>
-            <input
-              type="date"
-              className="rpt-input"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-            />
-          </div>
-
-          {/* Month & Year */}
-          <div className="rpt-input-group">
-            <label className="rpt-label">Month & Year</label>
-            <input
-              type="month"
-              className="rpt-input"
-              value={monthYear}
-              onChange={(e) => setMonthYear(e.target.value)}
-            />
-          </div>
-
-          {/* Status */}
-          <div className="rpt-input-group">
-            <label className="rpt-label">Status</label>
-            <select
-              className="rpt-select"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="Regular">Regular</option>
-              <option value="Irregular">Irregular</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-       <div className="rpt-actions rpt-fade-in stagger-3">
-  <button
-    className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
-    onClick={handlePrint}
-  >
-    <span style={{ color: "#fff" }}>Print Report</span>
-  </button>
-
-  <button
-    className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
-    onClick={handleClear}
-  >
-    <span style={{ color: "#fff" }}>Clear</span>
-  </button>
-
-  {(userDesig === "Director" || userDesig === "HR" ||
-    userDesig === "In-Charge F&A") && (
-    <>
-      <button
-        className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
-        onClick={handleFormat}
-      >
-        <span style={{ color: "#fff" }}>HDFC Format</span>
-      </button>
-
-      <button
-        className="rpt-btn rpt-btn-primary premium-trendy-bg small-btn"
-        onClick={handleNonHDFCFormat}
-      >
-        <span style={{ color: "#fff" }}>Non HDFC Format</span>
-      </button>
-    </>
-  )}
-</div>
-      </div>
-
-      {/* PDF View Section */}
-      {showPdf && (
-        <div className="rpt-preview-section rpt-fade-in">
-          <div className="rpt-preview-header">
-            <span>Report Preview</span>
-            <a href={pdfUrl} target="_blank" rel="noopener noreferrer">Open in New Tab</a>
-          </div>
-          <iframe src={pdfUrl} className="rpt-iframe" title="PDF Preview" />
-
-          <div style={{ padding: "10px 24px 24px" }}>
-            <button
-              className="rpt-btn rpt-btn-primary"
-              style={{ width: "100%" }}
-              onClick={() => {
-                const a = document.createElement("a");
-                a.href = pdfUrl;
-                a.download = "report.pdf";
-                a.click();
-              }}
-            >
-              Download PDF
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      </IonContent>
+    </IonPage>
   );
 };
 

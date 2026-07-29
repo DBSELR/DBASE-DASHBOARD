@@ -8,7 +8,9 @@ import {
   Scan,
   UserCheck,
   ShieldAlert,
-  BadgeAlert
+  BadgeAlert,
+  LayoutGrid,
+  List
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
 import axios from "axios";
@@ -38,9 +40,11 @@ const Home: React.FC = () => {
   const [primaryColor, setPrimaryColor] = useState<string>("#f57c00");
 
   const [currentTime, setCurrentTime] = useState<string>("");
+  const [greeting, setGreeting] = useState<string>("Welcome");
   const [location, setLocation] = useState<string>("Fetching location...");
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingTasksCount, setPendingTasksCount] = useState<number>(0);
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const history = useHistory();
 
   const currentEmpCode = (() => {
@@ -104,6 +108,11 @@ const Home: React.FC = () => {
       second: "2-digit",
     });
     setCurrentTime(formattedTime);
+
+    const hour = now.getHours();
+    if (hour < 12) setGreeting("Good Morning");
+    else if (hour < 17) setGreeting("Good Afternoon");
+    else setGreeting("Good Evening");
   };
 
   const getLocation = async () => {
@@ -259,7 +268,10 @@ const Home: React.FC = () => {
             colors="primary:#ffffff,secondary:#ffffff"
             style={{ width: "24px", height: "24px" }}
           ></lord-icon>
-          <div className="home-status-text">Check-in: {currentTime}</div>
+          <div className="home-status-text">
+            <div>{greeting}</div>
+            <div style={{ fontSize: '0.8em', opacity: 0.9 }}>{currentTime}</div>
+          </div>
         </div>
         <div className="home-status-item">
           <MapPin className="home-status-icon" />
@@ -267,36 +279,55 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Notice Board */}
-      <div className="home-notice-wrapper" onClick={() => setShowNotifications(true)}>
-        <div className="home-notice-icon-box">
-          {/* @ts-ignore */}
-          <lord-icon
-            src="https://cdn.lordicon.com/ahxaipjb.json"
-            trigger="loop"
-            colors="primary:#ffffff,secondary:#ffffff"
-            style={{ width: "22px", height: "22px" }}
-          ></lord-icon>
-        </div>
-        <div className="home-notice-content">
-          <div className="home-notice-ticker">
-            {notifications.map((n, i) => (
-              <div key={`ticker-${n.id}-${i}`} className="home-notice-item">
-                {n.icon} {n.text}
-              </div>
-            ))}
-            {/* Duplicate for infinite feel if needed, but for now we have multiple */}
-            <div className="home-notice-item">{notifications[0].icon} {notifications[0].text}</div>
+      {/* Notice Board and View Toggle */}
+      <div className="home-notice-row">
+        <div className="home-notice-wrapper" onClick={() => setShowNotifications(true)}>
+          <div className="home-notice-icon-box">
+            {/* @ts-ignore */}
+            <lord-icon
+              src="https://cdn.lordicon.com/ahxaipjb.json"
+              trigger="loop"
+              colors="primary:#ffffff,secondary:#ffffff"
+              style={{ width: "22px", height: "22px" }}
+            ></lord-icon>
           </div>
+          <div className="home-notice-content">
+            <div className="home-notice-ticker">
+              {notifications.map((n, i) => (
+                <div key={`ticker-${n.id}-${i}`} className="home-notice-item">
+                  {n.icon} {n.text}
+                </div>
+              ))}
+              {/* Duplicate for infinite feel if needed, but for now we have multiple */}
+              <div className="home-notice-item">{notifications[0].icon} {notifications[0].text}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="home-view-toggle">
+          <button 
+            className={`home-view-btn ${viewType === 'grid' ? 'active' : ''}`}
+            onClick={() => setViewType('grid')}
+            title="Grid View"
+          >
+            <LayoutGrid />
+          </button>
+          <button 
+            className={`home-view-btn ${viewType === 'list' ? 'active' : ''}`}
+            onClick={() => setViewType('list')}
+            title="List View"
+          >
+            <List />
+          </button>
         </div>
       </div>
 
       {/* Action Grid */}
-      <div className="home-grid">
+      <div className={viewType === 'grid' ? "home-grid" : "home-list-view"}>
         {menuItems.map((item) => (
           <div
             key={item.id}
-            className={`home-card ${item.colorClass}`}
+            className={`${viewType === 'grid' ? 'home-card' : 'home-list-card'} ${item.colorClass}`}
             onClick={() => item.path && history.push(item.path)}
           >
             {item.id === "tasks" && pendingTasksCount > 0 && (
