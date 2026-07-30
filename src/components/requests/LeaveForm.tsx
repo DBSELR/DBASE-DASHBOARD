@@ -39,7 +39,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
   // 🔥 NEW STATES
   const [balance, setBalance] = useState<any>(null);
-  const [existingDates, setExistingDates] = useState<string[]>([]);
+  const [existingDates, setExistingDates] = useState<any[]>([]);
 
   // ✅ LOP STATES
   const [confirmLOP, setConfirmLOP] = useState(false);
@@ -157,7 +157,15 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         `${API_BASE}Leave/GetEmployeeLeaveDates?empCode=${empCode}`
       );
 
-      setExistingDates(res.data || []);
+      // Normalize items: support both the older string array and the newer object array formats
+      const data = (res.data || []).map((item: any) => {
+        if (typeof item === "string") {
+          return { date: item, leaveMode: "", leaveCategory: "", lType: "", pOut: "" };
+        }
+        return item;
+      });
+
+      setExistingDates(data);
     } catch (e) {
       console.error("Error loading existing leaves");
     }
@@ -167,7 +175,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   // 🔥 CHECK DUPLICATE DATE
   // =========================================
   const isDuplicateDate = (date: string) => {
-    return existingDates.includes(moment(date).format("YYYY-MM-DD"));
+    const formatted = moment(date).format("YYYY-MM-DD");
+    return existingDates.some((item: any) => item?.date === formatted);
   };
 
   // =========================================
@@ -266,17 +275,95 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       return showToast("Select leave category");
     }
 
-    const isDuplicateDate = (date: string | null) => {
-      if (!date) return false;
+    const getDuplicateConflict = (date: string | null): string | null => {
+      if (!date) return null;
+      const formattedDate = moment(date).format("YYYY-MM-DD");
 
-      return existingDates.includes(
-        moment(date).format("YYYY-MM-DD")
+      const matchingLeaves = existingDates.filter(
+        (item: any) => item.date === formattedDate
       );
+
+      if (matchingLeaves.length === 0) return null;
+
+      // Permissions are handled via separate backend checks, don't block on frontend duplicate dates
+      if (requestType === "Permission") {
+        return null;
+      }
+
+      if (requestType === "Leave") {
+        const isHalfDayRequest = leaveMode === "Forenoon" || leaveMode === "Afternoon";
+
+        // Check for existing permissions on the same date
+        const existingPermission = matchingLeaves.find(
+          (item: any) => item.leaveMode === "Permission" || item.lType === "Permission"
+        );
+
+        if (existingPermission) {
+          const isMorningPermission = (pOut: string | null) => {
+            if (!pOut) return true; // Default to morning if no time is specified
+            const parts = pOut.split(":");
+            if (parts.length > 0) {
+              const hour = parseInt(parts[0], 10);
+              if (!isNaN(hour)) {
+                return hour < 13; // Before 1:00 PM is morning/Forenoon
+              }
+            }
+            return true;
+          };
+
+          if (isHalfDayRequest) {
+            const isMorningPerm = isMorningPermission(existingPermission.pOut);
+            if (leaveMode === "Forenoon" && isMorningPerm) {
+              return "Permission already applied for forenoon on this date";
+            }
+            if (leaveMode === "Afternoon" && !isMorningPerm) {
+              return "Permission already applied for afternoon on this date";
+            }
+          } else {
+            // Full day leave request conflicts with any permission
+            return "Permission already applied for this date";
+          }
+        }
+
+        if (isHalfDayRequest) {
+          // Block if the exact same half-day leave exists
+          const sameHalfDay = matchingLeaves.find(
+            (item: any) => item.leaveMode === leaveMode
+          );
+          if (sameHalfDay) {
+            return "Same half-day leave already applied";
+          }
+
+          // Block if a full-day leave already exists
+          const fullDay = matchingLeaves.find(
+            (item: any) =>
+              item.leaveMode !== "Forenoon" &&
+              item.leaveMode !== "Afternoon" &&
+              item.leaveMode !== "Permission"
+          );
+          if (fullDay) {
+            return "Full-day leave already exists for this date";
+          }
+        } else {
+          // Block if any leave exists on this date for a full-day request
+          // (Filtering out permission since we checked it above)
+          const nonPermissionLeaves = matchingLeaves.filter(
+            (item: any) => item.leaveMode !== "Permission" && item.lType !== "Permission"
+          );
+          if (nonPermissionLeaves.length > 0) {
+            return "Leave already applied for this date";
+          }
+        }
+      }
+
+      return null;
     };
-    if (requestType !== "Permission" && isDuplicateDate(startDate)) {
+
+    const conflictMessage = getDuplicateConflict(startDate);
+    if (conflictMessage) {
       clearForm();
-      return showToast("Leave already applied for this date");
-    } //not null
+      return showToast(conflictMessage);
+    }
 
     let finalCategory =
       leaveMode === "Leave" ? leaveCategory : leaveMode;
