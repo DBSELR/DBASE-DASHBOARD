@@ -87,16 +87,31 @@ export const WorkReportReminderModal: React.FC = () => {
       setIsOpen(false);
     };
 
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "work_report_dismissed_time" || e.key?.startsWith("work_report_submitted_")) {
+        const now = new Date();
+        const slot = now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 20) ? "18_20" : "18_00";
+        if (checkIfAlreadySubmittedToday() || checkIfDismissedForSlot(slot)) {
+          setIsOpen(false);
+        }
+      }
+    };
+
     window.addEventListener("test-work-report-alert" as any, handleTestAlert);
     window.addEventListener("work-report-submitted", handleSubmitted);
+    window.addEventListener("storage", handleStorageChange);
 
     const handleNotification = (data: any) => {
       if (
         data?.tID === "WORK_REPORT_REMINDER" ||
         data?.type === "work_report_reminder"
       ) {
-        if (!checkIfAlreadySubmittedToday()) {
-          setIsUrgent(data?.message?.includes("6:20") || false);
+        const now = new Date();
+        const urgentSlot = now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 20);
+        const slot = urgentSlot ? "18_20" : "18_00";
+
+        if (!checkIfAlreadySubmittedToday() && !checkIfDismissedForSlot(slot)) {
+          setIsUrgent(data?.message?.includes("6:20") || urgentSlot);
           setIsOpen(true);
         }
       }
@@ -112,6 +127,7 @@ export const WorkReportReminderModal: React.FC = () => {
       clearInterval(interval);
       window.removeEventListener("test-work-report-alert" as any, handleTestAlert);
       window.removeEventListener("work-report-submitted", handleSubmitted);
+      window.removeEventListener("storage", handleStorageChange);
       try {
         hubConnection.off("ReceiveNotification", handleNotification);
       } catch (e) {}

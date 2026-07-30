@@ -30,13 +30,17 @@ try {
     const image = payload.notification?.image || payload.data?.image || null;
 
     const targetUrl = payload.data?.url || "/workreport";
+    const todayStr = new Date().toISOString().split("T")[0];
+    const type = payload.data?.type || "work_report_reminder";
+    const tag = `${type}_${todayStr}`;
+
     const notificationOptions = {
       body: body,
       icon: "/images/dbase.png",
       badge: "/images/dbs-logo-short.png",
       image: image,
       vibrate: [300, 100, 300, 100, 300],
-      tag: payload.data?.type || "work_report_reminder",
+      tag: tag,
       renotify: false,
       requireInteraction: true,
       data: {

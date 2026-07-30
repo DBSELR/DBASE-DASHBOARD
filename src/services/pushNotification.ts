@@ -181,8 +181,24 @@ const registerWeb = async (empCode: string) => {
           console.warn("[Push] Error checking user code in onMessage:", e);
         }
 
+        const type = payload.data?.type || payload.data?.tID || "work_report_reminder";
+        const todayStr = new Date().toISOString().split("T")[0];
+
+        // Check if work report reminder was already dismissed or submitted today
+        if (type === "work_report_reminder" || type === "WORK_REPORT_REMINDER") {
+          const now = new Date();
+          const slot = (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 20)) ? "18_20" : "18_00";
+          const dismissed = localStorage.getItem("work_report_dismissed_time") === `${todayStr}_${slot}`;
+          const submitted = localStorage.getItem(`work_report_submitted_${todayStr}`) === "true";
+          if (dismissed || submitted) {
+            console.log("ℹ️ [Push] Suppressing push notification, already dismissed or submitted today.");
+            return;
+          }
+        }
+
         const title = payload.notification?.title || payload.data?.title || "Notification";
         const body = payload.notification?.body || payload.data?.body || "";
+        const tag = `${type}_${todayStr}`;
 
         if (Notification.permission === "granted") {
           navigator.serviceWorker.ready.then((reg) => {
@@ -190,8 +206,10 @@ const registerWeb = async (empCode: string) => {
               body,
               icon: "/images/dbase.png",
               badge: "/images/dbs-logo-short.png",
+              tag,
+              renotify: false,
               data: payload.data,
-            });
+            } as any);
           });
         }
       });

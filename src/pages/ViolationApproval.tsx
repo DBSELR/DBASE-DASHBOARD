@@ -27,9 +27,15 @@ function ViolationApproval() {
     loadReports();
   }, []);
 
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const reviewer = user.empCode || user.EMPCODE || "ADMIN";
+
   const loadReports = async () => {
     try {
-      const res = await axios.get(`${API_BASE}Penalty/GetPendingViolationReports`);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API_BASE}Penalty/GetPendingViolationReports`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setReports(res.data || []);
     } catch (err) {
       console.error(err);
@@ -38,7 +44,12 @@ function ViolationApproval() {
 
   const approve = async (id: number) => {
     try {
-      await axios.post(`${API_BASE}Penalty/ApproveViolationReport?reportId=${id}&reviewedBy=ADMIN`);
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API_BASE}Penalty/ApproveViolationReport?reportId=${id}&reviewedBy=${encodeURIComponent(reviewer)}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       loadReports();
     } catch (err) {
       console.error(err);
@@ -51,11 +62,16 @@ function ViolationApproval() {
     if (!remarks) return;
 
     try {
-      await axios.post(`${API_BASE}Penalty/RejectViolationReport`, {
-        reportId: id,
-        reviewedBy: "ADMIN",
-        remarks
-      });
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API_BASE}Penalty/RejectViolationReport`,
+        {
+          reportId: id,
+          reviewedBy: reviewer,
+          remarks
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       loadReports();
     } catch (err) {
       console.error(err);

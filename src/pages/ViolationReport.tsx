@@ -96,9 +96,18 @@ function ViolationReport() {
 
       try {
 
+        const token =
+          localStorage.getItem("token");
+
         const res =
           await axios.get(
-            `${API_BASE}Penalty/GetPenaltyMaster`
+            `${API_BASE}Penalty/GetPenaltyMaster`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
+            }
           );
 
         setPenalties(

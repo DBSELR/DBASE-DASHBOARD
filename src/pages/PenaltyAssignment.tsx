@@ -36,13 +36,16 @@ function PenaltyAssignment() {
   const [penalties, setPenalties] = useState<any[]>([]);
   const [proofFile, setProofFile] = useState<File | null>(null);
 
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserCode = user.empCode || user.EMPCODE || "Admin";
+
   const [form, setForm] = useState({
     penaltyId: "",
     penaltyDate: "",
     violationTime: "",
     employeeCodes: [] as string[],
     remarks: "",
-    appliedBy: "Admin"
+    appliedBy: currentUserCode
   });
 
   const [toast, setToast] = useState({
@@ -73,7 +76,12 @@ function PenaltyAssignment() {
 
   const loadPenalties = async () => {
     try {
-      const response = await axios.get(`${API_BASE}Penalty/GetPenaltyMaster`);
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_BASE}Penalty/GetPenaltyMaster`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       setPenalties(response.data || []);
     } catch (err) {
       console.error(err);
@@ -95,12 +103,13 @@ function PenaltyAssignment() {
         return;
       }
 
+      const token = localStorage.getItem("token");
       const data = new FormData();
       data.append("PenaltyId", form.penaltyId);
       data.append("PenaltyDate", form.penaltyDate);
       data.append("ViolationTime", form.violationTime);
       data.append("Remarks", form.remarks);
-      data.append("AppliedBy", form.appliedBy);
+      data.append("AppliedBy", form.appliedBy || currentUserCode);
 
       form.employeeCodes.forEach((emp) => {
         data.append("EmployeeCodes", emp);
@@ -111,7 +120,10 @@ function PenaltyAssignment() {
       }
 
       await axios.post(`${API_BASE}Penalty/ApplyPenalty`, data, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`
+        }
       });
 
       alert("Penalty Applied Successfully");
@@ -122,7 +134,7 @@ function PenaltyAssignment() {
         violationTime: "",
         employeeCodes: [],
         remarks: "",
-        appliedBy: "Admin"
+        appliedBy: currentUserCode
       });
       setProofFile(null);
     } catch (err: any) {
