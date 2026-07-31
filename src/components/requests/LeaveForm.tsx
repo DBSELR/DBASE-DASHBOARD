@@ -612,8 +612,10 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
           if (!mobile) {
             console.warn(
-              "[WHATSAPP SKIPPED] RA1 not configured"
+              "[WHATSAPP SKIPPED] RA1 not configured or mobile missing for RA:",
+              ra1Res.data?.message || "No mobile number found"
             );
+            showToast("Leave submitted! Manager mobile number missing in records, WhatsApp alert skipped.");
             return;
           }
 

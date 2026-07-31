@@ -104,9 +104,8 @@ const WorkReportDashboard: React.FC = () => {
       }
     );
 
-    const dataArr = Array.isArray(res.data)
-      ? res.data
-      : [];
+    const rawData = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    const dataArr = Array.isArray(rawData) ? rawData : [];
 
     const reportData = dataArr.map((x: any) => ({
       WorkId: x?.[0] ?? "",
@@ -123,7 +122,7 @@ const WorkReportDashboard: React.FC = () => {
       TLRemark: x?.[11] ?? "-",
       EmpCode: x?.[10] ?? "",
     }));
-    console.log(res.data[0]);
+    console.log(rawData?.[0]);
     setAllWorkReports(reportData);
 
     if (targetEmpCode === "0") {
@@ -173,7 +172,8 @@ const WorkReportDashboard: React.FC = () => {
           params: { EmpCode: empCode },
         }
       );
-      const arr: any[] = Array.isArray(res.data) ? res.data : [];
+      const parsedData = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      const arr: any[] = Array.isArray(parsedData) ? parsedData : [];
       const list: string[] = arr.map((x: any) => x[0]);
 
       setMonthYearList(list);
