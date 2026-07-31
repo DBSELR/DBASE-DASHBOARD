@@ -107,8 +107,8 @@ export const WorkReportReminderModal: React.FC = () => {
         data?.type === "work_report_reminder"
       ) {
         const now = new Date();
-        const urgentSlot = now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 20);
-        const slot = urgentSlot ? "18_20" : "18_00";
+        const urgentSlot = data?.slot === "18_20" || now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 20);
+        const slot = data?.slot || (urgentSlot ? "18_20" : "18_00");
 
         if (!checkIfAlreadySubmittedToday() && !checkIfDismissedForSlot(slot)) {
           setIsUrgent(data?.message?.includes("6:20") || urgentSlot);

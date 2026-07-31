@@ -25,14 +25,22 @@ try {
   messaging.onBackgroundMessage((payload) => {
     console.log("📩 Background Message", payload);
 
-    const title = payload.notification?.title || payload.data?.title || "🚨 Daily Work Report Reminder";
-    const body = payload.notification?.body || payload.data?.body || "Please submit your daily work report for today.";
-    const image = payload.notification?.image || payload.data?.image || null;
+    // If FCM Webpush payload has notification object, Web SDK displays it natively.
+    // Skip manual showNotification to prevent double popups.
+    if (payload.notification) {
+      console.log("ℹ️ SW: FCM Webpush notification present, relying on native SDK display.");
+      return;
+    }
 
-    const targetUrl = payload.data?.url || "/workreport";
+    const slot = payload.data?.slot || ((new Date().getHours() > 18 || (new Date().getHours() === 18 && new Date().getMinutes() >= 20)) ? "18_20" : "18_00");
     const todayStr = new Date().toISOString().split("T")[0];
     const type = payload.data?.type || "work_report_reminder";
-    const tag = `${type}_${todayStr}`;
+    const tag = `${type}_${todayStr}_${slot}`;
+
+    const title = payload.data?.title || "🚨 Daily Work Report Reminder";
+    const body = payload.data?.body || "Please submit your daily work report for today.";
+    const image = payload.data?.image || null;
+    const targetUrl = payload.data?.url || "/workreport";
 
     const notificationOptions = {
       body: body,

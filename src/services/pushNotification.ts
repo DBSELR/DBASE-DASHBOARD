@@ -196,9 +196,10 @@ const registerWeb = async (empCode: string) => {
           }
         }
 
+        const slot = payload.data?.slot || ((new Date().getHours() > 18 || (new Date().getHours() === 18 && new Date().getMinutes() >= 20)) ? "18_20" : "18_00");
         const title = payload.notification?.title || payload.data?.title || "Notification";
         const body = payload.notification?.body || payload.data?.body || "";
-        const tag = `${type}_${todayStr}`;
+        const tag = `${type}_${todayStr}_${slot}`;
 
         if (Notification.permission === "granted") {
           navigator.serviceWorker.ready.then((reg) => {
