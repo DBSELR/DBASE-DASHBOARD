@@ -1,4 +1,4 @@
-// src/pages/Sources.tsx
+﻿// src/pages/Sources.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   IonCheckbox, IonContent, IonDatetime,
@@ -41,7 +41,6 @@ const EmptyIcon = () => <IconBox size="40" color="#cbd5e1"><circle cx="12" cy="1
 
 import axios from "axios";
 import moment from "moment";
-import { read, utils } from "xlsx";
 import "./Sources.css";
 
 const DBG = true;
@@ -115,6 +114,33 @@ const decodeDepartments = (data: any) =>
 
 const decodeDesignations = (data: any) =>
   decodeRows(data, ["DS_ID", "Designation", "Isactive"], "Designations");
+
+// tbl_Branch -> APP_Load_Branch returns (lid, Branch, BranchDept)
+const decodeBranches = (data: any) =>
+  decodeRows(data, ["LID", "Branch", "BranchDept"], "Branches");
+
+const decodeBranchMovement = (data: any) =>
+  decodeRows(
+    data,
+    ["ID", "FromBranch", "FromDept", "ToBranch", "ToDept", "InTime"],
+    "Branch Movement"
+  );
+
+/** A branch/dept row written as one string. \u0001 cannot appear in a branch
+ *  or dept name, so it is a safe separator - the same one the attendance rule
+ *  screen uses for its own keys. */
+const bdKey = (branch: any, dept: any) =>
+  `${String(branch ?? "").trim()}\u0001${String(dept ?? "").trim()}`;
+
+/** One ordered movement, From -> To. Direction matters: Vizag/SDE -> Vizag/AU
+ *  is a different rule from Vizag/AU -> Vizag/SDE. */
+const moveKey = (fromBranch: any, fromDept: any, toBranch: any, toDept: any) =>
+  `${bdKey(fromBranch, fromDept)}\u0002${bdKey(toBranch, toDept)}`;
+
+const bdLabel = (branch: any, dept: any) => {
+  const d = String(dept ?? "").trim();
+  return d ? `${String(branch ?? "").trim()} / ${d}` : String(branch ?? "").trim();
+};
 
 const decodeCheckin = (data: any) => {
   const rows = decodeRows(
@@ -650,6 +676,338 @@ const Sources: React.FC = () => {
   }
 };
 
+  // 2b. Branches (tbl_Branch) - the master list behind the Branch dropdown on
+  //     the Employee Profile screen. Each branch also carries a BranchDept,
+  //     and the distinct BranchDept values feed the Branch Dept dropdown on
+  //     that same screen - so there is no separate branch-dept table to manage.
+  const [BranchName, setBranchName] = useState("");
+  const [BranchDeptName, setBranchDeptName] = useState("");
+  const [branchList, setBranchList] = useState<any[]>([]);
+  const [tempBranchId, setTempBranchId] = useState<number>(0);
+  const [branchSaving, setBranchSaving] = useState(false);
+  // The row whose Delete has been pressed once. Deleting a branch takes its
+  // movement and attendance rules with it, so it asks twice - but inline, not
+  // through a browser confirm() nobody reads.
+  const [branchDeleteId, setBranchDeleteId] = useState<number>(0);
+  const [branchDeletingId, setBranchDeletingId] = useState<number>(0);
+
+  const loadBranches = async () => {
+    try {
+      const r = await axios.get(`${API_BASE}Sources/Load_Branch`, { headers: authHeaders() });
+      setBranchList(decodeBranches(r.data));
+    } catch (e) {
+      setBranchList([]);
+    }
+  };
+
+  // 2c. On-duty movement check-in times.
+  //     Every ordered branch/dept pair is generated on screen from branchList;
+  //     only the pairs that carry an override are ever stored. A movement with
+  //     no stored time uses the employee's own profile in-time, which is the
+  //     default for the overwhelming majority of combinations.
+  const [movementRules, setMovementRules] = useState<Record<string, string>>({});
+  // Edits not yet written back. Kept apart from movementRules so a reload
+  // cannot silently discard something half-typed.
+  const [movementDraft, setMovementDraft] = useState<Record<string, string>>({});
+  const [movementSaving, setMovementSaving] = useState(false);
+  // A box per column, not one shared box. With every combination listed, the
+  // question is nearly always "what happens when THESE people go THERE", and
+  // that needs both ends pinned at once - a single box can only pin one.
+  const [movementFromSearch, setMovementFromSearch] = useState("");
+  const [movementToSearch, setMovementToSearch] = useState("");
+  const [movementOnlySet, setMovementOnlySet] = useState(false);
+
+  // Column the movement grid is ordered by, and which way. Sorting on the
+  // OTHER column as a tiebreak keeps every "from" block internally ordered,
+  // so the grid reads as groups rather than as 42 unrelated lines.
+  const [movementSortCol, setMovementSortCol] = useState<"from" | "to">("from");
+  const [movementSortDir, setMovementSortDir] = useState<"asc" | "desc">("asc");
+
+  // Clicking the column you are already on flips the direction; clicking the
+  // other one starts it ascending, which is what people expect from a grid.
+  const sortMovementBy = (col: "from" | "to") => {
+    if (col === movementSortCol) setMovementSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setMovementSortCol(col); setMovementSortDir("asc"); }
+  };
+
+  // Which of the two sections on the Branches tab are open. Both start open so
+  // nothing appears to have gone missing; the counts stay in the headings when
+  // closed so a collapsed section still tells you what is inside it.
+  type BranchSection = "branches" | "movement" | "";
+  const [branchSection, setBranchSection] = useState<BranchSection>("branches");
+  const branchesOpen = branchSection === "branches";
+  const movementOpen = branchSection === "movement";
+  // Clicking the section that is already open shuts it, so "both closed"
+  // is still reachable and the tab can be collapsed down to two headers.
+  const toggleBranchSection = (sec: BranchSection) =>
+    setBranchSection((cur) => (cur === sec ? "" : sec));
+
+  /** The distinct branch/dept rows, in table order. Deduped: two tbl_Branch
+   *  rows carrying the same pair would otherwise put the same movement on the
+   *  grid twice, with two inputs fighting over one stored rule. */
+  const movementNodes = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { branch: string; dept: string; key: string; label: string }[] = [];
+    branchList.forEach((b: any) => {
+      const branch = String(b.Branch ?? "").trim();
+      if (!branch) return;
+      const dept = String(b.BranchDept ?? "").trim();
+      const key = bdKey(branch, dept);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ branch, dept, key, label: bdLabel(branch, dept) });
+    });
+    return out;
+  }, [branchList]);
+
+  /** Every ORDERED pair, self-pairs excluded: n rows give n*(n-1) movements.
+   *  Generated here rather than stored, so adding a branch above immediately
+   *  adds its movements below - nobody has to seed a table by hand. */
+  const movementPairs = useMemo(() => {
+    const out: any[] = [];
+    movementNodes.forEach((f) =>
+      movementNodes.forEach((t) => {
+        if (f.key === t.key) return;   // staying put is not a movement
+        out.push({ k: moveKey(f.branch, f.dept, t.branch, t.dept), from: f, to: t });
+      })
+    );
+    return out;
+  }, [movementNodes]);
+
+  /** What the grid actually renders. With 7 branch rows this is 42 lines, and
+   *  it grows with the square of the branch count, so the filters are not a
+   *  nicety - they are how the screen stays usable. */
+  const movementVisible = useMemo(() => {
+    // Terms are ANDed and order does not matter, so "au vizag" finds
+    // "Vizag / AU" just as "vizag au" does. Typing the branch and the dept in
+    // whichever order they come to mind should not decide whether it matches.
+    const terms = (t: string) => t.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const fromTerms = terms(movementFromSearch);
+    const toTerms = terms(movementToSearch);
+    // A term matches when a WORD of the label starts with it, not when the
+    // letters appear anywhere in it. Plain "includes" made "aku" match
+    // "Srikakulam" - srik-AKU-lam - which put BRAU rows in an AKU search and
+    // made the filter look broken. Word starts are what people mean when they
+    // type a dept code.
+    const matches = (label: string, ts: string[]) => {
+      if (!ts.length) return true;               // empty box filters nothing
+      const words = label.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      return ts.every((t) => words.some((w) => w.startsWith(t)));
+    };
+
+    const rows = movementPairs.filter((p: any) => {
+      const eff = movementDraft[p.k] ?? movementRules[p.k] ?? "";
+      if (movementOnlySet && !eff) return false;
+      // Both ends must match. Fill one box to see everything leaving or
+      // arriving somewhere; fill both to land on the single movement.
+      return matches(p.from.label, fromTerms) && matches(p.to.label, toTerms);
+    });
+
+    const sign = movementSortDir === "asc" ? 1 : -1;
+    const primary = movementSortCol;                       // "from" or "to"
+    const secondary = primary === "from" ? "to" : "from";
+    // localeCompare, not <, so "Vizag / AU" and "vizag / au" cannot end up in
+    // two separate blocks the way a raw code-point compare would put them.
+    const cmp = (a: string, b: string) =>
+      a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
+
+    // Sorted on a COPY: movementPairs is memoised, and sorting it in place
+    // would mutate the value other memos are still reading.
+    return [...rows].sort((a: any, b: any) => {
+      const first = cmp(a[primary].label, b[primary].label);
+      if (first !== 0) return first * sign;
+      // The tiebreak always runs ascending - flipping it too would shuffle
+      // rows inside a block for no reason the user asked for.
+      return cmp(a[secondary].label, b[secondary].label);
+    });
+  }, [movementPairs, movementFromSearch, movementToSearch, movementOnlySet,
+      movementDraft, movementRules, movementSortCol, movementSortDir]);
+
+  /** The visible rows folded under their Moving From row. Group order and the
+   *  order inside each group both come straight from movementVisible, so the
+   *  column sort above still decides everything - grouping only nests it. */
+  const movementGroups = useMemo(() => {
+    const order: string[] = [];
+    const by: Record<string, any> = {};
+    movementVisible.forEach((p: any) => {
+      if (!by[p.from.key]) {
+        by[p.from.key] = { key: p.from.key, label: p.from.label, rows: [] };
+        order.push(p.from.key);
+      }
+      by[p.from.key].rows.push(p);
+    });
+    return order.map((k) => by[k]);
+  }, [movementVisible]);
+
+  // Which Moving From groups are expanded. Only groups the user has actually
+  // clicked appear here; everything else follows the default below.
+  const [movementGroupOpen, setMovementGroupOpen] = useState<Record<string, boolean>>({});
+
+  // With a filter running, the few surviving rows ARE the answer, so groups
+  // default to open. With no filter the page should stay short, so they
+  // default to closed. An explicit click always beats the default.
+  const movementFiltering =
+    movementFromSearch.trim() !== "" || movementToSearch.trim() !== "" || movementOnlySet;
+  const isMovementGroupOpen = (k: string) => movementGroupOpen[k] ?? movementFiltering;
+  const toggleMovementGroup = (k: string) =>
+    setMovementGroupOpen((prev) => {
+      const wasOpen = prev[k] ?? movementFiltering;
+      // Accordion. Only one Moving From branch/dept is expanded at a time, so
+      // the screen never turns into a wall of every combination at once.
+      // A fresh map of explicit falses is deliberate: it clears every prior
+      // open AND pins the rest shut, which a plain spread would not do while
+      // a filter is running and the default is open.
+      const next: Record<string, boolean> = {};
+      movementGroups.forEach((g: any) => { next[g.key] = false; });
+      next[k] = !wasOpen;
+      return next;
+    });
+
+  const loadBranchMovement = async () => {
+    try {
+      const r = await axios.get(`${API_BASE}Sources/Load_BranchMovement`, { headers: authHeaders() });
+      const map: Record<string, string> = {};
+      decodeBranchMovement(r.data).forEach((row: any) => {
+        const t = String(row.InTime ?? "").trim();
+        if (t) map[moveKey(row.FromBranch, row.FromDept, row.ToBranch, row.ToDept)] = t;
+      });
+      setMovementRules(map);
+      setMovementDraft({});
+    } catch (e) {
+      setMovementRules({});
+    }
+  };
+
+  const saveBranchMovement = async () => {
+    const changed = Object.keys(movementDraft);
+    if (!changed.length) return showToast("Nothing changed.", "warning");
+
+    setMovementSaving(true);
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    let failed = 0;
+
+    // Sent one at a time on purpose: the proc is an upsert-or-delete per pair,
+    // and one bad row must not take the whole batch down with it.
+    for (const k of changed) {
+      const [from, to] = k.split("\u0002");
+      const [fromBranch, fromDept] = from.split("\u0001");
+      const [toBranch, toDept] = to.split("\u0001");
+      try {
+        await axios.post(
+          `${API_BASE}Sources/Save_BranchMovement`,
+          {
+            _FromBranch: fromBranch,
+            _FromDept: fromDept,
+            _ToBranch: toBranch,
+            _ToDept: toDept,
+            _InTime: movementDraft[k],          // "" clears the rule
+            _CreatedBy: user.empName || user.EmpName || "admin",
+          },
+          { headers: { "Content-Type": "application/json", ...authHeaders() } }
+        );
+      } catch (e) {
+        failed++;
+      }
+    }
+
+    setMovementSaving(false);
+    showToast(
+      failed
+        ? `${changed.length - failed} saved, ${failed} failed.`
+        : `${changed.length} movement time${changed.length === 1 ? "" : "s"} saved.`,
+      failed ? "danger" : "success"
+    );
+    loadBranchMovement();
+  };
+
+  const deleteBranch = async (lid: number) => {
+    if (!lid) return;
+    setBranchDeletingId(lid);
+    try {
+      await axios.post(
+        `${API_BASE}Sources/Delete_Branch`,
+        { _Branch_ID: lid, _Branch: "", _BranchDept: "" },
+        { headers: { "Content-Type": "application/json", ...authHeaders() } }
+      );
+      showToast("Branch Deleted Successfully...!");
+      // Editing the row that just vanished would post an update against an id
+      // that no longer exists, so clear the form when it was that one.
+      if (Number(tempBranchId) === Number(lid)) {
+        setBranchName("");
+        setBranchDeptName("");
+        setTempBranchId(0);
+      }
+      loadBranches();
+      // Its movements went with it server-side; reload so the grid below
+      // stops showing combinations for a row that is gone.
+      loadBranchMovement();
+    } catch (e: any) {
+      console.log(e?.response?.data);
+      showToast(
+        typeof e?.response?.data === "string" && e.response.data
+          ? e.response.data
+          : "Error While Deleting...!",
+        "danger"
+      );
+    } finally {
+      setBranchDeletingId(0);
+      setBranchDeleteId(0);
+    }
+  };
+
+  const saveBranch = async () => {
+    const name = BranchName.trim();
+    if (!name) return showToast("Please Enter The Branch Value...!", "danger");
+
+    // Client-side duplicate guard (the proc checks again server-side).
+    // A branch may be listed once per dept, so the same branch name is fine -
+    // it is the (branch, dept) PAIR that has to be unique.
+    const dept = BranchDeptName.trim();
+    const dup = branchList.find(
+      (b) =>
+        String(b.Branch ?? "").trim().toLowerCase() === name.toLowerCase() &&
+        String(b.BranchDept ?? "").trim().toLowerCase() === dept.toLowerCase() &&
+        Number(b.LID) !== Number(tempBranchId)
+    );
+    if (dup)
+      return showToast(
+        dept
+          ? `${name} already has a ${dept} dept...!`
+          : "This branch already exists...!",
+        "danger"
+      );
+
+    setBranchSaving(true);
+    try {
+      await axios.post(
+        `${API_BASE}Sources/Save_Branch`,
+        {
+          _Branch_ID: tempBranchId,
+          _Branch: name,
+          _BranchDept: BranchDeptName.trim(),
+        },
+        { headers: { "Content-Type": "application/json", ...authHeaders() } }
+      );
+      showToast(
+        tempBranchId ? "Branch Updated Successfully...!" : "Branch Added Successfully...!"
+      );
+      setBranchName("");
+      setBranchDeptName("");
+      setTempBranchId(0);
+      loadBranches();
+    } catch (e: any) {
+      console.log(e?.response?.data);
+      showToast(
+        typeof e?.response?.data === "string" && e.response.data
+          ? e.response.data
+          : "Error While Sending...!",
+        "danger"
+      );
+    } finally {
+      setBranchSaving(false);
+    }
+  };
+
   // 3. Holidays Management
   const [expanded, setExpanded] = useState(false);
   const [Hyear, setHyear] = useState<any>("");
@@ -928,9 +1286,7 @@ const Sources: React.FC = () => {
     setCycledays(row.Maint_Cycle || "");
   };
 
-  // 8. Import
-  const [ImportFile, setImportFile] = useState<string>("0");
-  const [files, setFiles] = useState<FileList | null>(null);
+  // 8. Active staff list (feeds the staff pickers below)
   const [empActive, setEmpActive] = useState<any[]>([]);
 
   const loadEmployeesActive = async () => {
@@ -940,22 +1296,6 @@ const Sources: React.FC = () => {
     } catch (e) {
       setEmpActive([]);
     }
-  };
-
-  const handleImport = async () => {
-    if (!files || !files.length) return showToast("Choose a file.", "danger");
-    const reader = new FileReader();
-    reader.onload = async (event: any) => {
-      try {
-        const wb = read(event.target.result);
-        const sheet = wb.SheetNames[0];
-        utils.sheet_to_json(wb.Sheets[sheet]);
-        showToast("File processed. Uploading...");
-      } catch (e) {
-        showToast("Import failed.", "danger");
-      }
-    };
-    reader.readAsArrayBuffer(files[0]);
   };
 
   const EmptyState = ({ msg }: { msg: string }) => (
@@ -980,6 +1320,8 @@ const Sources: React.FC = () => {
   useEffect(() => {
     loadDepartments();
     loadDesignations();
+    loadBranches();
+    loadBranchMovement();
     loadVendors();
     loadEmployeesActive();
     loadCheckinAccess();
@@ -1050,11 +1392,11 @@ const Sources: React.FC = () => {
               <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "broadcast" ? "active" : ""}`} onClick={() => setActiveTab("broadcast")}>
                 Broadcast
               </button>
-              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "import" ? "active" : ""}`} onClick={() => setActiveTab("import")}>
-                Import
-              </button>
               <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "maint" ? "active" : ""}`} onClick={() => setActiveTab("maint")}>
                 Maintenance
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "branch" ? "active" : ""}`} onClick={() => setActiveTab("branch")}>
+                Branches
               </button>
             </div>
 
@@ -1303,24 +1645,6 @@ const Sources: React.FC = () => {
               </div>
             )}
 
-            {/* TAB CONTENT: Import */}
-            {activeTab === "import" && (
-              <div className="stock-panel">
-                <h3 className="stock-section-heading">Process Import</h3>
-                <div className="stock-field" style={{ marginBottom: '16px' }}>
-                  <label>Select Entity</label>
-                  <select className="stock-select" value={ImportFile} onChange={(e) => setImportFile(e.target.value)}>
-                    <option value="Productivity">Productivity</option>
-                    <option value="Attendance">Attendance</option>
-                  </select>
-                </div>
-                <div className="stock-field" style={{ marginBottom: '16px' }}>
-                  <input type="file" className="stock-input" onChange={(e) => setFiles(e.target.files)} />
-                </div>
-                <button className="stock-button stock-button--secondary" onClick={handleImport}>Execute Import</button>
-              </div>
-            )}
-
             {/* TAB CONTENT: Maintenance */}
             {activeTab === "maint" && (
               <div className="stock-panel">
@@ -1356,6 +1680,423 @@ const Sources: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Branches (tbl_Branch) */}
+            {activeTab === "branch" && (
+              <div className="stock-panel">
+                <h3
+                  className="stock-section-heading"
+                  onClick={() => toggleBranchSection("branches")}
+                  style={{
+                    cursor: 'pointer', userSelect: 'none',
+                    display: 'flex', alignItems: 'center', gap: '10px', margin: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block', fontSize: '0.7em', lineHeight: 1,
+                      transition: 'transform 0.15s ease',
+                      transform: branchesOpen ? 'rotate(90deg)' : 'none',
+                    }}
+                  >
+                    &#9654;
+                  </span>
+                  Branches
+                  <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 400, color: 'var(--stock-muted)' }}>
+                    {branchList.length} row{branchList.length === 1 ? '' : 's'}
+                  </span>
+                </h3>
+
+                {branchesOpen && (<>
+                <p style={{ margin: '12px 0 16px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
+                  These entries fill the Branch dropdown on the Employee Profile screen.
+                  Each branch also carries a Branch Dept, and the distinct values across
+                  all branches fill the Branch Dept dropdown beside it.
+                </p>
+
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <label>{tempBranchId ? "Edit Branch" : "New Branch"}</label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '2 1 200px' }}
+                      value={BranchName}
+                      placeholder="Branch name - e.g. Visakhapatnam"
+                      onChange={(e) => setBranchName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveBranch(); }}
+                    />
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '2 1 180px' }}
+                      value={BranchDeptName}
+                      placeholder="Branch dept - e.g. Operations"
+                      list="branch-dept-suggestions"
+                      onChange={(e) => setBranchDeptName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveBranch(); }}
+                    />
+                    {/* reuse depts already typed on other branches so the same
+                        name is not re-spelled three different ways */}
+                    <datalist id="branch-dept-suggestions">
+                      {Array.from(
+                        new Set(
+                          branchList
+                            .map((b) => String(b.BranchDept ?? "").trim())
+                            .filter((v) => v !== "")
+                        )
+                      ).map((v) => (
+                        <option key={v} value={v} />
+                      ))}
+                    </datalist>
+                    <button className="stock-button" onClick={saveBranch} disabled={branchSaving}>
+                      {branchSaving ? "Saving..." : tempBranchId ? "Update" : "Save"}
+                    </button>
+                    {tempBranchId > 0 && (
+                      <button
+                        className="stock-button stock-button--secondary"
+                        onClick={() => { setBranchName(""); setBranchDeptName(""); setTempBranchId(0); }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  {tempBranchId > 0 && (
+                    <small style={{ display: 'block', marginTop: '6px', color: 'var(--stock-muted)' }}>
+                      Renaming the branch also updates every employee currently assigned to it.
+                    </small>
+                  )}
+                </div>
+
+                <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+                  <table className="stock-table">
+                    <thead><tr><th>Branch</th><th>Branch Dept</th><th style={{ width: '150px' }}></th></tr></thead>
+                    <tbody>
+                      {branchList.map((b) => {
+                        const lid = Number(b.LID);
+                        const confirming = branchDeleteId === lid;
+                        const deleting = branchDeletingId === lid;
+                        return (
+                        <tr
+                          key={b.LID}
+                          onClick={() => {
+                            setBranchName(String(b.Branch ?? ""));
+                            setBranchDeptName(String(b.BranchDept ?? ""));
+                            setTempBranchId(lid);
+                          }}
+                          style={{
+                            cursor: 'pointer',
+                            background: confirming
+                              ? 'rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.10)'
+                              : Number(tempBranchId) === lid
+                                ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08)'
+                                : undefined,
+                          }}
+                        >
+                          <td>{b.Branch}</td>
+                          <td>{String(b.BranchDept ?? "").trim() || "-"}</td>
+                          <td onClick={(e) => e.stopPropagation()} style={{ padding: '2px 10px' }}>
+                            {/* stopPropagation on the cell, not just the buttons:
+                                the row click loads this branch into the edit form,
+                                and reaching for Delete should not do that. */}
+                            {confirming ? (
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <button
+                                  className="stock-button"
+                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none', background: 'var(--ion-color-danger, #eb445a)' }}
+                                  disabled={deleting}
+                                  onClick={() => deleteBranch(lid)}
+                                >
+                                  {deleting ? "Deleting..." : "Confirm"}
+                                </button>
+                                <button
+                                  className="stock-button stock-button--secondary"
+                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                  disabled={deleting}
+                                  onClick={() => setBranchDeleteId(0)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                className="stock-button stock-button--secondary"
+                                style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                title="Delete this branch and dept row"
+                                onClick={() => setBranchDeleteId(lid)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {branchList.length === 0 && (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                      No branches found.
+                    </div>
+                  )}
+                </div>
+                </>)}
+
+                {/* ---------- On-duty movement check-in times ---------- */}
+                <h3
+                  className="stock-section-heading"
+                  onClick={() => toggleBranchSection("movement")}
+                  style={{
+                    cursor: 'pointer', userSelect: 'none',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    margin: '28px 0 0 0',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block', fontSize: '0.7em', lineHeight: 1,
+                      transition: 'transform 0.15s ease',
+                      transform: movementOpen ? 'rotate(90deg)' : 'none',
+                    }}
+                  >
+                    &#9654;
+                  </span>
+                  On-duty Branch Movement Check-in Time
+                  <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 400, color: 'var(--stock-muted)' }}>
+                    {movementPairs.length} combination{movementPairs.length === 1 ? '' : 's'}, {Object.keys(movementRules).length} set
+                    {Object.keys(movementDraft).length > 0 && ', unsaved edits'}
+                  </span>
+                </h3>
+
+                {movementOpen && (<>
+                <p style={{ margin: '12px 0 14px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
+                  Every combination of the branch/dept rows above is listed here, in both
+                  directions. Leave a movement blank and the person keeps the actual in-time
+                  from their own profile - that is the normal case, and nothing is stored for
+                  it. Fill a time in only where moving there should change when they are
+                  expected, e.g. Eluru / DBS to Vizag / AU at 11:00.
+                </p>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+                  <input
+                    type="text"
+                    className="stock-input"
+                    style={{ flex: '1 1 190px' }}
+                    value={movementFromSearch}
+                    placeholder="Moving from - e.g. Vizag SDE"
+                    onChange={(e) => setMovementFromSearch(e.target.value)}
+                  />
+                  <span style={{ color: 'var(--stock-muted)', fontSize: '0.9rem' }}>&#8594;</span>
+                  <input
+                    type="text"
+                    className="stock-input"
+                    style={{ flex: '1 1 190px' }}
+                    value={movementToSearch}
+                    placeholder="Moving to - e.g. Vizag AU"
+                    onChange={(e) => setMovementToSearch(e.target.value)}
+                  />
+                  {(movementFromSearch || movementToSearch) && (
+                    <button
+                      className="stock-button stock-button--secondary"
+                      style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                      onClick={() => { setMovementFromSearch(""); setMovementToSearch(""); }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={movementOnlySet}
+                      onChange={(e) => setMovementOnlySet(e.target.checked)}
+                    />
+                    Only movements with a time
+                  </label>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--stock-muted)' }}>
+                    {movementVisible.length} of {movementPairs.length} shown, {Object.keys(movementRules).length} set
+                  </span>
+                  <button
+                    className="stock-button stock-button--secondary"
+                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                    onClick={() => {
+                      const all: Record<string, boolean> = {};
+                      movementGroups.forEach((g: any) => { all[g.key] = true; });
+                      setMovementGroupOpen(all);
+                    }}
+                  >
+                    Expand all
+                  </button>
+                  <button
+                    className="stock-button stock-button--secondary"
+                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                    onClick={() => {
+                      // Every group written as false explicitly, not reset to {} -
+                      // an empty map would hand groups back to the filter default,
+                      // which is open, and the click would appear to do nothing.
+                      const all: Record<string, boolean> = {};
+                      movementGroups.forEach((g: any) => { all[g.key] = false; });
+                      setMovementGroupOpen(all);
+                    }}
+                  >
+                    Collapse all
+                  </button>
+                  <button
+                    className="stock-button"
+                    onClick={saveBranchMovement}
+                    disabled={movementSaving || Object.keys(movementDraft).length === 0}
+                  >
+                    {movementSaving
+                      ? "Saving..."
+                      : Object.keys(movementDraft).length
+                        ? `Save ${Object.keys(movementDraft).length} change${Object.keys(movementDraft).length === 1 ? "" : "s"}`
+                        : "Save"}
+                  </button>
+                  {Object.keys(movementDraft).length > 0 && !movementSaving && (
+                    <button className="stock-button stock-button--secondary" onClick={() => setMovementDraft({})}>
+                      Discard
+                    </button>
+                  )}
+                </div>
+
+                <div className="stock-table-wrapper" style={{ maxHeight: '460px' }}>
+                  <table className="stock-table">
+                    <thead>
+                      <tr>
+                        <th
+                          onClick={() => sortMovementBy("from")}
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          title="Sort by Moving From"
+                        >
+                          Moving From
+                          <span style={{ marginLeft: '6px', opacity: movementSortCol === "from" ? 1 : 0.28 }}>
+                            {movementSortCol === "from" && movementSortDir === "desc" ? "\u25BC" : "\u25B2"}
+                          </span>
+                        </th>
+                        <th
+                          onClick={() => sortMovementBy("to")}
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          title="Sort by Moving To"
+                        >
+                          Moving To
+                          <span style={{ marginLeft: '6px', opacity: movementSortCol === "to" ? 1 : 0.28 }}>
+                            {movementSortCol === "to" && movementSortDir === "desc" ? "\u25BC" : "\u25B2"}
+                          </span>
+                        </th>
+                        <th style={{ width: '230px' }}>Check-in Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movementGroups.map((g: any) => {
+                        const open = isMovementGroupOpen(g.key);
+                        // Counted off the draft as well as the saved map, so the
+                        // header agrees with the inputs the moment one is typed in.
+                        const setCount = g.rows.filter((r: any) => {
+                          const v = Object.prototype.hasOwnProperty.call(movementDraft, r.k)
+                            ? movementDraft[r.k]
+                            : (movementRules[r.k] ?? "");
+                          return v !== "";
+                        }).length;
+                        const groupDirty = g.rows.some((r: any) =>
+                          Object.prototype.hasOwnProperty.call(movementDraft, r.k));
+
+                        return (
+                          <React.Fragment key={g.key}>
+                            <tr
+                              onClick={() => toggleMovementGroup(g.key)}
+                              style={{
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                background: groupDirty
+                                  ? 'rgba(255, 196, 0, 0.18)'
+                                  : 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.07)',
+                              }}
+                            >
+                              <td colSpan={3} style={{ fontWeight: 600, padding: '4px 10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block', fontSize: '0.7em', lineHeight: 1,
+                                      transition: 'transform 0.15s ease',
+                                      transform: open ? 'rotate(90deg)' : 'none',
+                                    }}
+                                  >
+                                    &#9654;
+                                  </span>
+                                  {g.label}
+                                  <span style={{ marginLeft: 'auto', fontWeight: 400, fontSize: '0.75rem', color: 'var(--stock-muted)' }}>
+                                    {g.rows.length} destination{g.rows.length === 1 ? '' : 's'}, {setCount} set
+                                    {groupDirty && ', unsaved'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {open && g.rows.map((p: any) => {
+                        const saved = movementRules[p.k] ?? "";
+                        const dirty = Object.prototype.hasOwnProperty.call(movementDraft, p.k);
+                        const val = dirty ? movementDraft[p.k] : saved;
+                        // Typing a value and then putting the original back must stop
+                        // counting as a change, or Save would post rows that say nothing.
+                        const setVal = (v: string) =>
+                          setMovementDraft((prev) => {
+                            const next = { ...prev };
+                            if (v === saved) delete next[p.k];
+                            else next[p.k] = v;
+                            return next;
+                          });
+                        return (
+                          <tr key={p.k} style={{ background: dirty ? 'rgba(255, 196, 0, 0.14)' : undefined }}>
+                            {/* The From name lives in the group header now; this cell
+                                just carries the indent so the nesting is readable. */}
+                            <td style={{ textAlign: 'right', color: 'var(--stock-muted)', width: '40px', padding: '2px 10px' }}>&#8594;</td>
+                            <td style={{ padding: '2px 10px' }}>{p.to.label}</td>
+                            <td style={{ padding: '2px 10px' }}>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="time"
+                                  className="stock-input"
+                                  style={{ maxWidth: '112px', minHeight: '26px', height: '26px', padding: '0 8px', fontSize: '12px' }}
+                                  value={val}
+                                  onChange={(e) => setVal(e.target.value)}
+                                />
+                                {val ? (
+                                  <button
+                                    className="stock-button stock-button--secondary"
+                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                    title="Back to the actual in-time from the profile"
+                                    onClick={() => setVal("")}
+                                  >
+                                    Clear
+                                  </button>
+                                ) : (
+                                  <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
+                                    actual in-time from profile
+                                  </small>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {movementPairs.length === 0 && (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                      Add at least two branch/dept rows above before movements can be mapped.
+                    </div>
+                  )}
+                  {movementPairs.length > 0 && movementVisible.length === 0 && (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                      No movement matches that filter.
+                    </div>
+                  )}
+                </div>
+                </>)}
               </div>
             )}
 

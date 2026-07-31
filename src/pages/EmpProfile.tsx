@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 import {
   Settings,
@@ -153,7 +153,8 @@ const EmpProfile: React.FC = () => {
   const [ras, setRas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [locationTypes, setLocationTypes] = useState<any[]>([]);
-  const [locations, setLocations] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [branchDepts, setBranchDepts] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [searchQuery, setSearchQuery] = useState("");
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
@@ -207,6 +208,7 @@ const EmpProfile: React.FC = () => {
     _Project: "",
     _LocationType: "",
     _Location1: "",
+    _BranchDept: "",
   });
   const getMinutes = (checkIn: any) => {
     if (!checkIn) return 0;
@@ -299,13 +301,16 @@ const EmpProfile: React.FC = () => {
   const loadBaseData = async () => {
     console.group("[EmpProfile] Load Base Data (Depts/Desigs)");
     try {
-      const [depts, desigs, projs, locTypes, locs, ras] = await Promise.all([
-        apiService.loadDepartments(),
-        apiService.loadDesignations(),
-        apiService.loadTlProjects(),
-        apiService.loadLocationType(),
-        apiService.loadLocation(),
-        apiService.loadRAS(),
+      const [depts, desigs, projs, locTypes, branchRows, ras, bDepts] = await Promise.all([
+        apiService.loadDepartments().catch(() => []),
+        apiService.loadDesignations().catch(() => []),
+        apiService.loadTlProjects().catch(() => []),
+        apiService.loadLocationType().catch(() => []),
+        apiService.loadBranch().catch(() => []),
+        apiService.loadRAS().catch(() => []),
+        // distinct BranchDept values off tbl_Branch - returns [] rather than
+        // throwing so an old API build cannot take the whole form down
+        apiService.loadBranchDept().catch(() => []),
       ]);
       console.log("Raw Departments:", depts);
       console.log("Raw Designations:", desigs);
@@ -313,8 +318,10 @@ const EmpProfile: React.FC = () => {
       setDesignations(decodeArrayResponse(desigs, ["id", "name", "active"]));
       setProjects(decodeArrayResponse(projs, ["id", "name"]));
       setLocationTypes(decodeArrayResponse(locTypes, ["id", "name"]));
-      setLocations(decodeArrayResponse(locs, ["id", "name"]));
+      // APP_Load_Branch now returns (lid, Branch, BranchDept)
+      setBranches(decodeArrayResponse(branchRows, ["id", "name", "branchDept"]));
       setRas(ras);
+      setBranchDepts(decodeArrayResponse(bDepts, ["id", "name"]));
     } catch (e) {
       console.error("Error loading base data:", e);
     } finally {
@@ -498,11 +505,16 @@ const EmpProfile: React.FC = () => {
         row[40] !== null && row[40] !== undefined ? String(row[40]) : "",
       _PFNo: row[37] !== null && row[37] !== undefined ? String(row[37]) : "",
       _ESINo: row[36] !== null && row[36] !== undefined ? String(row[36]) : "",
+      // NOTE: Tbl_Employee has TWO check-in columns:
+      //   row[43] = intime1 (time(7))  -> LEGACY, APP_Save_Empdetails never writes it
+      //   row[44] = InTime  (nvarchar) -> the column the save proc actually updates
+      // Always prefer InTime, otherwise an edit "succeeds" but the screen keeps
+      // showing the stale intime1 value.
       _CheckIn:
-        row[43] !== null && row[43] !== undefined && row[43] !== "NULL"
-          ? normalizeTimeValue(row[43])
-          : row[44] !== null && row[44] !== undefined && row[44] !== "NULL"
-            ? normalizeTimeValue(row[44])
+        row[44] !== null && row[44] !== undefined && row[44] !== "NULL" && String(row[44]).trim() !== ""
+          ? normalizeTimeValue(row[44])
+          : row[43] !== null && row[43] !== undefined && row[43] !== "NULL" && String(row[43]).trim() !== ""
+            ? normalizeTimeValue(row[43])
             : normalizeTimeValue(
               rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30"
             ),
@@ -819,7 +831,8 @@ const EmpProfile: React.FC = () => {
             leave: userProfile.Allowed_LS ?? userProfile.ALLOWED_LS ?? userProfile.ALLOWED_CL ?? userProfile.Allowed_CL ?? userProfile.leave ?? 0,
             sick: userProfile.Allowed_SL ?? userProfile.ALLOWED_SL ?? userProfile.sick ?? 0,
             p_time: userProfile.P_Time ?? userProfile.p_time ?? userProfile.PTime ?? userProfile.pTime ?? "60",
-            checkIn: userProfile.intime1 ?? userProfile.InTime ?? userProfile.intime ?? userProfile.checkIn ?? userProfile.CheckIn ?? "09:30",
+            // InTime first — intime1 is the legacy column the save proc never writes
+            checkIn: userProfile.InTime ?? userProfile.inTime ?? userProfile.intime ?? userProfile.intime1 ?? userProfile.checkIn ?? userProfile.CheckIn ?? "09:30",
             requestTo: userProfile.RequestTo || "",
             userGroup: userProfile.UserGroup ?? userProfile.UserType ?? userProfile.Usertype ?? userProfile.userGroup ?? userProfile.userType ?? "",
             dayDA: userProfile.dayDA ?? userProfile.DayDA ?? userProfile.dayDa ?? userProfile.DayDa ?? userProfile.dayda ?? userProfile.day_da ?? "0",
@@ -903,7 +916,7 @@ const EmpProfile: React.FC = () => {
   useEffect(() => {
     if (!employeeRawRow) return;
 
-    if (!projects.length || !locationTypes.length || !locations.length) return;
+    if (!projects.length || !locationTypes.length || !branches.length) return;
 
     const getRowValue = (row: any, index: number, keys: string[]) => {
       if (Array.isArray(row)) return row[index];
@@ -916,7 +929,7 @@ const EmpProfile: React.FC = () => {
 
     const projectValue = getRowValue(employeeRawRow, 51, ["_Project", "Project", "project"]);
     const locationTypeValue = getRowValue(employeeRawRow, 52, ["_LocationType", "LocationType", "locationType"]);
-    const locationValue = getRowValue(employeeRawRow, 53, ["_Location1", "Location1", "location1"]);
+    const branchValue = getRowValue(employeeRawRow, 53, ["_Location1", "Location1", "location1"]);
 
     const projectId =
       projects.find((p) => p.name == projectValue || p.id == projectValue)?.id ||
@@ -926,20 +939,98 @@ const EmpProfile: React.FC = () => {
       locationTypes.find((l) => l.name == locationTypeValue || l.id == locationTypeValue)?.id ||
       locationTypeValue ||
       "";
-    const locationId =
-      locations.find((l) => l.name == locationValue || l.id == locationValue)?.id ||
-      locationValue ||
+    // The Branch dropdown carries the branch NAME. A branch now spans one
+    // row per dept in tbl_Branch, so its lid no longer identifies the branch
+    // on its own - and Tbl_Employee.Location1 stores the name anyway.
+    const branchNameValue =
+      branches.find((b) => b.name == branchValue || b.id == branchValue)?.name ||
+      branchValue ||
       "";
 
-    console.log({ projectValue, locationTypeValue, locationValue, projectId, locationTypeId, locationId });
+    // Tbl_Employee.BranchDept was appended to the END of the table, so unlike
+    // the older fields (51 = project, 52 = LocationType, 53 = Location1) it has
+    // no ordinal we can safely hard-code - APP_Get_Employee returns a plain
+    // positional array, and the next ALTER TABLE would shift any number we
+    // guessed. So instead of a magic index, scan the tail of the row for a
+    // value that matches a branch dept we already know about.
+    //
+    // 62 (Email2) is the highest ordinal this screen relies on, so anything
+    // past it is a newer column. If nothing matches - because APP_Get_Employee
+    // uses an explicit column list that omits BranchDept, or the dept was
+    // renamed - the field just comes up blank and the user re-picks it. It can
+    // never latch onto the wrong column.
+    const knownDepts = branchDepts
+      .map((d) => String(d.name ?? "").trim())
+      .filter((n) => n !== "");
+    const knownDeptsLower = knownDepts.map((n) => n.toLowerCase());
+
+    let branchDeptValue = "";
+    if (Array.isArray(employeeRawRow)) {
+      if (knownDeptsLower.length) {
+        for (let i = employeeRawRow.length - 1; i > 62; i--) {
+          const cell = String(employeeRawRow[i] ?? "").trim();
+          if (cell && knownDeptsLower.includes(cell.toLowerCase())) {
+            branchDeptValue = knownDepts[knownDeptsLower.indexOf(cell.toLowerCase())];
+            break;
+          }
+        }
+      }
+    } else if (employeeRawRow) {
+      branchDeptValue = String(
+        employeeRawRow.BranchDept ?? employeeRawRow._BranchDept ?? ""
+      ).trim();
+    }
+
+    console.log({ projectValue, locationTypeValue, branchValue, projectId, locationTypeId, branchNameValue, branchDeptValue });
 
     setFormData((prev) => ({
       ...prev,
       _Project: projectId,
       _LocationType: locationTypeId,
-      _Location1: locationId,
+      _Location1: branchNameValue,
+      _BranchDept: branchDeptValue,
     }));
-  }, [employeeRawRow, projects, locationTypes, locations]);
+  }, [employeeRawRow, projects, locationTypes, branches, branchDepts]);
+
+  // tbl_Branch holds one row per (Branch, BranchDept) pair, so the branch list
+  // repeats a branch name once for each of its depts. Collapse it for the
+  // Branch dropdown.
+  const branchNames = Array.from(
+    new Set(branches.map((b) => String(b.name ?? "").trim()).filter((n) => n !== ""))
+  );
+
+  // Depts recorded against the branch currently selected on the form.
+  const selectedBranch = String(formData._Location1 ?? "").trim().toLowerCase();
+  const deptsForBranch = Array.from(
+    new Set(
+      branches
+        .filter((b) => String(b.name ?? "").trim().toLowerCase() === selectedBranch)
+        .map((b) => String(b.branchDept ?? "").trim())
+        .filter((d) => d !== "")
+    )
+  );
+
+  // If this branch has no dept on record, fall back to every known dept rather
+  // than leaving the user staring at an empty dropdown they cannot get past.
+  const deptOptions = deptsForBranch.length
+    ? deptsForBranch
+    : branchDepts.map((d) => String(d.name ?? "").trim()).filter((d) => d !== "");
+
+  // Keep the dept in step with the branch:
+  //   exactly one dept for this branch   -> fill it in automatically
+  //   current dept not valid here        -> clear it
+  //   dept already valid, or none known  -> leave it alone
+  // Written as a reconcile against the current state rather than as an
+  // onChange handler, so it also settles the value when an existing employee
+  // is loaded for editing, not just when the user picks a branch by hand.
+  useEffect(() => {
+    if (!deptsForBranch.length) return;
+    const current = String(formData._BranchDept ?? "").trim();
+    if (deptsForBranch.some((d) => d.toLowerCase() === current.toLowerCase())) return;
+    const next = deptsForBranch.length === 1 ? deptsForBranch[0] : "";
+    if (next === current) return;
+    setFormData((prev) => ({ ...prev, _BranchDept: next }));
+  }, [formData._Location1, formData._BranchDept, branches]);
 
   useEffect(() => {
     // Apply the theme ID to the data-theme attribute
@@ -1016,16 +1107,18 @@ const EmpProfile: React.FC = () => {
       const locationTypeName =
         locationTypes.find((l) => l.id == formData._LocationType)?.name ||
         formData._LocationType;
-      const locationName =
-        locations.find((l) => l.id == formData._Location1)?.name ||
-        formData._Location1;
+      // the Branch dropdown already holds the branch NAME, so no id lookup
+      const branchName = String(formData._Location1 ?? "").trim();
 
       const payload = {
         ...formData,
         _User: formData._user,
         _Project: projectName,
         _LocationType: locationTypeName,
-        _Location1: locationName,
+        _Location1: branchName,
+        // the Branch Dept dropdown already holds the name (its ids come from a
+        // ROW_NUMBER over distinct values and are not stable), so no lookup
+        _BranchDept: (formData._BranchDept ?? "").trim(),
         _Doj: formatToDDMMYYYY(formData._Doj),
         _Dob: formatToDDMMYYYY(formData._Dob),
       };
@@ -1111,6 +1204,7 @@ const EmpProfile: React.FC = () => {
       _Project: "",
       _LocationType: "",
       _Location1: "",
+      _BranchDept: "",
     });
     setShowRegisterModal(true);
   };
@@ -1968,8 +2062,9 @@ const EmpProfile: React.FC = () => {
                       value={formData._Blood}
                       onChange={handleInputChange}
                       required
+                      className="ep-select"
                     >
-                      <option value="">Select</option>
+                      <option value="">Select Blood Group</option>
                       <option value="A+">A+</option>
                       <option value="A-">A-</option>
                       <option value="B+">B+</option>
@@ -2204,21 +2299,60 @@ const EmpProfile: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Location */}
+                  {/* Branch - tbl_Branch.Branch, managed in Sources > Branches.
+                      The posted field is still _Location1 because that is the
+                      Tbl_Employee column name and the APP_Save_Empdetails
+                      parameter; only the branch master was renamed. */}
                   <div className="ep-input-group">
-                    <label>Location</label>
+                    <label>Branch</label>
                     <select
                       name="_Location1"
                       value={formData._Location1}
                       onChange={handleInputChange}
                       className="ep-select"
                     >
-                      <option value="">Select Location</option>
-                      {locations.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
+                      <option value="">Select Branch</option>
+                      {branchNames.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  {/* Branch Dept - the depts recorded against the branch
+                      selected above, edited per branch in Sources > Branches.
+                      Falls back to every known dept when that branch has none
+                      on record, and auto-fills when it has exactly one. The
+                      option value is the NAME, not an id: Load_BranchDept
+                      numbers rows with ROW_NUMBER, so ids shift whenever a
+                      branch is added. */}
+                  <div className="ep-input-group">
+                    <label>Branch Dept</label>
+                    <select
+                      name="_BranchDept"
+                      value={formData._BranchDept}
+                      onChange={handleInputChange}
+                      className="ep-select"
+                    >
+                      <option value="">Select Branch Dept</option>
+                      {deptOptions.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                      {/* keep a value that is no longer in the list visible
+                          instead of silently blanking it */}
+                      {formData._BranchDept &&
+                        !deptOptions.some(
+                          (d) =>
+                            d.toLowerCase() ===
+                            String(formData._BranchDept).trim().toLowerCase()
+                        ) && (
+                          <option value={formData._BranchDept}>
+                            {formData._BranchDept}
+                          </option>
+                        )}
                     </select>
                   </div>
 

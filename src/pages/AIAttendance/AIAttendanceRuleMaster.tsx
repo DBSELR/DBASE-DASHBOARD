@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { IonPage, IonContent, IonIcon } from '@ionic/react';
 import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router-dom';
@@ -12,15 +12,34 @@ const hdrs = { 'Content-Type': 'application/json', 'x-api-key': API_KEY };
 interface BranchRule {
   id: number;
   branch: string;
+  /** '' means the branch-wide fallback row: it applies to every dept in the
+   *  branch that has no row of its own. */
+  branchDept: string;
   btRequired: boolean;
   gpsRequired: boolean;
 }
+
+interface BranchDeptPair {
+  branch: string;
+  branchDept: string;
+}
+
+/** A rule is identified by the (branch, dept) PAIR, never by branch alone.
+ *  \u0001 cannot occur in a branch or dept name, so it is a safe separator -
+ *  the same one the API uses for its own rule cache keys. */
+const ruleKey = (branch: string, dept: string) =>
+  `${(branch || '').trim()}\u0001${(dept || '').trim()}`;
+
+const deptLabel = (dept: string) => (dept || '').trim() || 'All departments';
 
 interface Employee {
   empCode: string;
   empName: string;
   designation: string;
   branch: string;
+  /** The dept on tbl_employee, i.e. which branch/dept row this person sits
+   *  under. Optional so an older API build that omits it still parses. */
+  branchDept?: string;
   department?: string;
 }
 
@@ -46,12 +65,18 @@ const AIAttendanceRuleMaster: React.FC = () => {
   // --- Branch tab state ---
   const [branchRules, setBranchRules] = useState<BranchRule[]>([]);
   const [allBranches, setAllBranches] = useState<string[]>([]);
+  // Every (Branch, BranchDept) pair that exists in tbl_Branch.
+  const [branchDeptPairs, setBranchDeptPairs] = useState<BranchDeptPair[]>([]);
   const [localRules, setLocalRules] = useState<Record<string, { bt: boolean; gps: boolean }>>({});
-  const [savingBranch, setSavingBranch] = useState<string | null>(null);
-  const [addingNew, setAddingNew] = useState(false);
-  const [newBranch, setNewBranch] = useState('');
-  const [newBt, setNewBt] = useState(false);
-  const [newGps, setNewGps] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  // Rows the user has touched but not yet ticked. Saving one row reloads the
+  // whole rule list from the server, and without this the reload would quietly
+  // wipe pending edits on every OTHER row. A ref, not state: it must be
+  // readable from inside loadBranchRules without making that callback
+  // re-create itself on every keystroke.
+  const dirtyKeys = useRef<Set<string>>(new Set());
+  // No "add" row any more: every branch/dept pair in tbl_Branch is listed
+  // automatically, so there is nothing left to add by hand.
 
   // --- Override tab state ---
   const [ruleType, setRuleType] = useState<'BRANCH' | 'MARKETING'>('MARKETING');
@@ -102,7 +127,11 @@ const AIAttendanceRuleMaster: React.FC = () => {
   ).sort();
 
   // --- Branch expand state ---
-  const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
+  // Keyed by ruleKey(), because two rows can share a branch name now.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  // Both keyed by ruleKey(), NOT by branch: Vizag/AU and Vizag/SDE hold
+  // different people, so a branch-keyed cache would show the first dept
+  // expanded to every other dept of the same branch.
   const [branchEmpCache, setBranchEmpCache] = useState<Record<string, Employee[]>>({});
   const [branchEmpLoading, setBranchEmpLoading] = useState<string | null>(null);
 
@@ -117,8 +146,17 @@ const AIAttendanceRuleMaster: React.FC = () => {
     if (d.success) {
       setBranchRules(d.data);
       const map: Record<string, { bt: boolean; gps: boolean }> = {};
-      d.data.forEach((row: BranchRule) => { map[row.branch] = { bt: row.btRequired, gps: row.gpsRequired }; });
-      setLocalRules(map);
+      d.data.forEach((row: BranchRule) => {
+        map[ruleKey(row.branch, row.branchDept)] = { bt: row.btRequired, gps: row.gpsRequired };
+      });
+      // Server truth wins everywhere EXCEPT rows with edits still in flight.
+      // Those the user is mid-way through changing, and throwing them away
+      // because a different row was saved would look like the app losing work.
+      setLocalRules(prev => {
+        const merged = { ...map };
+        dirtyKeys.current.forEach(k => { if (prev[k]) merged[k] = prev[k]; });
+        return merged;
+      });
     }
   }, []);
 
@@ -126,6 +164,17 @@ const AIAttendanceRuleMaster: React.FC = () => {
     const r = await fetch(API_BASE + 'Checkin/GetBranches', { headers: hdrs });
     const d = await r.json();
     if (d.success) setAllBranches(d.data);
+  }, []);
+
+  const loadBranchDeptPairs = useCallback(async () => {
+    try {
+      const r = await fetch(API_BASE + 'Checkin/GetBranchDeptPairs', { headers: hdrs });
+      const d = await r.json();
+      if (d.success) setBranchDeptPairs(d.data);
+    } catch {
+      // Old API build that predates this endpoint: the Add row falls back to
+      // the plain branch list instead of breaking the whole screen.
+    }
   }, []);
 
   const loadOverrides = useCallback(async () => {
@@ -145,37 +194,35 @@ const AIAttendanceRuleMaster: React.FC = () => {
     }
   }, [ruleType]);
 
-  useEffect(() => { loadBranchRules(); loadBranches(); }, [loadBranchRules, loadBranches]);
+  useEffect(() => { loadBranchRules(); loadBranches(); loadBranchDeptPairs(); },
+    [loadBranchRules, loadBranches, loadBranchDeptPairs]);
+
   useEffect(() => { if (activeTab === 'overrides') loadOverrides(); }, [activeTab, loadOverrides]);
 
-  async function saveBranchRule(branch: string) {
-    const local = localRules[branch];
-    if (!local) return;
-    setSavingBranch(branch);
+  async function saveBranchRule(branch: string, branchDept: string) {
+    const k = ruleKey(branch, branchDept);
+    // A row that has never been saved still has a value on screen - the one it
+    // inherits from the branch fallback. Saving it writes that value down as a
+    // row of its own, which is exactly what the tick is for.
+    const local = localRules[k] ?? effectiveRule(branch, branchDept);
+    setSavingKey(k);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     await fetch(API_BASE + 'Checkin/SaveBranchRule', {
       method: 'POST', headers: hdrs,
-      body: JSON.stringify({ branch, btRequired: local.bt, gpsRequired: local.gps, createdBy: user.empName || 'admin' })
+      body: JSON.stringify({
+        branch, branchDept: (branchDept || '').trim(),
+        btRequired: local.bt, gpsRequired: local.gps,
+        createdBy: user.empName || 'admin'
+      })
     });
-    setSavingBranch(null);
+    setSavingKey(null);
+    // This row is now server truth, so it must stop being protected from the
+    // reload below - otherwise it would pin the local copy forever.
+    dirtyKeys.current.delete(k);
     showToast('Branch rule saved.');
     loadBranchRules();
   }
 
-  async function saveNewBranch() {
-    if (!newBranch) return;
-    setSavingBranch(newBranch);
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    await fetch(API_BASE + 'Checkin/SaveBranchRule', {
-      method: 'POST', headers: hdrs,
-      body: JSON.stringify({ branch: newBranch, btRequired: newBt, gpsRequired: newGps, createdBy: user.empName || 'admin' })
-    });
-    setSavingBranch(null);
-    setAddingNew(false);
-    setNewBranch('');
-    showToast('Branch added.');
-    loadBranchRules();
-  }
 
   // Load employees filtered by branch (for BRANCH flow)
   async function loadBranchEmployees() {
@@ -228,20 +275,92 @@ const AIAttendanceRuleMaster: React.FC = () => {
     setSelIds(prev => prev.includes(code) ? prev.filter(x => x !== code) : [...prev, code]);
   }
 
-  async function toggleBranchExpand(branch: string) {
-    if (expandedBranch === branch) { setExpandedBranch(null); return; }
-    setExpandedBranch(branch);
-    if (branchEmpCache[branch]) return;
-    setBranchEmpLoading(branch);
+  // Employees are fetched and cached per (branch, dept) PAIR, matching the row
+  // that was expanded. A blank dept means the branch-wide fallback row, and
+  // that one genuinely does cover everyone in the branch, so it sends no dept
+  // filter and gets the whole branch back.
+  async function toggleBranchExpand(branch: string, branchDept: string) {
+    const k = ruleKey(branch, branchDept);
+    if (expandedKey === k) { setExpandedKey(null); return; }
+    setExpandedKey(k);
+    if (branchEmpCache[k]) return;
+    setBranchEmpLoading(k);
     try {
-      const r = await fetch(API_BASE + `Checkin/GetEmployeesByBranch?branch=${encodeURIComponent(branch)}`, { headers: hdrs });
+      const dept = (branchDept || '').trim();
+      const url = API_BASE + `Checkin/GetEmployeesByBranch?branch=${encodeURIComponent(branch)}`
+        + (dept ? `&branchDept=${encodeURIComponent(dept)}` : '');
+      const r = await fetch(url, { headers: hdrs });
       const d = await r.json();
-      if (d.success) setBranchEmpCache(prev => ({ ...prev, [branch]: d.data }));
+      if (d.success) {
+        // Belt and braces: if the API build predates the branchDept filter it
+        // returns the whole branch, so narrow it here too rather than showing
+        // the wrong people. Rows with no dept of their own are left alone.
+        const rows: Employee[] = dept
+          ? (d.data as Employee[]).filter(e =>
+              !e.branchDept || String(e.branchDept).trim().toLowerCase() === dept.toLowerCase())
+          : (d.data as Employee[]);
+        setBranchEmpCache(prev => ({ ...prev, [k]: rows }));
+      }
     } catch {}
     setBranchEmpLoading(null);
   }
 
-  const unusedBranches = allBranches.filter(b => !branchRules.some(r => r.branch === b));
+  // Every (Branch, BranchDept) pair known to the system, whether or not it has
+  // a saved rule. Falls back to the plain branch list if the API predates
+  // GetBranchDeptPairs.
+  const knownPairs: BranchDeptPair[] = branchDeptPairs.length
+    ? branchDeptPairs
+    : allBranches.map(b => ({ branch: b, branchDept: '' }));
+
+  /** What a pair ACTUALLY resolves to right now, which is not the same as what
+   *  is stored. A pair with no row of its own is governed by the branch-wide
+   *  fallback, so that is what its toggles must show - otherwise the screen
+   *  would display OFF/ON defaults that contradict what check-in enforces. */
+  const effectiveRule = (branch: string, dept: string): { bt: boolean; gps: boolean } => {
+    const own = localRules[ruleKey(branch, dept)];
+    if (own) return own;
+    const fallback = localRules[ruleKey(branch, '')];
+    return fallback ? { ...fallback } : { bt: false, gps: true };
+  };
+
+  // Branches that have at least one NAMED dept. Only these can safely have
+  // their blank-dept row hidden - a branch with no dept at all would otherwise
+  // vanish from this screen completely and become uneditable.
+  const branchesWithDepts = new Set(
+    [...knownPairs, ...branchRules]
+      .filter(pr => (pr.branchDept || '').trim())
+      .map(pr => (pr.branch || '').trim())
+  );
+
+  // One row per branch + NAMED dept. The blank-dept fallback row is deliberately
+  // not listed: it still exists in the database and check-in still falls back to
+  // it for any dept without a row, it is just noise on this screen. The one
+  // exception is a branch with no depts, which keeps its fallback row so it
+  // remains reachable.
+  const displayRows: (BranchDeptPair & { saved: boolean })[] = (() => {
+    const out: (BranchDeptPair & { saved: boolean })[] = [];
+    const seen = new Set<string>();
+    const push = (branch: string, branchDept: string, saved: boolean) => {
+      const b = (branch || '').trim();
+      if (!b) return;
+      const d = (branchDept || '').trim();
+      if (!d && branchesWithDepts.has(b)) return;   // hidden fallback row
+      const k = ruleKey(b, d);
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ branch: b, branchDept: d, saved });
+    };
+    // saved first, so `saved` is never wrongly false
+    branchRules.forEach(r => push(r.branch, r.branchDept, true));
+    knownPairs.forEach(pr => push(pr.branch, pr.branchDept, false));
+    allBranches.forEach(b => push(b, '', false));
+    return out.sort((a, b) => {
+      if (a.branch !== b.branch) return a.branch.localeCompare(b.branch);
+      if (!a.branchDept) return -1;
+      if (!b.branchDept) return 1;
+      return a.branchDept.localeCompare(b.branchDept);
+    });
+  })();
 
   // Step labels per flow
   const branchStepLabels = ['Branch', 'Employees', 'Rules', 'Date Range'];
@@ -300,6 +419,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                   <thead>
                     <tr>
                       <th>Branch</th>
+                      <th>Branch Dept</th>
                       <th>Bluetooth</th>
                       <th>GPS / Location</th>
                       <th>Face</th>
@@ -307,52 +427,83 @@ const AIAttendanceRuleMaster: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {branchRules.map(rule => (
-                      <React.Fragment key={rule.branch}>
+                    {displayRows.map(rule => {
+                      const rk = ruleKey(rule.branch, rule.branchDept);
+                      const isFallback = !(rule.branchDept || '').trim();
+                      // What this pair resolves to today, stored or inherited.
+                      const eff = effectiveRule(rule.branch, rule.branchDept);
+                      return (
+                      <React.Fragment key={rk}>
                         <tr>
                           <td>
-                            <button className="rm-branch-btn" onClick={() => toggleBranchExpand(rule.branch)}>
-                              <span className={`rm-branch-arrow${expandedBranch === rule.branch ? ' rm-arrow-open' : ''}`}>&#9654;</span>
+                            <button className="rm-branch-btn" onClick={() => toggleBranchExpand(rule.branch, rule.branchDept)}>
+                              <span className={`rm-branch-arrow${expandedKey === rk ? ' rm-arrow-open' : ''}`}>&#9654;</span>
                               {rule.branch}
                             </button>
                           </td>
                           <td>
+                            <span className={isFallback ? 'rm-dept-fallback' : 'rm-dept'}>
+                              {deptLabel(rule.branchDept)}
+                            </span>
+                            {!rule.saved && (
+                              <span className="rm-dept-inherited" title="No rule of its own yet - following the branch default. Hit the tick to pin it.">
+                                inherited
+                              </span>
+                            )}
+                          </td>
+                          <td>
                             <label className="rm-toggle">
                               <input type="checkbox"
-                                checked={localRules[rule.branch]?.bt ?? false}
-                                onChange={e => setLocalRules(prev => ({
-                                  ...prev, [rule.branch]: { ...prev[rule.branch], bt: e.target.checked }
-                                }))} />
+                                checked={eff.bt}
+                                onChange={e => {
+                                  const on = e.target.checked;
+                                  dirtyKeys.current.add(rk);
+                                  // Spread prev[rk], not the render-time `eff`:
+                                  // if both toggles on a row fire before the
+                                  // next render, `eff` is already stale and
+                                  // the second change would undo the first.
+                                  setLocalRules(prev => ({
+                                    ...prev, [rk]: { ...(prev[rk] ?? eff), bt: on }
+                                  }));
+                                }} />
                               <span className="rm-slider" />
                             </label>
                           </td>
                           <td>
                             <label className="rm-toggle">
                               <input type="checkbox"
-                                checked={localRules[rule.branch]?.gps ?? true}
-                                onChange={e => setLocalRules(prev => ({
-                                  ...prev, [rule.branch]: { ...prev[rule.branch], gps: e.target.checked }
-                                }))} />
+                                checked={eff.gps}
+                                onChange={e => {
+                                  const on = e.target.checked;
+                                  dirtyKeys.current.add(rk);
+                                  setLocalRules(prev => ({
+                                    ...prev, [rk]: { ...(prev[rk] ?? eff), gps: on }
+                                  }));
+                                }} />
                               <span className="rm-slider" />
                             </label>
                           </td>
                           <td><span className="rm-always-on">Always ON</span></td>
                           <td>
-                            <button className="rm-save-btn" disabled={savingBranch === rule.branch} onClick={() => saveBranchRule(rule.branch)}>
-                              {savingBranch === rule.branch ? '…' : '✓'}
+                            <button className="rm-save-btn" disabled={savingKey === rk} onClick={() => saveBranchRule(rule.branch, rule.branchDept)}>
+                              {savingKey === rk ? '…' : '✓'}
                             </button>
                           </td>
                         </tr>
-                        {expandedBranch === rule.branch && (
+                        {expandedKey === rk && (
                           <tr className="rm-branch-emp-row">
-                            <td colSpan={5} style={{ padding: '4px 8px 12px' }}>
-                              {branchEmpLoading === rule.branch ? (
+                            <td colSpan={6} style={{ padding: '4px 8px 12px' }}>
+                              {branchEmpLoading === rk ? (
                                 <p className="rm-empty">Loading…</p>
-                              ) : (branchEmpCache[rule.branch] || []).length === 0 ? (
-                                <p className="rm-empty">No employees in this branch.</p>
+                              ) : (branchEmpCache[rk] || []).length === 0 ? (
+                                <p className="rm-empty">
+                                  {isFallback
+                                    ? 'No employees in this branch.'
+                                    : `No employees in ${rule.branch} / ${rule.branchDept}.`}
+                                </p>
                               ) : (
                                 <div className="rm-branch-emp-list">
-                                  {(branchEmpCache[rule.branch] || []).map(emp => (
+                                  {(branchEmpCache[rk] || []).map(emp => (
                                     <div key={emp.empCode} className="rm-branch-emp-item">
                                       <span className="rm-badge-code">{emp.empCode}</span>
                                       <div>
@@ -367,41 +518,17 @@ const AIAttendanceRuleMaster: React.FC = () => {
                           </tr>
                         )}
                       </React.Fragment>
-                    ))}
-
-                    {addingNew && (
-                      <tr>
-                        <td>
-                          <select className="rm-select" value={newBranch} onChange={e => setNewBranch(e.target.value)}>
-                            <option value="">-- Select --</option>
-                            {unusedBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                          </select>
-                        </td>
-                        <td>
-                          <label className="rm-toggle">
-                            <input type="checkbox" checked={newBt} onChange={e => setNewBt(e.target.checked)} />
-                            <span className="rm-slider" />
-                          </label>
-                        </td>
-                        <td>
-                          <label className="rm-toggle">
-                            <input type="checkbox" checked={newGps} onChange={e => setNewGps(e.target.checked)} />
-                            <span className="rm-slider" />
-                          </label>
-                        </td>
-                        <td><span className="rm-always-on">Always ON</span></td>
-                        <td style={{ display: 'flex', gap: 4 }}>
-                          <button className="rm-save-btn" onClick={saveNewBranch}>✓</button>
-                          <button className="rm-del-btn" onClick={() => setAddingNew(false)}>✕</button>
-                        </td>
-                      </tr>
-                    )}
+                      );
+                    })}
                   </tbody>
                 </table>
 
-                {!addingNew && unusedBranches.length > 0 && (
-                  <button className="rm-add-btn" onClick={() => setAddingNew(true)}>+ Add Branch</button>
-                )}
+                <p className="rm-rule-hint">
+                  One row per branch and branch dept. A row marked
+                  <span className="rm-dept-inherited">inherited</span>
+                  has no rule of its own and is following its branch default -
+                  change a toggle and press the tick to give it one.
+                </p>
               </div>
             )}
 

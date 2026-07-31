@@ -579,7 +579,7 @@ input:checked+.ep-slider:before {
 }
 
 .ep-modal-large {
-  max-width: 1000px;
+  max-width: 1180px;
 }
 
 .ep-modal-handle {
@@ -976,10 +976,10 @@ input:checked+.ep-slider:before {
 
 @media screen and (min-width: 1024px) {
 
-  /* Limit form grid to 2 columns for better focus and alignment in modals */
+  /* 3 columns on wide screens so long forms need much less scrolling */
   .ep-form-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px 24px;
   }
 }
 

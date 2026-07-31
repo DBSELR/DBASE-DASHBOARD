@@ -1,4 +1,4 @@
-import { API_BASE } from "../config";
+﻿import { API_BASE } from "../config";
 
 const BASE_URL = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
@@ -185,9 +185,14 @@ export const apiService = {
         return apiService.get("/Sources/Load_LocationType");
     },
 
-    loadLocation: async () => {
-        console.log("API: Load Location");
-        return apiService.get("/Sources/Load_Location");
+    loadBranch: async () => {
+        console.log("API: Load Branch");
+        return apiService.get("/Sources/Load_Branch");
+    },
+
+    loadBranchDept: async () => {
+        console.log("API: Load BranchDept");
+        return apiService.get("/Sources/Load_BranchDept");
     },
 
     loadDesignations: async () => {
@@ -228,15 +233,5 @@ export const apiService = {
     getTaskTags: async (tid: number) => {
         console.log("API: Get Task Tags", tid);
         return apiService.get(`/Tickets/Get_Task_Tags?TID=${tid}`);
-    },
-
-    saveWorkReport: async (reportData: any) => {
-        console.log("API: Save Work Report", reportData);
-        return apiService.post("/Workreport/saveworkReport", reportData);
-    },
-
-    loadWorkReportClients: async () => {
-        console.log("API: Load Work Report Clients");
-        return apiService.get("/Workreport/Load_Clients?College");
     },
 };

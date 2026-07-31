@@ -1,4 +1,4 @@
-import {
+﻿import {
   IonContent,
   IonItem,
   IonLabel,
@@ -275,8 +275,10 @@ const Menu: React.FC = () => {
 
         <IonContent className={`menu-background modern-glass-content ${isCollapsed ? 'collapsed' : ''}`} scrollY={false} style={{ '--background': 'transparent' }}>
           
-          {/* ── Bouncing Floater Ball ── */}
-          <BouncingBall />
+          {/* ── Bouncing Floater Ball ── hidden on request.
+              The component below is left defined, not deleted, so this is a
+              one-line change to put back. */}
+          {/* <BouncingBall /> */}
 
           <div className="menu-inner-wrapper" style={{ position: 'relative', zIndex: 1, height: '100%', overflow: 'hidden' }}>
             {/* ── Profile Card (static, never scrolls) ── */}

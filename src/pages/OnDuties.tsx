@@ -34,6 +34,7 @@ import {
   peopleOutline,
   carOutline,
   documentTextOutline,
+  refreshOutline,
 } from "ionicons/icons";
 import axios from "axios";
 import "./OnDuties.css";
@@ -206,10 +207,35 @@ const fmtDate = (val?: string) => {
   if (!val) return "";
   const d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
-  return moment(d).format("DD-MM-YYYY");
+  return moment(d).format("DD-MM-YYYY HH:mm");
 };
 
-const emptyVisit = (): VisitItem => ({
+// Combines a date value with a separately-fetched HH:mm(:ss) time value
+// (e.g. Start_Time/End_Time from the db) so the Timeline display reflects
+// the actual logged time rather than whatever midnight/placeholder time
+// may be embedded in DateFrom/DateTo. Falls back to fmtDate(dateVal) when
+// no usable time value is available.
+const fmtDateWithTime = (dateVal?: string, timeVal?: string) => {
+  if (!dateVal) return "";
+  const datePart = moment(dateVal).isValid()
+    ? moment(dateVal).format("YYYY-MM-DD")
+    : String(dateVal).split("T")[0];
+  const t = (timeVal || "").trim();
+  const timeMatch = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (datePart && timeMatch) {
+    const hh = timeMatch[1].padStart(2, "0");
+    const mm = timeMatch[2];
+    const combined = moment(`${datePart} ${hh}:${mm}`, "YYYY-MM-DD HH:mm");
+    if (combined.isValid()) return combined.format("DD-MM-YYYY HH:mm");
+  }
+  return fmtDate(dateVal);
+};
+
+// defaultFromTime pre-fills Visit From Time with the On Duty's own applied
+// Timeline start (Start_Time, fetched from the db) so a new visit already
+// shows the right time instead of opening the picker at 00:00 and forcing
+// the user to roll the wheel all the way up to find it.
+const emptyVisit = (defaultFromTime: string = ""): VisitItem => ({
   partyName: "",
   location: "",
   latitude: "",
@@ -217,7 +243,7 @@ const emptyVisit = (): VisitItem => ({
   demoProjects: [],
   contactPerson: "",
   mobile: "",
-  visitFromTime: "",
+  visitFromTime: defaultFromTime,
   visitToTime: "",
 
   localTransportAmount: "",
@@ -226,7 +252,7 @@ const emptyVisit = (): VisitItem => ({
   visitSlipImage: null,
   remarks: "",
 });
-const emptyTripDay = (date: string): TripDayItem => ({
+const emptyTripDay = (date: string, defaultVisitFromTime: string = ""): TripDayItem => ({
   dutyDate: date,
   readingFrom: "",
   readingTo: "",
@@ -235,7 +261,7 @@ const emptyTripDay = (date: string): TripDayItem => ({
   distance: "",
   fuelAmount: "",
   fuelImage: null,
-  visits: [emptyVisit()],
+  visits: [emptyVisit(defaultVisitFromTime)],
 });
 
 type OnDutiesProps = {
@@ -305,6 +331,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     userDesig.includes("Manager");
 
   const [dateModalType, setDateModalType] = useState<"from" | "to" | null>(null);
+  const [visitTimeModal, setVisitTimeModal] = useState<{ visitIndex: number; field: "visitFromTime" | "visitToTime" } | null>(null);
 
 
   const [institution, setInstitution] = useState<string>("");
@@ -331,7 +358,20 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
   const [activeDutyTab, setActiveDutyTab] = useState<"my" | "team">("my");
 
-const today = new Date().toISOString().split("T")[0];
+// The device/browser's own system timezone can't be trusted to be IST (dev
+// machines and emulators are frequently left on UTC), and this app's camp
+// scheduling is always meant in IST regardless of the device - so "now" is
+// always computed as the true current instant re-expressed with a fixed
+// +05:30 offset, never via plain `new Date()`/`moment()` (which silently
+// follow whatever timezone the OS happens to be set to).
+const IST_OFFSET_MIN = 330; // +05:30, no DST in India
+const nowIST = () => moment().utcOffset(IST_OFFSET_MIN);
+// Re-expresses an already-correct stored instant in the IST offset context,
+// so "same day"/hour/minute reads use IST's calendar boundaries rather than
+// whatever offset moment would otherwise default to when parsing the string.
+const toIST = (val: string) => moment(val).utcOffset(IST_OFFSET_MIN);
+
+const today = nowIST().format("YYYY-MM-DD");
 
 const [unlockRange, setUnlockRange] = useState({
   approved: false,
@@ -341,7 +381,7 @@ const [unlockRange, setUnlockRange] = useState({
 
 
 
-const [dutyFromDate, setDutyFromDate] = useState<string>(today);
+const [dutyFromDate, setDutyFromDate] = useState<string>(nowIST().toISOString(true));
 const [dutyToDate, setDutyToDate] = useState<string | null>(null);
 
 
@@ -476,6 +516,47 @@ useEffect(() => {
     return generateDaysBetween(fromDate, toDate);
   };
 
+  // A duty must have cleared at least ONE approval stage (any RA slot
+  // "Approved", or an overall approved/ongoing status) before day trips can
+  // be logged against it - a freshly-submitted, fully-pending request
+  // shouldn't accumulate trip data that might never be sanctioned.
+  const hasAnyApproval = (row: DutyRow) => {
+    const approved = (s?: string) =>
+      String(s || "").trim().toLowerCase() === "approved";
+    if (
+      approved(row.RA1_Status) ||
+      approved(row.RA2_Status) ||
+      approved(row.RA3_Status) ||
+      approved(row.RA4_Status)
+    )
+      return true;
+    return String(row.Status || "").toLowerCase().includes("approved");
+  };
+
+  // Stricter gate for visit entries (+ Add Party): the request must have
+  // cleared EVERY real approval slot ("-" / empty slots don't count as
+  // pending), or carry an overall "Approved" status. One-stage approval is
+  // enough to open a duty day and log the journey-start reading, but the
+  // actual client visits shouldn't be recorded until the request is fully
+  // sanctioned.
+  const isFullyApproved = (row?: DutyRow | null) => {
+    if (!row) return false;
+    const approved = (s?: string) =>
+      String(s || "").trim().toLowerCase() === "approved";
+    const realSlots = [
+      [row.RA1, row.RA1_Status],
+      [row.RA2, row.RA2_Status],
+      [row.RA3, row.RA3_Status],
+      [row.RA4, row.RA4_Status],
+    ].filter(([ra]) => {
+      const v = String(ra || "").trim();
+      return v !== "" && v !== "-";
+    });
+    if (realSlots.length > 0 && realSlots.every(([, st]) => approved(st as string)))
+      return true;
+    return String(row.Status || "").trim().toLowerCase() === "approved";
+  };
+
   const openAddDayTripModal = (row: DutyRow) => {
   setTripModalMode("add");
 
@@ -499,7 +580,13 @@ useEffect(() => {
     return;
   }
 
-  const newTrip = emptyTripDay(normalize(nextDate));
+  // Note: adding a duty day for a FUTURE date is deliberately allowed - an
+  // employee may start the journey the evening before the camp day and needs
+  // to record the vehicle's start reading then. Only VISIT entries stay
+  // blocked on future dates (see + Add Party / addTripVisit / edit-mode save
+  // guards).
+  const defaultVisitFromTime = row.Start_Time ? String(row.Start_Time).slice(0, 5) : "";
+  const newTrip = emptyTripDay(normalize(nextDate), defaultVisitFromTime);
 
   const newIndex = currentTrips.length;
 
@@ -668,15 +755,56 @@ useEffect(() => {
   const addTripVisit = (tripIndex: number) => {
     if (!selectedDutyId) return;
 
+    // Visit entries require FULL approval (one-stage approval only unlocks
+    // the duty day / journey-start reading, not client visits).
+    if (!isFullyApproved(selectedDutyRow)) {
+      notify(
+        "Visit entries can be added only after the request is fully approved",
+        "warning"
+      );
+      return;
+    }
+
+    // No visit entries for a date that hasn't arrived yet (IST) - mirrors
+    // the same guard in openAddDayTripModal/saveDayTripModal.
+    const targetTripDate = (tripDaysByDuty[selectedDutyId] || [])[tripIndex]?.dutyDate;
+    if (
+      targetTripDate &&
+      String(targetTripDate).slice(0, 10) > nowIST().format("YYYY-MM-DD")
+    ) {
+      notify("Visit entries are not allowed for future dates", "warning");
+      return;
+    }
+
+    const campStartFallback = selectedDutyRow?.Start_Time
+      ? String(selectedDutyRow.Start_Time).slice(0, 5)
+      : "";
+
     setTripDaysByDuty((prev) => {
       const currentTrips = [...(prev[selectedDutyId] || [])];
       const targetTrip = currentTrips[tripIndex];
 
       if (!targetTrip) return prev;
 
+      // Chain the new visit's From Time to start right where the last
+      // already-saved visit's To Time left off (searching backwards for the
+      // nearest visit that actually has a To Time set), instead of
+      // defaulting to the camp's own start time every time - avoids the new
+      // visit opening pre-filled with a time that already overlaps an
+      // existing one.
+      let defaultVisitFromTime = campStartFallback;
+      for (let i = targetTrip.visits.length - 1; i >= 0; i--) {
+        if (targetTrip.visits[i]?.visitToTime) {
+          // Saved visits carry HH:mm:ss - normalize to HH:mm so downstream
+          // picker min/max ISO templates stay valid.
+          defaultVisitFromTime = String(targetTrip.visits[i].visitToTime).slice(0, 5);
+          break;
+        }
+      }
+
       currentTrips[tripIndex] = {
         ...targetTrip,
-        visits: [...targetTrip.visits, emptyVisit()],
+        visits: [...targetTrip.visits, emptyVisit(defaultVisitFromTime)],
       };
 
       return {
@@ -703,9 +831,26 @@ useEffect(() => {
         ...prev,
         [dutyId]: trips,
       }));
+      return true;
     } catch (error) {
       console.error("loadDayTrips error:", error);
       notify("Failed to load day trips", "danger");
+      return false;
+    }
+  };
+
+  // Tracks which duty's day-trip list is currently being re-fetched via the
+  // Refresh link, so the link can show a disabled/loading state and ignore
+  // repeat clicks while a request is in flight.
+  const [refreshingTripsDutyId, setRefreshingTripsDutyId] = useState<string | null>(null);
+  const refreshDayTrips = async (dutyId: string) => {
+    if (refreshingTripsDutyId) return;
+    setRefreshingTripsDutyId(dutyId);
+    try {
+      const ok = await loadDayTrips(dutyId);
+      if (ok) notify("Duty days refreshed", "success");
+    } finally {
+      setRefreshingTripsDutyId(null);
     }
   };
 
@@ -720,6 +865,7 @@ useEffect(() => {
       editingTripIndex === undefined
     ) {
       notify("Invalid trip state", "warning");
+      isSavingTrip.current = false;
       return;
     }
 
@@ -733,6 +879,20 @@ useEffect(() => {
 
     if (!trip) {
       notify("Trip data missing", "danger");
+      isSavingTrip.current = false;
+      return;
+    }
+
+    // Saving a future-dated day trip is allowed only in ADD mode (recording
+    // the vehicle's start reading before the journey day begins). VISIT
+    // entries (edit mode) stay blocked until the date actually arrives.
+    if (
+      tripModalMode === "edit" &&
+      trip.dutyDate &&
+      String(trip.dutyDate).slice(0, 10) > nowIST().format("YYYY-MM-DD")
+    ) {
+      notify("Visit entries are not allowed for future dates", "warning");
+      isSavingTrip.current = false;
       return;
     }
 
@@ -742,6 +902,7 @@ useEffect(() => {
     if (isPublicTransport) {
       if (!trip.distance || Number(trip.distance) <= 0) {
         notify("Distance is required for Public Transport", "warning");
+        isSavingTrip.current = false;
         return;
       }
     }
@@ -753,6 +914,7 @@ useEffect(() => {
         !trip.readingFromImage
       ) {
         notify("Reading values and images are required", "warning");
+        isSavingTrip.current = false;
         return;
       }
     }
@@ -761,6 +923,102 @@ useEffect(() => {
     if (tripModalMode === "edit") {
       if (!trip.visits || !trip.visits.length) {
         notify("At least one visit required", "warning");
+        isSavingTrip.current = false;
+        return;
+      }
+
+      // Visit From Time must not be earlier than the On Duty's own applied
+      // Timeline start (selectedDutyRow.Start_Time, fetched from the db -
+      // see the mapDutyRows/backend fix). Visit To Time has no Timeline
+      // ceiling - it only needs to be at/after that SAME visit's own From
+      // Time (a visit can legitimately run past the On Duty's nominal end).
+      // Skip gracefully if Start_Time isn't available (older duties saved
+      // before this field existed).
+      const campStart = selectedDutyRow?.Start_Time
+        ? moment(selectedDutyRow.Start_Time, ["HH:mm:ss", "HH:mm"])
+        : null;
+      if (campStart && campStart.isValid()) {
+        const earlyVisit = trip.visits.find((v) => {
+          if (!v.visitFromTime) return false;
+          const vTime = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
+          return vTime.isValid() && vTime.isBefore(campStart);
+        });
+        if (earlyVisit) {
+          notify(
+            `Visit From Time must be ${campStart.format("HH:mm")} or later (On Duty start time)`,
+            "warning"
+          );
+          isSavingTrip.current = false;
+          return;
+        }
+      }
+
+      const backwardsVisit = trip.visits.find((v) => {
+        if (!v.visitFromTime || !v.visitToTime) return false;
+        const fromTime = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
+        const toTime = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
+        return fromTime.isValid() && toTime.isValid() && toTime.isBefore(fromTime);
+      });
+      if (backwardsVisit) {
+        notify("Visit To Time must be at or after Visit From Time", "warning");
+        isSavingTrip.current = false;
+        return;
+      }
+
+      // Visit To Time can't be later than the current real-world time when
+      // this day trip's date is today - you can't log a visit that hasn't
+      // happened yet. Past-dated day trips have no such cap. Compare as
+      // plain HH:mm (both sides parsed the same way, no real date attached)
+      // rather than against a live nowIST() moment directly, to avoid the
+      // system-timezone-vs-IST mismatch bug documented elsewhere in this
+      // file (moment(str, "HH:mm") anchors to the parser's own "today",
+      // which could differ from IST's today if compared against a real
+      // datetime moment).
+      if (trip.dutyDate === nowIST().format("YYYY-MM-DD")) {
+        const nowTimeOnly = moment(nowIST().format("HH:mm"), ["HH:mm"]);
+        const futureVisit = trip.visits.find((v) => {
+          if (!v.visitToTime) return false;
+          const toTime = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
+          return toTime.isValid() && toTime.isAfter(nowTimeOnly);
+        });
+        if (futureVisit) {
+          notify(
+            `Visit To Time must be ${nowIST().format("HH:mm")} or earlier (current time)`,
+            "warning"
+          );
+          isSavingTrip.current = false;
+          return;
+        }
+      }
+
+      // Safety net: no two visits on the same day trip may have overlapping
+      // [From, To] time ranges, regardless of how they were entered (the
+      // picker already discourages this via adjacent-visit min/max bounds,
+      // but this catches anything that slips through - e.g. a visit edited
+      // out of its original chronological position).
+      const parseRange = (v: (typeof trip.visits)[number]) => {
+        if (!v.visitFromTime || !v.visitToTime) return null;
+        const from = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
+        const to = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
+        if (!from.isValid() || !to.isValid()) return null;
+        return { from, to };
+      };
+      let overlapFound = false;
+      for (let i = 0; i < trip.visits.length && !overlapFound; i++) {
+        const rangeA = parseRange(trip.visits[i]);
+        if (!rangeA) continue;
+        for (let j = i + 1; j < trip.visits.length; j++) {
+          const rangeB = parseRange(trip.visits[j]);
+          if (!rangeB) continue;
+          if (rangeA.from.isBefore(rangeB.to) && rangeB.from.isBefore(rangeA.to)) {
+            overlapFound = true;
+            break;
+          }
+        }
+      }
+      if (overlapFound) {
+        notify("Visit times must not overlap with another visit on the same day", "warning");
+        isSavingTrip.current = false;
         return;
       }
     }
@@ -1033,6 +1291,10 @@ useEffect(() => {
       Status: d.status || "Pending",
       DateFrom: d.dateFrom || "",
       DateTo: d.dateTo || "",
+      // Same defensive casing lookup as Vehicle_No -> vehicle_No below:
+      // covers whichever variant this endpoint actually serializes.
+      Start_Time: pick(d, "start_Time", "startTime", "StartTime", "Start_Time"),
+      End_Time: pick(d, "end_Time", "endTime", "EndTime", "End_Time"),
       empNames:
         d.empNames ||
         d.EmpNames ||
@@ -1205,13 +1467,21 @@ useEffect(() => {
   };
 
   const saveOnDuty = async () => {
-    if (!institution || !dutiesDesc || !transportMode || !location || !empCode || !dutyFromDate || !dutyToDate 
+    if (!institution || !dutiesDesc || !transportMode || !location || !empCode || !dutyFromDate || !dutyToDate
       || (
       transportMode !== "PublicTransport" &&
       !vehicleNo
     )
   ) {
       notify("Please fill all required fields", "warning");
+      return;
+    }
+
+    // Camp From Date & Time must be a real future moment, not just "today" -
+    // the wheel picker's min already steers users away from past times, but
+    // this is the hard backstop that actually blocks the save.
+    if (!unlockRange.approved && moment(dutyFromDate).isBefore(nowIST())) {
+      notify("Camp From Date & Time must be a future time", "warning");
       return;
     }
 
@@ -1224,8 +1494,8 @@ useEffect(() => {
       _Client: institution,
       _Description: dutiesDesc,
       _TransportMode: transportMode,
-      _Starttime: startTime,
-      _Endtime: endTime,
+      _Starttime: moment(dutyFromDate).format("HH:mm"),
+      _Endtime: moment(dutyToDate).format("HH:mm"),
       _VehicleNo: vehicleNo,
       _StartReading: sReading,
       _EndReading: eReading,
@@ -1266,14 +1536,14 @@ useEffect(() => {
             ? new Date(row[13]).toISOString()
             : row[2]
               ? new Date(row[2]).toISOString()
-              : new Date().toISOString()
+              : nowIST().toISOString(true)
         );
         setDutyToDate(
           row[14]
             ? new Date(row[14]).toISOString()
             : row[2]
               ? new Date(row[2]).toISOString()
-              : new Date().toISOString()
+              : nowIST().toISOString(true)
         );
         setInstitution(row[3]);
         setLocation(row[15] || "");
@@ -1433,8 +1703,8 @@ useEffect(() => {
     setStartTime("");
     setEndTime("");
     setSelectedCodes([]);
-    setDutyFromDate(new Date().toISOString());
-    setDutyToDate(new Date().toISOString());
+    setDutyFromDate(nowIST().toISOString(true));
+    setDutyToDate(nowIST().toISOString(true));
     setDateModalType(null);
     setTripDaysByDuty({});
     setShowDayTripModal(false);
@@ -1526,6 +1796,15 @@ useEffect(() => {
 
     return "";
   };
+
+  // Tried constraining hourValues/minuteValues (plus a key-based remount) to
+  // gray out past hours on "Today" - but forcing the wheel to remount every
+  // time the date column crosses the today/future boundary fought the
+  // user's own scroll gesture, making times feel unavailable/laggy right
+  // after picking a future date. Dropped that entirely: the wheel now always
+  // offers the full 24h/60m range on every date with zero restriction lag,
+  // and saveOnDuty's check below is the sole (and reliable) enforcement of
+  // "Camp From can't be in the past."
   const history = useHistory();
   return (
     <div className="onduties-page">
@@ -1603,58 +1882,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Camp From Date & To Date Wrapper */}
-              <div className="lr-field-box" onClick={() => setDateModalType("from")} style={{ cursor: "pointer" }}>
-                <label className="lr-field-label">Camp From Date</label>
-                <div className="lr-field-content">
-                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyFromDate ? "#1e293b" : "#94a3b8" }}>
-                    {dutyFromDate ? moment(dutyFromDate).format("DD-MM-YYYY") : "Pick From Date"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="lr-field-box" onClick={() => setDateModalType("to")} style={{ cursor: "pointer" }}>
-                <label className="lr-field-label">Camp To Date</label>
-                <div className="lr-field-content">
-                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyToDate ? "#1e293b" : "#94a3b8" }}>
-                    {dutyToDate ? moment(dutyToDate).format("DD-MM-YYYY") : "Pick To Date"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Modals for Dates */}
-              <IonModal isOpen={!!dateModalType} onDidDismiss={() => setDateModalType(null)} className="native-date-modal">
-                <div className="native-date-modal-wrapper">
-                  <IonDatetime
-                    presentation="date"
-                    preferWheel={true}
-                    showDefaultButtons={true}
-                    value={dateModalType === "from" ? dutyFromDate : dutyToDate}
-                    min={dateModalType === "from" ? (unlockRange.approved ? unlockRange.fromDate : today) : (dutyFromDate === unlockRange.fromDate ? unlockRange.fromDate : (dutyFromDate || today))}
-                    max={dateModalType === "from" ? maxDate : (dutyFromDate === unlockRange.fromDate ? unlockRange.toDate : maxDate)}
-                    isDateEnabled={dateModalType === "from" ? ((dateString) => {
-                      const date = dateString.split("T")[0];
-                      if (date === dutyFromDate) return true;
-                      const todayStr = new Date().toISOString().split("T")[0];
-                      if (unlockRange.approved && date >= unlockRange.fromDate && date <= unlockRange.toDate) return true;
-                      return date >= todayStr;
-                    }) : undefined}
-                    onIonChange={(e) => {
-                      const val = String(e.detail.value || "");
-                      if (dateModalType === "from") {
-                        setDutyFromDate(val);
-                        if (!dutyToDate || moment(val).isAfter(dutyToDate)) setDutyToDate(val);
-                      } else {
-                        setDutyToDate(val);
-                      }
-                    }}
-                    onIonCancel={() => setDateModalType(null)}
-                  />
-                </div>
-              </IonModal>
-
               {/* Client / Institution */}
               <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
                 <label className="lr-field-label">Client / Institution</label>
@@ -1706,6 +1933,87 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+
+              {/* Camp From Date & To Date Wrapper */}
+              <div
+                className="lr-field-box"
+                onClick={() => {
+                  // The picker's value only gets re-synced to "now" when the
+                  // date column itself changes - if it's just been sitting
+                  // on Today since page load (or since it was last touched),
+                  // that captured timestamp goes stale. Refresh it to the
+                  // live current time right before opening, whenever Today
+                  // is still the selected date.
+                  if (dutyFromDate && toIST(dutyFromDate).isSame(nowIST(), "day")) {
+                    setDutyFromDate(nowIST().toISOString(true));
+                  }
+                  setDateModalType("from");
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <label className="lr-field-label">Camp From Date & Time</label>
+                <div className="lr-field-content">
+                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyFromDate ? "#1e293b" : "#94a3b8" }}>
+                    {dutyFromDate ? moment(dutyFromDate).format("DD-MM-YYYY HH:mm") : "Pick From Date & Time"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="lr-field-box" onClick={() => setDateModalType("to")} style={{ cursor: "pointer" }}>
+                <label className="lr-field-label">Camp To Date & Time</label>
+                <div className="lr-field-content">
+                  <IonIcon icon={calendarOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyToDate ? "#1e293b" : "#94a3b8" }}>
+                    {dutyToDate ? moment(dutyToDate).format("DD-MM-YYYY HH:mm") : "Pick To Date & Time"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Modals for Dates */}
+              <IonModal isOpen={!!dateModalType} onDidDismiss={() => setDateModalType(null)} className="native-date-modal">
+                <div className="native-date-modal-wrapper">
+                  <IonDatetime
+                    presentation="date-time"
+                    hourCycle="h23"
+                    preferWheel={true}
+                    showDefaultButtons={true}
+                    value={dateModalType === "from" ? dutyFromDate : dutyToDate}
+                    min={dateModalType === "from" ? (unlockRange.approved ? unlockRange.fromDate : nowIST().toISOString(true)) : (dutyFromDate === unlockRange.fromDate ? unlockRange.fromDate : (dutyFromDate || nowIST().toISOString(true)))}
+                    max={dateModalType === "from" ? maxDate : (dutyFromDate === unlockRange.fromDate ? unlockRange.toDate : maxDate)}
+                    isDateEnabled={dateModalType === "from" ? ((dateString) => {
+                      const date = dateString.split("T")[0];
+                      if (date === dutyFromDate) return true;
+                      const todayStr = nowIST().format("YYYY-MM-DD");
+                      if (unlockRange.approved && date >= unlockRange.fromDate && date <= unlockRange.toDate) return true;
+                      return date >= todayStr;
+                    }) : undefined}
+                    onIonChange={(e) => {
+                      const val = String(e.detail.value || "");
+                      if (dateModalType === "from") {
+                        // Only snap the time portion when the DATE itself just
+                        // changed (not on every hour/minute scroll, which
+                        // would fight the user's own time pick). Today ->
+                        // start the time wheel from the current IST moment;
+                        // any future date -> start from 00:00 IST.
+                        const newDatePart = val.split("T")[0];
+                        const prevDatePart = dutyFromDate ? String(dutyFromDate).split("T")[0] : "";
+                        let finalVal = val;
+                        if (newDatePart && newDatePart !== prevDatePart) {
+                          const isToday = newDatePart === nowIST().format("YYYY-MM-DD");
+                          const istTimePart = isToday ? nowIST().format("HH:mm:ss") : "00:00:00";
+                          finalVal = `${newDatePart}T${istTimePart}+05:30`;
+                        }
+                        setDutyFromDate(finalVal);
+                        if (!dutyToDate || moment(finalVal).isAfter(dutyToDate)) setDutyToDate(finalVal);
+                      } else {
+                        setDutyToDate(val);
+                      }
+                    }}
+                    onIonCancel={() => setDateModalType(null)}
+                  />
+                </div>
+              </IonModal>
 
               {/* Location */}
               <div className="lr-field-box">
@@ -1787,17 +2095,13 @@ useEffect(() => {
               {/* Work Description */}
               <div className="lr-field-box">
                 <label className="lr-field-label">Work Description</label>
-                <div className="lr-field-content" style={{ alignItems: "flex-start", padding: "12px 16px" }}>
-                  <textarea
+                <div className="lr-field-content">
+                  <input
+                    type="text"
                     placeholder="Ex: System installation..."
                     value={dutiesDesc}
                     onChange={(e) => setDutiesDesc(e.target.value)}
-                    rows={2}
-                    style={{
-                      flex: 1, border: "none", background: "transparent",
-                      fontSize: 14, fontWeight: 500, outline: "none",
-                      resize: "none", color: "#1e293b", fontFamily: "inherit", width: "100%",
-                    }}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
                   />
                 </div>
               </div>
@@ -1934,7 +2238,7 @@ useEffect(() => {
                   <span className="item-label">Transport</span>
                   <span
                     className="item-value"
-                    style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                    style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
                   >
                     {row.Mode_of_Trans}
                     {row.Vehicle_No && (
@@ -1947,10 +2251,16 @@ useEffect(() => {
                   <span className="item-label">Timeline</span>
                   <span
                     className="item-value"
-                    style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                    style={{
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
+                      fontSize: "0.7rem",
+                      lineHeight: "20px",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     {row.DateFrom && row.DateTo
-                      ? `${fmtDate(row.DateFrom)} → ${fmtDate(row.DateTo)}`
+                      ? `${fmtDateWithTime(row.DateFrom, row.Start_Time)} → ${fmtDateWithTime(row.DateTo, row.End_Time)}`
                       : row.Date}
                   </span>
                 </div>
@@ -1959,7 +2269,7 @@ useEffect(() => {
                   <span className="item-label">Location</span>
                   <span
                     className="item-value"
-                    style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                    style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
                   >
                     {row.Location}
                   </span>
@@ -1977,6 +2287,7 @@ useEffect(() => {
                       }));
                     }}
                     className="duty-view-link"
+                    style={{ lineHeight: "20px" }}
                   >
                     {expandedTrips[row.id] ? "Hide" : "View"}
                   </a>
@@ -1985,17 +2296,48 @@ useEffect(() => {
 
               {expandedTrips[row.id] && (
               <div style={{ marginTop: "16px", marginBottom: "12px" }}>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    openAddDayTripModal(row);
-                  }}
-                  className="duty-view-link"
-                  style={{ display: "inline-block", marginBottom: "10px" }}
-                >
-                  + Add Duty Day
-                </a>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!hasAnyApproval(row)) {
+                        notify(
+                          "Duty days can be added only after the request is approved at least at one stage",
+                          "warning"
+                        );
+                        return;
+                      }
+                      openAddDayTripModal(row);
+                    }}
+                    className="duty-view-link"
+                    style={{
+                      opacity: hasAnyApproval(row) ? 1 : 0.4,
+                      cursor: hasAnyApproval(row) ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    + Add Duty Day
+                  </a>
+
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      refreshDayTrips(row.id);
+                    }}
+                    className="duty-view-link"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      opacity: refreshingTripsDutyId === row.id ? 0.5 : 1,
+                      pointerEvents: refreshingTripsDutyId ? "none" : "auto",
+                    }}
+                  >
+                    <IonIcon icon={refreshOutline} style={{ fontSize: "15px" }} />
+                    {refreshingTripsDutyId === row.id ? "Refreshing..." : "Refresh"}
+                  </a>
+                </div>
 
                 {(tripDaysByDuty[row.id] || []).length > 0 && (
                   <div
@@ -2348,6 +2690,107 @@ useEffect(() => {
               const hasReadingFromImage = !!trip.readingFromImage;
               const hasReadingToImage = !!trip.readingToImage;
               const hasFuelImage = !!trip.fuelImage;
+              // Normalized HH:mm bounds (from the On Duty's own applied
+              // Timeline) used to restrict the Visit Time wheel picker below
+              // so out-of-range hours/minutes aren't even selectable.
+              const campStartTimeStr = selectedDutyRow?.Start_Time
+                ? String(selectedDutyRow.Start_Time).slice(0, 5)
+                : null;
+              const campEndTimeStr = selectedDutyRow?.End_Time
+                ? String(selectedDutyRow.End_Time).slice(0, 5)
+                : null;
+
+              // Visit From Time is floored/ceilinged by the On Duty's own
+              // Timeline (campStartTimeStr / campEndTimeStr). Visit To Time
+              // floors at that SAME visit's own From Time (no ceiling from
+              // the Timeline's End_Time - a visit can legitimately run past
+              // the On Duty's nominal end time) and is capped at the current
+              // real-world time whenever this day trip's date is today (past-
+              // dated day trips get no such cap).
+              //
+              // On top of those, visits within the SAME day trip must not
+              // overlap each other. Visits are treated as a simple ordered
+              // list by their index (matching how "+ Add Party" always
+              // appends at the end) - each visit's floor also considers the
+              // nearest PRIOR visit's own To Time, and each visit's ceiling
+              // also considers the nearest FOLLOWING visit's own From Time.
+              const isTripToday = trip.dutyDate === nowIST().format("YYYY-MM-DD");
+              const isTripFuture =
+                String(trip.dutyDate || "").slice(0, 10) > nowIST().format("YYYY-MM-DD");
+              const nowTimeStr = nowIST().format("HH:mm");
+              // Normalize any time string to plain HH:mm. Saved visits come
+              // back from the db as "HH:mm:ss" - feeding that into the
+              // `2000-01-01T${t}:00` templates below would produce an
+              // invalid ISO string ("...T17:40:00:00") that IonDatetime
+              // silently ignores, leaving the wheel unbounded/mispositioned.
+              const hhmm = (t?: string | null): string | null =>
+                t ? String(t).slice(0, 5) : null;
+              const laterOf = (a: string | null, b: string | null) => {
+                if (!a) return b;
+                if (!b) return a;
+                return moment(a, ["HH:mm:ss", "HH:mm"]).isAfter(moment(b, ["HH:mm:ss", "HH:mm"])) ? a : b;
+              };
+              const earlierOf = (a: string | null, b: string | null) => {
+                if (!a) return b;
+                if (!b) return a;
+                return moment(a, ["HH:mm:ss", "HH:mm"]).isBefore(moment(b, ["HH:mm:ss", "HH:mm"])) ? a : b;
+              };
+              // Nearest prior visit (by index) that already has a To Time set.
+              const prevVisitEndTimeStr = (idx: number): string | null => {
+                for (let i = idx - 1; i >= 0; i--) {
+                  if (trip.visits[i]?.visitToTime) return hhmm(trip.visits[i].visitToTime);
+                }
+                return null;
+              };
+              // Nearest following visit (by index) that already has a From Time set.
+              const nextVisitStartTimeStr = (idx: number): string | null => {
+                for (let i = idx + 1; i < trip.visits.length; i++) {
+                  if (trip.visits[i]?.visitFromTime) return hhmm(trip.visits[i].visitFromTime);
+                }
+                return null;
+              };
+              const visitFromTimeMin = (idx: number) => laterOf(campStartTimeStr, prevVisitEndTimeStr(idx));
+              const visitFromTimeMax = () => campEndTimeStr;
+              const visitToTimeMin = (idx: number) =>
+                hhmm(trip.visits[idx]?.visitFromTime) || campStartTimeStr || null;
+              const visitToTimeMax = (idx: number) =>
+                earlierOf(isTripToday ? nowTimeStr : null, nextVisitStartTimeStr(idx));
+
+              // Opens the Visit Time wheel picker, but first snaps the field
+              // to its min/max bound whenever the current value is empty or
+              // already outside that bound - so the picker always reflects
+              // the fetched Timeline (or, for "to", the visit's own From Time
+              // / the current time / the next visit's start) immediately
+              // instead of showing an old/blank value that still needs to be
+              // rolled into range by hand, and never opens already
+              // overlapping an adjacent visit.
+              const openVisitTimePicker = (
+                idx: number,
+                field: "visitFromTime" | "visitToTime"
+              ) => {
+                const minBound = field === "visitFromTime" ? visitFromTimeMin(idx) : visitToTimeMin(idx);
+                const maxBound = field === "visitFromTime" ? visitFromTimeMax() : visitToTimeMax(idx);
+                const currentVal = trip.visits[idx]?.[field] || "";
+                const currentMoment = currentVal
+                  ? moment(currentVal, ["HH:mm:ss", "HH:mm"])
+                  : null;
+                let snapTo: string | null = null;
+                if (!currentMoment || !currentMoment.isValid()) {
+                  snapTo = minBound || maxBound || null;
+                } else if (minBound && currentMoment.isBefore(moment(minBound, ["HH:mm:ss", "HH:mm"]))) {
+                  snapTo = minBound;
+                } else if (maxBound && currentMoment.isAfter(moment(maxBound, ["HH:mm:ss", "HH:mm"]))) {
+                  snapTo = maxBound;
+                } else if (currentVal !== hhmm(currentVal)) {
+                  // In-range but stored with seconds (HH:mm:ss from the db) -
+                  // rewrite as HH:mm so the picker's ISO templates stay valid.
+                  snapTo = hhmm(currentVal);
+                }
+                if (snapTo) {
+                  updateTripVisit(editingTripIndex!, idx, field, snapTo);
+                }
+                setVisitTimeModal({ visitIndex: idx, field });
+              };
 
               return (
                 <>
@@ -2552,6 +2995,15 @@ useEffect(() => {
       value,
       trip.readingTo
     );
+  }}
+  style={{
+    width: "100%",
+    height: "46px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "12px",
+    padding: "0 14px",
+    fontSize: "14px",
+    background: hasReadingFromImage ? "#fff" : "#f1f5f9",
   }}
 />
                         </div>
@@ -3255,16 +3707,9 @@ updateTripDay(
                                     Visit From Time
                                   </div>
 
-                                  <input
-                                    type="time"
-                                    value={visit.visitFromTime}
-                                    onChange={(e) =>
-                                      updateTripVisit(
-                                        editingTripIndex,
-                                        visitIndex,
-                                        "visitFromTime",
-                                        e.target.value || ""
-                                      )
+                                  <div
+                                    onClick={() =>
+                                      openVisitTimePicker(visitIndex, "visitFromTime")
                                     }
                                     style={{
                                       width: "100%",
@@ -3275,10 +3720,15 @@ updateTripDay(
                                       outline: "none",
                                       fontSize: "14px",
                                       background: "#fff",
-                                      color: "#0f172a",
+                                      color: visit.visitFromTime ? "#0f172a" : "#94a3b8",
                                       boxSizing: "border-box",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      cursor: "pointer",
                                     }}
-                                  />
+                                  >
+                                    {visit.visitFromTime || "Select time"}
+                                  </div>
                                 </div>
 
                                 <div style={{ minWidth: 0 }}>
@@ -3293,16 +3743,9 @@ updateTripDay(
                                     Visit To Time
                                   </div>
 
-                                  <input
-                                    type="time"
-                                    value={visit.visitToTime}
-                                    onChange={(e) =>
-                                      updateTripVisit(
-                                        editingTripIndex,
-                                        visitIndex,
-                                        "visitToTime",
-                                        e.target.value || ""
-                                      )
+                                  <div
+                                    onClick={() =>
+                                      openVisitTimePicker(visitIndex, "visitToTime")
                                     }
                                     style={{
                                       width: "100%",
@@ -3313,10 +3756,15 @@ updateTripDay(
                                       outline: "none",
                                       fontSize: "14px",
                                       background: "#fff",
-                                      color: "#0f172a",
+                                      color: visit.visitToTime ? "#0f172a" : "#94a3b8",
                                       boxSizing: "border-box",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      cursor: "pointer",
                                     }}
-                                  />
+                                  >
+                                    {visit.visitToTime || "Select time"}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -3544,15 +3992,28 @@ updateTripDay(
   <IonButton
     type="button"
     fill="outline"
+    disabled={isTripFuture || !isFullyApproved(selectedDutyRow)}
     style={{
       margin: 0,
       width: "100%",
       minHeight: "46px",
       fontSize: "12px",
+      opacity: isTripFuture || !isFullyApproved(selectedDutyRow) ? 0.5 : 1,
     }}
     onClick={(e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isTripFuture) {
+        notify("Visit entries are not allowed for future dates", "warning");
+        return;
+      }
+      if (!isFullyApproved(selectedDutyRow)) {
+        notify(
+          "Visit entries can be added only after the request is fully approved",
+          "warning"
+        );
+        return;
+      }
       addTripVisit(editingTripIndex);
     }}
   >
@@ -3577,6 +4038,71 @@ updateTripDay(
                       </IonButton>
                     </div>
                   </div>
+
+                  {/* Visit From/To Time picker - wheel modal, matching the
+                      Camp From/To Date & Time picker's look/feel instead of
+                      relying on the native <input type="time"> (which some
+                      Android WebViews render as a bare text box with no
+                      picker affordance). */}
+                  <IonModal
+                    isOpen={!!visitTimeModal}
+                    onDidDismiss={() => setVisitTimeModal(null)}
+                    className="native-date-modal"
+                  >
+                    <div className="native-date-modal-wrapper">
+                      <IonDatetime
+                        presentation="time"
+                        hourCycle="h23"
+                        preferWheel={true}
+                        showDefaultButtons={true}
+                        min={
+                          visitTimeModal
+                            ? (() => {
+                                const b =
+                                  visitTimeModal.field === "visitFromTime"
+                                    ? visitFromTimeMin(visitTimeModal.visitIndex)
+                                    : visitToTimeMin(visitTimeModal.visitIndex);
+                                return b ? `2000-01-01T${b}:00` : undefined;
+                              })()
+                            : undefined
+                        }
+                        max={
+                          visitTimeModal
+                            ? (() => {
+                                const b =
+                                  visitTimeModal.field === "visitFromTime"
+                                    ? visitFromTimeMax()
+                                    : visitToTimeMax(visitTimeModal.visitIndex);
+                                return b ? `2000-01-01T${b}:00` : undefined;
+                              })()
+                            : undefined
+                        }
+                        value={
+                          visitTimeModal
+                            ? `2000-01-01T${
+                                hhmm(trip.visits[visitTimeModal.visitIndex]?.[visitTimeModal.field]) ||
+                                (visitTimeModal.field === "visitFromTime"
+                                  ? visitFromTimeMin(visitTimeModal.visitIndex)
+                                  : visitToTimeMin(visitTimeModal.visitIndex)) ||
+                                "00:00"
+                              }:00`
+                            : undefined
+                        }
+                        onIonChange={(e) => {
+                          if (!visitTimeModal) return;
+                          const val = String(e.detail.value || "");
+                          const timePart = val.split("T")[1]?.slice(0, 5) || "";
+                          updateTripVisit(
+                            editingTripIndex!,
+                            visitTimeModal.visitIndex,
+                            visitTimeModal.field,
+                            timePart
+                          );
+                        }}
+                        onIonCancel={() => setVisitTimeModal(null)}
+                      />
+                    </div>
+                  </IonModal>
                 </>
               );
             })()}
