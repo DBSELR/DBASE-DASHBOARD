@@ -813,19 +813,7 @@ const Tasks: React.FC = () => {
       const reportResponse = await apiService.saveWorkReport(reportPayload);
       console.log("Auto Work Report Save Response:", reportResponse);
 
-      // Also save a work report for the task assigner (creator) if they are a different user
-      const ctx = buildTaskContext(activeTask);
-      if (ctx.creatorEmpCode && ctx.creatorEmpCode !== currentEmpCode) {
-        const creatorPayload = {
-          _clientId: clientId,
-          _work_location: "In-House",
-          _work_report: reportContent,
-          _empcode: ctx.creatorEmpCode
-        };
-        console.log("Submitting Auto Work Report Payload for Assigner:", creatorPayload);
-        const creatorResponse = await apiService.saveWorkReport(creatorPayload);
-        console.log("Auto Work Report Assigner Save Response:", creatorResponse);
-      }
+
     } catch (wrError) {
       console.error("⚠️ Failed to automatically save work report:", wrError);
     }

@@ -172,39 +172,45 @@
 .td-table-wrapper {
     display: none;
     background: #ffffff;
-    border-radius: 20px;
-    overflow: auto;
-    max-height: 600px;
-    /* Enable sticky header */
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 70vh;
+    /* dynamic height in viewport units */
+    border: 1px solid #cbd5e1;
     margin-top: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
 }
 
 .td-premium-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13.5px;
+    font-size: 13px;
+    min-width: 1100px;
+    /* guarantees tight, scrollable container without massive blank gaps */
 }
 
 .td-premium-table thead th {
     position: sticky;
     top: 0;
-    background: #f8f9fa;
-    padding: 18px 16px;
+    background: #f1f5f9;
+    /* premium light grey background for header */
+    padding: 8px 10px;
+    /* compact padding exactly like the image */
     text-align: left;
     font-weight: 700;
-    color: #4a5568;
+    color: #334155;
     text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid #edf2f7;
+    font-size: 11.5px;
+    border: 1px solid #cbd5e1;
+    /* grid borders */
     z-index: 10;
 }
 
 .td-premium-table tbody tr {
     transition: background-color 0.2s;
-    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    /* pointer cursor for the row */
 }
 
 .td-premium-table tbody tr:hover {
@@ -212,31 +218,38 @@
 }
 
 .td-premium-table td {
-    padding: 16px;
-    color: #2d3748;
+    padding: 8px 10px;
+    /* compact padding exactly like the image */
+    color: #334155;
     vertical-align: middle;
+    border: 1px solid #e2e8f0;
+    /* grid borders */
 }
 
-/* ID Chip */
+/* ID Chip styled like the rounded pills in the screenshot */
 .td-id-chip {
     display: inline-flex;
     align-items: center;
-    background: rgba(var(--ion-color-primary-rgb), 0.08);
-    color: var(--ion-color-primary);
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-weight: 800;
+    justify-content: center;
+    background: #edf2f7;
+    /* soft light grey/green background */
+    color: #4a5568;
+    padding: 4px 14px;
+    border-radius: 20px;
+    /* rounded pill style */
+    font-weight: 700;
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s;
-    border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
+    border: 1px solid #cbd5e1;
+    min-width: 70px;
+    text-align: center;
 }
 
 .td-id-chip:hover {
-    background: var(--ion-color-primary);
-    color: #ffffff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(var(--ion-color-primary-rgb), 0.2);
+    background: #cbd5e1;
+    color: #1a202c;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* Client & Project styling */
@@ -244,6 +257,7 @@
     font-weight: 700;
     color: #1a202c;
     display: block;
+    white-space: nowrap;
 }
 
 .td-project-name {
@@ -251,6 +265,7 @@
     color: #718096;
     margin-top: 2px;
     display: block;
+    white-space: nowrap;
 }
 
 /* Status Pills */
@@ -312,6 +327,7 @@
     font-weight: 600;
     font-size: 13px;
     color: #2d3748;
+    white-space: nowrap;
 }
 
 .td-date-text {
@@ -321,10 +337,11 @@
 }
 
 .td-remarks-cell {
-    max-width: 300px;
+    min-width: 450px;
+    /* consume the gap and expand the column */
     font-size: 13px;
-    color: #4a5568;
-    line-height: 1.4;
+    color: #475569;
+    line-height: 1.5;
 }
 
 .td-remarks-cell .preview {
@@ -825,7 +842,92 @@
     text-align: center;
 }
 
-.td-no-history ion-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
+/* Date Picker Modal Styling (Centered, Rounded Corners, Small Sized) */
+.td-small-date-modal {
+    --width: 320px;
+    --height: auto;
+    --max-height: 90vh;
+    --border-radius: 24px;
+    --box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+    --background: #fff;
+}
+
+.td-small-date-modal::part(content) {
+    border-radius: 24px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.dark .td-small-date-modal,
+.dark .td-small-date-modal::part(content) {
+    --background: #1a1a1a;
+    background: #1a1a1a;
+}
+
+.td-small-date-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px 8px;
+    background: #fff;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+}
+
+.dark .td-small-date-modal .modal-content {
+    background: #1a1a1a;
+}
+
+/* Modal Title */
+.td-small-date-modal .modal-content h3 {
+    margin: 0 0 8px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ion-color-primary, #2e5b47);
+}
+
+/* IonDatetime inside Modal */
+.td-small-date-modal .modal-content ion-datetime {
+    width: 100%;
+    max-width: 100%;
+    height: 295px;
+    margin: 0;
+    --background: transparent;
+    --padding-top: 0;
+    --padding-bottom: 0;
+}
+
+.td-small-date-modal .modal-content ion-datetime::part(calendar-body) {
+    padding-bottom: 0;
+}
+
+/* Close Button Styling */
+.td-small-date-modal .modal-content ion-button {
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    --background: transparent;
+    --background-hover: transparent;
+    --background-focused: transparent;
+    --background-activated: transparent;
+    --border-color: transparent;
+    --box-shadow: none;
+    --color: var(--ion-color-primary, #2e5b47);
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+}
+
+.dark .td-small-date-modal .modal-content ion-button {
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.td-small-date-modal .modal-content ion-button::part(native) {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
