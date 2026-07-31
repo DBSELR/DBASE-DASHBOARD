@@ -189,7 +189,7 @@ const EmpProfile: React.FC = () => {
     _IsActive: "Y",
     _AccountNo: "",
     _IFSCCode: "",
-    _P_Time: "09:30",
+    _P_Time: "60",
     _Dept: "",
     _PF: "0",
     _Esi: "0",
@@ -499,36 +499,41 @@ const EmpProfile: React.FC = () => {
       _PFNo: row[37] !== null && row[37] !== undefined ? String(row[37]) : "",
       _ESINo: row[36] !== null && row[36] !== undefined ? String(row[36]) : "",
       _CheckIn:
-        row[43] !== null && row[43] !== undefined
+        row[43] !== null && row[43] !== undefined && row[43] !== "NULL"
           ? normalizeTimeValue(row[43])
-          : normalizeTimeValue(
-            rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30",
-          ),
+          : row[44] !== null && row[44] !== undefined && row[44] !== "NULL"
+            ? normalizeTimeValue(row[44])
+            : normalizeTimeValue(
+              rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30"
+            ),
       _P_Time:
         row[49] !== null && row[49] !== undefined
           ? normalizeTimeValue(row[49])
           : normalizeTimeValue(
-
-            rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "09:30",
+            rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "60",
           ),
       _dayDA:
-        row[47] !== null && row[47] !== undefined
+        row[47] !== null && row[47] !== undefined && row[47] !== "NULL"
           ? String(row[47])
           : String(
             rowAny._dayDA ??
             rowAny.dayDA ??
             rowAny.DayDA ??
+            rowAny.dayDa ??
+            rowAny.DayDa ??
             rowAny.day_da ??
             rowAny.day_DA ??
             "0",
           ),
       _hourDA:
-        row[48] !== null && row[48] !== undefined
+        row[48] !== null && row[48] !== undefined && row[48] !== "NULL"
           ? String(row[48])
           : String(
             rowAny._hourDA ??
             rowAny.hourDA ??
             rowAny.HourDA ??
+            rowAny.hourDa ??
+            rowAny.HourDa ??
             rowAny.hour_da ??
             rowAny.hour_DA ??
             "0",
@@ -602,6 +607,12 @@ const EmpProfile: React.FC = () => {
             : "Active",
         dayDA: details._dayDA,
         hourDA: details._hourDA,
+        leave: details._Allowed_CL,
+        sick: details._Allowed_SL,
+        p_time: details._P_Time,
+        checkIn: details._CheckIn,
+        requestTo: details._RequestTo,
+        userGroup: details._user,
       };
       console.log("Setting Final userData for View:", newUserData);
       setUserData(newUserData);
@@ -688,7 +699,7 @@ const EmpProfile: React.FC = () => {
     console.group(`[EmpProfile] fetchUserProfile (${empCode})`);
     try {
       const response = await fetch(
-        `${API_BASE}Profile/UserProfile?employeeCode=${empCode}`,
+        `${API_BASE}Employee/Get_Employee?_Ecode=${empCode}`,
         {
           method: "GET",
           headers: getAuthHeaders(),
@@ -697,64 +708,69 @@ const EmpProfile: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        const userProfile = Array.isArray(data) ? data[0] : data;
+        const userProfile = Array.isArray(data)
+          ? (Array.isArray(data[0]) ? data[0] : data)
+          : data && Array.isArray(data.data)
+            ? data.data[0]
+            : data;
 
         console.log("[EmpProfile] fetchUserProfile SUCCESS", {
           raw: data,
-          image:
-            userProfile.Img || userProfile?.ProfileImage || userProfile?.[42],
-          name: userProfile.EmpName || userProfile?.Empname,
+          image: Array.isArray(userProfile)
+            ? userProfile[42]
+            : userProfile.Img || userProfile?.ProfileImage,
+          name: Array.isArray(userProfile)
+            ? userProfile[2]
+            : userProfile.EmpName || userProfile?.Empname,
         });
 
         if (Array.isArray(userProfile)) {
-          // Legacy array-based mapping
+          // Legacy array-based mapping using mapGetEmployeeResponse for robust indexing
+          const details = mapGetEmployeeResponse(userProfile);
           setUserData({
-            empCode: userProfile[1],
-            empName: userProfile[2],
-            designation: userProfile[3],
-            profilePic: userProfile[42],
-            // ... more fields ... (omitted for brevity, but I should keep them all)
-            department: userProfile[29],
-            salaryAccountNo: userProfile[27],
-            doj: userProfile[4],
-            pfNo: userProfile[36],
-            esiNo: userProfile[31],
-            ifscCode: userProfile[28],
-            grossSalary: userProfile[25],
-            basicSalary: userProfile[21],
-            hra: userProfile[22],
-            da: userProfile[41],
-            conveyance: userProfile[23],
-            others: userProfile[24],
-            pf: userProfile[30],
-            esi: userProfile[18],
-            profTax: userProfile[32],
-            incomeTax: userProfile[33],
-            userType: userProfile[9],
-            joiningDate: userProfile[4],
-            bloodGroup: userProfile[5],
-            contactNumber: userProfile[6],
-            pan: userProfile[38],
-            aadhar: userProfile[39],
-            salary: userProfile[19],
-            email: userProfile[8],
-            performanceScore: userProfile[26],
-            pendingLeaves: userProfile[21],
+            empCode: details._Ecode,
+            empName: details._Ename,
+            designation: details._Desig,
+            department: details._Dept,
+            joiningDate: details._Doj,
+            bloodGroup: details._Blood,
+            contactNumber: details._Mobile,
+            email: details._Email,
+            email2: details._Email2,
+            salaryAccountNo: details._AccountNo,
+            ifscCode: details._IFSCCode,
+            grossSalary: details._GrossSal,
+            basicSalary: details._BasicSal,
+            hra: details._HRA,
+            da: details._DA,
+            pf: details._PF,
+            esi: details._Esi,
+            profTax: details._Ptax,
+            incomeTax: details._Itax,
+            conveyance: details._LTA || "0",
+            others: details._ALLOWANCES || "0",
+            userType: userProfile[15] || details._RequestTo,
+            doj: details._Doj,
+            pan: details._PanNo,
+            aadhar: details._AadharNo,
+            esiNo: details._ESINo,
+            pfNo: details._PFNo,
+            ReportTO: details._RequestTo,
+            profilePic: userProfile[42] || userData?.profilePic,
             status:
-              userProfile[14] === "N" ||
-                userProfile[14] === "0" ||
-                userProfile[14] === false
+              details._IsActive === "N" ||
+              details._IsActive === "0" ||
+              details._IsActive === false
                 ? "InActive"
                 : "Active",
-            leave: userProfile[11] || 0,
-            sick: userProfile[21] || 0,
-            p_time: userProfile[49] || "90",     // keep SAME as you want
-            checkIn: userProfile[43] || "09:30",
-            requestTo: userProfile[15] || "",
-            userGroup: userProfile[9] || "",
-            dayDA: userProfile[47] || "0",
-            hourDA: userProfile[48] || "0",
-            email2: userProfile[62],
+            dayDA: details._dayDA,
+            hourDA: details._hourDA,
+            leave: details._Allowed_CL,
+            sick: details._Allowed_SL,
+            p_time: details._P_Time,
+            checkIn: details._CheckIn,
+            requestTo: details._RequestTo,
+            userGroup: details._user,
           });
         } else {
           // Object-based mapping
@@ -800,14 +816,14 @@ const EmpProfile: React.FC = () => {
                 userProfile.Isactive === "N"
                 ? "InActive"
                 : "Active",
-            leave: userProfile.ALLOWED_CL || 0,
-            sick: userProfile.ALLOWED_SL || 0,
-            p_time: userProfile.P_Time || "90",
-            checkIn: userProfile.intime1 || "09:30",
+            leave: userProfile.Allowed_LS ?? userProfile.ALLOWED_LS ?? userProfile.ALLOWED_CL ?? userProfile.Allowed_CL ?? userProfile.leave ?? 0,
+            sick: userProfile.Allowed_SL ?? userProfile.ALLOWED_SL ?? userProfile.sick ?? 0,
+            p_time: userProfile.P_Time ?? userProfile.p_time ?? userProfile.PTime ?? userProfile.pTime ?? "60",
+            checkIn: userProfile.intime1 ?? userProfile.InTime ?? userProfile.intime ?? userProfile.checkIn ?? userProfile.CheckIn ?? "09:30",
             requestTo: userProfile.RequestTo || "",
-            userGroup: userProfile.UserGroup || "",
-            dayDA: userProfile.dayDA || userProfile.DayDA || "0",
-            hourDA: userProfile.hourDA || userProfile.HourDA || "0"
+            userGroup: userProfile.UserGroup ?? userProfile.UserType ?? userProfile.Usertype ?? userProfile.userGroup ?? userProfile.userType ?? "",
+            dayDA: userProfile.dayDA ?? userProfile.DayDA ?? userProfile.dayDa ?? userProfile.DayDa ?? userProfile.dayda ?? userProfile.day_da ?? "0",
+            hourDA: userProfile.hourDA ?? userProfile.HourDA ?? userProfile.hourDa ?? userProfile.HourDa ?? userProfile.hourda ?? userProfile.hour_da ?? "0",
           });
         }
 
@@ -1022,7 +1038,16 @@ const EmpProfile: React.FC = () => {
         response?.message === "Employee saved successfully"
       ) {
         alert("Employee saved successfully");
-        // setShowRegisterModal(false); // KEEP MODAL OPEN
+        // Re-fetch updated profile/employee details to refresh the view in real-time
+        if (formData._Ecode) {
+          selectEmployee(formData._Ecode);
+        } else {
+          const userJson = localStorage.getItem("user");
+          const user = JSON.parse(userJson || "{}");
+          if (user?.empCode) {
+            fetchUserProfile(user.empCode);
+          }
+        }
         if (isManagementView) loadEmployees(statusFilter);
       } else {
         alert(
@@ -1068,7 +1093,7 @@ const EmpProfile: React.FC = () => {
       _IsActive: "Y",
       _AccountNo: "",
       _IFSCCode: "",
-      _P_Time: "09:30",
+      _P_Time: "60",
       _Dept: "",
       _PF: "0",
       _Esi: "0",
@@ -1366,7 +1391,7 @@ const EmpProfile: React.FC = () => {
                 {userData.status}
               </span>
             </div>
-            
+
             <div className="ep-profile-actions">
               <button
                 className={`ep-profile-action-btn ep-btn-policies ${isNavigating ? "navigating" : ""}`}
@@ -1380,7 +1405,7 @@ const EmpProfile: React.FC = () => {
                 <FileText size={14} />
                 <span>Policies</span>
               </button>
-              
+
               <button
                 className={`ep-profile-action-btn ep-btn-face ${isNavigating ? "navigating" : ""}`}
                 onClick={() => {
@@ -1573,7 +1598,7 @@ const EmpProfile: React.FC = () => {
               label="Secondary Email"
               value={userData.email2}
             />
-            
+
 
             {/* <InfoItem icon={Clock} label="Available Leaves" value={userData.availableLeaves} /> */}
             {/* <InfoItem icon={TrendingUp} label="Unseen Credits" value={userData.unseenCredits} /> */}
@@ -1607,40 +1632,6 @@ const EmpProfile: React.FC = () => {
               label="Report To"
               value={userData.ReportTO}
             />
-            <InfoItem
-              color="var(--ion-color-primary)"
-              icon={Text}
-              label="P Time"
-              value={String(userData.pTime || "")}
-            />
-            <InfoItem
-              color="var(--ion-color-primary)"
-              icon={Clock}
-              label="P Time"
-              value={
-                userData.p_time
-                  ? new Date(`1970-01-01T${userData.p_time}`).toLocaleTimeString("en-IN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: true
-                  })
-                  : "-"
-              }
-            />
-
-            <InfoItem
-              color="var(--ion-color-primary)"
-              icon={Clock}
-              label="Check-In"
-              value={userData.checkIn}
-            />
-
-            <InfoItem
-              color="var(--ion-color-primary)"
-              icon={Users}
-              label="User Group"
-              value={userData.userGroup}
-            />
           </div>
         </div>
 
@@ -1661,7 +1652,7 @@ const EmpProfile: React.FC = () => {
             <InfoItem
               icon={Clock}
               label="P Time"
-              value={userData.p_time}
+              value={userData.p_time ? `${userData.p_time} Mins` : "-"}
             />
 
             <InfoItem
@@ -1698,13 +1689,13 @@ const EmpProfile: React.FC = () => {
             <InfoItem
               icon={TrendingUp}
               label="Allowed CL"
-              value={formData._Allowed_CL}
+              value={userData.leave}
             />
 
             <InfoItem
               icon={TrendingUp}
               label="Allowed SL"
-              value={formData._Allowed_SL}
+              value={userData.sick}
             />
           </div>
         </div>
