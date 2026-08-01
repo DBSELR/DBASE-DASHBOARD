@@ -36,3 +36,4 @@ myenv/
 ai-backend/myenv/
 __pycache__/
 *.pkl
+*.sql
