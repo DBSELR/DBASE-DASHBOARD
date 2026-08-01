@@ -779,7 +779,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
               Branch Defaults
             </button>
             <button className={`rm-tab${activeTab === 'directory' ? ' rm-tab-active' : ''}`} onClick={() => setActiveTab('directory')}>
-              Branch Directory (tbl_Branch)
+              Branch Directory 
             </button>
             <button className={`rm-tab${activeTab === 'overrides' ? ' rm-tab-active' : ''}`} onClick={() => setActiveTab('overrides')}>
               Employee Overrides
