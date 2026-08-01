@@ -1,4 +1,4 @@
-﻿import { API_BASE } from "../config";
+import { API_BASE } from "../config";
 
 const BASE_URL = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
@@ -163,6 +163,17 @@ export const apiService = {
         console.log("API: Save Work Report Ticket Wise", reportData);
         return apiService.post("/Tickets/SaveWorkReport_TicketWise", reportData);
     },
+
+    loadWorkReportClients: async (college: string = "") => {
+        console.log("API: Load Work Report Clients", college);
+        return apiService.get(`/Workreport/Load_Clients?College=${college}`);
+    },
+
+    saveWorkReport: async (reportData: any) => {
+        console.log("API: Save Work Report", reportData);
+        return apiService.post("/Workreport/saveworkReport", reportData);
+    },
+
 
     // --- Employee Management APIs ---
     loadEmployees: async (status: string) => {
