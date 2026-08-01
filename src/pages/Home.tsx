@@ -31,6 +31,8 @@ import { FileWarning } from "lucide-react";
 
 const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508'];
 
+const PENDING_LEAVES = ['1601', '1541', '1635']
+
 const Home: React.FC = () => {
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
@@ -48,7 +50,12 @@ const Home: React.FC = () => {
   const history = useHistory();
 
   const currentEmpCode = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}').empCode ?? ''; } catch { return ''; }
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return String(u.empCode || u.EmpCode || '').trim();
+    } catch {
+      return '';
+    }
   })();
 
   useEffect(() => {
@@ -58,7 +65,7 @@ const Home: React.FC = () => {
       const primary = style.getPropertyValue('--ion-color-primary').trim() || "#f57c00";
       const secondary = style.getPropertyValue('--ion-color-secondary').trim() || "#ffab40";
       const tertiary = style.getPropertyValue('--ion-color-tertiary').trim() || "#fb923c";
-      
+
       setPrimaryColor(primary);
       setThemeColors([primary, secondary, tertiary]);
     };
@@ -162,6 +169,18 @@ const Home: React.FC = () => {
     { id: 4, text: "Please complete your pending tasks.", icon: "⚠️", type: "warning" },
   ];
 
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+  })();
+
+  const isApproverUser = (() => {
+    if (!currentUser) return false;
+    const ut = String(currentUser.userType || '').toLowerCase();
+    const dg = String(currentUser.designation || currentUser.Designation || '').toLowerCase();
+    return ut === 'admin' || ut === 'hr' || ut === 'manager' ||
+      dg.includes('manager') || dg.includes('head') || dg.includes('director') || dg.includes('lead');
+  })();
+
   const menuItems = [
     { id: "tasks", label: "Tasks", icon: "https://cdn.lordicon.com/wloilxuq.json", path: "/tasks", colorClass: "home-card-tasks" },
     { id: "tickets", label: "Tickets", icon: "https://cdn.lordicon.com/raawsqec.json", path: "/tickets", colorClass: "home-card-tickets" },
@@ -169,6 +188,7 @@ const Home: React.FC = () => {
     { id: "performance", label: "Performance", icon: "https://cdn.lordicon.com/kwnsnjyg.json", path: null, colorClass: "home-card-performance" },
     { id: "punctuality", label: "Punctuality", icon: "https://cdn.lordicon.com/kiqyrejq.json", path: null, colorClass: "home-card-punctuality" },
     { id: "requests", label: "Requests", icon: "https://cdn.lordicon.com/zpxybbhl.json", path: "/requests", colorClass: "home-card-requests" },
+
     { id: "transactions", label: "Transactions", icon: "https://cdn.lordicon.com/ynsswhvj.json", path: "/transactions/0", colorClass: "home-card-transactions" },
     { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: "/stock", colorClass: "home-card-stock" },
     { id: "invoice", label: "Invoice", icon: "https://cdn.lordicon.com/ysoasulr.json", path: "/invoices", colorClass: "home-card-invoice" },
@@ -189,12 +209,21 @@ const Home: React.FC = () => {
       path: "/employee-penalties",
       colorClass: "home-card-penalties"
     },
+
     ...(ADMIN_EMPCODES.includes(currentEmpCode) ? [{
       id: "ai-attendance-admin",
       label: "AI Attendance Admin",
       icon: "https://cdn.lordicon.com/rqqkvjqf.json",
       path: "/ai-attendance-admin-dashboard",
       colorClass: "home-card-ai-admin"
+    }] : []),
+
+    ...(PENDING_LEAVES.includes(currentEmpCode) ? [{
+      id: "pending-requests",
+      label: "Pending Requests",
+      icon: "https://cdn.lordicon.com/nocovwne.json",
+      path: "/pending-requests",
+      colorClass: "home-card-requests"
     }] : []),
   ];
 
@@ -305,14 +334,14 @@ const Home: React.FC = () => {
         </div>
 
         <div className="home-view-toggle">
-          <button 
+          <button
             className={`home-view-btn ${viewType === 'grid' ? 'active' : ''}`}
             onClick={() => setViewType('grid')}
             title="Grid View"
           >
             <LayoutGrid />
           </button>
-          <button 
+          <button
             className={`home-view-btn ${viewType === 'list' ? 'active' : ''}`}
             onClick={() => setViewType('list')}
             title="List View"

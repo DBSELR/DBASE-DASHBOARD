@@ -50,6 +50,7 @@ import RaiseTicket from "./pages/Tickets/RaiseTicket";
 import TicketData from "./pages/Tickets/components/TicketData";
 import OverTime from "./pages/OverTime";
 import RequestsPage from "./pages/RequestsPage";
+import PendingRequests from "./pages/PendingRequests";
 import Policies from "./pages/Policies";
 import AIAttendanceAdminDashboard from "./pages/AIAttendance/AIAttendanceAdminDashboard";
 import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
@@ -83,6 +84,7 @@ import ApprovalDates from "./components/requests/ApprovalDates";
 import LeaveAction from "./pages/LeaveAction";
 import VisitTickets from "./pages/Tickets/components/VisitTickets";
 import LeaveReport from "./pages/AIAttendance/LeaveReport";
+import LeaveDashboard from "./pages/LeaveDashboard";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
@@ -202,6 +204,7 @@ const App: React.FC = () => {
                   <Route path="/tickets/ticketdata" exact component={TicketData} />
                   <Route exact path="/OverTime" component={OverTime} />
                   <Route path="/requests" component={RequestsPage} exact />
+                  <Route path="/pending-requests" component={PendingRequests} exact />
                   <Route exact path="/ai-attendance-admin-dashboard" component={AIAttendanceAdminDashboard} />
                   <Route exact path="/ai-attendance-register" component={AIAttendanceRegister} />
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
@@ -228,6 +231,7 @@ const App: React.FC = () => {
                   <Route exact path="/leave-action" component={LeaveAction} />
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
+                  <Route exact path="/leave-dashboard" component={LeaveDashboard} />
                   <Route exact path="/stock" component={Stock} />
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />
