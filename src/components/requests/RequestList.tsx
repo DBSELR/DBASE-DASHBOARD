@@ -74,6 +74,41 @@ const pick = (d: any, ...keys: string[]) => {
 };
 
 
+// The AttDays_at_Branch column stores day-of-month numbers only ("02,05,06");
+// the month is pinned by the duty's own date range. Pairing them back up here
+// means a bare "03" on a duty that crosses a month boundary can still name its
+// month in the tooltip. A stored day outside the range still renders, showing
+// the number on its own - dropping it would look like it was never marked.
+const attDayPills = (item: any): { day: string; full: string }[] => {
+  const wanted = String(item?.AttDays ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (wanted.length === 0) return [];
+
+  const from = moment(item.DateFrom);
+  const to = item.DateTo ? moment(item.DateTo) : from.clone();
+  if (!from.isValid() || !to.isValid() || to.isBefore(from, "day")) {
+    return wanted.map((x) => ({ day: x, full: x }));
+  }
+
+  const byDay: Record<string, string> = {};
+  // The 62 is only so a corrupt range cannot spin here; the picker caps a
+  // duty at 15 days.
+  let guard = 0;
+  for (
+    const d = from.clone().startOf("day");
+    !d.isAfter(to, "day") && guard < 62;
+    d.add(1, "day")
+  ) {
+    guard++;
+    const k = d.format("DD");
+    if (!(k in byDay)) byDay[k] = d.format("DD MMM YYYY");
+  }
+
+  return wanted.map((x) => ({ day: x, full: byDay[x] || x }));
+};
+
 const generateMonthList = () => {
   const months: string[] = [];
   const current = moment().add(1, "month");
@@ -191,6 +226,22 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         Mode_of_Trans: x.mode || x.mode_of_Trans,
         Vehicle_No: x.vehicle_No,
         Location: x.location,
+
+        // The three branch-visit columns, served alongside the duty by
+        // load_my_duties / load_duties_full. Same defensive casing lookup as
+        // the RA fields below.
+        OnDutyType: pick(x, "onDutyType", "OnDutyType", "ondutyType"),
+        Branch: pick(x, "branch", "Branch"),
+        AttDays: pick(x, "attDays", "AttDays", "attDays_at_Branch"),
+        TripType: pick(x, "tripType", "TripType"),
+        BranchChangeType: pick(x, "branchChangeType", "BranchChangeType"),
+
+        // Who filed the request, which is not always one of the people on
+        // it: a manager can put a team on duty without going himself. Kept
+        // apart from empcode above, which the employee filter reads -
+        // repurposing that would quietly change which cards the filter
+        // matches, for a display change that has nothing to do with it.
+        AppliedBy: pick(x, "empCode", "EmpCode", "appliedBy", "AppliedBy"),
 
         DateFrom: x.dateFrom,
         DateTo: x.dateTo,
@@ -532,19 +583,81 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
           return {
             code: empCode,
-            name:
-              empNames.charAt(0).toUpperCase() +
-              empNames.slice(1).toLowerCase(),
+            // Upper case throughout, so a name entered as "y r m raju" and one
+            // entered as "SATTIBABU" look like entries in the same list rather
+            // than like two different systems talking.
+            name: empNames.toUpperCase(),
           };
         }
 
         return {
           code: "",
-          name: x.trim(),
+          name: x.trim().toUpperCase(),
         };
       })
       .filter((x) => x.name);
   };
+
+  // The applicant arrives as a bare code, because that is all the duty row
+  // stores. The employee list loaded for the filter is the only place here
+  // a code can be turned into a name, and it does not always hold the
+  // person, so the code stands in when the lookup misses - a number is a
+  // poor answer to "who arranged this", but it is still an answer.
+  const nameForCode = (code: any) => {
+    const c = String(code ?? "").trim();
+    if (!c) return "";
+    const who = employees.find((e: any) => String(e?.id ?? "").trim() === c);
+    const raw = String(who?.name ?? "").trim();
+    if (!raw) return c;
+    // The list stores the code glued onto the front of the name -
+    // "1501-PAMARTHI SIVA PRASAD" - so printing it raw shows the code twice,
+    // once inside the name and once in the brackets this chip adds. Only a
+    // leading run of digits and a dash is stripped; a hyphenated surname
+    // keeps its own.
+    const name = raw.replace(/^\s*\d+\s*-\s*/, "").trim();
+    if (!name) return c;
+    // Cased the same way the employee chips beside it are cased, so the two
+    // do not read as having come from different systems.
+    return name.toUpperCase() + " (" + c + ")";
+  };
+
+  // Two questions, one row of chips: who is out, and who said so. When the
+  // person who filed the request is also on it - the ordinary case, someone
+  // booking their own duty - their chip is tinted rather than captioned,
+  // since a label reading "applicant" beside a lone name says nothing. When
+  // they are not on it, nothing else on the card would reveal who arranged
+  // it, so it gets a chip of its own.
+  const dutyPeople = (item: any) => {
+    const chips = formatEmployeeNames(item?.empNames);
+    // Compared on the code alone. The two sources spell names differently
+    // often enough - casing, initials, spacing - that matching on the name
+    // would quietly fail on exactly the rows it matters for.
+    const applicant = String(item?.AppliedBy ?? "").trim();
+    const onIt =
+      !!applicant &&
+      chips.some((c: any) => String(c.code ?? "").trim() === applicant);
+    return { chips, applicant, assignedBy: applicant && !onIt ? applicant : "" };
+  };
+
+  // Same chip, two very different surrounding layouts, so it lives here
+  // rather than being written out twice and drifting apart later.
+  const assignedByChip = (code: string) => (
+    <div
+      title="Filed this request on their behalf"
+      style={{
+        background: "#fff7ed",
+        color: "#9a3412",
+        border: "1px dashed #fdba74",
+        padding: "6px 10px",
+        borderRadius: "20px",
+        fontSize: "12px",
+        fontWeight: 600,
+      }}
+    >
+      <span style={{ opacity: 0.75, fontWeight: 500 }}>Assigned by </span>
+      {nameForCode(code)}
+    </div>
+  );
 
   const loadEmployees = async () => {
     try {
@@ -1667,12 +1780,50 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                     <div className="dm-info-box dm-full-width">
                       <span className="dm-item-label">Employees</span>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "6px" }}>
-                        {formatEmployeeNames(item.empNames).map((emp: any, idx: number) => (
-                          <div key={idx} className="dm-emp-chip">
-                            {emp.name}
-                            {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
-                          </div>
-                        ))}
+                        {(() => {
+                          const { chips, applicant, assignedBy } = dutyPeople(item);
+
+                          return (
+                            <>
+                              {chips.map((emp: any, idx: number) => {
+                                const isApplicant =
+                                  !!applicant &&
+                                  String(emp.code ?? "").trim() === applicant;
+
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="dm-emp-chip"
+                                    title={
+                                      isApplicant
+                                        ? "Applied for this duty themselves"
+                                        : undefined
+                                    }
+                                    // Inline rather than a modifier class: an
+                                    // earlier rule appended to this stylesheet
+                                    // never took effect for reasons that were
+                                    // never explained, and a tint that silently
+                                    // does nothing is worse than no tint.
+                                    style={
+                                      isApplicant
+                                        ? {
+                                            background: "#ecfdf5",
+                                            color: "#065f46",
+                                            border: "1px solid #6ee7b7",
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    {emp.name}
+                                    {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
+                                  </div>
+                                );
+                              })}
+
+                              {assignedBy && assignedByChip(assignedBy)}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -1681,6 +1832,9 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       <span className="dm-item-value">
                         {item.Mode_of_Trans}
                         {item.Vehicle_No && <span style={{ color: "#64748b" }}> • {item.Vehicle_No}</span>}
+                        {/* Part of the same answer as the mode, so it shares
+                            the box rather than taking a column of its own. */}
+                        {item.TripType && <span style={{ color: "#64748b" }}> • {item.TripType}</span>}
                       </span>
                     </div>
 
@@ -1689,10 +1843,88 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       <span className="dm-item-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span>
                     </div>
 
-                    <div className="dm-info-box">
-                      <span className="dm-item-label">Location</span>
-                      <span className="dm-item-value">{item.Location}</span>
-                    </div>
+                    {/* Branch visits carry no location by design, so this
+                        box was rendering as an empty labelled slot on every
+                        one of them. A missing box reads as "not applicable";
+                        an empty one reads as "we lost it". */}
+                    {!!item.Location && (
+                      <div className="dm-info-box">
+                        <span className="dm-item-label">Location</span>
+                        <span className="dm-item-value">{item.Location}</span>
+                      </div>
+                    )}
+
+                    {!!item.OnDutyType && (
+                      <div className="dm-info-box">
+                        <span className="dm-item-label">Duty Type</span>
+                        <span className="dm-item-value">{item.OnDutyType}</span>
+                      </div>
+                    )}
+
+                    {!!item.Branch && (
+                      <div className="dm-info-box">
+                        <span className="dm-item-label">Branch</span>
+                        <span className="dm-item-value">
+                          {item.Branch}
+                          {/* Why they are at that branch belongs with the
+                              branch, not in a box of its own. This is the
+                              line an approver is weighing. */}
+                          {item.BranchChangeType && (
+                            <span style={{ color: "#64748b" }}> • {item.BranchChangeType}</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Only marked days are stored, so unlike the entry form
+                        there is no unmarked counterpart to show - every pill
+                        here is a green one and the count carries the rest.
+                        This is the number an approver is actually checking,
+                        so it goes in the label rather than being left to be
+                        counted off the row. */}
+                    {attDayPills(item).length > 0 && (
+                      <div className="dm-info-box">
+                        <span className="dm-item-label">
+                          Reporting Dates at Branch ({attDayPills(item).length})
+                        </span>
+                        <div
+                          className="dm-item-value"
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "4px",
+                          }}
+                        >
+                          {attDayPills(item).map((d) => (
+                            <span
+                              key={d.day}
+                              title={`${d.full} - marked for attendance`}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxSizing: "border-box",
+                                // Matched to the entry form's pills so the
+                                // same day looks like the same thing in both
+                                // places.
+                                minWidth: "20px",
+                                height: "20px",
+                                padding: "0 5px",
+                                borderRadius: "999px",
+                                background: "#dcfce7",
+                                color: "#15803d",
+                                border: "1px solid #86efac",
+                                fontSize: "10px",
+                                fontWeight: 600,
+                                lineHeight: 1,
+                              }}
+                            >
+                              {d.day}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="dm-info-box">
                       <span className="dm-item-label">Details</span>
@@ -1829,30 +2061,56 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                               marginTop: "6px",
                             }}
                           >
-                            {formatEmployeeNames(item.empNames).map(
-                              (emp: any, idx: number) => (
-                                <div
-                                  key={idx}
-                                  style={{
-                                    background: "#eef2ff",
-                                    color: "#3730a3",
-                                    padding: "6px 10px",
-                                    borderRadius: "20px",
-                                    fontSize: "12px",
-                                    fontWeight: 600,
-                                    border: "1px solid #c7d2fe",
-                                  }}
-                                >
-                                  {emp.name}
-                                  {emp.code && (
-                                    <span style={{ opacity: 0.7 }}>
-                                      {" "}
-                                      ({emp.code})
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            )}
+                            {(() => {
+                              const { chips, applicant, assignedBy } =
+                                dutyPeople(item);
+
+                              return (
+                                <>
+                                  {chips.map((emp: any, idx: number) => {
+                                    const isApplicant =
+                                      !!applicant &&
+                                      String(emp.code ?? "").trim() === applicant;
+
+                                    return (
+                                      <div
+                                        key={idx}
+                                        title={
+                                          isApplicant
+                                            ? "Applied for this duty themselves"
+                                            : undefined
+                                        }
+                                        style={{
+                                          background: isApplicant
+                                            ? "#ecfdf5"
+                                            : "#eef2ff",
+                                          color: isApplicant
+                                            ? "#065f46"
+                                            : "#3730a3",
+                                          border:
+                                            "1px solid " +
+                                            (isApplicant ? "#6ee7b7" : "#c7d2fe"),
+                                          padding: "6px 10px",
+                                          borderRadius: "20px",
+                                          fontSize: "12px",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {emp.name}
+                                        {emp.code && (
+                                          <span style={{ opacity: 0.7 }}>
+                                            {" "}
+                                            ({emp.code})
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {assignedBy && assignedByChip(assignedBy)}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="lr-grid-item"><span className="lr-grid-label">Transport</span><span className="lr-grid-value">{item.Mode_of_Trans} {item.Vehicle_No && `• ${item.Vehicle_No}`}</span></div>

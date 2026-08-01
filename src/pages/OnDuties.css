@@ -831,7 +831,7 @@
   margin: 6px 0 !important;
 }
 
-/* Final pass: the gap between "Submit Report" and "On Duty Logs" kept
+/* Final pass: the gap between "Submit Request" and "On Duty Logs" kept
    coming back because ion-button carries its own internal top/bottom
    padding beyond the 46px height set on .compact-duty-submit, and
    .compact-duty-buttons/.page-container were each adding a bit more on

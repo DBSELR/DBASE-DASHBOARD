@@ -1881,3 +1881,112 @@ ion-datetime {
   color: #94a3b8;
   font-weight: 600;
 }
+
+/* Day pills on the On-duty form. .lr-bento-grid is a rigid 1fr 1fr, so this
+   cell sits directly beside Work Description and every extra pixel of height
+   here makes that whole row taller. Hence one row, always: a long range
+   scrolls sideways instead of wrapping onto a second line.
+   .lr-field-content sets overflow:hidden, which would clip the overflow with
+   no way to reach it, so overflow-x is reopened here. */
+.od-day-pills {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Momentum scrolling on iOS; without it the strip feels stuck to a drag. */
+  -webkit-overflow-scrolling: touch;
+  /* The strip is only as tall as one pill, so a stray vertical drag would
+     otherwise steal the gesture from the page. Let the browser own the
+     vertical axis and give this element the horizontal one. */
+  touch-action: pan-x;
+  /* The scrollbar itself is what would add the height back on desktop, and
+     the box is only one pill tall - a 15px scrollbar would eat the pills. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Fixed, not content-derived: a scroll container that sizes off its content
+     is exactly how a stray pixel of overflow creeps back into the row height.
+     100% of the height .od-line-box pins below. */
+  height: 100%;
+}
+
+.od-day-pills::-webkit-scrollbar {
+  display: none;
+}
+
+/* No scrollbar anywhere - it read as clutter sitting under a single row of
+   pills. The wheel and drag handlers in OnDuties.tsx are what make the strip
+   reachable on desktop now, so the cursor is the only hint left that it moves. */
+@media (hover: hover) and (pointer: fine) {
+  .od-day-pills {
+    cursor: grab;
+  }
+}
+
+/* flex: 0 0 auto is what makes the sideways scroll actually work. With any
+   shrink allowed, flexbox squeezes the pills to fit the cell first and only
+   overflows once they hit min-content - so the row never becomes wider than
+   its container and there is nothing to scroll, while the last pill still ends
+   up half under the edge. Pinned at their natural size the pills overflow
+   honestly, and overflow-x above turns that overflow into a scrollable strip. */
+.od-day-pills > span {
+  flex: 0 0 auto;
+}
+
+/* Days and Work Description sit side by side in the bento grid, so they have to
+   agree on height to the pixel. Left to themselves they never quite do: one is
+   a bare <input> sized by the UA's default line-height and padding, the other is
+   a row of 18px pills, and the two land a pixel or two apart on every engine.
+   Pinning both content rows to the same explicit height settles it by
+   construction instead of by coincidence - 22px is a comfortable line for the
+   14px input and leaves the pills centred with room to spare. */
+.od-line-box .lr-field-content {
+  height: 20px;
+}
+
+/* The label row was the last free variable. Work Description's label is one
+   short uppercase word; the Days label carries a whole sentence beside the
+   count, and a taller line box there - from the hint's own font metrics, or
+   from the sentence wrapping on a narrow screen - was enough to push this box
+   past its neighbour on its own. Pinning the row and clipping the overflow
+   makes the label cost exactly the same on both sides, so the two boxes are
+   now identical by arithmetic: 10 padding + 14 label + 4 gap + 20 content + 10
+   padding + 2 border, whatever either one happens to contain. */
+.od-line-box .lr-field-label {
+  height: 14px;
+  line-height: 14px;
+  overflow: hidden;
+}
+
+/* "Days (16)" and its hint share one label line. The count is the anchor and
+   never shrinks; the hint takes whatever is left and ellipsises out of the way,
+   because a second line here would make this box taller than Work Description
+   beside it. baseline alignment keeps the two reading as one line of text even
+   though the hint is lighter and un-capitalised. */
+.od-day-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.od-day-label > span:first-child {
+  flex: 0 0 auto;
+}
+
+/* Lower-case and lighter so it reads as guidance, not as part of the field
+   name - .lr-field-label uppercases everything, which would turn the sentence
+   into shouting. */
+.od-day-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  /* Back to 10px: the 9px was sized for a ~167px cell, but on a real screen
+     the grid gives each cell ~360px, so the sentence has room to be read
+     rather than squinted at. It still truncates on a narrow phone. */
+  font-size: 10px;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: #a8b3c4;
+}

@@ -119,12 +119,38 @@ const decodeDesignations = (data: any) =>
 const decodeBranches = (data: any) =>
   decodeRows(data, ["LID", "Branch", "BranchDept"], "Branches");
 
+// Distance is LAST in this list because it was added last. The rows arrive
+// as bare arrays, so position is the contract: a database still running the
+// six-column proc returns six values, row[6] reads as undefined, and the
+// distance shows blank instead of the screen breaking.
 const decodeBranchMovement = (data: any) =>
   decodeRows(
     data,
-    ["ID", "FromBranch", "FromDept", "ToBranch", "ToDept", "InTime"],
+    ["ID", "FromBranch", "FromDept", "ToBranch", "ToDept", "InTime", "Distance"],
     "Branch Movement"
   );
+
+/** What a distance box is allowed to contain: digits, and at most one dot
+ *  with two places after it. Kept as text rather than a number input - a
+ *  number input reports a half-typed "12." as the empty string, which makes
+ *  the dot impossible to type on the way to "12.5". Extra dots are dropped
+ *  rather than truncating there, so "1..5" lands on "1.5" and not on "1". */
+/** Whether a distance box counts towards the "N distances" tally.
+ *  Blank is unmeasured. Zero IS stored and IS kept on reload, but it means a
+ *  movement with no travel in it, so it does not add to a count of measured
+ *  roads. Number() rather than a string test so "0", "0.0" and "0.00" all
+ *  read the same, and so a stray "." (NaN, never > 0) cannot count either. */
+const distIsSet = (v: any) => {
+  const t = String(v ?? "").trim();
+  return t !== "" && Number(t) > 0;
+};
+
+const cleanDistance = (v: any) => {
+  const parts = String(v ?? "").replace(/[^0-9.]/g, "").split(".");
+  const whole = (parts.shift() ?? "").slice(0, 6);
+  if (!parts.length) return whole;
+  return whole + "." + parts.join("").slice(0, 2);
+};
 
 /** A branch/dept row written as one string. \u0001 cannot appear in a branch
  *  or dept name, so it is a safe separator - the same one the attendance rule
@@ -709,13 +735,50 @@ const Sources: React.FC = () => {
   // Edits not yet written back. Kept apart from movementRules so a reload
   // cannot silently discard something half-typed.
   const [movementDraft, setMovementDraft] = useState<Record<string, string>>({});
+  // How far the movement is, in km, and its own draft. A second pair of maps
+  // rather than one map of objects: every existing read of movementRules
+  // means "the check-in time for this pair", and widening it to an object
+  // would have quietly changed all of them at once for a column that is
+  // independent of the time anyway. A pair can carry a distance with no time
+  // set, and it still shows.
+  const [movementDistRules, setMovementDistRules] = useState<Record<string, string>>({});
+  const [movementDistDraft, setMovementDistDraft] = useState<Record<string, string>>({});
+  // Which distance boxes the user has typed into by hand, as opposed to the
+  // ones filled in for them from the opposite direction. Without this there is
+  // no way to say "the way back is genuinely different": the two boxes would
+  // stay locked together, and every attempt to change one would change the
+  // other straight back. Not persisted - a saved figure stands on its own, and
+  // this only decides what a keystroke is allowed to overwrite.
+  const [movementDistTouched, setMovementDistTouched] = useState<Record<string, boolean>>({});
   const [movementSaving, setMovementSaving] = useState(false);
+
+  // One pair edited in either column is ONE unsaved change, not two - the save
+  // posts the whole row - so the button counts the union rather than the sum.
+  const movementDirtyKeys = useMemo(
+    () => Array.from(new Set([...Object.keys(movementDraft), ...Object.keys(movementDistDraft)])),
+    [movementDraft, movementDistDraft]
+  );
+
+  // Counted per column, not folded together. Once every road has a distance
+  // on it, a combined figure reads "42 set" no matter how many check-in times
+  // exist, and the number nobody can see is exactly the one being edited.
+  const movementTimeCount = useMemo(
+    () => Object.values(movementRules).filter((v) => String(v ?? "").trim() !== "").length,
+    [movementRules]
+  );
+  // Zero is stored and it survives a reload - see loadBranchMovement - but it
+  // is not counted here. A 0 km movement is one that involves no travel, so
+  // for the purpose of "how many distances have we actually measured" it is
+  // the same answer as blank, and counting it would overstate the work done.
+  const movementDistCount = useMemo(
+    () => Object.values(movementDistRules).filter((v) => distIsSet(v)).length,
+    [movementDistRules]
+  );
   // A box per column, not one shared box. With every combination listed, the
   // question is nearly always "what happens when THESE people go THERE", and
   // that needs both ends pinned at once - a single box can only pin one.
   const [movementFromSearch, setMovementFromSearch] = useState("");
   const [movementToSearch, setMovementToSearch] = useState("");
-  const [movementOnlySet, setMovementOnlySet] = useState(false);
 
   // Column the movement grid is ordered by, and which way. Sorting on the
   // OTHER column as a tiebreak keeps every "from" block internally ordered,
@@ -796,8 +859,6 @@ const Sources: React.FC = () => {
     };
 
     const rows = movementPairs.filter((p: any) => {
-      const eff = movementDraft[p.k] ?? movementRules[p.k] ?? "";
-      if (movementOnlySet && !eff) return false;
       // Both ends must match. Fill one box to see everything leaving or
       // arriving somewhere; fill both to land on the single movement.
       return matches(p.from.label, fromTerms) && matches(p.to.label, toTerms);
@@ -820,8 +881,8 @@ const Sources: React.FC = () => {
       // rows inside a block for no reason the user asked for.
       return cmp(a[secondary].label, b[secondary].label);
     });
-  }, [movementPairs, movementFromSearch, movementToSearch, movementOnlySet,
-      movementDraft, movementRules, movementSortCol, movementSortDir]);
+  }, [movementPairs, movementFromSearch, movementToSearch,
+      movementSortCol, movementSortDir]);
 
   /** The visible rows folded under their Moving From row. Group order and the
    *  order inside each group both come straight from movementVisible, so the
@@ -847,7 +908,7 @@ const Sources: React.FC = () => {
   // default to open. With no filter the page should stay short, so they
   // default to closed. An explicit click always beats the default.
   const movementFiltering =
-    movementFromSearch.trim() !== "" || movementToSearch.trim() !== "" || movementOnlySet;
+    movementFromSearch.trim() !== "" || movementToSearch.trim() !== "";
   const isMovementGroupOpen = (k: string) => movementGroupOpen[k] ?? movementFiltering;
   const toggleMovementGroup = (k: string) =>
     setMovementGroupOpen((prev) => {
@@ -867,19 +928,74 @@ const Sources: React.FC = () => {
     try {
       const r = await axios.get(`${API_BASE}Sources/Load_BranchMovement`, { headers: authHeaders() });
       const map: Record<string, string> = {};
+      const dist: Record<string, string> = {};
       decodeBranchMovement(r.data).forEach((row: any) => {
+        const k = moveKey(row.FromBranch, row.FromDept, row.ToBranch, row.ToDept);
         const t = String(row.InTime ?? "").trim();
-        if (t) map[moveKey(row.FromBranch, row.FromDept, row.ToBranch, row.ToDept)] = t;
+        if (t) map[k] = t;
+        // "" and "0" are two different answers and are kept apart. Blank is
+        // "nobody has measured this"; zero is a measurement - two units on one
+        // compound, a move that involves no travel at all - and somebody had to
+        // type it. Folding zero into blank here would silently discard it on
+        // every reload and make the box impossible to keep at 0.
+        const d = cleanDistance(row.Distance);
+        if (d !== "") dist[k] = d;
       });
       setMovementRules(map);
+      setMovementDistRules(dist);
       setMovementDraft({});
+      setMovementDistDraft({});
+      setMovementDistTouched({});
     } catch (e) {
       setMovementRules({});
+      setMovementDistRules({});
     }
   };
 
+  /** The reverse of a movement: B -> A for the A -> B handed in. */
+  const reverseKey = (p: any) => moveKey(p.to.branch, p.to.dept, p.from.branch, p.from.dept);
+
+  /** Fill in the return trip for every distance that has one missing.
+   *
+   *  Distance is a property of the road, so Eluru/DBS -> Srikakulam/BRAU and
+   *  Srikakulam/BRAU -> Eluru/DBS are the same 380 km, and typing it twice for
+   *  each of 21 roads is 21 chances to type it differently. Typing into a box
+   *  now mirrors as you go, but that only helps from here on, so this catches
+   *  up everything already entered.
+   *
+   *  Only BLANK returns are touched. A return leg deliberately set to a
+   *  different figure - a one-way stretch, a diversion on the way back - is a
+   *  real answer, and a button that overwrote it would be doing damage rather
+   *  than work.
+   */
+  const mirrorDistances = () => {
+    const next = { ...movementDistDraft };
+    const eff = (k: string) =>
+      Object.prototype.hasOwnProperty.call(next, k) ? next[k] : (movementDistRules[k] ?? "");
+    let filled = 0;
+
+    movementPairs.forEach((p: any) => {
+      const cur = eff(p.k);
+      if (!cur) return;
+      const rk = reverseKey(p);
+      // Read through `next`, so a return filled earlier in this same pass is
+      // seen as taken and the pair is not then mirrored back over itself.
+      if (eff(rk)) return;
+      next[rk] = cur;
+      filled++;
+    });
+
+    setMovementDistDraft(next);
+    showToast(
+      filled
+        ? `${filled} return trip${filled === 1 ? "" : "s"} filled in. Save to keep them.`
+        : "Every distance already has its return trip.",
+      filled ? "success" : "warning"
+    );
+  };
+
   const saveBranchMovement = async () => {
-    const changed = Object.keys(movementDraft);
+    const changed = movementDirtyKeys;
     if (!changed.length) return showToast("Nothing changed.", "warning");
 
     setMovementSaving(true);
@@ -900,7 +1016,15 @@ const Sources: React.FC = () => {
             _FromDept: fromDept,
             _ToBranch: toBranch,
             _ToDept: toDept,
-            _InTime: movementDraft[k],          // "" clears the rule
+            // The whole row goes every time, edited column or not. Sending
+            // only what changed would need the proc to tell "leave this one
+            // alone" apart from "clear it", and blank already means clear.
+            _InTime: (Object.prototype.hasOwnProperty.call(movementDraft, k)
+              ? movementDraft[k]
+              : (movementRules[k] ?? "")),
+            _Distance: (Object.prototype.hasOwnProperty.call(movementDistDraft, k)
+              ? movementDistDraft[k]
+              : (movementDistRules[k] ?? "")),
             _CreatedBy: user.empName || user.EmpName || "admin",
           },
           { headers: { "Content-Type": "application/json", ...authHeaders() } }
@@ -914,7 +1038,7 @@ const Sources: React.FC = () => {
     showToast(
       failed
         ? `${changed.length - failed} saved, ${failed} failed.`
-        : `${changed.length} movement time${changed.length === 1 ? "" : "s"} saved.`,
+        : `${changed.length} movement${changed.length === 1 ? "" : "s"} saved.`,
       failed ? "danger" : "success"
     );
     loadBranchMovement();
@@ -1863,10 +1987,10 @@ const Sources: React.FC = () => {
                   >
                     &#9654;
                   </span>
-                  On-duty Branch Movement Check-in Time
+                  On-duty Branch Movement Check-in Time &amp; Distance
                   <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 400, color: 'var(--stock-muted)' }}>
-                    {movementPairs.length} combination{movementPairs.length === 1 ? '' : 's'}, {Object.keys(movementRules).length} set
-                    {Object.keys(movementDraft).length > 0 && ', unsaved edits'}
+                    {movementPairs.length} combination{movementPairs.length === 1 ? '' : 's'}, {movementTimeCount} time{movementTimeCount === 1 ? '' : 's'}, {movementDistCount} distance{movementDistCount === 1 ? '' : 's'}
+                    {movementDirtyKeys.length > 0 && ', unsaved edits'}
                   </span>
                 </h3>
 
@@ -1876,7 +2000,13 @@ const Sources: React.FC = () => {
                   directions. Leave a movement blank and the person keeps the actual in-time
                   from their own profile - that is the normal case, and nothing is stored for
                   it. Fill a time in only where moving there should change when they are
-                  expected, e.g. Eluru / DBS to Vizag / AU at 11:00.
+                  expected, e.g. Eluru / DBS to Vizag / AU at 11:00. Distance is the length
+                  of that trip in km, and is independent of the time: fill in either, both,
+                  or neither. A movement is stored as soon as one of the two is set, and
+                  goes away again only when both are cleared. A distance typed here also
+                  fills in the return trip, since it is the same road either way - give
+                  the return leg its own figure and it stops following. Mirror distances
+                  does the same for everything entered before.
                 </p>
 
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
@@ -1906,16 +2036,8 @@ const Sources: React.FC = () => {
                       Reset
                     </button>
                   )}
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={movementOnlySet}
-                      onChange={(e) => setMovementOnlySet(e.target.checked)}
-                    />
-                    Only movements with a time
-                  </label>
                   <span style={{ fontSize: '0.78rem', color: 'var(--stock-muted)' }}>
-                    {movementVisible.length} of {movementPairs.length} shown, {Object.keys(movementRules).length} set
+                    {movementVisible.length} of {movementPairs.length} shown, {movementTimeCount} time{movementTimeCount === 1 ? '' : 's'} and {movementDistCount} distance{movementDistCount === 1 ? '' : 's'} set
                   </span>
                   <button
                     className="stock-button stock-button--secondary"
@@ -1943,18 +2065,33 @@ const Sources: React.FC = () => {
                     Collapse all
                   </button>
                   <button
+                    className="stock-button stock-button--secondary"
+                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                    title="Copy every distance onto its return trip, where the return has none. Distances already filled in are left alone."
+                    onClick={mirrorDistances}
+                  >
+                    Mirror distances
+                  </button>
+                  <button
                     className="stock-button"
                     onClick={saveBranchMovement}
-                    disabled={movementSaving || Object.keys(movementDraft).length === 0}
+                    disabled={movementSaving || movementDirtyKeys.length === 0}
                   >
                     {movementSaving
                       ? "Saving..."
-                      : Object.keys(movementDraft).length
-                        ? `Save ${Object.keys(movementDraft).length} change${Object.keys(movementDraft).length === 1 ? "" : "s"}`
+                      : movementDirtyKeys.length
+                        ? `Save ${movementDirtyKeys.length} change${movementDirtyKeys.length === 1 ? "" : "s"}`
                         : "Save"}
                   </button>
-                  {Object.keys(movementDraft).length > 0 && !movementSaving && (
-                    <button className="stock-button stock-button--secondary" onClick={() => setMovementDraft({})}>
+                  {movementDirtyKeys.length > 0 && !movementSaving && (
+                    <button
+                      className="stock-button stock-button--secondary"
+                      onClick={() => {
+                        setMovementDraft({});
+                        setMovementDistDraft({});
+                        setMovementDistTouched({});
+                      }}
+                    >
                       Discard
                     </button>
                   )}
@@ -1985,21 +2122,30 @@ const Sources: React.FC = () => {
                           </span>
                         </th>
                         <th style={{ width: '230px' }}>Check-in Time</th>
+                        <th style={{ width: '140px' }}>Distance (km)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {movementGroups.map((g: any) => {
                         const open = isMovementGroupOpen(g.key);
                         // Counted off the draft as well as the saved map, so the
-                        // header agrees with the inputs the moment one is typed in.
-                        const setCount = g.rows.filter((r: any) => {
-                          const v = Object.prototype.hasOwnProperty.call(movementDraft, r.k)
+                        // header agrees with the inputs the moment one is typed in,
+                        // and counted per column so a group full of distances still
+                        // says how many of its check-in times are set.
+                        const effTime = (r: any) =>
+                          Object.prototype.hasOwnProperty.call(movementDraft, r.k)
                             ? movementDraft[r.k]
                             : (movementRules[r.k] ?? "");
-                          return v !== "";
-                        }).length;
+                        const effDist = (r: any) =>
+                          Object.prototype.hasOwnProperty.call(movementDistDraft, r.k)
+                            ? movementDistDraft[r.k]
+                            : (movementDistRules[r.k] ?? "");
+                        const timeCount = g.rows.filter((r: any) => String(effTime(r)).trim() !== "").length;
+                        // Zero does not add to this, same as the totals above.
+                        const distCount = g.rows.filter((r: any) => distIsSet(effDist(r))).length;
                         const groupDirty = g.rows.some((r: any) =>
-                          Object.prototype.hasOwnProperty.call(movementDraft, r.k));
+                          Object.prototype.hasOwnProperty.call(movementDraft, r.k)
+                          || Object.prototype.hasOwnProperty.call(movementDistDraft, r.k));
 
                         return (
                           <React.Fragment key={g.key}>
@@ -2013,7 +2159,7 @@ const Sources: React.FC = () => {
                                   : 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.07)',
                               }}
                             >
-                              <td colSpan={3} style={{ fontWeight: 600, padding: '4px 10px' }}>
+                              <td colSpan={4} style={{ fontWeight: 600, padding: '4px 10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   <span
                                     style={{
@@ -2026,7 +2172,7 @@ const Sources: React.FC = () => {
                                   </span>
                                   {g.label}
                                   <span style={{ marginLeft: 'auto', fontWeight: 400, fontSize: '0.75rem', color: 'var(--stock-muted)' }}>
-                                    {g.rows.length} destination{g.rows.length === 1 ? '' : 's'}, {setCount} set
+                                    {g.rows.length} destination{g.rows.length === 1 ? '' : 's'}, {timeCount} time{timeCount === 1 ? '' : 's'}, {distCount} distance{distCount === 1 ? '' : 's'}
                                     {groupDirty && ', unsaved'}
                                   </span>
                                 </div>
@@ -2035,8 +2181,8 @@ const Sources: React.FC = () => {
 
                             {open && g.rows.map((p: any) => {
                         const saved = movementRules[p.k] ?? "";
-                        const dirty = Object.prototype.hasOwnProperty.call(movementDraft, p.k);
-                        const val = dirty ? movementDraft[p.k] : saved;
+                        const timeDirty = Object.prototype.hasOwnProperty.call(movementDraft, p.k);
+                        const val = timeDirty ? movementDraft[p.k] : saved;
                         // Typing a value and then putting the original back must stop
                         // counting as a change, or Save would post rows that say nothing.
                         const setVal = (v: string) =>
@@ -2046,6 +2192,54 @@ const Sources: React.FC = () => {
                             else next[p.k] = v;
                             return next;
                           });
+
+                        const savedDist = movementDistRules[p.k] ?? "";
+                        const distDirty = Object.prototype.hasOwnProperty.call(movementDistDraft, p.k);
+                        const dval = distDirty ? movementDistDraft[p.k] : savedDist;
+                        // The same road measured the other way. Filled alongside this
+                        // one so a distance only has to be typed once per road, not
+                        // once per direction.
+                        const revK = reverseKey(p);
+                        const savedRev = movementDistRules[revK] ?? "";
+                        // The return leg follows this box on two conditions, and both
+                        // have to hold.
+                        //
+                        // It must not have been typed into by hand this session. That
+                        // is the escape hatch: give the way back its own figure and it
+                        // stops tracking, permanently, rather than being dragged along
+                        // the next time this side is touched.
+                        //
+                        // And it must still agree with what this box held a keystroke
+                        // ago - blank counts as agreeing. Typing digit by digit agrees
+                        // at every step, so "380" mirrors as 3, 38, 380 without the
+                        // link ever breaking, and clearing this box clears the mirror
+                        // with it. A return already carrying a different SAVED figure
+                        // fails this test and is left alone.
+                        const revFollows = !movementDistTouched[revK];
+                        const setDVal = (v: string) => {
+                          setMovementDistTouched((t) => (t[p.k] ? t : { ...t, [p.k]: true }));
+                          setMovementDistDraft((prev) => {
+                            const next = { ...prev };
+                            const clean = cleanDistance(v);
+                            // Compared after cleaning, so retyping "12.5" over "12.5"
+                            // does not register as an edit on the way through "12.".
+                            if (clean === savedDist) delete next[p.k];
+                            else next[p.k] = clean;
+
+                            const curRev = Object.prototype.hasOwnProperty.call(prev, revK)
+                              ? prev[revK]
+                              : savedRev;
+                            if (revFollows && (curRev === "" || curRev === dval)) {
+                              if (clean === savedRev) delete next[revK];
+                              else next[revK] = clean;
+                            }
+                            return next;
+                          });
+                        };
+
+                        // One row, one highlight. The tint says "this movement has
+                        // something unsaved on it", not which of the two boxes.
+                        const dirty = timeDirty || distDirty;
                         return (
                           <tr key={p.k} style={{ background: dirty ? 'rgba(255, 196, 0, 0.14)' : undefined }}>
                             {/* The From name lives in the group header now; this cell
@@ -2073,6 +2267,39 @@ const Sources: React.FC = () => {
                                 ) : (
                                   <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
                                     actual in-time from profile
+                                  </small>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: '2px 10px' }}>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                {/* Text, not number. A number input hands back the
+                                    empty string for a half-typed "12.", which makes
+                                    the decimal point impossible to get past; the
+                                    sanitiser above does the same job and lets the
+                                    dot survive being typed. */}
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="stock-input"
+                                  placeholder="-"
+                                  title="Road distance for this movement, in km"
+                                  style={{ maxWidth: '76px', minHeight: '26px', height: '26px', padding: '0 8px', fontSize: '12px', textAlign: 'right' }}
+                                  value={dval}
+                                  onChange={(e) => setDVal(e.target.value)}
+                                />
+                                {dval ? (
+                                  <button
+                                    className="stock-button stock-button--secondary"
+                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                    title="Clear the distance"
+                                    onClick={() => setDVal("")}
+                                  >
+                                    Clear
+                                  </button>
+                                ) : (
+                                  <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
+                                    not recorded
                                   </small>
                                 )}
                               </div>

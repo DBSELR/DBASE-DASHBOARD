@@ -105,6 +105,29 @@ type DutyRow = {
   EmpCodes?: string;
   Location?: string;
 
+  // The code of whoever filed the request, which is not always one of the
+  // people on it: a manager can put a team on duty without going himself.
+  // Optional because an API that predates the field just omits it, and the
+  // chips then render the way they always did.
+  AppliedBy?: string;
+
+  // The three branch-visit columns on tbl_On_Duties, served by
+  // load_my_duties / load_duties_full. All optional: an API that predates
+  // them simply omits them, and the card renders as it did before rather
+  // than sprouting three empty labelled boxes.
+  OnDutyType?: string;
+  Branch?: string;
+  // Day-of-month numbers only, "02,05,06" - the month is pinned by
+  // DateFrom/DateTo. "" is a real answer meaning nothing was marked;
+  // undefined means the record predates the column.
+  AttDays?: string;
+  // "Round Trip" / "Daily Shuttle". "" on office-vehicle duties, where the
+  // form never asks.
+  TripType?: string;
+  // "Official Assignment" / "Employee Request". Only ever set on a plain
+  // "Branch" duty.
+  BranchChangeType?: string;
+
   // Multi-level approval matrix (from load_duties_full / load_my_duties).
   // Semantics assumed: CurrentLevel/MaxLevel track how far the request has
   // progressed through RA1..RA4; CurrentRA names whoever's turn it is next;
@@ -368,16 +391,109 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   // opposed to onDutyType (what kind) and institution (who it is for).
   const [branchName, setBranchName] = useState<string>("");
 
+  // Why the employee is at a different branch: sent there by the company, or
+  // there at their own asking. Same facts on the duty either way - it is the
+  // approver's read of it that changes, which is why it is stored rather than
+  // inferred.
+  const [branchChangeType, setBranchChangeType] = useState<string>("");
+
+  // A plain "Branch" duty only. The two combined types are a branch visit with
+  // client or party work attached, and the reason for the branch half of those
+  // is already carried by the client or party being there - asking again would
+  // be asking about something the form has already answered.
+  const showBranchChangeType = onDutyType === "Branch";
+
+  // An "Employee Request" branch change is the employee choosing to be at the
+  // other branch rather than the company sending them, so there is no company
+  // journey to account for: no transport to declare, no vehicle to record, no
+  // days to claim attendance against. The three hide together because they are
+  // three parts of one answer - hiding transport but still asking which days
+  // were spent travelling would be asking about a journey the form has just
+  // said does not exist.
+  const showTravelFields = !(
+    showBranchChangeType && branchChangeType === "Employee Request"
+  );
+
   // Which of the two "where / who" fields the chosen type actually needs.
   // Branch shows for anything containing "Branch"; the client picker only
-  // for the two Client variants. A plain "Party" duty needs neither.
+  // for the two Client variants. "Party" and "Official" need neither.
   // Nothing chosen yet shows both, so a fresh form and any record saved
   // before this field existed still offer every option.
   const showBranchField = onDutyType === "" || onDutyType.includes("Branch");
   const showClientField =
     onDutyType === "" || onDutyType === "Client" || onDutyType === "Branch & Client";
+
+  // Day pills are only meaningful for a branch visit, where the point is which
+  // days were spent away. Unlike the two flags above, an unchosen type hides
+  // them: an empty form has no range worth spelling out day by day yet.
+  const showDayPills = onDutyType.includes("Branch") && showTravelFields;
+
+  // A branch visit already says where it went - the Branch field names the
+  // place, and repeating it as free text only invites the two to disagree.
+  // Same rule as showDayPills, inverted: any type containing "Branch" hides it.
+  const showLocationField = !onDutyType.includes("Branch");
+  const dayPillsRef = useRef<HTMLDivElement>(null);
+
+  // Which days are marked for attendance. Keyed by the pill's own YYYY-MM-DD
+  // rather than by index, so shifting the From date by a day cannot silently
+  // re-point a selection at a different date.
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+
+  // Day numbers loaded from a saved record ("02,05,06"), parked here until the
+  // pills exist to attach them to. They cannot be applied inside editOnDuty:
+  // the pills are derived from the date range that same call is still setting,
+  // so at that moment there is nothing to match against. null means "nothing
+  // to restore" and is what an unedited form, a cleared form, and a record
+  // saved before this column existed all look like.
+  const [pendingAttDays, setPendingAttDays] = useState<string | null>(null);
+
+  // Set by the drag-scroll handler when the pointer actually travelled. A drag
+  // across the strip ends in a click on whichever pill is under the finger, and
+  // without this every scroll would toggle a day the user never aimed at.
+  const dayDragMovedRef = useRef(false);
+
+  // Exactly "Branch" means the whole stretch was spent at the branch, so every
+  // day counts and pre-ticking them saves fifteen taps. "Branch & Client" and
+  // "Branch & Party" mean the days were split between two places, so they start
+  // empty and the user ticks only the ones that were actually at the branch -
+  // guessing would put attendance nobody claimed into the record.
+  const autoSelectAllDays = onDutyType === "Branch";
+
+  // Once the user has touched a pill, the auto-fill stops overriding them -
+  // otherwise un-ticking a day the pre-fill added would silently undo itself
+  // the next time the date range moved.
+  const daysTouchedRef = useRef(false);
+
+  const toggleDay = (key: string) => {
+    if (dayDragMovedRef.current) return;
+    daysTouchedRef.current = true;
+    setSelectedDays((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
   const [dutiesDesc, setDutiesDesc] = useState<string>("");
   const [transportMode, setTransportMode] = useState<string>("");
+
+  // Out and back in one go, or the same hop repeated every day of the duty.
+  // It changes what the mileage on the claim is supposed to look like, which
+  // is why it sits next to Transport rather than in the trip details.
+  const [tripType, setTripType] = useState<string>("");
+
+  // Only asked for when the traveller is the one arranging the journey - own
+  // vehicle or public transport. An office vehicle is booked, and the booking
+  // already says whether the driver is coming back or shuttling, so asking
+  // again here would just be a second answer that can disagree with the first.
+  // The showTravelFields term is belt and braces: transportMode is cleared
+  // when travel is hidden, but without this the trip type would still render
+  // for the one frame between the branch change type changing and that clear
+  // landing.
+  // Note this is eligibility, not visibility: a duty can have a trip type and
+  // still not be asked for one. See showTripType, further down.
+  const tripTypeApplies =
+    showTravelFields &&
+    (transportMode === "PublicTransport" ||
+      transportMode === "Own 2 Wheeler" ||
+      transportMode === "Own 4 Wheeler");
   const [kms, setKms] = useState<string>("");
   const [vehicleNo, setVehicleNo] = useState<string>("");
   const [location, setLocation] = useState<string>("");
@@ -448,6 +564,61 @@ const [dutyToDate, setDutyToDate] = useState<string | null>(null);
 const maxDateObj = new Date(dutyFromDate || today);
 maxDateObj.setDate(maxDateObj.getDate() + 6);
 const maxDate = maxDateObj.toISOString().split("T")[0];
+
+// The To picker gets its own, wider ceiling: always 15 days past whatever the
+// From date currently is, so a camp can run a fortnight without the wheel
+// stopping dead at day 7. Built with moment rather than toISOString() because
+// toISOString() converts to UTC first, which rolls the date back a day for any
+// IST time before 05:30 - the exact bug maxDate above still has.
+const maxToDate = moment(dutyFromDate || today).add(15, "days").format("YYYY-MM-DD");
+
+// One entry per calendar day the duty spans. Derived from the From/To pair
+// rather than held in its own state, so it can never drift out of step with
+// the range the user actually picked.
+const dutyDayPills = useMemo(() => {
+  const from = moment(dutyFromDate);
+  // No To date yet is a one-day duty, not an error - the form opens that way.
+  const to = dutyToDate ? moment(dutyToDate) : from.clone();
+  if (!from.isValid() || !to.isValid()) return [];
+
+  const start = from.clone().startOf("day");
+  const end = to.clone().startOf("day");
+  // A backwards range is a half-finished edit, not something to render.
+  if (end.isBefore(start)) return [];
+
+  const days: { key: string; day: string; full: string }[] = [];
+  // The picker caps a duty at 15 days past the From date; the 62 is only so a
+  // mistyped year
+  // cannot lock the page up building thousands of nodes.
+  for (let d = start.clone(); !d.isAfter(end) && days.length < 62; d.add(1, "day")) {
+    days.push({
+      key: d.format("YYYY-MM-DD"),
+      day: d.format("DD"),
+      full: d.format("DD MMM YYYY"),
+    });
+  }
+  return days;
+}, [dutyFromDate, dutyToDate]);
+
+// A duty that begins and ends on the same calendar day cannot be a shuttle:
+// there is no second day to shuttle on. Round Trip is the only answer the
+// form could accept, so it fills it in rather than putting up a dropdown whose
+// one valid option is already chosen.
+// No To date is a same-day duty, not an unfinished one - the form opens that
+// way and a duty saved without ever touching the To picker is a single day.
+const isSingleDayDuty = useMemo(() => {
+  const from = moment(dutyFromDate);
+  const to = dutyToDate ? moment(dutyToDate) : from.clone();
+  // A half-typed date is not a same-day duty; better to leave the question on
+  // screen than to silently answer it from a value that is not a date yet.
+  if (!from.isValid() || !to.isValid()) return false;
+  return from.isSame(to, "day");
+}, [dutyFromDate, dutyToDate]);
+
+// Eligible AND worth asking. Everything on screen keys off this; the payload
+// and the pinning effect key off tripTypeApplies, because a single-day duty
+// still carries a trip type - it just is not asked for one.
+const showTripType = tripTypeApplies && !isSingleDayDuty;
 const [tripModalMode, setTripModalMode] =
   useState<"add" | "edit">("add");
 
@@ -462,8 +633,19 @@ const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
 const [isTransportDropdownOpen, setIsTransportDropdownOpen] = useState(false);
 const [isOnDutyTypeDropdownOpen, setIsOnDutyTypeDropdownOpen] = useState(false);
 const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+const [isTripTypeDropdownOpen, setIsTripTypeDropdownOpen] = useState(false);
+const [isBranchChangeTypeDropdownOpen, setIsBranchChangeTypeDropdownOpen] = useState(false);
 
-// Closed set, no free text. Anything outside these five is not a
+// Closed set. "Official Assignment" is the company moving someone;
+// "Employee Request" is the employee asking to be moved.
+const BRANCH_CHANGE_TYPE_OPTIONS = ["Official Assignment", "Employee Request"];
+
+// Closed set, same as the on-duty types below. "Round Trip" is one journey
+// out and one back; "Daily Shuttle" is that journey repeated on each day of
+// the duty - the distinction the mileage is worked out from.
+const TRIP_TYPE_OPTIONS = ["Round Trip", "Daily Shuttle"];
+
+// Closed set, no free text. Anything outside these six is not a
 // state this form is allowed to produce.
 // Order is the one the user specified. It is not alphabetical and not
 // singles-then-combinations, so do not "tidy" it into either.
@@ -473,6 +655,13 @@ const ONDUTY_TYPE_OPTIONS = [
   "Branch",
   "Branch & Party",
   "Branch & Client",
+  // Duty that is none of the above - a court date, a government office, a
+  // training session. Deliberately last rather than first: it is the
+  // catch-all, and putting a catch-all at the top of a list makes people
+  // stop reading before they reach the specific option they wanted.
+  // Contains no "Branch", so it behaves exactly like "Party": free-text
+  // Location, no branch picker, no day pills.
+  "Official",
 ];
 
 const [teamSearchTerm, setTeamSearchTerm] = useState("");
@@ -484,12 +673,16 @@ const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, wi
 const [transportDropdownPos, setTransportDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 const [onDutyTypeDropdownPos, setOnDutyTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 const [branchDropdownPos, setBranchDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [tripTypeDropdownPos, setTripTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [branchChangeTypeDropdownPos, setBranchChangeTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
 const teamTriggerRef = useRef<HTMLDivElement>(null);
 const clientTriggerRef = useRef<HTMLDivElement>(null);
 const transportTriggerRef = useRef<HTMLDivElement>(null);
 const onDutyTypeTriggerRef = useRef<HTMLDivElement>(null);
 const branchTriggerRef = useRef<HTMLDivElement>(null);
+const tripTypeTriggerRef = useRef<HTMLDivElement>(null);
+const branchChangeTypeTriggerRef = useRef<HTMLDivElement>(null);
 
 useEffect(() => {
   const updateDropdownPositions = () => {
@@ -513,6 +706,14 @@ useEffect(() => {
       const rect = branchTriggerRef.current.getBoundingClientRect();
       setBranchDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
     }
+    if (isTripTypeDropdownOpen && tripTypeTriggerRef.current) {
+      const rect = tripTypeTriggerRef.current.getBoundingClientRect();
+      setTripTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
+    if (isBranchChangeTypeDropdownOpen && branchChangeTypeTriggerRef.current) {
+      const rect = branchChangeTypeTriggerRef.current.getBoundingClientRect();
+      setBranchChangeTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
   };
 
   window.addEventListener('resize', updateDropdownPositions);
@@ -526,7 +727,7 @@ useEffect(() => {
     window.removeEventListener('resize', updateDropdownPositions);
     if (container) container.removeEventListener('scroll', updateDropdownPositions);
   };
-}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen]);
+}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen, isTripTypeDropdownOpen, isBranchChangeTypeDropdownOpen]);
 
 const loadUnlockRange = async () => {
   const res = await fetch(
@@ -1404,6 +1605,41 @@ useEffect(() => {
     return undefined;
   };
 
+  // Stored day numbers paired back up with the duty's own date range, so a
+  // bare "03" on a duty that crosses a month boundary can still say which
+  // month it belongs to in its tooltip. Deliberately tolerant: a stored day
+  // that falls outside the range still renders, showing the number alone,
+  // because dropping it silently would look like the day was never marked.
+  const attDayPills = (row: DutyRow): { day: string; full: string }[] => {
+    const wanted = (row.AttDays || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (wanted.length === 0) return [];
+
+    const from = moment(row.DateFrom);
+    const to = row.DateTo ? moment(row.DateTo) : from.clone();
+    if (!from.isValid() || !to.isValid() || to.isBefore(from, "day")) {
+      return wanted.map((x) => ({ day: x, full: x }));
+    }
+
+    const byDay: Record<string, string> = {};
+    // The 62 is only so a corrupt date range cannot spin here; a duty is
+    // capped at 15 days by the picker.
+    let guard = 0;
+    for (
+      const d = from.clone().startOf("day");
+      !d.isAfter(to, "day") && guard < 62;
+      d.add(1, "day")
+    ) {
+      guard++;
+      const k = d.format("DD");
+      if (!(k in byDay)) byDay[k] = d.format("DD MMM YYYY");
+    }
+
+    return wanted.map((x) => ({ day: x, full: byDay[x] || x }));
+  };
+
   const mapDutyRows = (rawData: any[]): DutyRow[] =>
     rawData.map((d: any) => ({
       id: String(d.id),
@@ -1412,6 +1648,15 @@ useEffect(() => {
       Mode_of_Trans: d.mode || "",
       Vehicle_No: d.vehicle_No || "",
       Location: d.location || "",
+      // Same defensive casing lookup as the RA fields below - these come
+      // from an anonymous projection whose serialization we do not control.
+      OnDutyType: pick(d, "onDutyType", "OnDutyType", "ondutyType"),
+      Branch: pick(d, "branch", "Branch"),
+      AttDays: pick(d, "attDays", "AttDays", "attDays_at_Branch"),
+      TripType: pick(d, "tripType", "TripType"),
+      BranchChangeType: pick(d, "branchChangeType", "BranchChangeType"),
+      EmpCodes: pick(d, "empCodes", "EmpCodes"),
+      AppliedBy: pick(d, "empCode", "EmpCode", "appliedBy", "AppliedBy"),
       Status: d.status || "Pending",
       DateFrom: d.dateFrom || "",
       DateTo: d.dateTo || "",
@@ -1514,19 +1759,63 @@ useEffect(() => {
 
         return {
           code: empCode,
-          name:
-            empNames.charAt(0).toUpperCase() +
-            empNames.slice(1).toLowerCase(),
+          // Upper case throughout, so a name entered as "y r m raju" and one
+          // entered as "SATTIBABU" look like entries in the same list rather
+          // than like two different systems talking.
+          name: empNames.toUpperCase(),
         };
       }
 
       return {
         code: "",
-        name: x.trim(),
+        name: x.trim().toUpperCase(),
       };
     })
     .filter((x) => x.name);
 };
+
+  // The applicant arrives from the API as a bare code, because that is all
+  // tbl_On_Duties stores. The team list is the only place on this page a
+  // code can be turned into a name, and it does not always hold the person
+  // - an approver sees duties filed by people outside his own team - so the
+  // code stands in when the lookup misses. A number on screen is poor, but
+  // it is still an answer to "who arranged this", which is the question the
+  // chip exists to answer.
+  const nameForCode = (code: any) => {
+    const c = String(code ?? "").trim();
+    if (!c) return "";
+    const who = team.find((e) => String(e.EmpCode ?? "").trim() === c);
+    const raw = String(who?.EmpName ?? "").trim();
+    if (!raw) return c;
+    // The list stores the code glued onto the front of the name -
+    // "1501-PAMARTHI SIVA PRASAD" - so printing it raw shows the code twice,
+    // once inside the name and once in the brackets this chip adds. Only a
+    // leading run of digits and a dash is stripped; a hyphenated surname
+    // keeps its own.
+    const name = raw.replace(/^\s*\d+\s*-\s*/, "").trim();
+    if (!name) return c;
+    // Cased the same way the employee chips beside it are cased, so the two
+    // do not read as having come from different systems.
+    return name.toUpperCase() + " (" + c + ")";
+  };
+
+  // Two questions, one row of chips: who is out, and who said so. When the
+  // person who filed the request is also on it - the ordinary case, someone
+  // booking their own duty - their chip is tinted rather than captioned,
+  // since a label reading "applicant" beside a lone name says nothing. When
+  // they are not on it, nothing else on the card would reveal who arranged
+  // it, so it gets a chip of its own.
+  const dutyPeople = (row: any) => {
+    const chips = formatEmployeeNames(row?.empNames);
+    // Compared on the code alone. The two sources spell names differently
+    // often enough - casing, initials, spacing - that matching on the name
+    // would quietly fail on exactly the rows it matters for.
+    const applicant = String(row?.AppliedBy ?? "").trim();
+    const onIt =
+      !!applicant &&
+      chips.some((c: any) => String(c.code ?? "").trim() === applicant);
+    return { chips, applicant, assignedBy: applicant && !onIt ? applicant : "" };
+  };
 
 
 
@@ -1576,10 +1865,51 @@ useEffect(() => {
   useEffect(() => {
     if (!showBranchField && branchName) setBranchName("");
     if (!showClientField && institution) setInstitution("");
+    if (!showLocationField && location) setLocation("");
+    // Switching Branch -> Branch & Client must not leave behind a reason for a
+    // question the form has stopped asking.
+    if (!showBranchChangeType && branchChangeType) setBranchChangeType("");
+    // Changing the type re-opens the question of which days count, so the
+    // user's earlier pill edits stop suppressing the auto-fill.
+    daysTouchedRef.current = false;
     // Clients are fetched once on mount; if that call failed, this is the
     // moment it matters, so retry rather than open an empty picker.
     if (showClientField && clients.length === 0) loadClients();
   }, [onDutyType]);
+
+  // A hidden field must stop contributing to the payload - same rule as the
+  // effect above, applied to the whole travel block at once.
+  useEffect(() => {
+    if (showTravelFields) return;
+    if (transportMode) setTransportMode("");
+    if (vehicleNo) setVehicleNo("");
+    if (tripType) setTripType("");
+    if (kms) setKms("");
+    if (sReading) setSReading("");
+    if (eReading) setEReading("");
+    if (selectedDays.length) setSelectedDays([]);
+    // Reset alongside the clear, not instead of it: leaving this true would
+    // mean switching back to Official Assignment brings the pills back empty,
+    // because the auto-fill would read the days as deliberately unchosen.
+    daysTouchedRef.current = false;
+  }, [showTravelFields]);
+
+  // Same rule as above, for the other question that hides itself: switching
+  // from Own 4 Wheeler to Office 4 Wheeler must not leave a Daily Shuttle
+  // behind on a journey the form has stopped asking about.
+  //
+  // The single-day branch is the opposite move - it writes a value into a
+  // field nobody can see. That is deliberate: the trip type still has to reach
+  // the database, and "Round Trip" is not a guess on a one-day duty, it is the
+  // only thing it can be. A Daily Shuttle left over from when the range was
+  // longer gets overwritten, which is the same answer that would have saved.
+  useEffect(() => {
+    if (!tripTypeApplies) {
+      if (tripType) setTripType("");
+      return;
+    }
+    if (isSingleDayDuty && tripType !== "Round Trip") setTripType("Round Trip");
+  }, [transportMode, showTravelFields, isSingleDayDuty]);
 
   // The user's own branch comes off their employee record - the login payload
   // carries only code, name and designation. This waits on the branch list
@@ -1659,8 +1989,12 @@ useEffect(() => {
   };
 
   const saveOnDuty = async () => {
-    if (!institution || !dutiesDesc || !transportMode || !location || !empCode || !dutyFromDate || !dutyToDate
+    // Transport and vehicle are only required while they are on screen - an
+    // Employee Request branch change has neither, and demanding them would
+    // make it unsavable with no visible field to fix.
+    if ((showClientField && !institution) || !dutiesDesc || (showTravelFields && !transportMode) || (showLocationField && !location) || !empCode || !dutyFromDate || !dutyToDate
       || (
+      showTravelFields &&
       transportMode !== "PublicTransport" &&
       !vehicleNo
     )
@@ -1695,14 +2029,78 @@ useEffect(() => {
       _Location: location,
       _OnDutyType: onDutyType,
       _Branch: branchName,
+      // Day numbers only, ascending, taken from the pill list rather than from
+      // selectedDays directly - the pills are already in date order and already
+      // carry the zero-padded DD, so this cannot emit "2,10,3". Non-branch
+      // types send "" rather than being left out, so that re-saving an old
+      // branch duty as a client duty actually clears the days it used to have.
+      _AttDaysAtBranch: showDayPills
+        ? dutyDayPills
+            .filter((d) => selectedDays.includes(d.key))
+            .map((d) => d.day)
+            .join(",")
+        : "",
+      // "" on an office-vehicle duty rather than omitted, so re-saving a duty
+      // whose transport changed actually clears the trip type it used to have.
+      _TripType: tripTypeApplies ? tripType : "",
+      // Same reasoning as _TripType: "" rather than omitted, so re-saving a
+      // duty as a different type clears a reason that no longer applies.
+      _BranchChangeType: showBranchChangeType ? branchChangeType : "",
     };
 
     try {
       const res = await postWithFallback("OnDuty/saveduties", payload);
+
+      // A double booking comes back as 200 with a CONFLICT: prefix rather than
+      // an error status, because postWithFallback retries and then discards
+      // non-2xx bodies - which would reduce this to "Submission failed" and
+      // leave nobody knowing which day or whose duty. Nothing is cleared: the
+      // dates should be correctable without retyping the whole request.
+      const body = String(res.data ?? "");
+      if (body.startsWith("CONFLICT:")) {
+        // The API only knows employee codes. Names live in the team list here,
+        // so the swap happens on this side, and only on the codes ahead of
+        // " on request" - a request number is digits too, and so is a year.
+        const detail = body
+          .slice("CONFLICT:".length)
+          .split("; ")
+          .map((seg) => {
+            const at = seg.indexOf(" on request");
+            if (at < 0) return seg;
+            const named = seg
+              .slice(0, at)
+              .split(",")
+              .map((c) => c.trim())
+              .map((c) => {
+                const who = team.find((e) => String(e.EmpCode) === c);
+                return who ? `${who.EmpName} (${c})` : c;
+              })
+              .join(", ");
+            return named + seg.slice(at);
+          })
+          .join("; ");
+
+        notify(`Already on duty for these dates: ${detail}`, "danger");
+        return;
+      }
+
       if (isSaveOk(res.data)) {
-        notify("On-Duty request submitted successfully", "success");
+        // The duty row itself saved, but the branch columns did not - almost
+        // always AttDays_at_Branch being too narrow for a long camp. Saying
+        // "submitted successfully" here would send someone away believing
+        // attendance was recorded when none of it was.
+        const warn = String(res.data ?? "").split("|WARN:")[1];
+        if (warn) {
+          notify(`Saved, but branch details were not stored: ${warn}`, "warning");
+        } else {
+          notify("On-Duty request submitted successfully", "success");
+        }
         clearOnDutyForm();
         loadDuties();
+      } else {
+        // Previously silent: a save the API declined left the button looking
+        // like it had worked and the form still full.
+        notify("Could not save the request - please try again", "danger");
       }
     } catch {
       notify("Submission failed", "danger");
@@ -1719,6 +2117,24 @@ useEffect(() => {
       const res = await api.get("OnDuty/edit_onduties", {
         params: { EmpCode: empCode, id },
       });
+
+      // Type, branch and marked days come from their own endpoint keyed by
+      // name, not from extra positions on the row above - App_Get_Duties'
+      // column order is not ours to depend on. Awaited before any setState so
+      // the whole record lands in one render: split across two commits, the
+      // type change would reset daysTouchedRef after the days were restored
+      // and the auto-fill would immediately overwrite them.
+      let extra: any = null;
+      try {
+        const ex = await api.get("OnDuty/get_onduty_extra", {
+          params: { id },
+          headers: authHeaders(),
+        });
+        extra = ex.data ?? null;
+      } catch {
+        // An API build without this endpoint yet. Fall back to the row values
+        // rather than failing the whole edit.
+      }
 
       const row = Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
 
@@ -1741,8 +2157,19 @@ useEffect(() => {
         );
         setInstitution(row[3]);
         setLocation(row[15] || "");
-        setOnDutyType(row[16] || "");
-        setBranchName(row[17] || "");
+        setOnDutyType(extra ? extra.onDutyType || "" : row[16] || "");
+        setBranchName(extra ? extra.branch || "" : row[17] || "");
+        // undefined (no endpoint) and null (column never written for this row)
+        // both mean "no stored answer", so leave the defaults to decide. Only a
+        // real string - including "" - counts as a selection to restore.
+        setPendingAttDays(
+          extra && typeof extra.attDays === "string" ? extra.attDays : null
+        );
+        // Safe to set before setTransportMode below: both land in the same
+        // commit, so the effect that clears a trip type on a hidden field
+        // sees the restored transport mode, not the one being replaced.
+        setTripType(extra ? extra.tripType || "" : "");
+        setBranchChangeType(extra ? extra.branchChangeType || "" : "");
         setDutiesDesc(row[4]);
         setTransportMode(row[5]);
         setKms(row[6]);
@@ -1888,11 +2315,16 @@ useEffect(() => {
 
   const clearOnDutyForm = () => {
     setEditingId("");
+    setSelectedDays([]);
+    setPendingAttDays(null);
+    daysTouchedRef.current = false;
     setInstitution("");
     setOnDutyType("");
     setBranchName("");
+    setBranchChangeType("");
     setDutiesDesc("");
     setTransportMode("");
+    setTripType("");
     setKms("");
     setVehicleNo("");
     setLocation("");
@@ -2003,6 +2435,153 @@ useEffect(() => {
   // offers the full 24h/60m range on every date with zero restriction lag,
   // and saveOnDuty's check below is the sole (and reliable) enforcement of
   // "Camp From can't be in the past."
+  // The pill strip scrolls sideways, but overflow-x alone only gets you there on
+  // a touchscreen. Its scrollbar is hidden (a normal one is wider than the strip
+  // is tall), so on desktop there is no visible handle to drag and a mouse wheel
+  // only ever produces deltaY, which a horizontal scroller ignores - the row
+  // looks frozen with its last pills cut off. These two listeners give the strip
+  // the gestures it is missing: a vertical wheel scrolls it sideways, and it can
+  // be dragged directly like a map.
+  useEffect(() => {
+    const el = dayPillsRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      // Nothing to scroll: leave the page's own scroll alone.
+      if (el.scrollWidth <= el.clientWidth) return;
+      // A trackpad already sends deltaX for a sideways swipe; only translate the
+      // gesture when the wheel is genuinely vertical, or two-finger scrolling
+      // over this strip would move it twice as fast as the finger.
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      el.scrollLeft += e.deltaY;
+      // Without this the page scrolls too, and the strip appears to fight it.
+      // Requires the passive:false below - preventDefault is a no-op otherwise.
+      e.preventDefault();
+    };
+
+    let startX = 0;
+    let startLeft = 0;
+    let dragging = false;
+    let captured = false;
+
+    const onPointerDown = (e: PointerEvent) => {
+      // Touch is left to the browser's native momentum scrolling, which feels
+      // better than anything reconstructed from pointer deltas.
+      if (e.pointerType === "touch") return;
+      if (el.scrollWidth <= el.clientWidth) return;
+      dragging = true;
+      captured = false;
+      dayDragMovedRef.current = false;
+      startX = e.clientX;
+      startLeft = el.scrollLeft;
+      el.style.cursor = "grabbing";
+      // Deliberately NOT capturing the pointer here. Capturing on pointerdown
+      // retargets everything that follows - including the click - to this
+      // container, so the click never reaches the pill underneath and a plain
+      // tap on a day did nothing at all. Capture is deferred to the moment the
+      // pointer has actually moved, below, where it earns its keep by keeping
+      // the drag alive if the cursor leaves the strip.
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      // 4px of slack: a click is never perfectly still, and treating the
+      // shake of a mouse press as a drag would swallow legitimate taps.
+      if (!dayDragMovedRef.current && Math.abs(dx) > 4) {
+        dayDragMovedRef.current = true;
+        // Past the threshold this is unambiguously a drag, so there is no
+        // click left to protect and capture is safe to take.
+        el.setPointerCapture(e.pointerId);
+        captured = true;
+      }
+      if (!dayDragMovedRef.current) return;
+      el.scrollLeft = startLeft - dx;
+    };
+
+    const endDrag = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      // releasePointerCapture throws if the pointer is already gone.
+      // Only release what was actually taken - releasePointerCapture throws
+      // for a pointer that was never captured, which is now the common case.
+      if (captured) {
+        try { el.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+        captured = false;
+      }
+      el.style.cursor = "";
+      // The click event fires after pointerup, so the flag has to survive just
+      // long enough to be read by it and no longer.
+      window.setTimeout(() => { dayDragMovedRef.current = false; }, 0);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", endDrag);
+    el.addEventListener("pointercancel", endDrag);
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", endDrag);
+      el.removeEventListener("pointercancel", endDrag);
+    };
+    // Re-binds when the strip mounts or its contents change length, since the
+    // element is unmounted entirely whenever the type is not a branch visit.
+  }, [showDayPills, dutyDayPills.length]);
+
+  // Second half of the edit-time restore. Stored day numbers are matched back
+  // against the pills rather than parsed into dates directly, so a stored day
+  // that is not in the loaded range simply does not come back instead of
+  // becoming a selection for a date the form cannot show.
+  // Declared above the auto-fill below on purpose: effects run in source order
+  // within a commit, so this marks the days as user-chosen before the auto-fill
+  // gets its turn to decide they are not.
+  useEffect(() => {
+    if (pendingAttDays === null) return;
+    if (dutyDayPills.length === 0) return;
+
+    const wanted = new Set(
+      pendingAttDays
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+
+    daysTouchedRef.current = true;
+    setSelectedDays(
+      dutyDayPills.filter((d) => wanted.has(d.day)).map((d) => d.key)
+    );
+    setPendingAttDays(null);
+  }, [pendingAttDays, dutyDayPills]);
+
+  // Narrowing the date range has to take its days' selections with it, or the
+  // form would keep marking attendance for dates that are no longer part of the
+  // duty and that nobody can see to un-mark. Pruning rather than clearing means
+  // widening a range, or nudging one end, leaves the other days alone.
+  useEffect(() => {
+    // Both defaults run here rather than on the type change alone, so that
+    // extending the range afterwards brings the new days in matching whatever
+    // the type implies instead of arriving in the opposite state.
+    if (!daysTouchedRef.current && showDayPills) {
+      // An explicit empty set for the combined types, not just "leave it
+      // alone": switching from Branch to Branch & Client has to drop the days
+      // the pre-fill added, or the user would silently keep a full month of
+      // branch attendance they never chose under a type that contradicts it.
+      setSelectedDays(autoSelectAllDays ? dutyDayPills.map((d) => d.key) : []);
+      return;
+    }
+    const valid = new Set(dutyDayPills.map((d) => d.key));
+    setSelectedDays((prev) => {
+      const kept = prev.filter((k) => valid.has(k));
+      // Same contents means same array - returning a fresh one every render
+      // would re-trigger anything downstream that watches this state.
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [dutyDayPills, autoSelectAllDays, showDayPills]);
+
   const history = useHistory();
   return (
     <div className="onduties-page">
@@ -2125,6 +2704,54 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+
+              {/* Branch Change Type - plain "Branch" duties only, see
+                  showBranchChangeType. Directly after On-duty Type because it
+                  only exists as a follow-up to one of its answers. */}
+              {showBranchChangeType && (
+                <div className="lr-field-box" onClick={() => setIsBranchChangeTypeDropdownOpen(!isBranchChangeTypeDropdownOpen)}>
+                  <label className="lr-field-label">Branch Change Type</label>
+                  <div className="lr-field-content" ref={branchChangeTypeTriggerRef}>
+                    <IonIcon icon={documentTextOutline} className="lr-field-icon" />
+                    <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: branchChangeType ? "#1e293b" : "#94a3b8" }}>
+                      {branchChangeType || "Select Change Type"}
+                    </span>
+                    <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                    {isBranchChangeTypeDropdownOpen && createPortal(
+                      <>
+                        <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsBranchChangeTypeDropdownOpen(false); }} />
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchChangeTypeDropdownPos.top}px`, left: `${branchChangeTypeDropdownPos.left}px`, width: `${branchChangeTypeDropdownPos.width}px` }}>
+                          <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
+                            {BRANCH_CHANGE_TYPE_OPTIONS.map((name, index) => {
+                              const isSelected = branchChangeType === name;
+                              return (
+                                <div
+                                  key={name}
+                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setBranchChangeType(name);
+                                    setIsBranchChangeTypeDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{name.charAt(0).toUpperCase()}</div>
+                                  <div className="dr-info">
+                                    <span className="dr-name">{name}</span>
+                                  </div>
+                                  {isSelected && <Check size={18} className="dr-check" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>,
+                      document.body
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Branch */}
               {showBranchField && (
@@ -2294,7 +2921,7 @@ useEffect(() => {
                     showDefaultButtons={true}
                     value={dateModalType === "from" ? dutyFromDate : dutyToDate}
                     min={dateModalType === "from" ? (unlockRange.approved ? unlockRange.fromDate : nowIST().toISOString(true)) : (dutyFromDate === unlockRange.fromDate ? unlockRange.fromDate : (dutyFromDate || nowIST().toISOString(true)))}
-                    max={dateModalType === "from" ? maxDate : (dutyFromDate === unlockRange.fromDate ? unlockRange.toDate : maxDate)}
+                    max={dateModalType === "from" ? maxDate : (dutyFromDate === unlockRange.fromDate ? unlockRange.toDate : maxToDate)}
                     isDateEnabled={dateModalType === "from" ? ((dateString) => {
                       const date = dateString.split("T")[0];
                       if (date === dutyFromDate) return true;
@@ -2329,7 +2956,8 @@ useEffect(() => {
                 </div>
               </IonModal>
 
-              {/* Location */}
+              {/* Location - hidden for branch visits, see showLocationField */}
+              {showLocationField && (
               <div className="lr-field-box">
                 <label className="lr-field-label">Location</label>
                 <div className="lr-field-content">
@@ -2343,8 +2971,11 @@ useEffect(() => {
                   />
                 </div>
               </div>
+              )}
 
-              {/* Transport */}
+              {/* Transport - hidden for an Employee Request branch change,
+                  see showTravelFields */}
+              {showTravelFields && (
               <div className="lr-field-box" onClick={() => setIsTransportDropdownOpen(!isTransportDropdownOpen)}>
                 <label className="lr-field-label">Transport</label>
                 <div className="lr-field-content" ref={transportTriggerRef}>
@@ -2388,9 +3019,58 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+              )}
+
+              {/* Trip Type - own vehicle / public transport only, see
+                  showTripType. Sits directly after Transport so the two read
+                  as one question and its answer. */}
+              {showTripType && (
+                <div className="lr-field-box" onClick={() => setIsTripTypeDropdownOpen(!isTripTypeDropdownOpen)}>
+                  <label className="lr-field-label">Trip Type</label>
+                  <div className="lr-field-content" ref={tripTypeTriggerRef}>
+                    <IonIcon icon={refreshOutline} className="lr-field-icon" />
+                    <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: tripType ? "#1e293b" : "#94a3b8" }}>
+                      {tripType || "Select Trip Type"}
+                    </span>
+                    <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                    {isTripTypeDropdownOpen && createPortal(
+                      <>
+                        <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTripTypeDropdownOpen(false); }} />
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${tripTypeDropdownPos.top}px`, left: `${tripTypeDropdownPos.left}px`, width: `${tripTypeDropdownPos.width}px` }}>
+                          <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
+                            {TRIP_TYPE_OPTIONS.map((name, index) => {
+                              const isSelected = tripType === name;
+                              return (
+                                <div
+                                  key={index}
+                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTripType(name);
+                                    setIsTripTypeDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{name.charAt(0)}</div>
+                                  <div className="dr-info">
+                                    <span className="dr-name">{name}</span>
+                                  </div>
+                                  {isSelected && <Check size={18} className="dr-check" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>,
+                      document.body
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Vehicle No */}
-              {transportMode !== "PublicTransport" && (
+              {showTravelFields && transportMode !== "PublicTransport" && (
                 <div className="lr-field-box">
                   <label className="lr-field-label">Vehicle No</label>
                   <div className="lr-field-content">
@@ -2407,7 +3087,7 @@ useEffect(() => {
               )}
 
               {/* Work Description */}
-              <div className="lr-field-box">
+              <div className="lr-field-box od-line-box">
                 <label className="lr-field-label">Work Description</label>
                 <div className="lr-field-content">
                   <input
@@ -2419,6 +3099,121 @@ useEffect(() => {
                   />
                 </div>
               </div>
+
+              {/* Day pills - one per date covered by the From/To range, so the
+                  span is readable at a glance without re-reading both dates. */}
+              {showDayPills && dutyDayPills.length > 0 && (
+                <div className="lr-field-box od-line-box">
+                  <label
+                    className="lr-field-label od-day-label"
+                    // Inline, not in the stylesheet: the class-based version of
+                    // this rule was not winning against something in the cascade
+                    // and the label kept flowing as plain inline text, breaking
+                    // "Days" and "(2)" across two lines. An inline style cannot
+                    // be outranked, and this is a one-off label, so the cost of
+                    // hard-coding it here is small next to hunting the override.
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: "6px",
+                      minWidth: 0,
+                    }}
+                  >
+                    {/* nowrap so the count never gets orphaned onto its own
+                        line - "Days" and "(2)" are one token to the reader. */}
+                    <span style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}>
+                      Days ({dutyDayPills.length})
+                    </span>
+                    {/* Fixed wording, not the branch name: the name is already
+                        on screen in the Branch field right above, and dropping
+                        it keeps this short enough to actually fit. The label
+                        line is only ~167px wide, so the hint still truncates
+                        rather than wraps - wrapping would push this box taller
+                        than Work Description and undo the matched height next
+                        door. title carries the full sentence when it is cut. */}
+                    <span
+                      className="od-day-hint"
+                      title="Select days to mark attendance at branch"
+                    >
+                      Select days to mark attendance at branch
+                    </span>
+                  </label>
+                  <div
+                    ref={dayPillsRef}
+                    className="lr-field-content od-day-pills"
+                    style={{ gap: "4px" }}
+                  >
+                    {dutyDayPills.map((d) => {
+                      const isSelected = selectedDays.includes(d.key);
+                      return (
+                      <span
+                        key={d.key}
+                        // The pill shows only the day number, so the full date
+                        // lives in the tooltip - a bare "03" is ambiguous the
+                        // moment a range crosses a month boundary. The state is
+                        // spelled out too: colour alone carries it otherwise,
+                        // and red/green is the one pair a colour-blind user is
+                        // least likely to be able to tell apart.
+                        title={`${d.full} - ${isSelected ? "marked for attendance" : "not marked"}`}
+                        onClick={() => toggleDay(d.key)}
+                        // A span is not focusable or keyboard-operable on its
+                        // own; these three lines are what stop this from being
+                        // a mouse-only control.
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            // Space would scroll the page underneath.
+                            e.preventDefault();
+                            toggleDay(d.key);
+                          }
+                        }}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          // The strip drags to scroll; without this the browser
+                          // starts a text selection instead of a drag.
+                          userSelect: "none",
+                          // minWidth keeps "02" and "12" the same width so the
+                          // row reads as a row. It has to stay >= the height or
+                          // the pill turns into an oval instead of a circle.
+                          // Sized to fill .od-line-box's 20px content row
+                          // exactly. That row is what keeps Days level with
+                          // Work Description, and overflow-y is hidden, so a
+                          // taller pill would just get its top and bottom
+                          // shaved off rather than making the box grow. The
+                          // pills answer to the row, never the other way round.
+                          boxSizing: "border-box",
+                          minWidth: "20px",
+                          height: "20px",
+                          padding: "0 5px",
+                          borderRadius: "999px",
+                          // Red is the resting state and green is the marked
+                          // one, per the request. Worth being aware that this
+                          // inverts the usual reading: an untouched form is a
+                          // wall of red, which looks like fifteen errors rather
+                          // than fifteen days waiting to be chosen. The tints
+                          // are kept soft for that reason - alarm colours at
+                          // full strength would make the form feel broken.
+                          background: isSelected ? "#dcfce7" : "#fee2e2",
+                          color: isSelected ? "#15803d" : "#b91c1c",
+                          border: `1px solid ${isSelected ? "#86efac" : "#fecaca"}`,
+                          fontSize: "10px",
+                          fontWeight: 600,
+                          lineHeight: 1,
+                          transition: "background 120ms ease, color 120ms ease, border-color 120ms ease",
+                        }}
+                      >
+                        {d.day}
+                      </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex" }}>
@@ -2427,7 +3222,7 @@ useEffect(() => {
                 style={{ flex: 1, padding: "14px", borderRadius: "14px", fontSize: "15px", fontWeight: "700" }}
                 onClick={saveOnDuty}
               >
-                Submit Report
+                Submit Request
               </button>
             </div>
           </div>
@@ -2524,27 +3319,66 @@ useEffect(() => {
                       marginTop: "6px",
                     }}
                   >
-                    {formatEmployeeNames(row.empNames).map(
-                      (emp: any, idx: number) => (
-                        <div
-                          key={idx}
-                          style={{
-                            background: "#eef2ff",
-                            color: "#3730a3",
-                            padding: "6px 10px",
-                            borderRadius: "20px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            border: "1px solid #c7d2fe",
-                          }}
-                        >
-                          {emp.name}
-                          {emp.code && (
-                            <span style={{ opacity: 0.7 }}> ({emp.code})</span>
+                    {(() => {
+                      const { chips, applicant, assignedBy } = dutyPeople(row);
+
+                      return (
+                        <>
+                          {chips.map((emp: any, idx: number) => {
+                            const isApplicant =
+                              !!applicant &&
+                              String(emp.code ?? "").trim() === applicant;
+
+                            return (
+                              <div
+                                key={idx}
+                                title={
+                                  isApplicant
+                                    ? "Applied for this duty themselves"
+                                    : undefined
+                                }
+                                style={{
+                                  background: isApplicant ? "#ecfdf5" : "#eef2ff",
+                                  color: isApplicant ? "#065f46" : "#3730a3",
+                                  border:
+                                    "1px solid " +
+                                    (isApplicant ? "#6ee7b7" : "#c7d2fe"),
+                                  padding: "6px 10px",
+                                  borderRadius: "20px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {emp.name}
+                                {emp.code && (
+                                  <span style={{ opacity: 0.7 }}> ({emp.code})</span>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {assignedBy && (
+                            <div
+                              title="Filed this request on their behalf"
+                              style={{
+                                background: "#fff7ed",
+                                color: "#9a3412",
+                                border: "1px dashed #fdba74",
+                                padding: "6px 10px",
+                                borderRadius: "20px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <span style={{ opacity: 0.75, fontWeight: 500 }}>
+                                Assigned by{" "}
+                              </span>
+                              {nameForCode(assignedBy)}
+                            </div>
                           )}
-                        </div>
-                      )
-                    )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -2557,6 +3391,11 @@ useEffect(() => {
                     {row.Mode_of_Trans}
                     {row.Vehicle_No && (
                       <span style={{ color: "#64748b" }}> • {row.Vehicle_No}</span>
+                    )}
+                    {/* Part of the same answer as the mode, so it shares the
+                        box rather than taking a fifth column of its own. */}
+                    {row.TripType && (
+                      <span style={{ color: "#64748b" }}> • {row.TripType}</span>
                     )}
                   </span>
                 </div>
@@ -2579,15 +3418,97 @@ useEffect(() => {
                   </span>
                 </div>
 
-                <div className="duty-info-box" style={{ minWidth: 0 }}>
-                  <span className="item-label">Location</span>
-                  <span
-                    className="item-value"
-                    style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
-                  >
-                    {row.Location}
-                  </span>
-                </div>
+                {/* Branch visits carry no location by design, so this box
+                    was rendering as an empty labelled slot on every one of
+                    them. A missing box reads as "not applicable"; an empty
+                    one reads as "we lost it". */}
+                {!!row.Location && (
+                  <div className="duty-info-box" style={{ minWidth: 0 }}>
+                    <span className="item-label">Location</span>
+                    <span
+                      className="item-value"
+                      style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
+                    >
+                      {row.Location}
+                    </span>
+                  </div>
+                )}
+
+                {!!row.OnDutyType && (
+                  <div className="duty-info-box" style={{ minWidth: 0 }}>
+                    <span className="item-label">Duty Type</span>
+                    <span
+                      className="item-value"
+                      style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
+                    >
+                      {row.OnDutyType}
+                    </span>
+                  </div>
+                )}
+
+                {!!row.Branch && (
+                  <div className="duty-info-box" style={{ minWidth: 0 }}>
+                    <span className="item-label">Branch</span>
+                    <span
+                      className="item-value"
+                      style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
+                    >
+                      {row.Branch}
+                      {/* Why they are at that branch belongs with the branch,
+                          not in a box of its own two columns away. */}
+                      {row.BranchChangeType && (
+                        <span style={{ color: "#64748b" }}> • {row.BranchChangeType}</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {/* Only the marked days are stored, so unlike the form there
+                    is no unmarked counterpart to show here - every pill is a
+                    green one, and the count carries the rest of the meaning. */}
+                {attDayPills(row).length > 0 && (
+                  <div className="duty-info-box" style={{ minWidth: 0 }}>
+                    <span className="item-label">
+                      Reporting Dates at Branch ({attDayPills(row).length})
+                    </span>
+                    <div
+                      className="item-value"
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                        lineHeight: "20px",
+                      }}
+                    >
+                      {attDayPills(row).map((d) => (
+                        <span
+                          key={d.day}
+                          title={`${d.full} - marked for attendance`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxSizing: "border-box",
+                            // Matched to the form's pills so the same day
+                            // looks like the same thing in both places.
+                            minWidth: "20px",
+                            height: "20px",
+                            padding: "0 5px",
+                            borderRadius: "999px",
+                            background: "#dcfce7",
+                            color: "#15803d",
+                            border: "1px solid #86efac",
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            lineHeight: 1,
+                          }}
+                        >
+                          {d.day}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="duty-info-box" style={{ minWidth: 0 }}>
                   <span className="item-label">Details</span>
