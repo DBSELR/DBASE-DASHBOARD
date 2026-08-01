@@ -84,7 +84,6 @@ import ApprovalDates from "./components/requests/ApprovalDates";
 import LeaveAction from "./pages/LeaveAction";
 import VisitTickets from "./pages/Tickets/components/VisitTickets";
 import LeaveReport from "./pages/AIAttendance/LeaveReport";
-import LeaveDashboard from "./pages/LeaveDashboard";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
@@ -231,7 +230,7 @@ const App: React.FC = () => {
                   <Route exact path="/leave-action" component={LeaveAction} />
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
-                  <Route exact path="/leave-dashboard" component={LeaveDashboard} />
+                  
                   <Route exact path="/stock" component={Stock} />
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />
