@@ -1,4 +1,4 @@
-// src/pages/OnDuties.tsx
+﻿// src/pages/OnDuties.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { addOutline } from "ionicons/icons";
 import {
@@ -44,8 +44,33 @@ import { ChevronDown, Search, X, Check } from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
+import { apiService } from "../utils/apiService";
+
+// "branch|dept", case- and whitespace-insensitive, so a row read out of
+// tbl_Branch and a value read off Tbl_Employee still compare equal when
+// they differ only in casing or a stray trailing space.
+const branchKey = (branch: string, dept: string) =>
+  `${String(branch ?? "").trim().toLowerCase()}|${String(dept ?? "").trim().toLowerCase()}`;
 
 type ClientItem = { Client_ID: string; Client_Name: string };
+
+// One row of tbl_Branch. `label` is both what the user reads and what
+// gets saved, so the stored text is never a code nobody can decode.
+type BranchOption = { id: string; branch: string; dept: string; label: string };
+
+// Sources/* is [Authorize]d (the Workreport/OnDuty endpoints this page
+// otherwise uses are not), so requests to it must carry the bearer token.
+const authHeaders = () => {
+  const raw =
+    localStorage.getItem("token") ||
+    localStorage.getItem("Token") ||
+    sessionStorage.getItem("token") ||
+    "";
+  const token = raw.replace(/^"|"$/g, "");
+  return token
+    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+    : {};
+};
 
 type EmployeeItem = {
   EmpCode: string;
@@ -335,6 +360,22 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
 
   const [institution, setInstitution] = useState<string>("");
+  // What KIND of on-duty this is, kept separate from WHO it is for.
+  // "Branch & Party" as a client name would be a client nobody can
+  // invoice; as a type it is exactly the distinction the approver needs.
+  const [onDutyType, setOnDutyType] = useState<string>("");
+  // The chosen "Branch (Dept)" label. WHERE the duty starts from, as
+  // opposed to onDutyType (what kind) and institution (who it is for).
+  const [branchName, setBranchName] = useState<string>("");
+
+  // Which of the two "where / who" fields the chosen type actually needs.
+  // Branch shows for anything containing "Branch"; the client picker only
+  // for the two Client variants. A plain "Party" duty needs neither.
+  // Nothing chosen yet shows both, so a fresh form and any record saved
+  // before this field existed still offer every option.
+  const showBranchField = onDutyType === "" || onDutyType.includes("Branch");
+  const showClientField =
+    onDutyType === "" || onDutyType === "Client" || onDutyType === "Branch & Client";
   const [dutiesDesc, setDutiesDesc] = useState<string>("");
   const [transportMode, setTransportMode] = useState<string>("");
   const [kms, setKms] = useState<string>("");
@@ -347,6 +388,25 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const [team, setTeam] = useState<EmployeeItem[]>([]);
   const [clients, setClients] = useState<ClientItem[]>([]);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  // The logged-in user's own branch|dept, normalized. Stays empty until it
+  // resolves, and an empty key excludes nothing - a failed lookup leaves the
+  // full list rather than a mysteriously short one.
+  const [profileBranchKey, setProfileBranchKey] = useState<string>("");
+
+  // You do not go on duty to the desk you already sit at, so the user's own
+  // branch/dept is dropped from the picker. If the dept could not be resolved
+  // the whole branch goes: without it there is no way to tell which of that
+  // branch's rows is theirs, and offering all of them is the worse guess.
+  const selectableBranches = useMemo(() => {
+    if (!profileBranchKey) return branches;
+    const [pBranch, pDept] = profileBranchKey.split("|");
+    return branches.filter((b) =>
+      pDept
+        ? branchKey(b.branch, b.dept) !== profileBranchKey
+        : b.branch.trim().toLowerCase() !== pBranch
+    );
+  }, [branches, profileBranchKey]);
   const [dutiesList, setDutiesList] = useState<DutyRow[]>([]);
   const [editingId, setEditingId] = useState<string>("");
   const [tripDaysByDuty, setTripDaysByDuty] = useState<Record<string, TripDayItem[]>>({});
@@ -400,17 +460,36 @@ const [toModal, setToModal] = useState(false);
 const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
 const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
 const [isTransportDropdownOpen, setIsTransportDropdownOpen] = useState(false);
+const [isOnDutyTypeDropdownOpen, setIsOnDutyTypeDropdownOpen] = useState(false);
+const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+
+// Closed set, no free text. Anything outside these five is not a
+// state this form is allowed to produce.
+// Order is the one the user specified. It is not alphabetical and not
+// singles-then-combinations, so do not "tidy" it into either.
+const ONDUTY_TYPE_OPTIONS = [
+  "Party",
+  "Client",
+  "Branch",
+  "Branch & Party",
+  "Branch & Client",
+];
 
 const [teamSearchTerm, setTeamSearchTerm] = useState("");
 const [clientSearchTerm, setClientSearchTerm] = useState("");
+const [branchSearchTerm, setBranchSearchTerm] = useState("");
 
 const [teamDropdownPos, setTeamDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 const [transportDropdownPos, setTransportDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [onDutyTypeDropdownPos, setOnDutyTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [branchDropdownPos, setBranchDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
 const teamTriggerRef = useRef<HTMLDivElement>(null);
 const clientTriggerRef = useRef<HTMLDivElement>(null);
 const transportTriggerRef = useRef<HTMLDivElement>(null);
+const onDutyTypeTriggerRef = useRef<HTMLDivElement>(null);
+const branchTriggerRef = useRef<HTMLDivElement>(null);
 
 useEffect(() => {
   const updateDropdownPositions = () => {
@@ -426,6 +505,14 @@ useEffect(() => {
       const rect = transportTriggerRef.current.getBoundingClientRect();
       setTransportDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
     }
+    if (isOnDutyTypeDropdownOpen && onDutyTypeTriggerRef.current) {
+      const rect = onDutyTypeTriggerRef.current.getBoundingClientRect();
+      setOnDutyTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
+    if (isBranchDropdownOpen && branchTriggerRef.current) {
+      const rect = branchTriggerRef.current.getBoundingClientRect();
+      setBranchDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
   };
 
   window.addEventListener('resize', updateDropdownPositions);
@@ -439,7 +526,7 @@ useEffect(() => {
     window.removeEventListener('resize', updateDropdownPositions);
     if (container) container.removeEventListener('scroll', updateDropdownPositions);
   };
-}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen]);
+}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen]);
 
 const loadUnlockRange = async () => {
   const res = await fetch(
@@ -1246,6 +1333,43 @@ useEffect(() => {
       setClients([]);
     }
   };
+  const loadBranches = async () => {
+    try {
+      const res = await api.get("Sources/Load_Branch", { headers: authHeaders() });
+      // The controller returns Ok(JsonConvert.SerializeObject(...)) - a JSON
+      // *string* - which axios only parses when the content type says so.
+      const rows = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      const raw = Array.isArray(rows) ? rows : [];
+      setBranches(
+        raw
+          .map((x: any) => {
+            // Positional, per the controller comment:
+            // [0]=lid  [1]=Branch  [2]=BranchDept
+            const branch = String(x[1] ?? "").trim();
+            const dept = String(x[2] ?? "").trim();
+            return {
+              id: String(x[0]),
+              branch,
+              dept,
+              // No dangling "()" for a branch with no dept recorded.
+              label: dept ? `${branch} (${dept})` : branch,
+            };
+          })
+          .filter((b: BranchOption) => b.branch !== "")
+          // A-Z on the label, so a branch and its depts stay together and
+          // the picker reads the same way every time regardless of what
+          // order the proc happens to return rows in. numeric:true keeps
+          // "Branch 10" after "Branch 2" instead of before it.
+          .sort((a: BranchOption, b: BranchOption) =>
+            a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" })
+          )
+      );
+    } catch {
+      // An empty table comes back as 400 from this endpoint, so no rows
+      // is a normal outcome here rather than something worth shouting about.
+      setBranches([]);
+    }
+  };
   const loadAllTrips = async (duties: DutyRow[]) => {
     const result: Record<string, TripDayItem[]> = {};
 
@@ -1440,10 +1564,78 @@ useEffect(() => {
     if (userLoaded && empCode) {
       loadTeam();
       loadClients();
+      loadBranches();
       loadDuties();
 
     }
   }, [userLoaded, empCode]);
+
+  // A hidden field must stop contributing to the payload. Without this,
+  // picking Branch, then switching the type to Party, would still save the
+  // branch the user can no longer see - and no screen would ever show why.
+  useEffect(() => {
+    if (!showBranchField && branchName) setBranchName("");
+    if (!showClientField && institution) setInstitution("");
+    // Clients are fetched once on mount; if that call failed, this is the
+    // moment it matters, so retry rather than open an empty picker.
+    if (showClientField && clients.length === 0) loadClients();
+  }, [onDutyType]);
+
+  // The user's own branch comes off their employee record - the login payload
+  // carries only code, name and designation. This waits on the branch list
+  // because the dept has no fixed ordinal in the row and is found by matching
+  // against depts we already know exist.
+  useEffect(() => {
+    if (!empCode || branches.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await apiService.getEmployee(empCode);
+        const row = Array.isArray(data)
+          ? data[0]
+          : data && Array.isArray(data.data)
+            ? data.data[0]
+            : data;
+        if (!row || cancelled) return;
+
+        // 53 = Location1, the branch NAME. Stable, unlike the dept below.
+        const branch = Array.isArray(row)
+          ? String(row[53] ?? "").trim()
+          : String(row.Location1 ?? row._Location1 ?? "").trim();
+        if (!branch) return;
+
+        // BranchDept was appended to the END of Tbl_Employee, so its ordinal
+        // moves with the next ALTER TABLE. Scan the tail for a value that is
+        // a dept of THIS branch rather than hard-coding an index; 62 is the
+        // highest ordinal anything relies on, so past it is newer columns.
+        let dept = "";
+        if (Array.isArray(row)) {
+          const known = branches
+            .filter((b) => b.branch.trim().toLowerCase() === branch.toLowerCase())
+            .map((b) => b.dept.trim().toLowerCase())
+            .filter((d) => d !== "");
+          for (let i = row.length - 1; i > 62; i--) {
+            const cell = String(row[i] ?? "").trim().toLowerCase();
+            if (cell && known.includes(cell)) {
+              dept = cell;
+              break;
+            }
+          }
+        } else {
+          dept = String(row.BranchDept ?? row._BranchDept ?? "").trim();
+        }
+
+        if (!cancelled) setProfileBranchKey(branchKey(branch, dept));
+      } catch {
+        // No profile read, no exclusion. A full list beats a wrong one.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [empCode, branches]);
 
   useEffect(() => {
     if (team.length === 1) {
@@ -1501,6 +1693,8 @@ useEffect(() => {
       _EndReading: eReading,
       _KMS: kms.replace("Kms", ""),
       _Location: location,
+      _OnDutyType: onDutyType,
+      _Branch: branchName,
     };
 
     try {
@@ -1547,6 +1741,8 @@ useEffect(() => {
         );
         setInstitution(row[3]);
         setLocation(row[15] || "");
+        setOnDutyType(row[16] || "");
+        setBranchName(row[17] || "");
         setDutiesDesc(row[4]);
         setTransportMode(row[5]);
         setKms(row[6]);
@@ -1693,6 +1889,8 @@ useEffect(() => {
   const clearOnDutyForm = () => {
     setEditingId("");
     setInstitution("");
+    setOnDutyType("");
+    setBranchName("");
     setDutiesDesc("");
     setTransportMode("");
     setKms("");
@@ -1882,7 +2080,114 @@ useEffect(() => {
                 </div>
               </div>
 
+              {/* On-duty Type */}
+              <div className="lr-field-box" onClick={() => setIsOnDutyTypeDropdownOpen(!isOnDutyTypeDropdownOpen)}>
+                <label className="lr-field-label">On-duty Type</label>
+                <div className="lr-field-content" ref={onDutyTypeTriggerRef}>
+                  <IonIcon icon={businessOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: onDutyType ? "#1e293b" : "#94a3b8" }}>
+                    {onDutyType || "Select On-duty Type"}
+                  </span>
+                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                  {isOnDutyTypeDropdownOpen && createPortal(
+                    <>
+                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsOnDutyTypeDropdownOpen(false); }} />
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${onDutyTypeDropdownPos.top}px`, left: `${onDutyTypeDropdownPos.left}px`, width: `${onDutyTypeDropdownPos.width}px` }}>
+                        {/* No search box - a short fixed list does not need one,
+                            and an empty search field reads as "more to find". */}
+                        <div className="dropdown-body">
+                          {ONDUTY_TYPE_OPTIONS.map((name, index) => {
+                            const isSelected = onDutyType === name;
+                            return (
+                              <div
+                                key={name}
+                                className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOnDutyType(name);
+                                  setIsOnDutyTypeDropdownOpen(false);
+                                }}
+                              >
+                                <div className={`dr-avatar grad-${(index % 5) || 0}`}>{name.charAt(0).toUpperCase()}</div>
+                                <div className="dr-info">
+                                  <span className="dr-name">{name}</span>
+                                </div>
+                                {isSelected && <Check size={18} className="dr-check" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              </div>
+
+              {/* Branch */}
+              {showBranchField && (
+              <div className="lr-field-box" onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}>
+                <label className="lr-field-label">Branch</label>
+                <div className="lr-field-content" ref={branchTriggerRef}>
+                  <IonIcon icon={businessOutline} className="lr-field-icon" />
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: branchName ? "#1e293b" : "#94a3b8" }}>
+                    {branchName || "Select Branch"}
+                  </span>
+                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+
+                  {isBranchDropdownOpen && createPortal(
+                    <>
+                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsBranchDropdownOpen(false); }} />
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchDropdownPos.top}px`, left: `${branchDropdownPos.left}px`, width: `${branchDropdownPos.width}px` }}>
+                        <div className="dropdown-search-sec">
+                          <Search size={16} className="dropdown-search-icon" />
+                          <input type="text" placeholder="Search branch..." value={branchSearchTerm} onChange={(e) => setBranchSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
+                          {branchSearchTerm && <button className="dropdown-clear-btn" onClick={() => setBranchSearchTerm("")}><X size={16} /></button>}
+                        </div>
+                        <div className="dropdown-body">
+                          {(() => {
+                            const term = branchSearchTerm.toLowerCase();
+                            // Match on the label so typing either the branch
+                            // or the dept narrows the list.
+                            const options = selectableBranches.filter((b) => b.label.toLowerCase().includes(term));
+                            return options.length > 0 ? (
+                              options.map((b, index) => {
+                                const isSelected = branchName === b.label;
+                                return (
+                                  <div
+                                    key={`${b.id}-${index}`}
+                                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setBranchName(b.label);
+                                      setIsBranchDropdownOpen(false);
+                                    }}
+                                  >
+                                    <div className={`dr-avatar grad-${(index % 5) || 0}`}>{(b.branch.charAt(0) || "?").toUpperCase()}</div>
+                                    <div className="dr-info">
+                                      <span className="dr-name">{b.branch}</span>
+                                      {b.dept && <span className="dr-id">{b.dept}</span>}
+                                    </div>
+                                    {isSelected && <Check size={18} className="dr-check" />}
+                                  </div>
+                                );
+                              })
+                            ) : <div className="dr-no-results">No branches found</div>;
+                          })()}
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              </div>
+              )}
+
               {/* Client / Institution */}
+              {showClientField && (
               <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
                 <label className="lr-field-label">Client / Institution</label>
                 <div className="lr-field-content" ref={clientTriggerRef}>
@@ -1902,8 +2207,15 @@ useEffect(() => {
                           {clientSearchTerm && <button className="dropdown-clear-btn" onClick={() => setClientSearchTerm("")}><X size={16} /></button>}
                         </div>
                         <div className="dropdown-body">
-                          {[{ Client_Name: "Party" }, ...clients].filter(c => c.Client_Name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length > 0 ? (
-                            [{ Client_Name: "Party" }, ...clients].filter(c => c.Client_Name.toLowerCase().includes(clientSearchTerm.toLowerCase())).map((c, index) => {
+                          {(() => {
+                            const term = clientSearchTerm.toLowerCase();
+                            // Real clients only. Branch / Party / the combinations
+                            // are the On-duty Type now, not names of a client.
+                            const options = clients.filter((c: any) =>
+                              String(c.Client_Name ?? "").toLowerCase().includes(term)
+                            );
+                            return options.length > 0 ? (
+                            options.map((c: any, index: number) => {
                               const isSelected = institution === c.Client_Name;
                               const initials = (c.Client_Name.charAt(0) || "?").toUpperCase();
                               return (
@@ -1925,7 +2237,8 @@ useEffect(() => {
                                 </div>
                               );
                             })
-                          ) : <div className="dr-no-results">No clients found</div>}
+                          ) : <div className="dr-no-results">No clients found</div>;
+                          })()}
                         </div>
                       </div>
                     </>,
@@ -1933,6 +2246,7 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Camp From Date & To Date Wrapper */}
               <div
