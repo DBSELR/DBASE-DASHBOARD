@@ -49,52 +49,7 @@ html {
     scroll-behavior: smooth;
 }
 
-/* Base Styles */
-.policies-page {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    line-height: 1.7;
-    color: var(--text-dark);
-    margin: 0;
-    padding: 0;
-    background-color: var(--bg-page);
-}
-
-.policies-container {
-    width: 100%;
-    max-width: 1100px;
-    margin: 0 auto;
-    background-color: var(--bg-card);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.policies-header {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-    color: #ffffff;
-    padding: 40px 20px;
-    text-align: center;
-}
-
-.policies-header i {
-    color: #ffffff;
-}
-
-.policies-header h1 {
-    margin: 0;
-    font-size: clamp(1.8rem, 5vw, 2.8rem);
-    letter-spacing: 1px;
-    font-weight: 800;
-    color: #ffffff;
-}
-
-.policies-header .meta-info {
-    margin-top: 15px;
-    opacity: 0.9;
-    font-size: 1.1rem;
-    font-weight: 500;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
-    padding-top: 15px;
-    display: inline-block;
-}
+/* Removed legacy header styles */
 
 .policies-toc {
     padding: 30px 25px;

@@ -1,29 +1,41 @@
 import React from "react";
 import { IonPage, IonContent } from "@ionic/react";
 import { useHistory } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft, ShieldAlert } from "lucide-react";
 import "./AccountDeletion.css";
+import "./WorkReports.css";
+import "./RequestsPage.css";
+import "./Stock.css";
+import "./PenaltyAssignment.css";
+import "./WorkReportDashboard.css";
 
 const AccountDeletion: React.FC = () => {
   const history = useHistory();
 
   return (
     <IonPage>
-      <IonContent className="db-deletion-page-container" scrollY={true}>
-        <div className="db-deletion-wrapper">
-          {/* Header */}
-          <header className="db-deletion-header">
-            <button className="db-deletion-back-btn" onClick={() => history.goBack()} aria-label="Go Back">
-              <ArrowLeft size={20} />
-              <span>Back</span>
-            </button>
-            <h1 className="db-deletion-main-title">Account Deletion Request</h1>
-            <p className="db-deletion-subtitle">DBS OFFICE Mobile Application</p>
-          </header>
+      <IonContent className="page-content" scrollY={true}>
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()} aria-label="Go Back">
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Account Deletion Request</h1>
+                <p className="page-wr-subtitle">DBS OFFICE Mobile Application</p>
+              </div>
+            </div>
+            <div className="page-wr-header-right">
+              <div className="page-wr-icon-box" style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}>
+                <ShieldAlert size={22} color="white" />
+              </div>
+            </div>
+          </div>
 
-          {/* Card Content */}
-          <div className="db-deletion-card">
-            <div className="db-deletion-body">
+          <div className="stock-panel animate-entrance" style={{ margin: '0 16px 20px 16px', padding: '24px' }}>
+            <div className="db-deletion-body" style={{ maxWidth: '800px', margin: '0 auto' }}>
               <section className="db-deletion-section">
                 <p>
                   <strong>DBS OFFICE</strong> is an enterprise management application. For security and compliance reasons, all employee accounts are created, maintained, and managed directly by your organization's administrators.

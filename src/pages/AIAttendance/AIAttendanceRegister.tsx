@@ -12,8 +12,14 @@ import {
   lockClosedOutline,
   volumeHighOutline
 } from 'ionicons/icons';
+import { ChevronLeft } from 'lucide-react';
 import { AI_API_KEY } from './ai_config';
 import { API_BASE } from "../../config";
+import "../WorkReports.css";
+import "../RequestsPage.css";
+import "../Stock.css";
+import "../PenaltyAssignment.css";
+import "../WorkReportDashboard.css";
 
 const POSES = [
   { key: 'straight', label: 'Look Straight', voice: 'Please look straight at the camera.' },
@@ -370,74 +376,16 @@ const AIAttendanceRegister: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent fullscreen style={{ "--background": "#ffffff" }}>
-        {/* Style block for premium white dashboard and visual animations */}
+      <IonContent fullscreen className="page-content">
+        {/* Style block for visual animations */}
         <style>{`
-          .white-bg-visuals {
-            background-color: #ffffff;
-            background-image: 
-              radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.02) 0%, transparent 25%),
-              radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.02) 0%, transparent 30%),
-              radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
-            background-size: cover, cover, 24px 24px;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 32px 16px;
-            box-sizing: border-box;
-          }
-
-          .dashboard-container {
-            width: 100%;
-            max-width: 1100px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(226, 232, 240, 0.8);
-            border-radius: 32px;
-            overflow: hidden;
-            box-shadow: 0 25px 60px rgba(99, 102, 241, 0.05), 0 2px 8px rgba(0, 0, 0, 0.01);
-            position: relative;
-            box-sizing: border-box;
-          }
-
-          .header-banner {
-            padding: 32px 40px;
-            background: linear-gradient(135deg, rgba(99,102,241,0.02) 0%, rgba(168,85,247,0.02) 100%);
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-          }
-
-          .back-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            color: #475569;
-          }
-          .back-btn:hover {
-            border-color: #cbd5e1;
-            transform: translateY(-1px);
-            color: #0f172a;
-          }
-
           .enrollment-grid {
             display: grid;
             grid-template-columns: 1.15fr 0.85fr;
             gap: 40px;
             padding: 40px;
             box-sizing: border-box;
-            margin-bottom: 100px;
+            margin-bottom: 20px;
           }
 
           .scanner-frame {
@@ -810,35 +758,6 @@ const AIAttendanceRegister: React.FC = () => {
           
           /* Ultra small / Small Phones (320px to 480px) */
           @media (min-width: 320px) and (max-width: 480px) {
-            .white-bg-visuals {
-              padding: 12px 8px;
-              align-items: flex-start;
-              background-size: cover, cover, 18px 18px;
-            }
-            .dashboard-container {
-              border-radius: 20px;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.03);
-            }
-            .header-banner {
-              padding: 20px 14px;
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 12px;
-            }
-            .back-btn {
-              width: 38px;
-              height: 38px;
-              border-radius: 10px;
-            }
-            .register-title {
-              font-size: 1.2rem;
-              font-weight: 800;
-            }
-            .register-subtitle {
-              font-size: 0.72rem;
-              margin-top: 4px;
-              line-height: 1.35;
-            }
             .btn-voice-toggle {
               padding: 6px 10px;
               font-size: 0.72rem;
@@ -919,23 +838,11 @@ const AIAttendanceRegister: React.FC = () => {
 
           /* Medium Phones / Phablets (481px to 768px) */
           @media (min-width: 481px) and (max-width: 768px) {
-            .white-bg-visuals {
-              padding: 20px 12px;
-            }
-            .header-banner {
-              padding: 24px 20px;
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 16px;
-            }
-            .register-title {
-              font-size: 1.45rem;
-            }
             .enrollment-grid {
               grid-template-columns: 1fr;
               gap: 24px;
               padding: 24px 20px;
-              margin-bottom: 100px;
+              margin-bottom: 20px;
             }
             .pose-thumb-grid {
               grid-template-columns: repeat(5, 1fr);
@@ -963,8 +870,7 @@ const AIAttendanceRegister: React.FC = () => {
           }
         `}</style>
 
-        <div className="white-bg-visuals">
-          <div className="dashboard-container">
+        <div className="wr-container stock-container ai-attendance-wrap" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
             
             {/* POPUP TOAST */}
             {popupMessage && (
@@ -975,45 +881,49 @@ const AIAttendanceRegister: React.FC = () => {
             )}
 
             {/* HEADER AREA */}
-            <div className="header-banner">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+              <div className="page-wr-header-left">
                 <button
                   onClick={() => history.push("/home")}
-                  className="back-btn"
+                  className="page-wr-back-btn"
                   title="Back to Dashboard"
                 >
-                  <IonIcon icon={arrowBackOutline} style={{ fontSize: "20px" }} />
+                  <ChevronLeft size={22} color="white" />
                 </button>
                 <div>
-                  <h1 className="register-title">Biometric Face Enrollment</h1>
-                  <p className="register-subtitle">
+                  <h1 className="page-wr-title">Biometric Face Enrollment</h1>
+                  <p className="page-wr-subtitle">
                     Create a secure 5-pose reference profile. Guided voice and visual telemetry check.
                   </p>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button 
-                  className={`btn-voice-toggle ${voiceEnabled ? 'active' : ''}`}
-                  onClick={() => {
-                    setVoiceEnabled(!voiceEnabled);
-                    speakInstruction("Voice assistant " + (!voiceEnabled ? "activated" : "deactivated"));
-                  }}
-                  title="Toggle Voice Guide"
-                >
-                  <IonIcon icon={volumeHighOutline} style={{ fontSize: '15px' }} />
-                  {voiceEnabled ? 'Voice ON' : 'Voice OFF'}
-                </button>
+              <div className="page-wr-header-right">
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button 
+                    className={`btn-voice-toggle ${voiceEnabled ? 'active' : ''}`}
+                    onClick={() => {
+                      setVoiceEnabled(!voiceEnabled);
+                      speakInstruction("Voice assistant " + (!voiceEnabled ? "activated" : "deactivated"));
+                    }}
+                    title="Toggle Voice Guide"
+                    style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'white', border: '1px solid rgba(255, 255, 255, 0.2)' }}
+                  >
+                    <IonIcon icon={volumeHighOutline} style={{ fontSize: '15px', color: 'white' }} />
+                    {voiceEnabled ? 'Voice ON' : 'Voice OFF'}
+                  </button>
 
-                <div className="register-secure-badge" style={{ margin: 0 }}>
-                  <IonIcon icon={shieldCheckmarkOutline} style={{ color: "#6366f1", fontSize: "15px" }} />
-                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#4f46e5" }}>Secure Enrollment</span>
+                  <div className="register-secure-badge" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <IonIcon icon={shieldCheckmarkOutline} style={{ color: "#ffffff", fontSize: "15px" }} />
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#ffffff" }}>Secure Enrollment</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* GRID CONTENT */}
-            <div className="enrollment-grid">
+            <div className="stock-panel animate-entrance" style={{ margin: '0 16px 20px 16px', padding: '0', overflow: 'hidden' }}>
+              <div className="enrollment-grid">
               
               {/* LEFT COLUMN: GUIDELINES & STEP CARDS */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

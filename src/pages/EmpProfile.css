@@ -232,54 +232,47 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: none;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   color: #ffffff;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .ep-profile-action-btn svg {
   stroke: #ffffff;
+  transition: transform 0.3s ease;
+}
+
+.ep-profile-action-btn:hover svg {
+  transform: scale(1.1);
 }
 
 .ep-profile-action-btn:active {
   transform: scale(0.95);
 }
 
-.ep-btn-policies {
-  background: #3880ff;
+.ep-btn-policies, .ep-btn-face, .ep-btn-password {
+  background: color-mix(in srgb, var(--ion-color-primary) 12%, #ffffff);
+  color: var(--ion-color-primary);
+  border: none;
 }
 
-.ep-btn-policies:hover:not(.navigating) {
-  background: #4c8dff;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(56, 128, 255, 0.3);
+.ep-btn-policies svg, .ep-btn-face svg, .ep-btn-password svg {
+  stroke: var(--ion-color-primary);
 }
 
-.ep-btn-face {
-  background: #10b981;
-}
-
-.ep-btn-face:hover:not(.navigating) {
-  background: #34d399;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
-}
-
-.ep-btn-password {
-  background: #ef4444;
-}
-
+.ep-btn-policies:hover:not(.navigating),
+.ep-btn-face:hover:not(.navigating),
 .ep-btn-password:hover {
-  background: #f87171;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3);
+  background: color-mix(in srgb, var(--ion-color-primary) 22%, #ffffff);
+  transform: translateY(-4px);
+  box-shadow: 0 14px 24px -6px rgba(0, 0, 0, 0.2);
 }
 
 .ep-profile-action-btn.navigating {
@@ -348,21 +341,33 @@
 /* Actions in Header */
 .ep-header-actions {
   display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 20px;
+  width: 100%;
 }
 
 .ep-action-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 18px;
-  border-radius: 12px;
-  border: none;
-  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.ep-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .ep-action-btn:active {
@@ -370,18 +375,35 @@
 }
 
 .ep-btn-edit {
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
   color: var(--ion-color-primary);
+  border: none;
+}
+
+.ep-btn-edit:hover {
+  background: #ffffff;
 }
 
 .ep-btn-logout {
-  background: rgba(255, 59, 48, 0.9);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 1) 100%);
   color: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.ep-btn-search {
-  background: white;
-  color: #000;
+.ep-btn-logout:hover {
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+}
+
+.ep-btn-search, .ep-btn-add {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+.ep-btn-search svg, .ep-btn-add svg {
+  stroke: #ffffff !important;
+}
+
+.ep-btn-search:hover, .ep-btn-add:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .ep-active {
@@ -427,15 +449,27 @@
 .ep-edit-icon-btn {
   background: rgba(var(--ion-color-primary-rgb), 0.1);
   color: var(--ion-color-primary);
-  border: none;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.2);
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.ep-edit-icon-btn:hover {
+  background: var(--ion-color-primary);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px -3px rgba(var(--ion-color-primary-rgb), 0.4);
+}
+
+.ep-edit-icon-btn:active {
+  transform: scale(0.95);
 }
 
 .ep-info-grid {

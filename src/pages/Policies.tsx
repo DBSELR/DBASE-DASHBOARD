@@ -6,13 +6,23 @@ import {
     IonToolbar,
     IonTitle,
     IonButtons,
-    IonMenuButton
+    IonMenuButton,
+    IonIcon
 } from '@ionic/react';
+import { useHistory } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
+import { documentTextOutline } from 'ionicons/icons';
+import "./WorkReports.css";
+import "./RequestsPage.css";
+import "./Stock.css";
+import "./PenaltyAssignment.css";
+import "./WorkReportDashboard.css";
 import './Policies.css';
 
 const Policies: React.FC = () => {
     const contentRef = useRef<HTMLIonContentElement>(null);
     const [showBackToTop, setShowBackToTop] = useState(false);
+    const history = useHistory();
 
     const handleScroll = (ev: CustomEvent) => {
         if (ev.detail.scrollTop > 300) {
@@ -41,24 +51,34 @@ const Policies: React.FC = () => {
                 ref={contentRef}
                 scrollEvents={true}
                 onIonScroll={handleScroll}
-                className="policies-ion-content"
+                className="page-content"
             >
-                <div className="policies-page">
+                <div className="wr-container stock-container policies-page-wrap" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
                     {showBackToTop && (
                         <button className="back-to-top" title="Go to Top" onClick={scrollToTop}>
                             <i className="fas fa-chevron-up"></i>
                         </button>
                     )}
 
-                    <div className="policies-container animate-entrance">
-                        <header className="policies-header">
-                            <i className="fas fa-university fa-4x" style={{ marginBottom: '20px' }}></i>
-                            <h1>D Base Solutions Pvt Ltd</h1>
-                            <div className="meta-info">
-                                HR Policy Manual | Version 1.0 | Effective Date: 01/05/2026
+                    {/* ── Premium Header ── */}
+                    <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+                        <div className="page-wr-header-left">
+                            <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                                <ChevronLeft size={22} color="white" />
+                            </button>
+                            <div>
+                                <h1 className="page-wr-title">Company Policies</h1>
+                                <p className="page-wr-subtitle">HR Policy Manual | Version 1.0</p>
                             </div>
-                        </header>
+                        </div>
+                        <div className="page-wr-header-right">
+                            <div className="page-wr-header-icon-box">
+                                <IonIcon icon={documentTextOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+                            </div>
+                        </div>
+                    </div>
 
+                    <div className="stock-panel animate-entrance" style={{ margin: '0 16px 20px 16px', padding: '0', overflow: 'hidden' }}>
                         <nav className="policies-toc">
                             <h2><i className="fas fa-compass"></i> Table of Contents</h2>
                             <ul>
@@ -625,7 +645,7 @@ const Policies: React.FC = () => {
                                 <p>Employees shall comply with all applicable laws, rules, regulations, and statutory requirements relevant to their role and responsibilities. Any violation of legal or regulatory requirements may result in disciplinary action in addition to any legal consequences.</p>
                             </section>
 
-                            <div style={{ background: '#fff8e1', borderLeft: '5px solid #f59e0b', padding: '30px', marginTop: '60px', borderRadius: '12px', fontWeight: 500 }}>
+                            <div style={{ background: '#fff8e1', borderLeft: '5px solid #f59e0b', padding: '20px', marginTop: '40px', borderRadius: '12px', fontWeight: 500, fontSize: '0.9rem' }}>
                                 <strong>Note:</strong> The Company reserves the right to amend, modify, or update these policies at any time based on business requirements, statutory changes, or management decisions.
                             </div>
                         </main>

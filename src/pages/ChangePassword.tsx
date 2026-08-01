@@ -1,16 +1,23 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { IonPage, IonContent } from '@ionic/react';
 import {
   Lock,
   Eye,
   EyeOff,
   KeyRound,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft
 } from "lucide-react";
 import { useHistory } from "react-router-dom";
 import { API_BASE } from "../config";
 import "./ChangePassword.css";
+import "./WorkReports.css";
+import "./RequestsPage.css";
+import "./Stock.css";
+import "./PenaltyAssignment.css";
+import "./WorkReportDashboard.css";
 
 const ChangePassword: React.FC = () => {
   const history = useHistory();
@@ -126,15 +133,24 @@ const ChangePassword: React.FC = () => {
   };
 
   return (
-    <div className="cp-container">
-      <div className="cp-card">
+    <IonPage>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Change Password</h1>
+                <p className="page-wr-subtitle">Update your account password securely</p>
+              </div>
+            </div>
+          </div>
 
-        <div className="cp-header">
-          <h2>Change Password</h2>
-          <p>
-            Update your account password securely
-          </p>
-        </div>
+          <div className="stock-panel animate-entrance" style={{ margin: '0 16px 20px 16px', padding: '24px' }}>
+            <div style={{ maxWidth: '520px', margin: '0 auto', padding: '10px 0' }}>
 
         {/* Success/Error Message */}
         {message && (
@@ -286,8 +302,11 @@ const ChangePassword: React.FC = () => {
             ? "Updating..."
             : "Change Password"}
         </button>
-      </div>
-    </div>
+            </div>
+          </div>
+        </div>
+      </IonContent>
+    </IonPage>
   );
 };
 
