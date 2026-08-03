@@ -1,0 +1,279 @@
+/* DA / TA settlement screen. */
+
+.dt-content {
+  --background: #f4f6fb;
+}
+
+.dt-wrap {
+  padding: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.dt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e3e8f2;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(16, 30, 70, 0.05);
+}
+
+.dt-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5a6480;
+  letter-spacing: 0.02em;
+}
+
+.dt-input {
+  width: 120px;
+  padding: 8px 10px;
+  border: 1px solid #d7deec;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d2540;
+  outline: none;
+  background: #fbfcff;
+}
+
+.dt-input:focus {
+  border-color: #5b7cfa;
+  background: #fff;
+}
+
+.dt-note {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #eef3ff;
+  color: #33406b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dt-note-bad {
+  background: #fdecec;
+  color: #8c2020;
+}
+
+.dt-empty {
+  margin-top: 24px;
+  text-align: center;
+  color: #7b849c;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.dt-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.dt-totals > div {
+  flex: 1 1 130px;
+  background: #fff;
+  border: 1px solid #e3e8f2;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.dt-totals span {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7b849c;
+}
+
+.dt-totals strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 18px;
+  color: #1d2540;
+}
+
+.dt-grand {
+  background: linear-gradient(135deg, #2f4bd6, #5b7cfa) !important;
+  border-color: transparent !important;
+}
+
+.dt-grand span,
+.dt-grand strong {
+  color: #fff !important;
+}
+
+.dt-cards {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dt-card {
+  background: #fff;
+  border: 1px solid #e3e8f2;
+  border-radius: 16px;
+  padding: 4px 14px 14px;
+  box-shadow: 0 2px 10px rgba(16, 30, 70, 0.05);
+}
+
+.dt-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0 10px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dt-who {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dt-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1d2540;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-code {
+  font-size: 12px;
+  color: #7b849c;
+}
+
+.dt-amt {
+  text-align: right;
+}
+
+.dt-amt-big {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1d2540;
+}
+
+.dt-status {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #eef1f7;
+  color: #5a6480;
+}
+
+.dt-status-approved { background: #e3f7ea; color: #1c7a41; }
+.dt-status-paid     { background: #e3f0ff; color: #1b4fa0; }
+.dt-status-rejected { background: #fdecec; color: #8c2020; }
+
+.dt-chev {
+  color: #8b93aa;
+  font-size: 18px;
+  transition: transform 0.18s ease;
+}
+
+.dt-card-open .dt-chev {
+  transform: rotate(180deg);
+}
+
+.dt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 12px;
+  border-top: 1px dashed #e3e8f2;
+  padding-top: 10px;
+}
+
+.dt-grid span {
+  display: block;
+  font-size: 11px;
+  color: #7b849c;
+}
+
+.dt-grid strong {
+  display: block;
+  font-size: 14px;
+  color: #1d2540;
+}
+
+.dt-notes {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7490;
+  background: #f7f9fe;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.dt-days {
+  margin-top: 12px;
+  border-top: 1px dashed #e3e8f2;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dt-day {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #333c5a;
+  background: #f7f9fe;
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+
+.dt-day-miss {
+  background: #fff6f6;
+  color: #8c2020;
+}
+
+.dt-day-date { min-width: 108px; font-weight: 600; }
+.dt-day-sep  { color: #9aa2b8; }
+.dt-day-hrs  { margin-left: auto; font-weight: 600; }
+.dt-day-amt  { min-width: 76px; text-align: right; font-weight: 700; }
+
+.dt-day-paid {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #33518c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.dt-day-flag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #f8d7d7;
+  color: #8c2020;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@media (max-width: 560px) {
+  .dt-day-hrs { margin-left: 0; }
+  .dt-day-amt { margin-left: auto; }
+}

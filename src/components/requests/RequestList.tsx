@@ -643,7 +643,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
   // rather than being written out twice and drifting apart later.
   const assignedByChip = (code: string) => (
     <div
-      title="Filed this request on their behalf"
+      title="Applied for this request on their behalf"
       style={{
         background: "#fff7ed",
         color: "#9a3412",
@@ -654,7 +654,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         fontWeight: 600,
       }}
     >
-      <span style={{ opacity: 0.75, fontWeight: 500 }}>Assigned by </span>
+      <span style={{ opacity: 0.75, fontWeight: 500 }}>Applied by </span>
       {nameForCode(code)}
     </div>
   );

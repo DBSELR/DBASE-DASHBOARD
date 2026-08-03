@@ -28,6 +28,7 @@ import Tasks from "./pages/Tasks";
 import Reports from "./pages/Reports";
 import Equipment from "./pages/Equipment";
 import OnDuties from "./pages/OnDuties";
+import DaTaSettlement from "./pages/DaTaSettlement";
 import SpeedDialComponent from "./components/SpeedDialComponent";
 import CameraPage from "./pages/CameraPage";
 import EmpProfile from "./pages/EmpProfile";
@@ -190,6 +191,7 @@ const App: React.FC = () => {
                   <Route exact path="/equipment" component={Equipment} />
                   <Route exact path="/salaries" component={Salaries} />
                   <Route exact path="/duties" component={OnDuties} />
+                  <Route exact path="/datasettlement" component={DaTaSettlement} />
                   <Route exact path="/tasks" component={Tasks} />
                   <Route exact path="/clientdetails" component={ClientDetails} />
                   <Route exact path="/office-client-docs" component={OfficeClientDocs} />

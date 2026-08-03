@@ -744,6 +744,15 @@ const Sources: React.FC = () => {
   //        the vehicles are different types, so uniqueness is the whole triple
   //        (owner, type, number) rather than the number by itself.
   const [vehOwnedBy, setVehOwnedBy] = useState(VEH_OFFICE);
+  // The owner picker is a list, not a text box. Typed codes get mistyped, and
+  // a code that matches nobody looks exactly like one that does.
+  const [vehOwnerOpen, setVehOwnerOpen] = useState(false);
+  const [vehOwnerSearch, setVehOwnerSearch] = useState("");
+  // Its own copy of the roll rather than sharing empActive. That list is
+  // loaded for the Maintenance tab and comes back empty when its endpoint is
+  // unhappy, which is how this picker ended up with nothing in it - a silent
+  // dependency on a screen nobody was looking at.
+  const [vehOwnerPeople, setVehOwnerPeople] = useState<any[]>([]);
   const [vehType, setVehType] = useState(VEH_TYPES[1]);
   const [vehNo, setVehNo] = useState("");
   const [vehModel, setVehModel] = useState("");
@@ -755,6 +764,50 @@ const Sources: React.FC = () => {
   const [vehDeleteId, setVehDeleteId] = useState<number>(0);
   const [vehDeletingId, setVehDeletingId] = useState<number>(0);
 
+  // Who can own a vehicle. Two sources, tried in order, because neither is
+  // guaranteed on its own:
+  //   1. Sources/load_empployee - the whole active roll, which is what a
+  //      master list wants.
+  //   2. OnDuty/load_employees_duties - the same list the On Duty screen
+  //      fills its team dropdown from, scoped to the signed-in user.
+  // The second is the fallback rather than the first because it only returns
+  // the people below you, and a vehicles master should not quietly hide half
+  // the staff from an admin who happens to have no reports.
+  const loadVehOwnerPeople = async () => {
+    const norm = (rows: any[]) =>
+      rows
+        .map((x: any) => ({ EmpCode: String(x.EmpCode ?? "").trim(), EmpName: String(x.EmpName ?? "").trim() }))
+        .filter((x) => x.EmpCode !== "");
+
+    try {
+      const r = await axios.get(`${API_BASE}Sources/load_empployee`, { headers: authHeaders() });
+      const rows = norm(decodeEmployeesActive(r.data) as any[]);
+      if (rows.length) {
+        setVehOwnerPeople(rows);
+        return;
+      }
+    } catch (e) {
+      // fall through to the On Duty list
+    }
+
+    try {
+      const r = await axios.get(`${API_BASE}OnDuty/load_employees_duties`, {
+        params: {
+          empCode: user?.EmpCode ?? user?.empCode ?? "",
+          designation: user?.Designation ?? user?.designation ?? "",
+        },
+        headers: authHeaders(),
+      });
+      // Positional, same as the On Duty screen reads it: [0]=code [1]=name.
+      const raw = Array.isArray(r.data) ? r.data : [];
+      setVehOwnerPeople(
+        norm(raw.map((x: any) => ({ EmpCode: x?.[0], EmpName: x?.[1] })))
+      );
+    } catch (e) {
+      setVehOwnerPeople([]);
+    }
+  };
+
   const loadVehicles = async () => {
     try {
       const r = await axios.get(`${API_BASE}Sources/Load_Vehicles`, { headers: authHeaders() });
@@ -764,22 +817,71 @@ const Sources: React.FC = () => {
     }
   };
 
+  // What the closed picker reads. A bare code says very little, so the name
+  // comes with it whenever the roll knows who that is - and when it does not,
+  // the code still shows rather than being swallowed, because a vehicle owned
+  // by somebody who has since left is a real row that has to stay editable.
+  const vehOwnerLabel = useMemo(() => {
+    const v = String(vehOwnedBy ?? "").trim();
+    if (!v) return "";
+    if (v.toLowerCase() === VEH_OFFICE.toLowerCase()) return VEH_OFFICE;
+    const who = vehOwnerPeople.find((x) => String(x.EmpCode) === v);
+    return who && who.EmpName ? `${who.EmpName} (${v})` : v;
+  }, [vehOwnedBy, vehOwnerPeople]);
+
+  // Office is pinned on top as its own entry. It is not a person, so it is not
+  // in the roll and should not have to be found among the staff.
+  const vehOwnerOptions = useMemo(() => {
+    const q = vehOwnerSearch.trim().toLowerCase();
+    const staff = vehOwnerPeople
+      .filter(
+        (x) =>
+          q === "" ||
+          String(x.EmpName ?? "").toLowerCase().includes(q) ||
+          String(x.EmpCode ?? "").toLowerCase().includes(q)
+      )
+      .map((x) => ({ EmpCode: String(x.EmpCode), EmpName: String(x.EmpName || x.EmpCode), isOffice: false }));
+    const office =
+      q === "" || VEH_OFFICE.toLowerCase().includes(q)
+        ? [{ EmpCode: VEH_OFFICE, EmpName: VEH_OFFICE, isOffice: true }]
+        : [];
+    return [...office, ...staff];
+  }, [vehOwnerPeople, vehOwnerSearch]);
+
+  // Who owns it decides what the rate can be. An office vehicle runs on the
+  // office's own fuel, so 0 is not a rate somebody forgot to fill in - it is
+  // the right answer, and the box is closed. A personal vehicle is the other
+  // way round: the rate is the reason the row is being kept, so it is asked
+  // for rather than offered.
+  const vehIsOffice =
+    String(vehOwnedBy ?? "").trim().toLowerCase() === VEH_OFFICE.toLowerCase();
+
   const clearVehicleForm = () => {
     setVehOwnedBy(VEH_OFFICE);
+    setVehOwnerOpen(false);
+    setVehOwnerSearch("");
     setVehType(VEH_TYPES[1]);
     setVehNo("");
     setVehModel("");
-    setVehPerKm("");
+    // The empty form is owned by Office, so its rate is Office's rate.
+    setVehPerKm("0");
     setTempVehId(0);
   };
 
   const saveVehicle = async () => {
     const owner = vehOwnedBy.trim();
     const type = vehType.trim();
-    const no = vehNo.trim();
+    // Stored upper case so "ap09bc1234" and "AP09BC1234" are one vehicle
+    // rather than two rows nobody can tell apart in the list.
+    const no = vehNo.trim().toUpperCase();
+    const isOffice = owner.toLowerCase() === VEH_OFFICE.toLowerCase();
+    // 0 for the office, whatever was entered for anybody else.
+    const perKm = isOffice ? "0" : vehPerKm.trim();
     if (!owner) return showToast("Please say who owns this vehicle...!", "danger");
     if (!type) return showToast("Please pick the vehicle type...!", "danger");
     if (!no) return showToast("Please enter the vehicle number...!", "danger");
+    if (!isOffice && perKm === "")
+      return showToast("Please enter the per km rate for this vehicle...!", "danger");
 
     // Client-side duplicate guard; the proc checks again server-side, so this
     // is only here to say so without a round trip.
@@ -802,9 +904,10 @@ const Sources: React.FC = () => {
           _VehType: type,
           _VehNo: no,
           _VehModel: vehModel.trim(),
-          // Sent as typed. Blank means no rate has been set, which the API
-          // stores as NULL - not as zero, which would be a rate of nothing.
-          _PerKm: vehPerKm.trim(),
+          // Already settled above: 0 for an office vehicle, the entered rate
+          // for a personal one. The proc applies the same rule again, so an
+          // older screen or a direct call cannot get around it.
+          _PerKm: perKm,
         },
         { headers: { "Content-Type": "application/json", ...authHeaders() } }
       );
@@ -1582,6 +1685,7 @@ const Sources: React.FC = () => {
     loadBranches();
     loadBranchMovement();
     loadVehicles();
+    loadVehOwnerPeople();
     loadVendors();
     loadEmployeesActive();
     loadCheckinAccess();
@@ -2486,25 +2590,117 @@ const Sources: React.FC = () => {
                 <div className="stock-field" style={{ marginBottom: '16px' }}>
                   <label>{tempVehId ? "Edit Vehicle" : "New Vehicle"}</label>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <input
-                      type="text"
-                      className="stock-input"
-                      style={{ flex: '1 1 130px' }}
-                      value={vehOwnedBy}
-                      placeholder="Owned by - Office or emp code"
-                      list="veh-owner-suggestions"
-                      onChange={(e) => setVehOwnedBy(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
-                    />
-                    {/* Office first, then everybody on the active roll, so a
-                        personal vehicle is picked rather than typed from
-                        memory and misremembered. */}
-                    <datalist id="veh-owner-suggestions">
-                      <option value={VEH_OFFICE} />
-                      {empActive.map((x) => (
-                        <option key={x.EmpCode} value={x.EmpCode}>{x.EmpName}</option>
-                      ))}
-                    </datalist>
+                    {/* Owner picker, shaped like the team dropdown on the On
+                        Duty screen: a search box, then a row per person with
+                        their initial, name and code. Styled inline rather than
+                        through those class names, which live in that screen's
+                        stylesheet and are not loaded here - using them would
+                        have looked right only after visiting On Duty first. */}
+                    <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                      <div
+                        className="stock-input"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', minHeight: '38px' }}
+                        onClick={() => { setVehOwnerOpen((o) => !o); setVehOwnerSearch(""); }}
+                      >
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: vehOwnerLabel ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                          {vehOwnerLabel || "Owned by"}
+                        </span>
+                        <ChevronDown />
+                      </div>
+
+                      {vehOwnerOpen && (
+                        <>
+                          {/* Catches the click that closes it. Fixed and full
+                              screen so anywhere counts, and behind the panel
+                              so a click on a name still lands on the name. */}
+                          <div
+                            style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                            onClick={() => setVehOwnerOpen(false)}
+                          />
+                          <div
+                            style={{
+                              position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 41,
+                              background: '#fff', border: '1px solid rgba(148, 163, 184, 0.35)',
+                              borderRadius: '10px', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.18)',
+                              maxHeight: '280px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                            }}
+                          >
+                            <div style={{ padding: '8px', borderBottom: '1px solid rgba(148, 163, 184, 0.25)' }}>
+                              <input
+                                type="text"
+                                className="stock-input"
+                                autoFocus
+                                placeholder="Search name or code..."
+                                value={vehOwnerSearch}
+                                onChange={(e) => setVehOwnerSearch(e.target.value)}
+                                style={{ minHeight: '32px' }}
+                              />
+                            </div>
+                            <div style={{ overflowY: 'auto' }}>
+                              {vehOwnerOptions.map((o: any, i: number) => {
+                                const selected = String(vehOwnedBy).trim() === String(o.EmpCode);
+                                return (
+                                  <div
+                                    key={`${o.EmpCode}-${i}`}
+                                    onClick={() => {
+                                      const wasOffice =
+                                        String(vehOwnedBy ?? "").trim().toLowerCase() ===
+                                        VEH_OFFICE.toLowerCase();
+                                      setVehOwnedBy(String(o.EmpCode));
+                                      // The rate follows the owner. Coming off
+                                      // Office empties the box rather than
+                                      // leaving that 0 sitting there looking
+                                      // like a rate somebody actually agreed.
+                                      if (o.isOffice) setVehPerKm("0");
+                                      else if (wasOffice) setVehPerKm("");
+                                      setVehOwnerOpen(false);
+                                      setVehOwnerSearch("");
+                                    }}
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: '10px',
+                                      padding: '8px 10px', cursor: 'pointer',
+                                      borderBottom: '1px solid rgba(148, 163, 184, 0.18)',
+                                      background: selected ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.10)' : undefined,
+                                    }}
+                                  >
+                                    <div style={{
+                                      width: '28px', height: '28px', borderRadius: '50%', flex: '0 0 28px',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: '0.72rem', fontWeight: 600, color: '#fff',
+                                      background: o.isOffice ? '#0f766e' : 'var(--ion-color-primary, #0077b6)',
+                                    }}>
+                                      {o.isOffice ? "OF" : String(o.EmpName ?? "?").charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: '0.82rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {o.EmpName}
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--stock-muted)' }}>
+                                        {o.isOffice ? "Company vehicle" : `ID: ${o.EmpCode}`}
+                                      </div>
+                                    </div>
+                                    {selected && <span style={{ color: 'var(--ion-color-primary, #0077b6)', fontSize: '0.9rem' }}>&#10003;</span>}
+                                  </div>
+                                );
+                              })}
+                              {/* Two different silences, said differently. An
+                                  empty roll is a loading problem; no match is
+                                  just a search that found nothing. */}
+                              {vehOwnerOptions.length <= 1 && vehOwnerPeople.length === 0 && (
+                                <div style={{ padding: '14px', textAlign: 'center', color: 'var(--stock-muted)', fontSize: '0.78rem' }}>
+                                  Staff list did not load. Office is still selectable.
+                                </div>
+                              )}
+                              {vehOwnerOptions.length === 0 && vehOwnerPeople.length > 0 && (
+                                <div style={{ padding: '14px', textAlign: 'center', color: 'var(--stock-muted)', fontSize: '0.78rem' }}>
+                                  Nobody matches that.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <select
                       className="stock-input"
                       style={{ flex: '1 1 120px' }}
@@ -2521,7 +2717,10 @@ const Sources: React.FC = () => {
                       style={{ flex: '1 1 110px' }}
                       value={vehNo}
                       placeholder="Vehicle no"
-                      onChange={(e) => setVehNo(e.target.value)}
+                      // Upper cased as it is typed rather than on save, so what
+                      // the box shows is what gets stored - no quiet change
+                      // between pressing Save and seeing the row appear.
+                      onChange={(e) => setVehNo(e.target.value.toUpperCase())}
                       onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
                     />
                     <input
@@ -2551,9 +2750,19 @@ const Sources: React.FC = () => {
                       type="text"
                       inputMode="decimal"
                       className="stock-input"
-                      style={{ flex: '0 1 100px' }}
-                      value={vehPerKm}
-                      placeholder="Per km"
+                      style={{
+                        flex: '0 1 100px',
+                        background: vehIsOffice ? 'rgba(148, 163, 184, 0.18)' : undefined,
+                        cursor: vehIsOffice ? 'not-allowed' : undefined,
+                      }}
+                      value={vehIsOffice ? "0" : vehPerKm}
+                      disabled={vehIsOffice}
+                      title={
+                        vehIsOffice
+                          ? "Office vehicles are fixed at 0 per km"
+                          : "Per km rate - required for a personal vehicle"
+                      }
+                      placeholder={vehIsOffice ? "0" : "Per km *"}
                       onChange={(e) => {
                         // Digits and at most one dot. Filtered on the way in
                         // rather than validated on the way out, so there is
@@ -2606,7 +2815,7 @@ const Sources: React.FC = () => {
                         // beside it when the roll knows who that is.
                         const ownerName =
                           owner && owner.toLowerCase() !== VEH_OFFICE.toLowerCase()
-                            ? empActive.find((x) => String(x.EmpCode) === owner)?.EmpName
+                            ? vehOwnerPeople.find((x) => String(x.EmpCode) === owner)?.EmpName
                             : "";
                         const rate = String(v.PerKm ?? "").trim();
                         return (
@@ -2615,7 +2824,7 @@ const Sources: React.FC = () => {
                           onClick={() => {
                             setVehOwnedBy(owner);
                             setVehType(String(v.VehType ?? VEH_TYPES[1]));
-                            setVehNo(String(v.VehNo ?? ""));
+                            setVehNo(String(v.VehNo ?? "").toUpperCase());
                             setVehModel(String(v.VehModel ?? ""));
                             setVehPerKm(rate);
                             setTempVehId(id);

@@ -36,6 +36,51 @@
   --wheel-highlight-background: rgba(99, 102, 241, 0.1);
 }
 
+/* The picker and its buttons share the modal as a column, so the wheels take
+   whatever height is left rather than overrunning the footer. */
+.native-date-modal-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.native-date-modal-wrapper ion-datetime {
+  flex: 1 1 auto;
+  /* Without this a flex child refuses to shrink below its content, and the
+     buttons get pushed off the bottom of the modal. */
+  min-height: 0;
+}
+
+.native-date-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 4px 14px 14px;
+  flex: 0 0 auto;
+}
+
+.native-date-modal-actions button {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.native-date-modal-actions button.is-primary {
+  color: #4f46e5;
+}
+
+.native-date-modal-actions button:active {
+  background: rgba(99, 102, 241, 0.1);
+}
+
  
 .onduties-content {
   --padding-top: 0px;
@@ -860,3 +905,38 @@
   margin: -6px 0 0 !important;
 }
 /* HEADER */
+
+/* Transport and Vehicle No, paired on one row.
+
+   Two tiles wide, not the full form width. Spanning every column made the
+   pair twice the size of every other field on the page, which read as a
+   banner rather than as two ordinary questions - so it takes exactly the
+   space two normal tiles would have taken side by side.
+
+   gap: inherit rather than a number, so the split lands on the same seam as
+   the tiles above and below it whatever the bento grid's own gap turns out
+   to be. A hard-coded 10px drifts out of line the moment that changes. */
+.od-pair-row {
+  display: grid;
+  grid-column: span 2;
+  grid-template-columns: 1fr 1fr;
+  gap: inherit;
+  min-width: 0;
+}
+
+/* Only one of the two fields is showing, so the row gives back the column it
+   is no longer using instead of leaving a gap the width of a whole field. */
+.od-pair-row-solo {
+  grid-column: span 1;
+  grid-template-columns: 1fr;
+}
+
+/* On a phone every other field is already full width, so a pair squeezed into
+   two half-columns would be the odd one out - and neither dropdown has room
+   to show what is selected. They stack instead. */
+@media (max-width: 560px) {
+  .od-pair-row {
+    grid-column: span 1;
+    grid-template-columns: 1fr;
+  }
+}

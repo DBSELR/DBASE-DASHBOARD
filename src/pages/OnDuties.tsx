@@ -1,5 +1,5 @@
 ﻿// src/pages/OnDuties.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addOutline } from "ionicons/icons";
 import {
   IonPage,
@@ -379,6 +379,19 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     userDesig.includes("Manager");
 
   const [dateModalType, setDateModalType] = useState<"from" | "to" | null>(null);
+
+  // What the two date boxes held when the picker was opened.
+  //
+  // The picker no longer waits for Done before committing - it has to commit as
+  // the wheels turn, because that is the only moment the 9:30 default can be
+  // put on screen for the user to see. Which means Cancel has to actually undo
+  // rather than just close, and this is what it undoes to.
+  const dateModalSnapshot = useRef<{ from: string; to: string | null } | null>(null);
+
+  // Bumped once per opening. The picker keeps its own copy of the value, so it
+  // has to be rebuilt each time it is shown or it reappears on whatever the
+  // last visit left on the wheels.
+  const [dateModalOpenSeq, setDateModalOpenSeq] = useState(0);
   const [visitTimeModal, setVisitTimeModal] = useState<{ visitIndex: number; field: "visitFromTime" | "visitToTime" } | null>(null);
 
 
@@ -508,6 +521,12 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       transportMode === "Own 4 Wheeler");
   const [kms, setKms] = useState<string>("");
   const [vehicleNo, setVehicleNo] = useState<string>("");
+
+  // The vehicles master, read once. This box used to be free text, which is
+  // how one bike reached the claims desk as "AP16 1234", "ap161234" and
+  // "AP-16-1234" on three different duties. It is a list now, narrowed to the
+  // vehicles that could actually be on this duty.
+  const [vehicleMaster, setVehicleMaster] = useState<any[]>([]);
   const [location, setLocation] = useState<string>("");
   const [sReading, setSReading] = useState<string>("");
   const [eReading, setEReading] = useState<string>("");
@@ -691,6 +710,7 @@ const [isOnDutyTypeDropdownOpen, setIsOnDutyTypeDropdownOpen] = useState(false);
 const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
 const [isTripTypeDropdownOpen, setIsTripTypeDropdownOpen] = useState(false);
 const [isBranchChangeTypeDropdownOpen, setIsBranchChangeTypeDropdownOpen] = useState(false);
+const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
 // Closed set. "Official Assignment" is the company moving someone;
 // "Employee Request" is the employee asking to be moved.
@@ -731,6 +751,7 @@ const [onDutyTypeDropdownPos, setOnDutyTypeDropdownPos] = useState({ top: 0, lef
 const [branchDropdownPos, setBranchDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 const [tripTypeDropdownPos, setTripTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 const [branchChangeTypeDropdownPos, setBranchChangeTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+const [vehicleDropdownPos, setVehicleDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
 const teamTriggerRef = useRef<HTMLDivElement>(null);
 const clientTriggerRef = useRef<HTMLDivElement>(null);
@@ -739,8 +760,15 @@ const onDutyTypeTriggerRef = useRef<HTMLDivElement>(null);
 const branchTriggerRef = useRef<HTMLDivElement>(null);
 const tripTypeTriggerRef = useRef<HTMLDivElement>(null);
 const branchChangeTypeTriggerRef = useRef<HTMLDivElement>(null);
+const vehicleTriggerRef = useRef<HTMLDivElement>(null);
 
-useEffect(() => {
+// useLayoutEffect, not useEffect. Every one of these dropdowns starts life at
+// {top: 0, left: 0, width: 0}, and a portal renders into document.body the
+// moment it opens - so with a plain effect the browser painted the list in the
+// top left corner at zero width before the measurement landed, and it visibly
+// jumped down to its field. Laying out before paint means the first frame is
+// already in the right place; there is nothing to see jump.
+useLayoutEffect(() => {
   const updateDropdownPositions = () => {
     if (isTeamDropdownOpen && teamTriggerRef.current) {
       const rect = teamTriggerRef.current.getBoundingClientRect();
@@ -770,6 +798,10 @@ useEffect(() => {
       const rect = branchChangeTypeTriggerRef.current.getBoundingClientRect();
       setBranchChangeTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
     }
+    if (isVehicleDropdownOpen && vehicleTriggerRef.current) {
+      const rect = vehicleTriggerRef.current.getBoundingClientRect();
+      setVehicleDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    }
   };
 
   window.addEventListener('resize', updateDropdownPositions);
@@ -783,7 +815,7 @@ useEffect(() => {
     window.removeEventListener('resize', updateDropdownPositions);
     if (container) container.removeEventListener('scroll', updateDropdownPositions);
   };
-}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen, isTripTypeDropdownOpen, isBranchChangeTypeDropdownOpen]);
+}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen, isTripTypeDropdownOpen, isBranchChangeTypeDropdownOpen, isVehicleDropdownOpen]);
 
 const loadUnlockRange = async () => {
   const res = await fetch(
@@ -1905,12 +1937,119 @@ useEffect(() => {
       notify("Delete failed", "danger");
     }
   };
+  // The whole master, filtered on the screen rather than in a query: both
+  // things that narrow it - the transport line and who is applying - change
+  // while the form is open, and neither is worth a round trip.
+  useEffect(() => {
+    if (dateModalType) {
+      dateModalSnapshot.current = { from: dutyFromDate, to: dutyToDate };
+      setDateModalOpenSeq((n) => n + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateModalType]);
+
+  const loadVehicleMaster = async () => {
+    try {
+      const res = await api.get("Sources/Load_Vehicles", { headers: authHeaders() });
+      let raw: any = res.data;
+      if (typeof raw === "string") {
+        try {
+          raw = JSON.parse(raw);
+        } catch {
+          raw = [];
+        }
+      }
+      // Positional, the same contract the master screen reads it on:
+      // [0]=VehId [1]=OwnedBy [2]=VehType [3]=VehNo [4]=VehModel [5]=PerKm
+      setVehicleMaster(
+        (Array.isArray(raw) ? raw : [])
+          .map((r: any) => ({
+            OwnedBy: String(r?.[1] ?? "").trim(),
+            VehType: String(r?.[2] ?? "").trim(),
+            VehNo: String(r?.[3] ?? "").trim(),
+            VehModel: String(r?.[4] ?? "").trim(),
+          }))
+          .filter((v: any) => v.VehNo !== "")
+      );
+    } catch {
+      // Quiet on purpose. An empty master is not an error the applicant can do
+      // anything about, and the field handles it by letting them type instead.
+      setVehicleMaster([]);
+    }
+  };
+
+  // Codes are what the form stores and names are what people recognise, so
+  // the translation happens in one place rather than at each spot that shows a
+  // member. Falls back to the bare code while the roll is still loading.
+  const nameForTeamCode = (code: string) => {
+    const who = team.find((t: any) => String(t.EmpCode) === String(code));
+    return String(who?.EmpName ?? "").trim() || String(code);
+  };
+
+  const selectedNames = useMemo(
+    () => selectedCodes.map((c) => nameForTeamCode(c)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedCodes, team]
+  );
+
+  // Which vehicles this duty could be on.
+  //
+  // "Office 4 Wheeler" means the office's four wheelers and nobody else's.
+  // "Own 2 Wheeler" means the two wheelers belonging to the people actually
+  // going: whoever is applying, plus anyone they have added to the duty. A
+  // duty is often raised by one person for a group, and the bike that gets
+  // ridden is not always the applicant's - restricting the list to the
+  // applicant would leave the real vehicle untypeable.
+  //
+  // Public transport has no vehicle to pick, so the list is empty and the
+  // field never opens.
+  const vehicleOptions = useMemo(() => {
+    const mode = String(transportMode ?? "").trim();
+    if (!mode || mode === "PublicTransport") return [];
+    const wantOffice = mode.toLowerCase().startsWith("office");
+    const wantType = mode.includes("2 Wheeler") ? "2 wheeler" : "4 wheeler";
+
+    const me = String(empCode ?? "").trim().toLowerCase();
+    const travellers = new Set<string>([me, ...selectedCodes.map((c) => String(c ?? "").trim().toLowerCase())]);
+    travellers.delete("");
+
+    // Code -> name, so a list holding three people's bikes says whose is
+    // whose. Falls back to the bare code when the roll has not loaded.
+    const nameOf = (code: string) => {
+      const who = team.find((t: any) => String(t.EmpCode ?? "").trim().toLowerCase() === code);
+      return String(who?.EmpName ?? "").trim();
+    };
+
+    return vehicleMaster
+      .filter((v: any) => {
+        const owner = String(v.OwnedBy ?? "").trim().toLowerCase();
+        const isOffice = owner === "office";
+        if (isOffice !== wantOffice) return false;
+        // A vehicle belonging to somebody who is not on this duty is not a
+        // vehicle this duty can be taken in.
+        if (!wantOffice && !travellers.has(owner)) return false;
+        return String(v.VehType ?? "").trim().toLowerCase() === wantType;
+      })
+      .map((v: any) => {
+        const owner = String(v.OwnedBy ?? "").trim().toLowerCase();
+        return {
+          ...v,
+          _isMine: !wantOffice && owner === me,
+          _ownerLabel: wantOffice ? "" : owner === me ? "Yours" : nameOf(owner) || String(v.OwnedBy ?? ""),
+        };
+      })
+      // The applicant's own vehicles first - the common answer should not have
+      // to be hunted for among the colleagues'.
+      .sort((a: any, b: any) => (a._isMine === b._isMine ? 0 : a._isMine ? -1 : 1));
+  }, [vehicleMaster, transportMode, empCode, selectedCodes, team]);
+
   useEffect(() => {
     if (userLoaded && empCode) {
       loadTeam();
       loadClients();
       loadBranches();
       loadDuties();
+      loadVehicleMaster();
 
     }
   }, [userLoaded, empCode]);
@@ -2680,31 +2819,130 @@ useEffect(() => {
 
 
         <div className="page-container">
-          <h2 style={{ margin: 0, fontWeight: 700 }}>Duty Manager</h2>
+          <h2 style={{ margin: 0, fontWeight: 700 }}>On Duty Manager</h2>
           <div>
 
             <div className="lr-bento-grid" style={{ alignItems: "start", marginBottom: "20px" }}>
               {/* Team Members */}
               <div className="lr-field-box" onClick={() => setIsTeamDropdownOpen(!isTeamDropdownOpen)}>
-                <label className="lr-field-label">Team Members</label>
+                {/* The count sits on the label, the way Days carries its own.
+                    The field line underneath shows who; this shows how many at
+                    a glance, without the eye having to travel down and count
+                    "+2" back into a total. Hidden at zero rather than showing
+                    (0) - an empty count is noise, and "Select Team" below is
+                    already saying the same thing. */}
+                <label className="lr-field-label">
+                  Team Members
+                  {selectedCodes.length > 0 && (
+                    <span style={{ marginLeft: "4px", opacity: 0.75 }}>
+                      ({selectedCodes.length})
+                    </span>
+                  )}
+                </label>
                 <div className="lr-field-content" ref={teamTriggerRef}>
                   <IonIcon icon={peopleOutline} className="lr-field-icon" />
                   {team.length > 1 ? (
                     <>
-                      <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: selectedCodes.length ? "#1e293b" : "#94a3b8" }}>
-                        {selectedCodes.length > 0 ? `${selectedCodes.length} Selected` : "Select Team"}
+                      {/* Who, not how many. "2 Selected" meant opening the
+                          list again just to remember which two people it was. */}
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          color: selectedCodes.length ? "#1e293b" : "#94a3b8",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={selectedNames.join(", ")}
+                      >
+                        {selectedCodes.length === 0
+                          ? "Select Team"
+                          : selectedCodes.length === 1
+                          ? selectedNames[0]
+                          : `${selectedNames[0]}  +${selectedCodes.length - 1}`}
                       </span>
                       <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
 
                       {isTeamDropdownOpen && createPortal(
                         <>
                           <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTeamDropdownOpen(false); }} />
-                          <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${teamDropdownPos.top}px`, left: `${teamDropdownPos.left}px`, width: `${teamDropdownPos.width}px` }}>
+                          {/* A click inside a portal still travels up the React
+                              tree to the field box, whose onClick toggles this
+                              list - so ticking one person closed the list and
+                              the next person meant opening it again. Stopped
+                              here, because this is a multi-select: it should
+                              close when the user says so, not on every tick. */}
+                          <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${teamDropdownPos.top}px`, left: `${teamDropdownPos.left}px`, width: `${teamDropdownPos.width}px`, visibility: teamDropdownPos.width ? 'visible' : 'hidden' }}>
                             <div className="dropdown-search-sec">
                               <Search size={16} className="dropdown-search-icon" />
                               <input type="text" placeholder="Search team..." value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
                               {teamSearchTerm && <button className="dropdown-clear-btn" onClick={() => setTeamSearchTerm("")}><X size={16} /></button>}
                             </div>
+                            {/* The people already on the duty, spelled out.
+                                Removing somebody here does not need them found
+                                in the list below first - which is how the wrong
+                                name ends up staying on a duty. */}
+                            {selectedCodes.length > 0 && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: "6px",
+                                  padding: "8px 10px",
+                                  borderBottom: "1px solid rgba(0,0,0,0.06)",
+                                  maxHeight: "92px",
+                                  overflowY: "auto",
+                                }}
+                              >
+                                {selectedCodes.map((code) => (
+                                  <span
+                                    key={code}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      maxWidth: "100%",
+                                      background: "#eef2ff",
+                                      color: "#3730a3",
+                                      border: "1px solid #c7d2fe",
+                                      borderRadius: "20px",
+                                      padding: "3px 6px 3px 10px",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {nameForTeamCode(code)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove ${nameForTeamCode(code)}`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelectedCodes(selectedCodes.filter((c) => c !== code));
+                                      }}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        border: "none",
+                                        background: "transparent",
+                                        color: "inherit",
+                                        cursor: "pointer",
+                                        padding: 0,
+                                        lineHeight: 0,
+                                      }}
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="dropdown-body">
                               {team.filter(t => (t.EmpName || "").toLowerCase().includes(teamSearchTerm.toLowerCase())).length > 0 ? (
                                 team.filter(t => (t.EmpName || "").toLowerCase().includes(teamSearchTerm.toLowerCase())).map((emp, index) => {
@@ -2761,7 +2999,7 @@ useEffect(() => {
                   {isOnDutyTypeDropdownOpen && createPortal(
                     <>
                       <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsOnDutyTypeDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${onDutyTypeDropdownPos.top}px`, left: `${onDutyTypeDropdownPos.left}px`, width: `${onDutyTypeDropdownPos.width}px` }}>
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${onDutyTypeDropdownPos.top}px`, left: `${onDutyTypeDropdownPos.left}px`, width: `${onDutyTypeDropdownPos.width}px`, visibility: onDutyTypeDropdownPos.width ? 'visible' : 'hidden' }}>
                         {/* No search box - a short fixed list does not need one,
                             and an empty search field reads as "more to find". */}
                         <div className="dropdown-body">
@@ -2810,7 +3048,7 @@ useEffect(() => {
                     {isBranchChangeTypeDropdownOpen && createPortal(
                       <>
                         <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsBranchChangeTypeDropdownOpen(false); }} />
-                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchChangeTypeDropdownPos.top}px`, left: `${branchChangeTypeDropdownPos.left}px`, width: `${branchChangeTypeDropdownPos.width}px` }}>
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchChangeTypeDropdownPos.top}px`, left: `${branchChangeTypeDropdownPos.left}px`, width: `${branchChangeTypeDropdownPos.width}px`, visibility: branchChangeTypeDropdownPos.width ? 'visible' : 'hidden' }}>
                           <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
                             {BRANCH_CHANGE_TYPE_OPTIONS.map((name, index) => {
                               const isSelected = branchChangeType === name;
@@ -2856,7 +3094,7 @@ useEffect(() => {
                   {isBranchDropdownOpen && createPortal(
                     <>
                       <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsBranchDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchDropdownPos.top}px`, left: `${branchDropdownPos.left}px`, width: `${branchDropdownPos.width}px` }}>
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchDropdownPos.top}px`, left: `${branchDropdownPos.left}px`, width: `${branchDropdownPos.width}px`, visibility: branchDropdownPos.width ? 'visible' : 'hidden' }}>
                         <div className="dropdown-search-sec">
                           <Search size={16} className="dropdown-search-icon" />
                           <input type="text" placeholder="Search branch..." value={branchSearchTerm} onChange={(e) => setBranchSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
@@ -2916,7 +3154,7 @@ useEffect(() => {
                   {isClientDropdownOpen && createPortal(
                     <>
                       <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsClientDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${clientDropdownPos.top}px`, left: `${clientDropdownPos.left}px`, width: `${clientDropdownPos.width}px` }}>
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${clientDropdownPos.top}px`, left: `${clientDropdownPos.left}px`, width: `${clientDropdownPos.width}px`, visibility: clientDropdownPos.width ? 'visible' : 'hidden' }}>
                         <div className="dropdown-search-sec">
                           <Search size={16} className="dropdown-search-icon" />
                           <input type="text" placeholder="Search client..." value={clientSearchTerm} onChange={(e) => setClientSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
@@ -3013,11 +3251,32 @@ useEffect(() => {
               {/* Modals for Dates */}
               <IonModal isOpen={!!dateModalType} onDidDismiss={() => setDateModalType(null)} className="native-date-modal">
                 <div className="native-date-modal-wrapper">
+                  {/* IonDatetime keeps its own copy of the value, and this
+                      modal is mounted for the life of the page rather than
+                      created per open - so a value written from outside leaves
+                      the wheels sitting where the user last left them. The key
+                      forces a rebuild at the two moments that matters.
+
+                      Every opening, via the counter: whichever box is being
+                      shown starts from what it actually holds.
+
+                      And, for Camp From only, whenever its date changes - that
+                      is the moment its time is being overridden to 9:30, and a
+                      rebuild is what puts that on the wheels.
+
+                      Camp To is deliberately NOT keyed on its date. Nothing
+                      overrides its time while it is open, so rebuilding it
+                      mid-scroll would only interrupt the drag - which is what
+                      made its date wheel stutter and snap back. */}
                   <IonDatetime
+                    key={`${dateModalType ?? "none"}|${dateModalOpenSeq}|${
+                      dateModalType === "from"
+                        ? String(dutyFromDate || "").split("T")[0]
+                        : ""
+                    }`}
                     presentation="date-time"
                     hourCycle="h23"
                     preferWheel={true}
-                    showDefaultButtons={true}
                     value={dateModalType === "from" ? dutyFromDate : dutyToDate}
                     min={dateModalType === "from" ? (unlockRange.approved ? unlockRange.fromDate : nowIST().toISOString(true)) : (dutyFromDate === unlockRange.fromDate ? unlockRange.fromDate : (dutyFromDate || nowIST().toISOString(true)))}
                     max={dateModalType === "from" ? maxDate : (dutyFromDate === unlockRange.fromDate ? unlockRange.toDate : maxToDate)}
@@ -3042,18 +3301,86 @@ useEffect(() => {
                         const prevDatePart = dutyFromDate ? String(dutyFromDate).split("T")[0] : "";
                         let finalVal = val;
                         if (newDatePart && newDatePart !== prevDatePart) {
+                          // Picking a date resets the clock to the standard camp
+                          // day - 9:30 out, 6:30 back - rather than to midnight.
+                          // Today is the one exception: half of 9:30 may already
+                          // be gone, and the picker refuses a From in the past,
+                          // so today starts from the current moment instead.
+                          //
+                          // Order matters for anyone wanting a time of their
+                          // own: pick the date first, then the time. The snap
+                          // only fires when the date part actually changes, so
+                          // scrolling the hour afterwards is left alone.
                           const isToday = newDatePart === nowIST().format("YYYY-MM-DD");
-                          const istTimePart = isToday ? nowIST().format("HH:mm:ss") : "00:00:00";
-                          finalVal = `${newDatePart}T${istTimePart}+05:30`;
+                          const next = isToday
+                            ? nowIST()
+                            : toIST(`${newDatePart}T00:00:00+05:30`)
+                                .hour(CAMP_DEFAULT_FROM_H)
+                                .minute(CAMP_DEFAULT_FROM_M)
+                                .second(0)
+                                .millisecond(0);
+                          finalVal = next.toISOString(true);
+
+                          // The other half of the camp day. Its time goes back to
+                          // 6:30 with the same reasoning, but its DATE is only
+                          // pulled onto the new day when it would otherwise end
+                          // before the duty starts - a camp already running to
+                          // Friday should not silently become a one day trip
+                          // because the start moved.
+                          const prevTo = dutyToDate ? toIST(dutyToDate) : null;
+                          const keepToDate =
+                            prevTo && prevTo.isValid() && prevTo.format("YYYY-MM-DD") > newDatePart
+                              ? prevTo.format("YYYY-MM-DD")
+                              : newDatePart;
+                          let nextTo = toIST(`${keepToDate}T00:00:00+05:30`)
+                            .hour(CAMP_DEFAULT_TO_H)
+                            .minute(CAMP_DEFAULT_TO_M)
+                            .second(0)
+                            .millisecond(0);
+                          // A day that ends before it starts is not a day - which
+                          // is what today after 6:30pm would produce.
+                          if (!nextTo.isAfter(next)) nextTo = next.clone();
+                          setDutyToDate(nextTo.toISOString(true));
+                        } else if (!dutyToDate || moment(finalVal).isAfter(dutyToDate)) {
+                          // Time-only change that has overrun the end of the
+                          // camp day: drag the end along rather than leaving a
+                          // duty that finishes before it begins.
+                          setDutyToDate(finalVal);
                         }
                         setDutyFromDate(finalVal);
-                        if (!dutyToDate || moment(finalVal).isAfter(dutyToDate)) setDutyToDate(finalVal);
                       } else {
                         setDutyToDate(val);
                       }
                     }}
-                    onIonCancel={() => setDateModalType(null)}
                   />
+
+                  {/* Ionic's own Cancel/Done only hand the value over once Done
+                      is pressed, which is too late to show the 9:30 default on
+                      the wheels. These do the same two jobs against a value
+                      that is already live: Cancel puts the boxes back to what
+                      they held when the picker opened, Done simply closes. */}
+                  <div className="native-date-modal-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const snap = dateModalSnapshot.current;
+                        if (snap) {
+                          setDutyFromDate(snap.from);
+                          setDutyToDate(snap.to);
+                        }
+                        setDateModalType(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="is-primary"
+                      onClick={() => setDateModalType(null)}
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
               </IonModal>
 
@@ -3074,9 +3401,20 @@ useEffect(() => {
               </div>
               )}
 
-              {/* Transport - hidden for an Employee Request branch change,
-                  see showTravelFields */}
+              {/* Transport and the vehicle it implies, side by side on one
+                  row: the second question only exists because of the first
+                  answer, and a full field width apart they read as two
+                  unrelated things. Sizing lives in .od-pair-row so it can hold
+                  two ordinary tiles rather than stretching across the whole
+                  form - see the note there.
+
+                  Public transport has no vehicle to name, so the pair shrinks
+                  to a single tile and the next field closes up beside it.
+                  Holding the empty half open just left a hole in the middle of
+                  the row. Transport itself is one tile wide either way, so
+                  nothing appears to resize - the gap simply goes. */}
               {showTravelFields && (
+              <div className={`od-pair-row${transportMode === "PublicTransport" ? " od-pair-row-solo" : ""}`}>
               <div className="lr-field-box" onClick={() => setIsTransportDropdownOpen(!isTransportDropdownOpen)}>
                 <label className="lr-field-label">Transport</label>
                 <div className="lr-field-content" ref={transportTriggerRef}>
@@ -3089,7 +3427,7 @@ useEffect(() => {
                   {isTransportDropdownOpen && createPortal(
                     <>
                       <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTransportDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${transportDropdownPos.top}px`, left: `${transportDropdownPos.left}px`, width: `${transportDropdownPos.width}px` }}>
+                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${transportDropdownPos.top}px`, left: `${transportDropdownPos.left}px`, width: `${transportDropdownPos.width}px`, visibility: transportDropdownPos.width ? 'visible' : 'hidden' }}>
                         <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
                           {["PublicTransport", "Office 4 Wheeler", "Office 2 Wheeler", "Own 2 Wheeler", "Own 4 Wheeler"].map((loc, index) => {
                             const isSelected = transportMode === loc;
@@ -3101,6 +3439,11 @@ useEffect(() => {
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
+                                  // A vehicle chosen under the old transport
+                                  // line is not a vehicle under the new one -
+                                  // an office car must not stay selected once
+                                  // the answer becomes "own two wheeler".
+                                  if (loc !== transportMode) setVehicleNo("");
                                   setTransportMode(loc);
                                   setIsTransportDropdownOpen(false);
                                 }}
@@ -3120,6 +3463,84 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+              {/* Vehicle No - the vehicles master, narrowed by the transport
+                  line and by who is applying. It falls back to a typed box
+                  when that master has nothing for this combination, so a duty
+                  is never blocked by a list somebody has not filled in yet. */}
+              {transportMode !== "PublicTransport" && (
+                <div
+                  className="lr-field-box"
+                  onClick={() => {
+                    if (vehicleOptions.length > 0) setIsVehicleDropdownOpen(!isVehicleDropdownOpen);
+                  }}
+                >
+                  <label className="lr-field-label">Vehicle No</label>
+                  <div className="lr-field-content" ref={vehicleTriggerRef}>
+                    <IonIcon icon={carOutline} className="lr-field-icon" />
+
+                    {vehicleOptions.length > 0 ? (
+                      <>
+                        <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: vehicleNo ? "#1e293b" : "#94a3b8" }}>
+                          {vehicleNo || "Select Vehicle No"}
+                        </span>
+                        <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+                      </>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder={transportMode ? "Not in vehicles master - type it" : "AP16..."}
+                        value={vehicleNo}
+                        onChange={(e) => setVehicleNo(e.target.value.toUpperCase())}
+                        style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
+                      />
+                    )}
+
+                    {isVehicleDropdownOpen && vehicleOptions.length > 0 && createPortal(
+                      <>
+                        <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsVehicleDropdownOpen(false); }} />
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${vehicleDropdownPos.top}px`, left: `${vehicleDropdownPos.left}px`, width: `${vehicleDropdownPos.width}px`, visibility: vehicleDropdownPos.width ? 'visible' : 'hidden' }}>
+                          <div className="dropdown-body" style={{ height: 'auto', maxHeight: '220px' }}>
+                            {vehicleOptions.map((v: any, index: number) => {
+                              const isSelected =
+                                String(vehicleNo ?? "").trim().toLowerCase() ===
+                                String(v.VehNo ?? "").trim().toLowerCase();
+                              return (
+                                <div
+                                  key={`${v.VehNo}-${index}`}
+                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setVehicleNo(String(v.VehNo ?? ""));
+                                    setIsVehicleDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{String(v.VehNo ?? "?").charAt(0)}</div>
+                                  <div className="dr-info">
+                                    <span className="dr-name">{v.VehNo}</span>
+                                    {/* The model is what people recognise a
+                                        vehicle by; the number is what the
+                                        claim needs. Both, so neither has to be
+                                        remembered. */}
+                                    <span className="dr-id">
+                                      {[v.VehModel || v.VehType, v._ownerLabel]
+                                        .filter(Boolean)
+                                        .join("  \u00b7  ")}
+                                    </span>
+                                  </div>
+                                  {isSelected && <Check size={18} className="dr-check" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>,
+                      document.body
+                    )}
+                  </div>
+                </div>
+              )}
+              </div>
               )}
 
               {/* Trip Type - own vehicle / public transport only, see
@@ -3138,7 +3559,7 @@ useEffect(() => {
                     {isTripTypeDropdownOpen && createPortal(
                       <>
                         <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTripTypeDropdownOpen(false); }} />
-                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${tripTypeDropdownPos.top}px`, left: `${tripTypeDropdownPos.left}px`, width: `${tripTypeDropdownPos.width}px` }}>
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${tripTypeDropdownPos.top}px`, left: `${tripTypeDropdownPos.left}px`, width: `${tripTypeDropdownPos.width}px`, visibility: tripTypeDropdownPos.width ? 'visible' : 'hidden' }}>
                           <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
                             {TRIP_TYPE_OPTIONS.map((name, index) => {
                               const isSelected = tripType === name;
@@ -3166,23 +3587,6 @@ useEffect(() => {
                       </>,
                       document.body
                     )}
-                  </div>
-                </div>
-              )}
-
-              {/* Vehicle No */}
-              {showTravelFields && transportMode !== "PublicTransport" && (
-                <div className="lr-field-box">
-                  <label className="lr-field-label">Vehicle No</label>
-                  <div className="lr-field-content">
-                    <IonIcon icon={carOutline} className="lr-field-icon" />
-                    <input
-                      type="text"
-                      placeholder="AP16..."
-                      value={vehicleNo}
-                      onChange={(e) => setVehicleNo(e.target.value)}
-                      style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
-                    />
                   </div>
                 </div>
               )}
@@ -3460,7 +3864,7 @@ useEffect(() => {
 
                           {assignedBy && (
                             <div
-                              title="Filed this request on their behalf"
+                              title="Applied for this request on their behalf"
                               style={{
                                 background: "#fff7ed",
                                 color: "#9a3412",
@@ -3472,7 +3876,7 @@ useEffect(() => {
                               }}
                             >
                               <span style={{ opacity: 0.75, fontWeight: 500 }}>
-                                Assigned by{" "}
+                                Applied by{" "}
                               </span>
                               {nameForCode(assignedBy)}
                             </div>
@@ -4011,6 +4415,21 @@ useEffect(() => {
                   onClick={() => editOnDuty(row.id)}
                 >
                   <IonIcon icon={pencilOutline} />
+                </IonButton>
+              )}
+
+              {/* Once the whole chain has approved the duty, the DA / TA
+                  settlement becomes payable - the side menu is DB driven so
+                  this deep link is the reliable way in for approvers. */}
+              {(canEdit || canApprove) &&
+                (row.Status || "").toLowerCase() === "approved" && (
+                <IonButton
+                  fill="clear"
+                  color="success"
+                  className="ion-no-margin"
+                  onClick={() => history.push("/datasettlement?duty=" + row.id)}
+                >
+                  DA / TA
                 </IonButton>
               )}
             </div>
