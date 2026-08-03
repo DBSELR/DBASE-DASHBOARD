@@ -119,6 +119,27 @@ const decodeDesignations = (data: any) =>
 const decodeBranches = (data: any) =>
   decodeRows(data, ["LID", "Branch", "BranchDept"], "Branches");
 
+// tbl_Vehicles -> APP_Load_Vehicles.
+// VehModel and PerKm are LAST because they were added last, and these rows
+// arrive as bare arrays so position is the whole contract: a database still
+// running the four-column proc returns four values, row[4] and row[5] read as
+// undefined, and the two boxes show blank instead of the screen breaking.
+const decodeVehicles = (data: any) =>
+  decodeRows(
+    data,
+    ["VehId", "OwnedBy", "VehType", "VehNo", "VehModel", "PerKm"],
+    "Vehicles"
+  );
+
+// The two kinds the office runs. A free-text box here would collect
+// "2 wheeler", "2-Wheeler" and "Two Wheeler" as three different types, and
+// the duplicate check works on exact text.
+const VEH_TYPES = ["2 Wheeler", "4 Wheeler"];
+
+// A vehicle is either the company's or somebody's own. "Office" is the
+// literal owner for the first kind; the second is an employee code.
+const VEH_OFFICE = "Office";
+
 // Distance is LAST in this list because it was added last. The rows arrive
 // as bare arrays, so position is the contract: a database still running the
 // six-column proc returns six values, row[6] reads as undefined, and the
@@ -716,6 +737,120 @@ const Sources: React.FC = () => {
   // through a browser confirm() nobody reads.
   const [branchDeleteId, setBranchDeleteId] = useState<number>(0);
   const [branchDeletingId, setBranchDeletingId] = useState<number>(0);
+
+  // 2b-ii. Vehicles (tbl_Vehicles) - who owns what, and what it costs to run.
+  //        OwnedBy is "Office" for a company vehicle or an employee code for a
+  //        personal one. The same number can appear twice under one owner when
+  //        the vehicles are different types, so uniqueness is the whole triple
+  //        (owner, type, number) rather than the number by itself.
+  const [vehOwnedBy, setVehOwnedBy] = useState(VEH_OFFICE);
+  const [vehType, setVehType] = useState(VEH_TYPES[1]);
+  const [vehNo, setVehNo] = useState("");
+  const [vehModel, setVehModel] = useState("");
+  const [vehPerKm, setVehPerKm] = useState("");
+  const [vehList, setVehList] = useState<any[]>([]);
+  const [tempVehId, setTempVehId] = useState<number>(0);
+  const [vehSaving, setVehSaving] = useState(false);
+  // Same two-press delete the branch table uses - inline, not a confirm() box.
+  const [vehDeleteId, setVehDeleteId] = useState<number>(0);
+  const [vehDeletingId, setVehDeletingId] = useState<number>(0);
+
+  const loadVehicles = async () => {
+    try {
+      const r = await axios.get(`${API_BASE}Sources/Load_Vehicles`, { headers: authHeaders() });
+      setVehList(decodeVehicles(r.data));
+    } catch (e) {
+      setVehList([]);
+    }
+  };
+
+  const clearVehicleForm = () => {
+    setVehOwnedBy(VEH_OFFICE);
+    setVehType(VEH_TYPES[1]);
+    setVehNo("");
+    setVehModel("");
+    setVehPerKm("");
+    setTempVehId(0);
+  };
+
+  const saveVehicle = async () => {
+    const owner = vehOwnedBy.trim();
+    const type = vehType.trim();
+    const no = vehNo.trim();
+    if (!owner) return showToast("Please say who owns this vehicle...!", "danger");
+    if (!type) return showToast("Please pick the vehicle type...!", "danger");
+    if (!no) return showToast("Please enter the vehicle number...!", "danger");
+
+    // Client-side duplicate guard; the proc checks again server-side, so this
+    // is only here to say so without a round trip.
+    const dup = vehList.find(
+      (v) =>
+        String(v.OwnedBy ?? "").trim().toLowerCase() === owner.toLowerCase() &&
+        String(v.VehType ?? "").trim().toLowerCase() === type.toLowerCase() &&
+        String(v.VehNo ?? "").trim().toLowerCase() === no.toLowerCase() &&
+        Number(v.VehId) !== Number(tempVehId)
+    );
+    if (dup) return showToast(`${owner} already has a ${type} numbered ${no}...!`, "danger");
+
+    setVehSaving(true);
+    try {
+      await axios.post(
+        `${API_BASE}Sources/Save_Vehicle`,
+        {
+          _Veh_ID: tempVehId,
+          _OwnedBy: owner,
+          _VehType: type,
+          _VehNo: no,
+          _VehModel: vehModel.trim(),
+          // Sent as typed. Blank means no rate has been set, which the API
+          // stores as NULL - not as zero, which would be a rate of nothing.
+          _PerKm: vehPerKm.trim(),
+        },
+        { headers: { "Content-Type": "application/json", ...authHeaders() } }
+      );
+      showToast(tempVehId ? "Vehicle Updated Successfully...!" : "Vehicle Added Successfully...!");
+      clearVehicleForm();
+      loadVehicles();
+    } catch (e: any) {
+      console.log(e?.response?.data);
+      showToast(
+        typeof e?.response?.data === "string" && e.response.data
+          ? e.response.data
+          : "Error While Sending...!",
+        "danger"
+      );
+    } finally {
+      setVehSaving(false);
+    }
+  };
+
+  const deleteVehicle = async (id: number) => {
+    if (!id) return;
+    setVehDeletingId(id);
+    try {
+      await axios.post(
+        `${API_BASE}Sources/Delete_Vehicle`,
+        { _Veh_ID: id, _OwnedBy: "", _VehType: "", _VehNo: "", _VehModel: "", _PerKm: "" },
+        { headers: { "Content-Type": "application/json", ...authHeaders() } }
+      );
+      showToast("Vehicle Deleted Successfully...!");
+      // Editing the row that just vanished would post an update against an id
+      // that no longer exists, so clear the form when it was that one.
+      if (Number(tempVehId) === Number(id)) clearVehicleForm();
+      loadVehicles();
+    } catch (e: any) {
+      console.log(e?.response?.data);
+      showToast(
+        typeof e?.response?.data === "string" && e.response.data
+          ? e.response.data
+          : "Error While Deleting...!",
+        "danger"
+      );
+    } finally {
+      setVehDeletingId(0);
+      setVehDeleteId(0);
+    }
+  };
 
   const loadBranches = async () => {
     try {
@@ -1446,6 +1581,7 @@ const Sources: React.FC = () => {
     loadDesignations();
     loadBranches();
     loadBranchMovement();
+    loadVehicles();
     loadVendors();
     loadEmployeesActive();
     loadCheckinAccess();
@@ -1521,6 +1657,9 @@ const Sources: React.FC = () => {
               </button>
               <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "branch" ? "active" : ""}`} onClick={() => setActiveTab("branch")}>
                 Branches
+              </button>
+              <button type="button" style={{ flex: '1 1 auto', width: 'auto', minWidth: '0', padding: '0 12px' }} className={`stock-tab ${activeTab === "vehicles" ? "active" : ""}`} onClick={() => setActiveTab("vehicles")}>
+                Vehicles
               </button>
             </div>
 
@@ -2324,6 +2463,231 @@ const Sources: React.FC = () => {
                   )}
                 </div>
                 </>)}
+              </div>
+            )}
+
+            {/* TAB CONTENT: Vehicles */}
+            {activeTab === "vehicles" && (
+              <div className="stock-panel">
+                <h3 className="stock-section-heading" style={{ display: 'flex', alignItems: 'center' }}>
+                  Vehicles
+                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 400, color: 'var(--stock-muted)' }}>
+                    {vehList.length} vehicle{vehList.length === 1 ? '' : 's'}
+                  </span>
+                </h3>
+
+                <p style={{ margin: '12px 0 16px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
+                  Every vehicle available for duty. Owned By is either Office for a company
+                  vehicle or the employee code of whoever owns it. Model and Per Km are
+                  optional - a vehicle can be registered before anybody has settled on what
+                  it is worth per kilometre.
+                </p>
+
+                <div className="stock-field" style={{ marginBottom: '16px' }}>
+                  <label>{tempVehId ? "Edit Vehicle" : "New Vehicle"}</label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '1 1 130px' }}
+                      value={vehOwnedBy}
+                      placeholder="Owned by - Office or emp code"
+                      list="veh-owner-suggestions"
+                      onChange={(e) => setVehOwnedBy(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
+                    />
+                    {/* Office first, then everybody on the active roll, so a
+                        personal vehicle is picked rather than typed from
+                        memory and misremembered. */}
+                    <datalist id="veh-owner-suggestions">
+                      <option value={VEH_OFFICE} />
+                      {empActive.map((x) => (
+                        <option key={x.EmpCode} value={x.EmpCode}>{x.EmpName}</option>
+                      ))}
+                    </datalist>
+                    <select
+                      className="stock-input"
+                      style={{ flex: '1 1 120px' }}
+                      value={vehType}
+                      onChange={(e) => setVehType(e.target.value)}
+                    >
+                      {VEH_TYPES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '1 1 110px' }}
+                      value={vehNo}
+                      placeholder="Vehicle no"
+                      onChange={(e) => setVehNo(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
+                    />
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '1 1 140px' }}
+                      value={vehModel}
+                      placeholder="Model - e.g. Swift Dzire"
+                      list="veh-model-suggestions"
+                      onChange={(e) => setVehModel(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
+                    />
+                    {/* Models already typed on other vehicles, so the same one
+                        is not re-spelled three different ways. */}
+                    <datalist id="veh-model-suggestions">
+                      {Array.from(
+                        new Set(
+                          vehList
+                            .map((v) => String(v.VehModel ?? "").trim())
+                            .filter((v) => v !== "")
+                        )
+                      ).map((v) => (
+                        <option key={v} value={v} />
+                      ))}
+                    </datalist>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="stock-input"
+                      style={{ flex: '0 1 100px' }}
+                      value={vehPerKm}
+                      placeholder="Per km"
+                      onChange={(e) => {
+                        // Digits and at most one dot. Filtered on the way in
+                        // rather than validated on the way out, so there is
+                        // never a moment where the box holds something the
+                        // save would have to reject.
+                        const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+                        const firstDot = cleaned.indexOf(".");
+                        setVehPerKm(
+                          firstDot === -1
+                            ? cleaned
+                            : cleaned.slice(0, firstDot + 1) +
+                              cleaned.slice(firstDot + 1).replace(/\./g, "")
+                        );
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
+                    />
+                    <button className="stock-button" onClick={saveVehicle} disabled={vehSaving}>
+                      {vehSaving ? "Saving..." : tempVehId ? "Update" : "Save"}
+                    </button>
+                    {tempVehId > 0 && (
+                      <button
+                        className="stock-button stock-button--secondary"
+                        onClick={clearVehicleForm}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+                  <table className="stock-table">
+                    <thead>
+                      <tr>
+                        <th>Owned By</th>
+                        <th>Type</th>
+                        <th>Vehicle No</th>
+                        <th>Model</th>
+                        <th style={{ textAlign: 'right' }}>Per Km</th>
+                        <th style={{ width: '150px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vehList.map((v) => {
+                        const id = Number(v.VehId);
+                        const confirming = vehDeleteId === id;
+                        const deleting = vehDeletingId === id;
+                        const owner = String(v.OwnedBy ?? "").trim();
+                        // A code on its own says very little, so the name goes
+                        // beside it when the roll knows who that is.
+                        const ownerName =
+                          owner && owner.toLowerCase() !== VEH_OFFICE.toLowerCase()
+                            ? empActive.find((x) => String(x.EmpCode) === owner)?.EmpName
+                            : "";
+                        const rate = String(v.PerKm ?? "").trim();
+                        return (
+                        <tr
+                          key={v.VehId}
+                          onClick={() => {
+                            setVehOwnedBy(owner);
+                            setVehType(String(v.VehType ?? VEH_TYPES[1]));
+                            setVehNo(String(v.VehNo ?? ""));
+                            setVehModel(String(v.VehModel ?? ""));
+                            setVehPerKm(rate);
+                            setTempVehId(id);
+                          }}
+                          style={{
+                            cursor: 'pointer',
+                            background: confirming
+                              ? 'rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.10)'
+                              : Number(tempVehId) === id
+                                ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08)'
+                                : undefined,
+                          }}
+                        >
+                          <td>
+                            {owner || "-"}
+                            {ownerName && (
+                              <small style={{ display: 'block', color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
+                                {ownerName}
+                              </small>
+                            )}
+                          </td>
+                          <td>{String(v.VehType ?? "").trim() || "-"}</td>
+                          <td>{String(v.VehNo ?? "").trim() || "-"}</td>
+                          <td>{String(v.VehModel ?? "").trim() || "-"}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            {/* Blank stays blank. A rate nobody has set is not
+                                a rate of zero, and printing 0.00 would say it
+                                was. */}
+                            {rate !== "" ? rate : <span style={{ color: 'var(--stock-muted)' }}>-</span>}
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()} style={{ padding: '2px 10px' }}>
+                            {confirming ? (
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <button
+                                  className="stock-button"
+                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none', background: 'var(--ion-color-danger, #eb445a)' }}
+                                  disabled={deleting}
+                                  onClick={() => deleteVehicle(id)}
+                                >
+                                  {deleting ? "Deleting..." : "Confirm"}
+                                </button>
+                                <button
+                                  className="stock-button stock-button--secondary"
+                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                  disabled={deleting}
+                                  onClick={() => setVehDeleteId(0)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                className="stock-button stock-button--secondary"
+                                style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                title="Remove this vehicle from the list"
+                                onClick={() => setVehDeleteId(id)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {vehList.length === 0 && (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                      No vehicles yet. Add the first one above.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

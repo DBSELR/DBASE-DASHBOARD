@@ -464,6 +464,18 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   // the next time the date range moved.
   const daysTouchedRef = useRef(false);
 
+  // The camp day the form assumes until told otherwise: in at 9:30, out at
+  // 6:30. Held as numbers rather than a "09:30" string so no parsing has to
+  // happen on the way to the picker, which wants a full timestamp anyway.
+  const CAMP_DEFAULT_FROM_H = 9,  CAMP_DEFAULT_FROM_M = 30;   // 09:30
+  const CAMP_DEFAULT_TO_H   = 18, CAMP_DEFAULT_TO_M   = 30;   // 18:30
+
+  // Same idea as daysTouchedRef, for the two date boxes. Once either picker
+  // has been used - or an existing duty has been opened for editing - the
+  // default stops applying, so adding a second person to the team cannot
+  // quietly undo a time somebody chose on purpose.
+  const campTimesTouchedRef = useRef(false);
+
   const toggleDay = (key: string) => {
     if (dayDragMovedRef.current) return;
     daysTouchedRef.current = true;
@@ -618,6 +630,50 @@ const isSingleDayDuty = useMemo(() => {
 // Eligible AND worth asking. Everything on screen keys off this; the payload
 // and the pinning effect key off tripTypeApplies, because a single-day duty
 // still carries a trip type - it just is not asked for one.
+// "8 hrs 30 min", "45 min", "9 hrs". Minutes are dropped when there are none
+// rather than printed as "9 hrs 0 min", which reads like a rounding artefact.
+const fmtHM = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} hr${h === 1 ? "" : "s"}`;
+  return `${h} hr${h === 1 ? "" : "s"} ${m} min`;
+};
+
+// How long the camp day actually runs, shown under the To picker.
+//
+// Only two shapes have an answer worth stating. A single-day duty, where From
+// and To are the two ends of one stretch. And a Daily Shuttle, where the same
+// clock window repeats on every day of the run. A multi-day Round Trip is one
+// continuous absence rather than a daily window - the hours between leaving on
+// Monday and returning on Thursday are not a working duration - so nothing is
+// worked out for it and nothing is shown.
+const campDuration = useMemo(() => {
+  const from = dutyFromDate ? toIST(dutyFromDate) : null;
+  const to = dutyToDate ? toIST(dutyToDate) : null;
+  if (!from || !to || !from.isValid() || !to.isValid()) return null;
+
+  const shuttle = tripTypeApplies && tripType === "Daily Shuttle";
+  if (!isSingleDayDuty && !shuttle) return null;
+
+  // Clock times only, never the whole timestamps. On a shuttle the two dates
+  // are the first and last day of the run, so subtracting them would give the
+  // length of the entire camp where what is wanted is one day of it. On a
+  // single-day duty the dates are equal anyway, so the same arithmetic is
+  // right for both.
+  let mins = (to.hour() * 60 + to.minute()) - (from.hour() * 60 + from.minute());
+  // Ending "before" it began means the day crosses midnight.
+  if (mins < 0) mins += 24 * 60;
+  // Same time in both boxes is a range nobody has filled in yet, not a camp of
+  // no length. Better to show nothing than to announce "0 min".
+  if (mins === 0) return null;
+
+  // Per day only. A camp-wide total was there and has been taken out: it is
+  // the same figure multiplied by a day count already visible in the pills,
+  // and it invited being read as time owed rather than as a working window.
+  return { mins, perDay: fmtHM(mins) };
+}, [dutyFromDate, dutyToDate, isSingleDayDuty, tripType, tripTypeApplies]);
+
 const showTripType = tripTypeApplies && !isSingleDayDuty;
 const [tripModalMode, setTripModalMode] =
   useState<"add" | "edit">("add");
@@ -1973,6 +2029,35 @@ useEffect(() => {
     }
   }, [team]);
 
+  // Picking a team is the point where the form stops being empty, so that is
+  // where the camp day gets its default hours: 9:30 in, 6:30 out. Only the
+  // TIME is decided here - the date stays whatever is already in the box, so
+  // choosing a date first and a team second does not throw the date away.
+  useEffect(() => {
+    if (!selectedCodes.length) return;
+    // An existing duty already has its own times; they arrived from the
+    // database and are not ours to replace.
+    if (editingId) return;
+    if (campTimesTouchedRef.current) return;
+
+    const base = dutyFromDate && toIST(dutyFromDate).isValid() ? toIST(dutyFromDate) : nowIST();
+    const from = base.clone()
+      .hour(CAMP_DEFAULT_FROM_H).minute(CAMP_DEFAULT_FROM_M).second(0).millisecond(0);
+    // 9:30 that has already gone by is not a default anybody can use - saving
+    // is blocked on a From time in the past - so it moves to the next day
+    // instead of filling the box with something that has to be fixed first.
+    if (!unlockRange.approved && from.isBefore(nowIST())) from.add(1, "day");
+    const to = from.clone()
+      .hour(CAMP_DEFAULT_TO_H).minute(CAMP_DEFAULT_TO_M).second(0).millisecond(0);
+
+    setDutyFromDate(from.toISOString(true));
+    setDutyToDate(to.toISOString(true));
+    // Deliberately NOT depending on dutyFromDate: this writes to it, and
+    // watching what it writes would be a loop. Re-running on a team change
+    // recomputes the same two moments anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCodes.length, editingId, unlockRange.approved]);
+
   const onEndReadingChange = (val: string) => {
     setEReading(val);
     const s = parseFloat(sReading || "0");
@@ -2007,7 +2092,7 @@ useEffect(() => {
     // the wheel picker's min already steers users away from past times, but
     // this is the hard backstop that actually blocks the save.
     if (!unlockRange.approved && moment(dutyFromDate).isBefore(nowIST())) {
-      notify("Camp From Date & Time must be a future time", "warning");
+      notify("Camp From must be a future time", "warning");
       return;
     }
 
@@ -2140,6 +2225,9 @@ useEffect(() => {
 
       if (row) {
         setEditingId(String(row[0]));
+        // Belt and braces with the editingId guard in the defaults effect:
+        // the stored times win, whichever order the two states commit in.
+        campTimesTouchedRef.current = true;
         setSelectedCodes(String(row[1]).split(",").filter(Boolean));
         setDutyFromDate(
           row[13]
@@ -2318,6 +2406,7 @@ useEffect(() => {
     setSelectedDays([]);
     setPendingAttDays(null);
     daysTouchedRef.current = false;
+    campTimesTouchedRef.current = false;
     setInstitution("");
     setOnDutyType("");
     setBranchName("");
@@ -2892,7 +2981,7 @@ useEffect(() => {
                 }}
                 style={{ cursor: "pointer" }}
               >
-                <label className="lr-field-label">Camp From Date & Time</label>
+                <label className="lr-field-label">Camp From</label>
                 <div className="lr-field-content">
                   <IonIcon icon={calendarOutline} className="lr-field-icon" />
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyFromDate ? "#1e293b" : "#94a3b8" }}>
@@ -2902,7 +2991,17 @@ useEffect(() => {
               </div>
 
               <div className="lr-field-box" onClick={() => setDateModalType("to")} style={{ cursor: "pointer" }}>
-                <label className="lr-field-label">Camp To Date & Time</label>
+                {/* Duration sits on the label line rather than under the
+                    field, so the box itself stays the same height as Camp
+                    From beside it and the two rows do not go ragged. */}
+                <label className="lr-field-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  Camp To
+                  {campDuration && (
+                    <span style={{ marginLeft: "auto", textTransform: "none", letterSpacing: "normal", color: "#64748b" }}>
+                      {campDuration.perDay} a day
+                    </span>
+                  )}
+                </label>
                 <div className="lr-field-content">
                   <IonIcon icon={calendarOutline} className="lr-field-icon" />
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: dutyToDate ? "#1e293b" : "#94a3b8" }}>
@@ -2931,6 +3030,8 @@ useEffect(() => {
                     }) : undefined}
                     onIonChange={(e) => {
                       const val = String(e.detail.value || "");
+                      // From here on the times are the user's, not the form's.
+                      campTimesTouchedRef.current = true;
                       if (dateModalType === "from") {
                         // Only snap the time portion when the DATE itself just
                         // changed (not on every hour/minute scroll, which
