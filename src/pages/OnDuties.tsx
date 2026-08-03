@@ -1745,7 +1745,11 @@ useEffect(() => {
       BranchChangeType: pick(d, "branchChangeType", "BranchChangeType"),
       EmpCodes: pick(d, "empCodes", "EmpCodes"),
       AppliedBy: pick(d, "empCode", "EmpCode", "appliedBy", "AppliedBy"),
-      Status: d.status || "Pending",
+      // Same defensive casing lookup as the RA fields below: this
+      // endpoint has been seen serializing the overall verdict as
+      // "Status", and a bare d.status then falls through to "Pending"
+      // on a record whose approval chain has actually completed.
+      Status: pick(d, "status", "Status", "dutyStatus", "DutyStatus") || "Pending",
       DateFrom: d.dateFrom || "",
       DateTo: d.dateTo || "",
       // Same defensive casing lookup as Vehicle_No -> vehicle_No below:
@@ -4420,9 +4424,12 @@ useEffect(() => {
 
               {/* Once the whole chain has approved the duty, the DA / TA
                   settlement becomes payable - the side menu is DB driven so
-                  this deep link is the reliable way in for approvers. */}
-              {(canEdit || canApprove) &&
-                (row.Status || "").toLowerCase() === "approved" && (
+                  this deep link is the reliable way in for approvers.
+                  Gated on isFullyApproved rather than the overall Status
+                  string: every real RA slot reading "Approved" is the same
+                  thing, and it keeps the button visible when the rolled-up
+                  Status column lags behind the chain that produced it. */}
+              {(canEdit || canApprove) && isFullyApproved(row) && (
                 <IonButton
                   fill="clear"
                   color="success"
