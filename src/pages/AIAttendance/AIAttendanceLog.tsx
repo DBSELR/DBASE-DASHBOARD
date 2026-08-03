@@ -3,7 +3,8 @@ import {
   arrowBackOutline, calendarOutline, searchOutline,
   personOutline, timeOutline, checkmarkCircleOutline,
   closeCircleOutline, refreshOutline, chevronBackOutline,
-  chevronForwardOutline, documentTextOutline
+  chevronForwardOutline, documentTextOutline, locationOutline,
+  gridOutline, listOutline
 } from "ionicons/icons";
 import { useEffect, useState, useRef } from "react";
 import { useHistory, useParams } from "react-router";
@@ -18,6 +19,7 @@ interface AttendanceRecord {
   'Lunch In': string;
   'Evening Out': string;
   date?: string;
+  officeName?: string;
   lateMinutes?: string;
   morningLateMinutes?: string | number;
   lunchLateMinutes?: string | number;
@@ -43,7 +45,6 @@ interface AttendanceRecord {
   eveningOutCity?: string;
 }
 
-
 const AVATAR_CONFIG = [
   { grad: 'linear-gradient(145deg,#312e81 0%,#4f46e5 45%,#818cf8 100%)', glow: 'rgba(79,70,229,0.50)' }, // deep indigo
   { grad: 'linear-gradient(145deg,#4c1d95 0%,#7c3aed 45%,#a78bfa 100%)', glow: 'rgba(124,58,237,0.50)' }, // deep violet
@@ -64,12 +65,18 @@ const SLOTS = [
   { key: 'Evening Out' as const, short: 'E-OUT', color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3' },
 ];
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
 const AIAttendanceLog: React.FC = () => {
   const { mode } = useParams<{ mode: string }>();
   const [selectedBranch, setSelectedBranch] = useState("ALL");
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [branches, setBranches] = useState<string[]>(["ALL"]);
 
+  // ── Mode & Role Check ──
   const loggedInId = (() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -84,12 +91,14 @@ const AIAttendanceLog: React.FC = () => {
   const ADMIN_IDS = ["1501", "1509", "1601", "1508"];
   const isAdmin = ADMIN_IDS.includes(loggedInId) || (Boolean(loggedInId) && ADMIN_IDS.includes(String(parseInt(loggedInId, 10))));
 
-  // Security console (all employees' logs) is ONLY accessible by ADMIN_IDS.
-  // All regular employees strictly view their own personal attendance logs.
   const effectiveMode = isAdmin ? (mode === "user" ? "user" : "security") : "user";
   const history = useHistory();
   const dateInputRef = useRef<HTMLInputElement>(null);
 
+  // ── View Mode Tabs: Daily vs Monthly ──
+  const [viewTab, setViewTab] = useState<'daily' | 'monthly'>('daily');
+
+  // ── Daily View State ──
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [userLogs, setUserLogs] = useState<AttendanceRecord[]>([]);
@@ -98,6 +107,29 @@ const AIAttendanceLog: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => todayStr());
   const [companyHolidays, setCompanyHolidays] = useState<{ date: string; remark: string }[]>([]);
+
+  // ── Monthly View State ──
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedEmpCode, setSelectedEmpCode] = useState<string>(loggedInId || "");
+  const [monthlyEmployees, setMonthlyEmployees] = useState<any[]>([]);
+  const [monthlyMatrix, setMonthlyMatrix] = useState<Record<string, any>>({});
+  const [monthlyLeaves, setMonthlyLeaves] = useState<Record<string, any>>({});
+  const [monthlyHolidays, setMonthlyHolidays] = useState<Record<string, string>>({});
+  const [loadingMonthly, setLoadingMonthly] = useState<boolean>(false);
+  const [monthlySubView, setMonthlySubView] = useState<'calendar' | 'table'>('calendar');
+
+  // ── Modal Detail Popup ──
+  const [selectedDayDetail, setSelectedDayDetail] = useState<{
+    date: string;
+    log?: AttendanceRecord;
+    status: string;
+    holidayRemark?: string;
+    leaveInfo?: any;
+    empName?: string;
+    empCode?: string;
+  } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token") || "";
@@ -164,13 +196,22 @@ const AIAttendanceLog: React.FC = () => {
     if (next <= todayStr()) setSelectedDate(next);
   }
 
-  /* ── initial user load ── */
+  /* ── Initial user load ── */
   useEffect(() => {
     const stored = localStorage.getItem("user");
-    if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch { } }
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setCurrentUser(parsed);
+        const code = String(parsed?.empCode || parsed?.EmpCode || parsed?.empId || parsed?.Emp_ID || parsed?.emp_id || "").trim();
+        if (code && !selectedEmpCode) {
+          setSelectedEmpCode(code);
+        }
+      } catch { }
+    }
   }, []);
 
-  /* ── load branches dynamically ── */
+  /* ── Load branches dynamically ── */
   useEffect(() => {
     if (effectiveMode === "security") {
       const token = localStorage.getItem("token") || "";
@@ -188,23 +229,70 @@ const AIAttendanceLog: React.FC = () => {
     }
   }, [effectiveMode]);
 
-  /* ── re-fetch when mode or date changes ── */
+  /* ── Re-fetch daily logs when mode, date, or branch changes ── */
   useEffect(() => {
-    fetchLogs(true);
-  }, [effectiveMode, selectedDate, selectedBranch]);
+    if (viewTab === 'daily') {
+      fetchLogs(true);
+    }
+  }, [effectiveMode, selectedDate, selectedBranch, viewTab]);
 
-  /* ── auto-sync in security mode (only when viewing today) ── */
+  /* ── Auto-sync in security mode (only when viewing today) ── */
   useEffect(() => {
-    if (effectiveMode !== "security" || !isToday) return;
+    if (effectiveMode !== "security" || !isToday || viewTab !== 'daily') return;
     const iv = setInterval(() => {
       setIsSyncing(true);
       fetchLogs(false).finally(() => setIsSyncing(false));
     }, 10000);
     return () => clearInterval(iv);
-  }, [effectiveMode, selectedDate, selectedBranch]);
+  }, [effectiveMode, selectedDate, selectedBranch, viewTab]);
+
+  /* ── Fetch Monthly View Data ── */
+  const fetchMonthlyData = async () => {
+    setLoadingMonthly(true);
+    try {
+      const token = localStorage.getItem("token") || "";
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'dbase-ai-master-key-2026',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      const url = `${API_BASE}Checkin/GetHRMonthlyAttendanceMatrix?year=${selectedYear}&month=${selectedMonth}`;
+      const res = await fetch(url, { headers });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.success) {
+          setMonthlyMatrix(d.matrix || {});
+          setMonthlyLeaves(d.leaves || {});
+          setMonthlyHolidays(d.holidays || {});
+
+          if (Array.isArray(d.employees)) {
+            setMonthlyEmployees(d.employees);
+            if (!selectedEmpCode || (!isAdmin && selectedEmpCode !== loggedInId)) {
+              const mine = d.employees.find((e: any) => String(e.empCode).trim() === loggedInId);
+              if (mine) {
+                setSelectedEmpCode(mine.empCode);
+              } else if (d.employees.length > 0) {
+                setSelectedEmpCode(isAdmin ? d.employees[0].empCode : loggedInId);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[AIAttendanceLog] fetchMonthlyData", e);
+    } finally {
+      setLoadingMonthly(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewTab === 'monthly') {
+      fetchMonthlyData();
+    }
+  }, [viewTab, selectedYear, selectedMonth]);
 
   /* ─────────────────────────────────────────
-     FETCH
+     FETCH DAILY LOGS
   ───────────────────────────────────────── */
   async function fetchLogs(showLoader = false) {
     if (showLoader) setLoading(true);
@@ -217,7 +305,6 @@ const AIAttendanceLog: React.FC = () => {
 
     try {
       if (effectiveMode === "user") {
-        // Generate 7 days ending at the selected date
         const base = new Date(selectedDate + 'T00:00:00');
         const dates: string[] = [];
         for (let i = 0; i < 7; i++) {
@@ -235,7 +322,7 @@ const AIAttendanceLog: React.FC = () => {
           } catch { }
         }
 
-        const map = (r: any, date: string): AttendanceRecord => {
+        const mapRecord = (r: any, date: string): AttendanceRecord => {
           const mLateVal = r.morningLateMinutes ?? r.MorningLateMinutes ?? r.lateMinutes ?? r.LateMinutes ?? '0';
           const lLateVal = r.lunchLateMinutes ?? r.LunchLateMinutes ?? r.lunch_late_minutes ?? r.LunchLateMins ?? '0';
           let tLateVal = r.totalLateMinutes ?? r.TotalLateMinutes ?? r.total_late_minutes ?? '0';
@@ -263,6 +350,7 @@ const AIAttendanceLog: React.FC = () => {
             graceType: r.graceType || r.GraceType || '',
             attendanceStatus: r.attendanceStatus || r.AttendanceStatus || '',
             date,
+            officeName: r.officeName || r.OfficeName || '',
             morningInLat: r.morningInLat,
             morningInLng: r.morningInLng,
             morningInCity: r.morningInCity,
@@ -297,7 +385,7 @@ const AIAttendanceLog: React.FC = () => {
                   const sameName = eName && (n === eName || n.includes(eName) || eName.includes(n));
                   return sameId || sameName;
                 })
-                .map((r: any) => map(r, date));
+                .map((r: any) => mapRecord(r, date));
             }
           } catch { }
           return [];
@@ -373,6 +461,7 @@ const AIAttendanceLog: React.FC = () => {
               graceType: r.graceType || r.GraceType || '-',
               attendanceStatus: r.attendanceStatus || r.AttendanceStatus || '-',
               branch: r.branch ?? r.Branch ?? r.branchName ?? r.BranchName ?? r.RuleMaster ?? "",
+              officeName: r.officeName || r.OfficeName || '',
               morningInLat: r.morningInLat,
               morningInLng: r.morningInLng,
               morningInCity: r.morningInCity,
@@ -416,7 +505,8 @@ const AIAttendanceLog: React.FC = () => {
                 lateMinutes: '0', morningLateMinutes: '0', lunchLateMinutes: '0', totalLateMinutes: '0',
                 graceType: '-',
                 attendanceStatus: getNonScanStatus(selectedDate),
-                branch: emp.branch || selectedBranch
+                branch: emp.branch || selectedBranch,
+                officeName: emp.officeName || emp.branch || ''
               };
             });
           }
@@ -442,10 +532,13 @@ const AIAttendanceLog: React.FC = () => {
     }
   }
 
-  /* ── helpers ── */
+  /* ── Helpers ── */
   function cleanTime(t?: string) {
     if (!t || t === '-') return '--:--';
-    if (t.includes('1900-01-01')) { const p = t.split(/[ T]/); return p.length > 1 ? p[1].substring(0, 5) : '--:--'; }
+    if (t.includes('1900-01-01')) {
+      const p = t.split(/[ T]/);
+      return p.length > 1 ? p[1].substring(0, 5) : '--:--';
+    }
     return t.substring(0, 5);
   }
 
@@ -468,7 +561,29 @@ const AIAttendanceLog: React.FC = () => {
     return 'sc-grace';
   }
 
-  /* ── stats ── */
+  function shortStatus(s?: string) {
+    if (!s) return "—";
+    const u = s.toUpperCase().trim();
+    if (u === "SECOND SATURDAY") return "2nd Sat";
+    if (u === "FOURTH SATURDAY") return "4th Sat";
+    if (u === "WEEKLY OFF") return "Off";
+    if (u === "PERMISSION") return "Perm";
+    if (u === "HALF DAY") return "Half Day";
+    return s;
+  }
+
+  function getLocationName(slotKey: string, log: AttendanceRecord | any) {
+    if (!log) return "";
+    let city = "";
+    if (slotKey === 'Morning In') city = log.morningInCity;
+    else if (slotKey === 'Lunch Out') city = log.lunchOutCity;
+    else if (slotKey === 'Lunch In') city = log.lunchInCity;
+    else if (slotKey === 'Evening Out') city = log.eveningOutCity;
+
+    return city || log.officeName || log.OfficeName || "";
+  }
+
+  /* ── Stats ── */
   const totalV = securityLogs.length;
   const mornV = securityLogs.filter(l => l['Morning In'] !== '-').length;
   const lunchV = securityLogs.filter(l => l['Lunch Out'] !== '-' || l['Lunch In'] !== '-').length;
@@ -480,6 +595,26 @@ const AIAttendanceLog: React.FC = () => {
       (log['Emp ID'] || '').toLowerCase().includes(q);
   });
 
+  /* ── Monthly Grid Days Calculation ── */
+  const daysInSelectedMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+  const firstDayOfWeek = new Date(selectedYear, selectedMonth - 1, 1).getDay(); // 0 = Sun
+
+  const shiftMonth = (delta: number) => {
+    let m = selectedMonth + delta;
+    let y = selectedYear;
+    if (m > 12) { m = 1; y++; }
+    if (m < 1) { m = 12; y--; }
+    setSelectedMonth(m);
+    setSelectedYear(y);
+  };
+
+  // Compute selected employee details for Monthly View
+  const selectedEmpProfile = monthlyEmployees.find(e => String(e.empCode).trim() === String(selectedEmpCode).trim()) || {
+    empCode: selectedEmpCode || loggedInId,
+    empName: currentUser?.empName || currentUser?.EmpName || "Employee",
+    branch: selectedBranch || "Head Office"
+  };
+
   /* ─────────────────────────────────────────
      RENDER
   ───────────────────────────────────────── */
@@ -488,8 +623,8 @@ const AIAttendanceLog: React.FC = () => {
       <IonContent fullscreen scrollY className="log-page-content">
         <div className="wr-container stock-container" style={{ padding: '0', minHeight: 'auto', backgroundColor: 'transparent' }}>
           
-          {/* ── Premium Header ── */}
-          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px', position: 'sticky', top: '16px', zIndex: 9999 }}>
+          {/* ── Header ── */}
+          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px', position: 'sticky', top: '16px', zIndex: 999 }}>
             <div className="page-wr-header-left">
               <button className="page-wr-back-btn" onClick={() => history.goBack()}>
                 <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
@@ -502,7 +637,7 @@ const AIAttendanceLog: React.FC = () => {
                   <span className="subtitle-pulse-dot" />
                   <span>
                     {effectiveMode === "user"
-                      ? `${currentUser?.empName || currentUser?.EmpName || "Employee"} — 7-Day Log`
+                      ? `${currentUser?.empName || currentUser?.EmpName || "Employee"} — Attendance Logs`
                       : "Live verification console"}
                   </span>
                 </p>
@@ -510,7 +645,25 @@ const AIAttendanceLog: React.FC = () => {
             </div>
 
             <div className="page-wr-header-right page-wr-header-right-custom">
-              {effectiveMode === "security" ? (
+              {/* View Mode Toggle: Daily vs Monthly */}
+              <div className="view-mode-tabs">
+                <button
+                  className={`tab-btn ${viewTab === 'daily' ? 'active' : ''}`}
+                  onClick={() => setViewTab('daily')}
+                >
+                  <IonIcon icon={calendarOutline} />
+                  <span>Daily Log</span>
+                </button>
+                <button
+                  className={`tab-btn ${viewTab === 'monthly' ? 'active' : ''}`}
+                  onClick={() => setViewTab('monthly')}
+                >
+                  <IonIcon icon={gridOutline} />
+                  <span>Monthly View</span>
+                </button>
+              </div>
+
+              {effectiveMode === "security" && viewTab === 'daily' ? (
                 <>
                   <div style={{ position: 'relative' }}>
                     <button
@@ -585,477 +738,899 @@ const AIAttendanceLog: React.FC = () => {
         </div>
 
         <div className="log-body">
-          {loading ? (
-            <div className="loader-block">
-              <IonSpinner name="crescent" color="primary" />
-              <p>Fetching attendance records…</p>
-            </div>
-          ) : effectiveMode === "user" ? (
+          {/* ════════════════════════════════════════════════════
+             MONTHLY VIEW TAB
+          ════════════════════════════════════════════════════ */}
+          {viewTab === 'monthly' ? (
+            <div className="monthly-view-wrapper animate-fade-in">
 
-            <div className="user-console-wrapper">
+              {/* Monthly Controls Card (Clean 2-Row Layout) */}
+              <div className="monthly-controls-card">
+                
+                {/* Row 1: EMPLOYEE DROPDOWN */}
+                <div className="emp-select-row">
+                  <label className="emp-select-label">
+                    <IonIcon icon={personOutline} style={{ color: 'var(--ion-color-primary, #0d9488)' }} />
+                    Employee:
+                  </label>
+                  <select
+                    className="emp-select-dropdown"
+                    value={selectedEmpCode}
+                    disabled={!isAdmin}
+                    onChange={(e) => setSelectedEmpCode(e.target.value)}
+                  >
+                    {isAdmin ? (
+                      <>
+                        <option value="">-- Select Employee --</option>
+                        {monthlyEmployees.map((emp) => (
+                          <option key={emp.empCode} value={emp.empCode}>
+                            [{emp.empCode}] {emp.empName} {emp.branch ? `(${emp.branch})` : ''}
+                          </option>
+                        ))}
+                      </>
+                    ) : (
+                      <option value={loggedInId}>
+                        [{loggedInId}] {currentUser?.empName || currentUser?.EmpName || "My Attendance"}
+                      </option>
+                    )}
+                  </select>
+                </div>
 
-              {/* DATE NAVIGATOR */}
-              <div className="date-search-row" style={{ justifyContent: 'center' }}>
-                <div className="date-nav-pill">
-                  <button className="dnav-arrow" onClick={() => shiftDay(-1)}>
-                    <IonIcon icon={chevronBackOutline} />
-                  </button>
+                {/* Row 2: Month Navigation & Grid/Table Sub-View Toggle */}
+                <div className="monthly-nav-row">
+                  <div className="month-year-picker">
+                    <button className="dnav-arrow" onClick={() => shiftMonth(-1)}>
+                      <IonIcon icon={chevronBackOutline} />
+                    </button>
 
-                  <div className="dnav-center" onClick={() => dateInputRef.current?.showPicker?.()}>
-                    <IonIcon icon={calendarOutline} className="dnav-cal-icon" style={{ color: 'var(--ion-color-primary)' }} />
-                    <div className="dnav-text">
-                      <span className="dnav-label">{displayLabel(selectedDate)}</span>
-                      <span className="dnav-sub">{selectedDate}</span>
-                    </div>
-                    <input
-                      ref={dateInputRef}
-                      type="date"
-                      className="hidden-date-input"
-                      value={selectedDate}
-                      max={todayStr()}
-                      onChange={e => e.target.value && setSelectedDate(e.target.value)}
-                    />
+                    <select
+                      className="month-select"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                    >
+                      {MONTH_NAMES.map((name, i) => (
+                        <option key={name} value={i + 1}>{name}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="year-select"
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                    >
+                      {[2024, 2025, 2026, 2027].map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+
+                    <button className="dnav-arrow" onClick={() => shiftMonth(1)}>
+                      <IonIcon icon={chevronForwardOutline} />
+                    </button>
                   </div>
 
-                  <button className="dnav-arrow" onClick={() => shiftDay(1)} disabled={isToday}>
-                    <IonIcon icon={chevronForwardOutline} />
-                  </button>
-
-                  {!isToday && (
-                    <button className="today-btn" onClick={() => setSelectedDate(todayStr())} style={{ background: 'linear-gradient(135deg, var(--ion-color-primary) 0%, #0d9488 100%)' }}>
-                      Today
+                  <div className="subview-toggle-group">
+                    <button
+                      className={`subview-btn ${monthlySubView === 'calendar' ? 'active' : ''}`}
+                      onClick={() => setMonthlySubView('calendar')}
+                    >
+                      <IonIcon icon={gridOutline} /> Grid
                     </button>
-                  )}
+                    <button
+                      className={`subview-btn ${monthlySubView === 'table' ? 'active' : ''}`}
+                      onClick={() => setMonthlySubView('table')}
+                    >
+                      <IonIcon icon={listOutline} /> Table
+                    </button>
+                  </div>
                 </div>
+
               </div>
 
-              {/* SELECTED DAY SUMMARY CARD */}
+              {/* Monthly KPI Summary Cards */}
               {(() => {
-                const selectedLog: AttendanceRecord = userLogs.find(l => l.date === selectedDate) || {
-                  Name: currentUser?.empName || currentUser?.EmpName || "Employee",
-                  'Emp ID': loggedInId,
-                  'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-',
-                  date: selectedDate, lateMinutes: '0', morningLateMinutes: '0', lunchLateMinutes: '0', totalLateMinutes: '0', graceType: '', attendanceStatus: ''
-                };
-                const absent = SLOTS.every(s => selectedLog[s.key] === '-');
-                const checkedInScans = SLOTS.filter(s => selectedLog[s.key] && selectedLog[s.key] !== '-').length;
-                const status = selectedLog.attendanceStatus || (absent ? "Absent" : "Present");
-                const sc = statusClass(status);
-                const late = parseInt(selectedLog.lateMinutes || '0');
+                let presentCount = 0;
+                let absentCount = 0;
+                let totalLateMins = 0;
+
+                for (let day = 1; day <= daysInSelectedMonth; day++) {
+                  const dayStr = String(day).padStart(2, '0');
+                  const mStr = String(selectedMonth).padStart(2, '0');
+                  const dateKey = `${selectedEmpCode}_${selectedYear}-${mStr}-${dayStr}`;
+                  const att = monthlyMatrix[dateKey];
+                  const hol = monthlyHolidays[`${selectedYear}-${mStr}-${dayStr}`];
+                  const dObj = new Date(selectedYear, selectedMonth - 1, day);
+                  const isSunday = dObj.getDay() === 0;
+
+                  if (att) {
+                    if (att.attendanceStatus && att.attendanceStatus.toLowerCase().includes('present')) {
+                      presentCount++;
+                    }
+                    totalLateMins += parseInt(att.totalLate || '0', 10) || 0;
+                  } else if (!hol && !isSunday && dObj <= new Date()) {
+                    absentCount++;
+                  }
+                }
 
                 return (
-                  <div className={`stock-panel ${sc} animate-fade-in`} style={{ marginBottom: '24px', borderLeft: '6px solid', borderRadius: '16px' }}>
-                    <div className="emp-card-head" style={{ marginBottom: '18px' }}>
-                      <div className="emp-avatar-circle" style={{
-                        background: 'linear-gradient(145deg, var(--ion-color-primary) 0%, #a855f7 100%)',
-                        boxShadow: `0 6px 20px rgba(99,102,241,0.25)`,
-                        width: '48px', height: '48px', fontSize: '16px'
-                      }}>
-                        {getInitials(selectedLog.Name || currentUser?.empName || currentUser?.EmpName || "E")}
-                      </div>
-                      <div className="emp-meta">
-                        <div className="emp-name-text" style={{ fontSize: '16px' }}>{selectedLog.Name || currentUser?.empName || currentUser?.EmpName}</div>
-                        <div className="emp-id-text" style={{ fontSize: '11px' }}>Employee ID: #{loggedInId}</div>
-                      </div>
-                      <div className="emp-card-right">
-                        <div className={`status-badge ${sc}`} style={{ fontSize: '11px', padding: '4px 12px' }}>
-                          {status}
-                        </div>
-                        <div className="checkin-count" style={{ fontSize: '10px', marginTop: '4px' }}>
-                          {checkedInScans}/4 Scans
-                        </div>
+                  <div className="console-stats-grid">
+                    <div className="stock-panel stat-total" style={{ padding: '12px 16px', borderRadius: '16px' }}>
+                      <div className="stat-info">
+                        <span className="stat-num" style={{ fontSize: '20px' }}>{daysInSelectedMonth} Days</span>
+                        <span className="stat-title">{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</span>
                       </div>
                     </div>
-
-                    {/* Timeline */}
-                    <div className="att-timeline" style={{ padding: '8px 0' }}>
-                      {SLOTS.map((s, si) => {
-                        const val = selectedLog[s.key];
-                        const filled = val && val !== '-';
-                        const isLast = si === SLOTS.length - 1;
-                        return (
-                          <div key={s.key} className="att-slot-wrap">
-                            <div className="att-slot">
-                              <div
-                                className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
-                                style={filled ? { background: s.color, borderColor: s.color } as any : {}}
-                              >
-                                {filled ? '✓' : ''}
-                              </div>
-                              <div
-                                className="att-time-text"
-                                style={filled ? { color: s.color, fontWeight: 800 } as any : {}}
-                              >
-                                {cleanTime(val)}
-                              </div>
-                              <div className="att-slot-key">{s.short}</div>
-                            </div>
-                            {!isLast && (
-                              <div
-                                className="att-connector"
-                                style={filled ? { background: s.color, opacity: 0.35 } as any : {}}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
+                    <div className="stock-panel stat-morning" style={{ padding: '12px 16px', borderRadius: '16px' }}>
+                      <div className="stat-info">
+                        <span className="stat-num" style={{ fontSize: '20px', color: '#10b981' }}>{presentCount}</span>
+                        <span className="stat-title">Days Present</span>
+                      </div>
                     </div>
-
-                    {/* Details footer */}
-                    {(() => {
-                      const mLate = parseInt(String(selectedLog.morningLateMinutes || selectedLog.lateMinutes || '0'), 10) || 0;
-                      const lLate = parseInt(String(selectedLog.lunchLateMinutes || '0'), 10) || 0;
-                      let tLate = parseInt(String(selectedLog.totalLateMinutes || '0'), 10) || 0;
-                      if (tLate === 0) tLate = mLate + lLate;
-
-                      if (mLate === 0 && lLate === 0 && tLate === 0 && (!selectedLog.graceType || selectedLog.graceType === '-')) {
-                        return null;
-                      }
-
-                      return (
-                        <div className="emp-late-bar" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span className="late-icon">⏱</span>
-                          <span className="late-text">
-                            Morning: <strong>{mLate}m</strong>
-                            {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
-                            <> | Total: <strong>{tLate}m</strong></>
-                          </span>
-                          {selectedLog.graceType && selectedLog.graceType !== '-' && (
-                            <span className={`grace-chip ${sc}`}>{selectedLog.graceType}</span>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <div className="stock-panel stat-evening" style={{ padding: '12px 16px', borderRadius: '16px' }}>
+                      <div className="stat-info">
+                        <span className="stat-num" style={{ fontSize: '20px', color: '#ef4444' }}>{absentCount}</span>
+                        <span className="stat-title">Absents / LOP</span>
+                      </div>
+                    </div>
+                    <div className="stock-panel stat-break" style={{ padding: '12px 16px', borderRadius: '16px' }}>
+                      <div className="stat-info">
+                        <span className="stat-num" style={{ fontSize: '20px', color: '#f59e0b' }}>{totalLateMins}m</span>
+                        <span className="stat-title">Total Late Mins</span>
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
 
-              {/* 7-DAY RECENT HISTORY LIST */}
-              <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b', marginBottom: '12px', marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '4px', height: '14px', borderRadius: '2px', background: 'var(--ion-color-primary)', display: 'inline-block' }}></span>
-                Recent History (7 Days)
-              </h3>
+              {loadingMonthly ? (
+                <div className="loader-block">
+                  <IonSpinner name="crescent" color="primary" />
+                  <p>Loading monthly attendance matrix…</p>
+                </div>
+              ) : monthlySubView === 'calendar' ? (
+                
+                /* CALENDAR GRID VIEW */
+                <div className="monthly-calendar-container card-panel">
+                  {/* Day Names Header */}
+                  <div className="calendar-grid-header">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dName) => (
+                      <div key={dName} className="calendar-day-head-cell">{dName}</div>
+                    ))}
+                  </div>
 
-              <div className="timeline-container">
-                {userLogs.map(log => {
-                  const absent = SLOTS.every(s => log[s.key] === '-');
-                  const isCurrent = log.date === selectedDate;
-                  const status = log.attendanceStatus || (absent ? "Absent" : "Present");
+                  {/* Day Cells Grid */}
+                  <div className="calendar-grid-body">
+                    {/* Empty padding cells for first week */}
+                    {Array.from({ length: firstDayOfWeek }).map((_, idx) => (
+                      <div key={`empty-${idx}`} className="calendar-day-cell empty-day" />
+                    ))}
+
+                    {/* Days of Month */}
+                    {Array.from({ length: daysInSelectedMonth }).map((_, idx) => {
+                      const day = idx + 1;
+                      const dayStr = String(day).padStart(2, '0');
+                      const mStr = String(selectedMonth).padStart(2, '0');
+                      const fullDate = `${selectedYear}-${mStr}-${dayStr}`;
+                      const dateKey = `${selectedEmpCode}_${fullDate}`;
+
+                      const att = monthlyMatrix[dateKey];
+                      const leave = monthlyLeaves[dateKey];
+                      const holiday = monthlyHolidays[fullDate];
+
+                      const dObj = new Date(selectedYear, selectedMonth - 1, day);
+                      const isSunday = dObj.getDay() === 0;
+                      const isTodayCell = fullDate === todayStr();
+
+                      let statusText = "Absent";
+                      let sc = "sc-absent";
+
+                      if (holiday) {
+                        statusText = holiday;
+                        sc = "sc-holiday";
+                      } else if (isSunday) {
+                        statusText = "Sunday";
+                        sc = "sc-sunday";
+                      } else if (leave) {
+                        statusText = leave.leaveType || "Leave";
+                        sc = "sc-grace";
+                      } else if (att) {
+                        statusText = att.attendanceStatus || "Present";
+                        sc = statusClass(statusText);
+                      } else if (dObj > new Date()) {
+                        statusText = "—";
+                        sc = "sc-unknown";
+                      }
+
+                      const hasScans = att && (att.morningIn !== '--:--' || att.eveningOut !== '--:--' || att.lunchIn !== '--:--' || att.lunchOut !== '--:--');
+                      const locName = att ? (att.morningInCity || att.eveningOutCity || att.officeName || "") : "";
+
+                      return (
+                        <div
+                          key={fullDate}
+                          className={`calendar-day-cell ${isTodayCell ? 'is-today-cell' : ''}`}
+                          onClick={() => setSelectedDayDetail({
+                            date: fullDate,
+                            log: att ? {
+                              Name: selectedEmpProfile.empName,
+                              'Emp ID': selectedEmpProfile.empCode,
+                              'Morning In': att.morningIn || '-',
+                              'Lunch Out': att.lunchOut || '-',
+                              'Lunch In': att.lunchIn || '-',
+                              'Evening Out': att.eveningOut || '-',
+                              date: fullDate,
+                              lateMinutes: String(att.totalLate || 0),
+                              morningLateMinutes: att.morningLate || 0,
+                              lunchLateMinutes: att.lunchLate || 0,
+                              totalLateMinutes: att.totalLate || 0,
+                              graceType: att.graceType || '',
+                              attendanceStatus: att.attendanceStatus || statusText,
+                              officeName: att.officeName || '',
+                              morningInCity: att.morningInCity,
+                              lunchOutCity: att.lunchOutCity,
+                              lunchInCity: att.lunchInCity,
+                              eveningOutCity: att.eveningOutCity,
+                              morningInLat: att.morningInLat,
+                              morningInLng: att.morningInLng,
+                              eveningOutLat: att.eveningOutLat,
+                              eveningOutLng: att.eveningOutLng,
+                            } : undefined,
+                            status: statusText,
+                            holidayRemark: holiday,
+                            leaveInfo: leave,
+                            empName: selectedEmpProfile.empName,
+                            empCode: selectedEmpProfile.empCode
+                          })}
+                        >
+                          <div className="cell-top-row">
+                            <span className="cell-day-num">{day}</span>
+                            <span className={`cell-status-badge ${sc}`} title={statusText}>
+                              {shortStatus(statusText)}
+                            </span>
+                          </div>
+
+                          {hasScans ? (
+                            <div className="cell-scans-summary">
+                              {att.morningIn && att.morningIn !== '--:--' && (
+                                <div className="cell-scan-mini" style={{ color: '#6366f1' }}>
+                                  <span>M-IN:</span> <span>{cleanTime(att.morningIn)}</span>
+                                </div>
+                              )}
+                              {att.eveningOut && att.eveningOut !== '--:--' && (
+                                <div className="cell-scan-mini" style={{ color: '#f43f5e' }}>
+                                  <span>E-OUT:</span> <span>{cleanTime(att.eveningOut)}</span>
+                                </div>
+                              )}
+                              {locName && (
+                                <div className="cell-location-chip" title={locName}>
+                                  📍 {locName}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '9px', color: '#94a3b8', fontStyle: 'italic', marginTop: 'auto' }}>
+                              {isSunday || holiday ? shortStatus(statusText) : 'No scans'}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+
+                /* TABLE LIST VIEW */
+                <div className="card-panel" style={{ padding: '0', overflow: 'hidden' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
+                          <th style={{ padding: '12px 16px' }}>Date</th>
+                          <th style={{ padding: '12px 16px' }}>Status</th>
+                          <th style={{ padding: '12px 16px' }}>M-In</th>
+                          <th style={{ padding: '12px 16px' }}>L-Out</th>
+                          <th style={{ padding: '12px 16px' }}>L-In</th>
+                          <th style={{ padding: '12px 16px' }}>E-Out</th>
+                          <th style={{ padding: '12px 16px' }}>Location</th>
+                          <th style={{ padding: '12px 16px' }}>Late</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: daysInSelectedMonth }).map((_, idx) => {
+                          const day = idx + 1;
+                          const dayStr = String(day).padStart(2, '0');
+                          const mStr = String(selectedMonth).padStart(2, '0');
+                          const fullDate = `${selectedYear}-${mStr}-${dayStr}`;
+                          const dateKey = `${selectedEmpCode}_${fullDate}`;
+
+                          const att = monthlyMatrix[dateKey];
+                          const leave = monthlyLeaves[dateKey];
+                          const holiday = monthlyHolidays[fullDate];
+
+                          const dObj = new Date(selectedYear, selectedMonth - 1, day);
+                          const isSunday = dObj.getDay() === 0;
+
+                          let statusText = "Absent";
+                          let sc = "sc-absent";
+
+                          if (holiday) { statusText = holiday; sc = "sc-holiday"; }
+                          else if (isSunday) { statusText = "Sunday"; sc = "sc-sunday"; }
+                          else if (leave) { statusText = leave.leaveType || "Leave"; sc = "sc-grace"; }
+                          else if (att) { statusText = att.attendanceStatus || "Present"; sc = statusClass(statusText); }
+
+                          const loc = att ? (att.morningInCity || att.eveningOutCity || att.officeName || "-") : "-";
+
+                          return (
+                            <tr key={fullDate} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '10px 16px', fontWeight: 700 }}>{fullDate}</td>
+                              <td style={{ padding: '10px 16px' }}>
+                                <span className={`status-badge ${sc}`}>{statusText}</span>
+                              </td>
+                              <td style={{ padding: '10px 16px', color: att?.morningIn !== '--:--' ? '#6366f1' : '#cbd5e1', fontWeight: 800 }}>
+                                {cleanTime(att?.morningIn)}
+                              </td>
+                              <td style={{ padding: '10px 16px', color: att?.lunchOut !== '--:--' ? '#f59e0b' : '#cbd5e1', fontWeight: 800 }}>
+                                {cleanTime(att?.lunchOut)}
+                              </td>
+                              <td style={{ padding: '10px 16px', color: att?.lunchIn !== '--:--' ? '#10b981' : '#cbd5e1', fontWeight: 800 }}>
+                                {cleanTime(att?.lunchIn)}
+                              </td>
+                              <td style={{ padding: '10px 16px', color: att?.eveningOut !== '--:--' ? '#f43f5e' : '#cbd5e1', fontWeight: 800 }}>
+                                {cleanTime(att?.eveningOut)}
+                              </td>
+                              <td style={{ padding: '10px 16px', color: '#475569', fontWeight: 600 }}>
+                                {loc !== "-" ? `📍 ${loc}` : "-"}
+                              </td>
+                              <td style={{ padding: '10px 16px', fontWeight: 800, color: att?.totalLate > 0 ? '#ef4444' : '#64748b' }}>
+                                {att?.totalLate ? `${att.totalLate}m` : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          ) : (
+
+            /* ════════════════════════════════════════════════════
+               DAILY VIEW TAB
+            ════════════════════════════════════════════════════ */
+            loading ? (
+              <div className="loader-block">
+                <IonSpinner name="crescent" color="primary" />
+                <p>Fetching attendance records…</p>
+              </div>
+            ) : effectiveMode === "user" ? (
+
+              <div className="user-console-wrapper">
+
+                {/* DATE NAVIGATOR */}
+                <div className="date-search-row" style={{ justifyContent: 'center' }}>
+                  <div className="date-nav-pill">
+                    <button className="dnav-arrow" onClick={() => shiftDay(-1)}>
+                      <IonIcon icon={chevronBackOutline} />
+                    </button>
+
+                    <div className="dnav-center" onClick={() => dateInputRef.current?.showPicker?.()}>
+                      <IonIcon icon={calendarOutline} className="dnav-cal-icon" style={{ color: 'var(--ion-color-primary)' }} />
+                      <div className="dnav-text">
+                        <span className="dnav-label">{displayLabel(selectedDate)}</span>
+                        <span className="dnav-sub">{selectedDate}</span>
+                      </div>
+                      <input
+                        ref={dateInputRef}
+                        type="date"
+                        className="hidden-date-input"
+                        style={{ display: 'none' }}
+                        value={selectedDate}
+                        max={todayStr()}
+                        onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                      />
+                    </div>
+
+                    <button className="dnav-arrow" onClick={() => shiftDay(1)} disabled={isToday}>
+                      <IonIcon icon={chevronForwardOutline} />
+                    </button>
+
+                    {!isToday && (
+                      <button className="today-btn" onClick={() => setSelectedDate(todayStr())}>
+                        Today
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* SELECTED DAY SUMMARY CARD */}
+                {(() => {
+                  const selectedLog: AttendanceRecord = userLogs.find(l => l.date === selectedDate) || {
+                    Name: currentUser?.empName || currentUser?.EmpName || "Employee",
+                    'Emp ID': loggedInId,
+                    'Morning In': '-', 'Lunch Out': '-', 'Lunch In': '-', 'Evening Out': '-',
+                    date: selectedDate, lateMinutes: '0', morningLateMinutes: '0', lunchLateMinutes: '0', totalLateMinutes: '0', graceType: '', attendanceStatus: ''
+                  };
+                  const absent = SLOTS.every(s => selectedLog[s.key] === '-');
+                  const checkedInScans = SLOTS.filter(s => selectedLog[s.key] && selectedLog[s.key] !== '-').length;
+                  const status = selectedLog.attendanceStatus || (absent ? "Absent" : "Present");
                   const sc = statusClass(status);
 
                   return (
-                    <div
-                      key={log.date}
-                      className={`timeline-item card-panel animate-fade-in ${isCurrent ? 'active-history-item' : ''}`}
-                      onClick={() => log.date && setSelectedDate(log.date)}
-                      style={{
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        border: isCurrent ? '1.5px solid var(--ion-color-primary)' : '1px solid #e2e8f0',
-                        boxShadow: isCurrent ? '0 4px 12px rgba(var(--ion-color-primary-rgb), 0.1)' : '0 2px 8px rgba(0,0,0,0.02)'
-                      }}
-                    >
-                      <div className="timeline-date-header">
-                        <div className="date-pill" style={{ background: isCurrent ? 'var(--ion-color-primary)' : '#eff6ff', color: isCurrent ? '#ffffff' : '#2563eb', border: isCurrent ? '1px solid var(--ion-color-primary)' : '1px solid #bfdbfe' }}>
-                          <IonIcon icon={calendarOutline} />
-                          <span>{displayLabel(log.date || '')}</span>
+                    <div className={`stock-panel ${sc} animate-fade-in`} style={{ marginBottom: '24px', borderLeft: '6px solid', borderRadius: '16px' }}>
+                      <div className="emp-card-head" style={{ marginBottom: '18px' }}>
+                        <div className="emp-avatar-circle" style={{
+                          background: 'linear-gradient(145deg, var(--ion-color-primary, #0d9488) 0%, #a855f7 100%)',
+                          boxShadow: `0 6px 20px rgba(13,148,136,0.25)`,
+                          width: '48px', height: '48px', fontSize: '16px'
+                        }}>
+                          {getInitials(selectedLog.Name || currentUser?.empName || currentUser?.EmpName || "E")}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className={`status-badge ${sc}`} style={{ fontSize: '9px', padding: '2px 8px' }}>
+                        <div className="emp-meta">
+                          <div className="emp-name-text" style={{ fontSize: '16px' }}>{selectedLog.Name || currentUser?.empName || currentUser?.EmpName}</div>
+                          <div className="emp-id-text" style={{ fontSize: '11px' }}>Employee ID: #{loggedInId}</div>
+                        </div>
+                        <div className="emp-card-right">
+                          <div className={`status-badge ${sc}`} style={{ fontSize: '11px', padding: '4px 12px' }}>
                             {status}
-                          </span>
-                          <span className="date-sub">{log.date}</span>
+                          </div>
+                          <div className="checkin-count" style={{ fontSize: '10px', marginTop: '4px' }}>
+                            {checkedInScans}/4 Scans
+                          </div>
                         </div>
                       </div>
 
-                      {absent ? (
-                        <div className="absent-state">
-                          <IonIcon icon={closeCircleOutline} className="absent-icon" />
-                          <span>No logs recorded</span>
-                        </div>
-                      ) : (
-                        <div className="timeline-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                          {SLOTS.map(({ key, short, color }) => {
-                            const val = log[key];
-                            const filled = val && val !== '-';
+                      {/* Timeline */}
+                      <div className="att-timeline" style={{ padding: '8px 0' }}>
+                        {SLOTS.map((s, si) => {
+                          const val = selectedLog[s.key];
+                          const filled = val && val !== '-';
+                          const isLast = si === SLOTS.length - 1;
+                          const location = getLocationName(s.key, selectedLog);
 
-                            let city = "";
-                            let lat = 0;
-                            let lng = 0;
-                            if (key === 'Morning In') { city = log.morningInCity || ""; lat = log.morningInLat || 0; lng = log.morningInLng || 0; }
-                            else if (key === 'Lunch Out') { city = log.lunchOutCity || ""; lat = log.lunchOutLat || 0; lng = log.lunchOutLng || 0; }
-                            else if (key === 'Lunch In') { city = log.lunchInCity || ""; lat = log.lunchInLat || 0; lng = log.lunchInLng || 0; }
-                            else if (key === 'Evening Out') { city = log.eveningOutCity || ""; lat = log.eveningOutLat || 0; lng = log.eveningOutLng || 0; }
-
-                            return (
-                              <div key={key} style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                padding: '6px',
-                                borderRadius: '10px',
-                                background: filled ? '#f8fafc' : '#f1f5f9',
-                                border: '1px solid #e2e8f0'
-                              }}>
-                                <span style={{ fontSize: '8px', fontWeight: 800, color: '#94a3b8' }}>{short}</span>
-                                <span style={{ fontSize: '11px', fontWeight: 800, color: filled ? color : '#cbd5e1', marginTop: '2px' }}>
-                                  {filled ? cleanTime(val) : '--:--'}
-                                </span>
-                                {filled && city && (
-                                  <span style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', wordBreak: 'break-all' }} title={`${city} (${lat}, ${lng})`}>
-                                    📍 {city}
-                                  </span>
+                          return (
+                            <div key={s.key} className="att-slot-wrap">
+                              <div className="att-slot">
+                                <div
+                                  className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
+                                  style={filled ? { background: s.color, borderColor: s.color } as any : {}}
+                                >
+                                  {filled ? '✓' : ''}
+                                </div>
+                                <div
+                                  className="att-time-text"
+                                  style={filled ? { color: s.color, fontWeight: 800 } as any : {}}
+                                >
+                                  {cleanTime(val)}
+                                </div>
+                                <div className="att-slot-key">{s.short}</div>
+                                {filled && location && (
+                                  <div className="cell-location-chip" title={location} style={{ marginTop: '4px' }}>
+                                    📍 {location}
+                                  </div>
                                 )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                              {!isLast && (
+                                <div
+                                  className="att-connector"
+                                  style={filled ? { background: s.color, opacity: 0.35 } as any : {}}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
 
+                      {/* Details footer */}
                       {(() => {
-                        const mLate = parseInt(String(log.morningLateMinutes || log.lateMinutes || '0'), 10) || 0;
-                        const lLate = parseInt(String(log.lunchLateMinutes || '0'), 10) || 0;
-                        let tLate = parseInt(String(log.totalLateMinutes || '0'), 10) || 0;
+                        const mLate = parseInt(String(selectedLog.morningLateMinutes || selectedLog.lateMinutes || '0'), 10) || 0;
+                        const lLate = parseInt(String(selectedLog.lunchLateMinutes || '0'), 10) || 0;
+                        let tLate = parseInt(String(selectedLog.totalLateMinutes || '0'), 10) || 0;
                         if (tLate === 0) tLate = mLate + lLate;
 
-                        if (mLate === 0 && lLate === 0 && tLate === 0 && (!log.graceType || log.graceType === '-')) {
+                        if (mLate === 0 && lLate === 0 && tLate === 0 && (!selectedLog.graceType || selectedLog.graceType === '-')) {
                           return null;
                         }
 
                         return (
-                          <div className="emp-late-bar" style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '4px 8px', borderRadius: '8px' }}>
+                          <div className="emp-late-bar" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <span className="late-icon">⏱</span>
-                            <span className="late-text" style={{ fontSize: '10px' }}>
+                            <span className="late-text">
                               Morning: <strong>{mLate}m</strong>
                               {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
                               <> | Total: <strong>{tLate}m</strong></>
                             </span>
-                            {log.graceType && log.graceType !== '-' && (
-                              <span className={`grace-chip ${sc}`} style={{ fontSize: '9px' }}>{log.graceType}</span>
+                            {selectedLog.graceType && selectedLog.graceType !== '-' && (
+                              <span className={`grace-chip ${sc}`}>{selectedLog.graceType}</span>
                             )}
                           </div>
                         );
                       })()}
                     </div>
                   );
-                })}
-              </div>
+                })()}
 
-            </div>
+                {/* 7-DAY RECENT HISTORY LIST */}
+                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b', marginBottom: '12px', marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '4px', height: '14px', borderRadius: '2px', background: 'var(--ion-color-primary, #0d9488)', display: 'inline-block' }}></span>
+                  Recent History (7 Days)
+                </h3>
 
-          ) : (
-
-            /* ════════════════════════════════════════
-               SECURITY — ATTENDANCE BOARD
-            ════════════════════════════════════════ */
-            <div className="security-console-wrapper" style={{ position: 'relative', zIndex: 1 }}>
-
-              {/* STATS STRIP */}
-              <div className="console-stats-grid">
-                {([
-                  { label: 'TOTAL', count: totalV, cls: 'stat-total', icon: personOutline },
-                  { label: 'MORNING IN', count: mornV, cls: 'stat-morning', icon: checkmarkCircleOutline },
-                  { label: 'LUNCH', count: lunchV, cls: 'stat-break', icon: timeOutline },
-                  { label: 'SHIFT END', count: eveningV, cls: 'stat-evening', icon: closeCircleOutline },
-                ] as const).map(({ label, count, cls, icon }) => (
-                  <div key={label} className={`stock-panel ${cls}`} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', borderRadius: '16px' }}>
-                    <div className="stat-icon-wrapper"><IonIcon icon={icon} /></div>
-                    <div className="stat-info">
-                      <span className="stat-num">{count}</span>
-                      <span className="stat-title">{label}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* DATE NAV + SEARCH ROW */}
-              <div className="date-search-row">
-
-                {/* Date navigator */}
-                <div className="date-nav-pill">
-                  <button className="dnav-arrow" onClick={() => shiftDay(-1)}>
-                    <IonIcon icon={chevronBackOutline} />
-                  </button>
-
-                  <div className="dnav-center" onClick={() => dateInputRef.current?.showPicker?.()}>
-                    <IonIcon icon={calendarOutline} className="dnav-cal-icon" />
-                    <div className="dnav-text">
-                      <span className="dnav-label">{displayLabel(selectedDate)}</span>
-                      <span className="dnav-sub">{selectedDate}</span>
-                    </div>
-                    {/* Hidden native date picker */}
-                    <input
-                      ref={dateInputRef}
-                      type="date"
-                      className="hidden-date-input"
-                      value={selectedDate}
-                      max={todayStr()}
-                      onChange={e => e.target.value && setSelectedDate(e.target.value)}
-                    />
-                  </div>
-
-                  <button className="dnav-arrow" onClick={() => shiftDay(1)} disabled={isToday}>
-                    <IonIcon icon={chevronForwardOutline} />
-                  </button>
-
-                  {!isToday && (
-                    <button className="today-btn" onClick={() => setSelectedDate(todayStr())}>
-                      Today
-                    </button>
-                  )}
-                </div>
-
-                {/* Search */}
-                <div className="stock-input" style={{ flex: 1, minWidth: '220px', display: 'flex', alignItems: 'center', gap: '10px', background: '#fff' }}>
-                  <IonIcon icon={searchOutline} className="search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Name or Emp ID…"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="search-input"
-                  />
-                  {searchQuery && (
-                    <button className="search-clear-btn" onClick={() => setSearchQuery("")}>✕</button>
-                  )}
-                </div>
-              </div>
-
-              {/* META ROW */}
-              <div className="results-meta">
-                <span className="results-count">
-                  <strong>{filtered.length}</strong> record{filtered.length !== 1 ? 's' : ''}
-                </span>
-                {searchQuery && <span className="results-query">matching "{searchQuery}"</span>}
-              </div>
-
-              {/* EMPLOYEE CARDS */}
-              {filtered.length === 0 ? (
-                <div className="empty-state-block">
-                  <div className="empty-emoji">🔍</div>
-                  <p className="empty-title">No records found</p>
-                  <p className="empty-sub">
-                    {searchQuery ? `No match for "${searchQuery}"` : `No attendance data for ${selectedDate}`}
-                  </p>
-                </div>
-              ) : (
-                <div className="emp-cards-grid">
-                  {filtered.map((log, idx) => {
-                    const sc = statusClass(log.attendanceStatus);
-                    const cfg = avatarCfg(log.Name);
-                    const inits = getInitials(log.Name);
-                    const late = parseInt(log.lateMinutes || '0');
-                    const checkedIn = SLOTS.filter(s => log[s.key] && log[s.key] !== '-').length;
+                <div className="timeline-container">
+                  {userLogs.map(log => {
+                    const absent = SLOTS.every(s => log[s.key] === '-');
+                    const isCurrent = log.date === selectedDate;
+                    const status = log.attendanceStatus || (absent ? "Absent" : "Present");
+                    const sc = statusClass(status);
 
                     return (
-                      <div key={idx} className={`stock-panel ${sc} animate-fade-in`} style={{ borderLeft: '6px solid', borderRadius: '16px' }}>
-
-                        {/* ── CARD HEADER ── */}
-                        <div className="emp-card-head">
-                          <div className="emp-avatar-circle" style={{
-                            background: cfg.grad,
-                            boxShadow: `0 6px 20px ${cfg.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.67)`,
-                          }}>
-                            {inits}
+                      <div
+                        key={log.date}
+                        className={`timeline-item card-panel animate-fade-in ${isCurrent ? 'active-history-item' : ''}`}
+                        onClick={() => log.date && setSelectedDate(log.date)}
+                        style={{
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          border: isCurrent ? '1.5px solid var(--ion-color-primary, #0d9488)' : '1px solid #e2e8f0',
+                        }}
+                      >
+                        <div className="timeline-date-header">
+                          <div className="date-pill" style={{ background: isCurrent ? 'var(--ion-color-primary, #0d9488)' : '#eff6ff', color: isCurrent ? '#ffffff' : '#2563eb', border: isCurrent ? '1px solid var(--ion-color-primary, #0d9488)' : '1px solid #bfdbfe' }}>
+                            <IonIcon icon={calendarOutline} />
+                            <span>{displayLabel(log.date || '')}</span>
                           </div>
-                          <div className="emp-meta">
-                            <div className="emp-name-text">{log.Name}</div>
-                            <div className="emp-id-text">#{log['Emp ID']}</div>
-                          </div>
-                          <div className="emp-card-right">
-                            <div className={`status-badge ${sc}`}>
-                              {log.attendanceStatus || '—'}
-                            </div>
-                            <div className="checkin-count">
-                              {checkedIn}/4 scans
-                            </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={`status-badge ${sc}`} style={{ fontSize: '9px', padding: '2px 8px' }}>
+                              {status}
+                            </span>
+                            <span className="date-sub">{log.date}</span>
                           </div>
                         </div>
 
-                        {/* ── ATTENDANCE TIMELINE ── */}
-                        <div className="att-timeline">
-                          {SLOTS.map((s, si) => {
-                            const val = log[s.key];
-                            const filled = val && val !== '-';
-                            const isLast = si === SLOTS.length - 1;
+                        {absent ? (
+                          <div className="absent-state">
+                            <IonIcon icon={closeCircleOutline} className="absent-icon" />
+                            <span>No logs recorded</span>
+                          </div>
+                        ) : (
+                          <div className="timeline-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                            {SLOTS.map(({ key, short, color }) => {
+                              const val = log[key];
+                              const filled = val && val !== '-';
+                              const location = getLocationName(key, log);
 
-                            let city = "";
-                            let lat = 0;
-                            let lng = 0;
-                            if (s.key === 'Morning In') { city = log.morningInCity || ""; lat = log.morningInLat || 0; lng = log.morningInLng || 0; }
-                            else if (s.key === 'Lunch Out') { city = log.lunchOutCity || ""; lat = log.lunchOutLat || 0; lng = log.lunchOutLng || 0; }
-                            else if (s.key === 'Lunch In') { city = log.lunchInCity || ""; lat = log.lunchInLat || 0; lng = log.lunchInLng || 0; }
-                            else if (s.key === 'Evening Out') { city = log.eveningOutCity || ""; lat = log.eveningOutLat || 0; lng = log.eveningOutLng || 0; }
-
-                            return (
-                              <div key={s.key} className="att-slot-wrap">
-                                <div className="att-slot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <div
-                                    className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
-                                    style={filled ? { background: s.color, borderColor: s.color } as any : {}}
-                                  >
-                                    {filled ? '✓' : ''}
-                                  </div>
-                                  <div
-                                    className="att-time-text"
-                                    style={filled ? { color: s.color, fontWeight: 800 } as any : {}}
-                                  >
-                                    {cleanTime(val)}
-                                  </div>
-                                  <div className="att-slot-key">{s.short}</div>
-                                  {filled && city && (
-                                    <div style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', maxWidth: '80px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={`${city} (${lat}, ${lng})`}>
-                                      📍 {city}
-                                    </div>
+                              return (
+                                <div key={key} style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  padding: '6px',
+                                  borderRadius: '10px',
+                                  background: filled ? '#f8fafc' : '#f1f5f9',
+                                  border: '1px solid #e2e8f0'
+                                }}>
+                                  <span style={{ fontSize: '8px', fontWeight: 800, color: '#94a3b8' }}>{short}</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 800, color: filled ? color : '#cbd5e1', marginTop: '2px' }}>
+                                    {filled ? cleanTime(val) : '--:--'}
+                                  </span>
+                                  {filled && location && (
+                                    <span style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', wordBreak: 'break-all' }} title={location}>
+                                      📍 {location}
+                                    </span>
                                   )}
                                 </div>
-                                {!isLast && (
-                                  <div
-                                    className="att-connector"
-                                    style={filled ? { background: s.color, opacity: 0.35 } as any : {}}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* ── LATE FOOTER ── */}
-                        {(() => {
-                          const mLate = parseInt(String(log.morningLateMinutes || log.lateMinutes || '0'), 10) || 0;
-                          const lLate = parseInt(String(log.lunchLateMinutes || '0'), 10) || 0;
-                          let tLate = parseInt(String(log.totalLateMinutes || '0'), 10) || 0;
-                          if (tLate === 0) tLate = mLate + lLate;
-
-                          if (mLate === 0 && lLate === 0 && tLate === 0 && (!log.graceType || log.graceType === '-')) {
-                            return null;
-                          }
-
-                          return (
-                            <div className="emp-late-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span className="late-icon">⏱</span>
-                              <span className="late-text">
-                                Morning: <strong>{mLate}m</strong>
-                                {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
-                                <> | Total: <strong>{tLate}m</strong></>
-                              </span>
-                              {log.graceType && log.graceType !== '-' && (
-                                <span className={`grace-chip ${sc}`}>{log.graceType}</span>
-                              )}
-                            </div>
-                          );
-                        })()}
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-              )}
-            </div>
+
+              </div>
+
+            ) : (
+
+              /* ════════════════════════════════════════
+                 SECURITY — ATTENDANCE BOARD
+              ════════════════════════════════════════ */
+              <div className="security-console-wrapper" style={{ position: 'relative', zIndex: 1 }}>
+
+                {/* STATS STRIP */}
+                <div className="console-stats-grid">
+                  {([
+                    { label: 'TOTAL', count: totalV, cls: 'stat-total', icon: personOutline },
+                    { label: 'MORNING IN', count: mornV, cls: 'stat-morning', icon: checkmarkCircleOutline },
+                    { label: 'LUNCH', count: lunchV, cls: 'stat-break', icon: timeOutline },
+                    { label: 'SHIFT END', count: eveningV, cls: 'stat-evening', icon: closeCircleOutline },
+                  ] as const).map(({ label, count, cls, icon }) => (
+                    <div key={label} className={`stock-panel ${cls}`} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', borderRadius: '16px' }}>
+                      <div className="stat-icon-wrapper"><IonIcon icon={icon} /></div>
+                      <div className="stat-info">
+                        <span className="stat-num">{count}</span>
+                        <span className="stat-title">{label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* DATE NAV + SEARCH ROW */}
+                <div className="date-search-row">
+
+                  {/* Date navigator */}
+                  <div className="date-nav-pill">
+                    <button className="dnav-arrow" onClick={() => shiftDay(-1)}>
+                      <IonIcon icon={chevronBackOutline} />
+                    </button>
+
+                    <div className="dnav-center" onClick={() => dateInputRef.current?.showPicker?.()}>
+                      <IonIcon icon={calendarOutline} className="dnav-cal-icon" />
+                      <div className="dnav-text">
+                        <span className="dnav-label">{displayLabel(selectedDate)}</span>
+                        <span className="dnav-sub">{selectedDate}</span>
+                      </div>
+                      <input
+                        ref={dateInputRef}
+                        type="date"
+                        className="hidden-date-input"
+                        style={{ display: 'none' }}
+                        value={selectedDate}
+                        max={todayStr()}
+                        onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                      />
+                    </div>
+
+                    <button className="dnav-arrow" onClick={() => shiftDay(1)} disabled={isToday}>
+                      <IonIcon icon={chevronForwardOutline} />
+                    </button>
+
+                    {!isToday && (
+                      <button className="today-btn" onClick={() => setSelectedDate(todayStr())}>
+                        Today
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Search */}
+                  <div className="stock-input" style={{ flex: 1, minWidth: '220px', display: 'flex', alignItems: 'center', gap: '10px', background: '#fff' }}>
+                    <IonIcon icon={searchOutline} className="search-icon" />
+                    <input
+                      type="text"
+                      placeholder="Name or Emp ID…"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      className="search-input"
+                    />
+                    {searchQuery && (
+                      <button className="search-clear-btn" onClick={() => setSearchQuery("")}>✕</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* RESULTS META */}
+                <div className="results-meta">
+                  <span className="results-count">
+                    <strong>{filtered.length}</strong> record{filtered.length !== 1 ? 's' : ''}
+                  </span>
+                  {searchQuery && <span className="results-query">matching "{searchQuery}"</span>}
+                </div>
+
+                {/* EMPLOYEE CARDS */}
+                {filtered.length === 0 ? (
+                  <div className="empty-state-block">
+                    <div className="empty-emoji">🔍</div>
+                    <p className="empty-title">No records found</p>
+                    <p className="empty-sub">
+                      {searchQuery ? `No match for "${searchQuery}"` : `No attendance data for ${selectedDate}`}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="emp-cards-grid">
+                    {filtered.map((log, idx) => {
+                      const sc = statusClass(log.attendanceStatus);
+                      const cfg = avatarCfg(log.Name);
+                      const inits = getInitials(log.Name);
+                      const checkedIn = SLOTS.filter(s => log[s.key] && log[s.key] !== '-').length;
+
+                      return (
+                        <div key={idx} className={`stock-panel ${sc} animate-fade-in`} style={{ borderLeft: '6px solid', borderRadius: '16px' }}>
+
+                          <div className="emp-card-head">
+                            <div className="emp-avatar-circle" style={{
+                              background: cfg.grad,
+                              boxShadow: `0 6px 20px ${cfg.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.67)`,
+                            }}>
+                              {inits}
+                            </div>
+                            <div className="emp-meta">
+                              <div className="emp-name-text">{log.Name}</div>
+                              <div className="emp-id-text">#{log['Emp ID']}</div>
+                            </div>
+                            <div className="emp-card-right">
+                              <div className={`status-badge ${sc}`}>
+                                {log.attendanceStatus || '—'}
+                              </div>
+                              <div className="checkin-count">
+                                {checkedIn}/4 scans
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="att-timeline">
+                            {SLOTS.map((s, si) => {
+                              const val = log[s.key];
+                              const filled = val && val !== '-';
+                              const isLast = si === SLOTS.length - 1;
+                              const location = getLocationName(s.key, log);
+
+                              return (
+                                <div key={s.key} className="att-slot-wrap">
+                                  <div className="att-slot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <div
+                                      className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
+                                      style={filled ? { background: s.color, borderColor: s.color } as any : {}}
+                                    >
+                                      {filled ? '✓' : ''}
+                                    </div>
+                                    <div
+                                      className="att-time-text"
+                                      style={filled ? { color: s.color, fontWeight: 800 } as any : {}}
+                                    >
+                                      {cleanTime(val)}
+                                    </div>
+                                    <div className="att-slot-key">{s.short}</div>
+                                    {filled && location && (
+                                      <div style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', maxWidth: '80px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={location}>
+                                        📍 {location}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {!isLast && (
+                                    <div
+                                      className="att-connector"
+                                      style={filled ? { background: s.color, opacity: 0.35 } as any : {}}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* LATE FOOTER */}
+                          {(() => {
+                            const mLate = parseInt(String(log.morningLateMinutes || log.lateMinutes || '0'), 10) || 0;
+                            const lLate = parseInt(String(log.lunchLateMinutes || '0'), 10) || 0;
+                            let tLate = parseInt(String(log.totalLateMinutes || '0'), 10) || 0;
+                            if (tLate === 0) tLate = mLate + lLate;
+
+                            if (mLate === 0 && lLate === 0 && tLate === 0 && (!log.graceType || log.graceType === '-')) {
+                              return null;
+                            }
+
+                            return (
+                              <div className="emp-late-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+                                <span className="late-icon">⏱</span>
+                                <span className="late-text">
+                                  Morning: <strong>{mLate}m</strong>
+                                  {lLate > 0 && <> | Lunch: <strong>{lLate}m</strong></>}
+                                  <> | Total: <strong>{tLate}m</strong></>
+                                </span>
+                                {log.graceType && log.graceType !== '-' && (
+                                  <span className={`grace-chip ${sc}`}>{log.graceType}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )
           )}
         </div>
+
+        {/* ════════════════════════════════════════════════════
+           DAY DETAIL MODAL POPUP
+        ════════════════════════════════════════════════════ */}
+        {selectedDayDetail && (
+          <div className="modal-backdrop-custom" onClick={() => setSelectedDayDetail(null)}>
+            <div className="modal-dialog-card" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header-row">
+                <div>
+                  <div className="modal-title-text">
+                    📅 {selectedDayDetail.date}
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginTop: '2px' }}>
+                    {selectedDayDetail.empName ? `${selectedDayDetail.empName} (#${selectedDayDetail.empCode})` : 'Attendance Breakdown'}
+                  </div>
+                </div>
+                <button className="modal-close-icon" onClick={() => setSelectedDayDetail(null)}>✕</button>
+              </div>
+
+              <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className={`status-badge ${statusClass(selectedDayDetail.status)}`} style={{ fontSize: '11px', padding: '6px 14px' }}>
+                  {selectedDayDetail.status}
+                </span>
+                {selectedDayDetail.holidayRemark && (
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#4338ca' }}>
+                    🌴 {selectedDayDetail.holidayRemark}
+                  </span>
+                )}
+              </div>
+
+              {selectedDayDetail.log ? (
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px' }}>Scan Locations & Timing</h4>
+                  
+                  {SLOTS.map((s) => {
+                    const val = selectedDayDetail.log![s.key];
+                    const filled = val && val !== '-';
+                    const loc = getLocationName(s.key, selectedDayDetail.log);
+
+                    let lat = 0, lng = 0;
+                    if (s.key === 'Morning In') { lat = selectedDayDetail.log?.morningInLat || 0; lng = selectedDayDetail.log?.morningInLng || 0; }
+                    else if (s.key === 'Evening Out') { lat = selectedDayDetail.log?.eveningOutLat || 0; lng = selectedDayDetail.log?.eveningOutLng || 0; }
+
+                    return (
+                      <div key={s.key} className="modal-slot-item">
+                        <div>
+                          <div style={{ fontSize: '10px', fontWeight: 800, color: s.color, textTransform: uppercase }}>
+                            {s.key}
+                          </div>
+                          <div style={{ fontSize: '15px', fontWeight: 800, color: filled ? '#0f172a' : '#94a3b8', marginTop: '2px' }}>
+                            {cleanTime(val)}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          {filled && loc ? (
+                            <div>
+                              <div style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                <IonIcon icon={locationOutline} style={{ color: varPrimary }} />
+                                {loc}
+                              </div>
+                              {lat !== 0 && lng !== 0 && (
+                                <a
+                                  href={`https://maps.google.com/?q=${lat},${lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ fontSize: '10px', color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}
+                                >
+                                  View on Map ({lat.toFixed(4)}, {lng.toFixed(4)})
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>No location recorded</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Late minutes breakdown */}
+                  {parseInt(String(selectedDayDetail.log.totalLateMinutes || '0')) > 0 && (
+                    <div style={{ marginTop: '16px', background: '#fff1f2', border: '1px solid #fecdd3', padding: '12px 14px', borderRadius: '12px', color: '#991b1b', fontSize: '12px', fontWeight: 700 }}>
+                      ⏱ Total Late: <strong>{selectedDayDetail.log.totalLateMinutes} minutes</strong>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                  No check-in/check-out logs recorded for this date.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </IonContent>
     </IonPage>
   );
 };
+
+const uppercase = 'uppercase' as const;
+const varPrimary = 'var(--ion-color-primary, #0d9488)';
 
 export default AIAttendanceLog;
