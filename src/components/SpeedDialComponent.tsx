@@ -5,7 +5,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import PaletteIcon from "@mui/icons-material/Palette";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import "../theme/Common.css"; // Import the CSS file
 import { LogOut, X, CheckCircle2 } from "lucide-react";
 
@@ -35,6 +35,8 @@ const themeColors = [
 
 const SpeedDialComponent: React.FC = () => {
   const history = useHistory();
+  const location = useLocation();
+
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("themeMode") === "dark"
   );
@@ -42,6 +44,11 @@ const SpeedDialComponent: React.FC = () => {
     localStorage.getItem("themeColor") || "blue"
   );
   const [showColorModal, setShowColorModal] = useState(false);
+
+  // Hide SpeedDial on live tracking map page
+  if (location.pathname === "/onduty-tracking" || window.location.pathname === "/onduty-tracking") {
+    return null;
+  }
 
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);

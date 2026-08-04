@@ -31,8 +31,9 @@ import { FileWarning } from "lucide-react";
 
 const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508'];
 
-const PENDING_LEAVES = ['1601', '1541', '1635']
-
+const PENDING_LEAVES = ['1601', '1541', '1635'];
+const PAYMENT_REMINDERS = ['1501', '1508', '1531', '1635', '1541'];
+const Live_Tracking_Engine = ['1501'];
 const Home: React.FC = () => {
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
@@ -224,6 +225,24 @@ const Home: React.FC = () => {
       icon: "https://cdn.lordicon.com/nocovwne.json",
       path: "/pending-requests",
       colorClass: "home-card-requests"
+    }] : []),
+
+    
+
+     ...(PAYMENT_REMINDERS.includes(currentEmpCode) ? [{
+      id: "payment-reminders",
+      label: "Payment Reminders",
+      icon: "https://cdn.lordicon.com/lupuorrc.json",
+      path: "/payment-reminders",
+      colorClass: "home-card-payment-reminders"
+    }] : []),
+
+     ...(Live_Tracking_Engine.includes(currentEmpCode) ? [{
+      id: "live-tracking-engine",
+      label: "Live Tracking Engine",
+      icon: "https://cdn.lordicon.com/zzcwywzv.json",
+      path: "/onduty-tracking",
+      colorClass: "home-card-live-tracking"
     }] : []),
   ];
 

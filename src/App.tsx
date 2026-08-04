@@ -28,6 +28,8 @@ import Tasks from "./pages/Tasks";
 import Reports from "./pages/Reports";
 import Equipment from "./pages/Equipment";
 import OnDuties from "./pages/OnDuties";
+import OnDutyLiveTracking from "./pages/OnDutyLiveTracking";
+import { useLocationBroadcaster } from "./hooks/useLocationBroadcaster";
 import DaTaSettlement from "./pages/DaTaSettlement";
 import SpeedDialComponent from "./components/SpeedDialComponent";
 import CameraPage from "./pages/CameraPage";
@@ -96,6 +98,7 @@ setupIonicReact();
 
 const App: React.FC = () => {
   const user = localStorage.getItem("user");
+  useLocationBroadcaster();
 
   const [theme, setTheme] = useState<string>(localStorage.getItem("themeColor") || "orange");
   const [isDarkMode, setIsDarkMode] = useState<boolean>(localStorage.getItem("themeMode") === "dark");
@@ -174,7 +177,7 @@ const App: React.FC = () => {
         ) : (
           <IonSplitPane contentId="main" className={isLoggingOut ? "logout-zoom-out" : ""}>
             <Menu />
-            <IonRouterOutlet id="main">
+            <IonRouterOutlet id="main" animated={false}>
               <Switch>
                   
                   <Route exact path="/home" component={Home} />
@@ -234,7 +237,9 @@ const App: React.FC = () => {
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
                   <Route exact path="/payment-reminders" component={PaymentReminders} />
-                  
+                  <Route exact path="/onduty-tracking" component={OnDutyLiveTracking} />
+                  <Route exact path="/onduty tracking" component={OnDutyLiveTracking} />
+                  <Route exact path="/ondutytracking" component={OnDutyLiveTracking} />
                   <Route exact path="/stock" component={Stock} />
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />
