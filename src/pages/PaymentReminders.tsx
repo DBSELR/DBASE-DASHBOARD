@@ -116,6 +116,8 @@ const PaymentReminders: React.FC = () => {
   const [showAddEditModal, setShowAddEditModal] = useState<boolean>(false);
   const [showMarkPaidModal, setShowMarkPaidModal] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
+  const [selectedReminderForDetails, setSelectedReminderForDetails] = useState<PaymentReminder | null>(null);
 
   // Form State - Add / Edit
   const [editReminderId, setEditReminderId] = useState<number | null>(null);
@@ -142,6 +144,7 @@ const PaymentReminders: React.FC = () => {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptUrl, setReceiptUrl] = useState("");
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [payDate, setPayDate] = useState("");
 
   // History state
   const [historyLogs, setHistoryLogs] = useState<PaymentHistoryLog[]>([]);
@@ -215,6 +218,34 @@ const PaymentReminders: React.FC = () => {
       month: "short",
       year: "numeric",
     });
+  };
+
+  // Helper: Format date and time (e.g. 15-Aug-2026 03:30 PM)
+  const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Helper: Get currency symbol
+  const getCurrencySymbol = (currency: string) => {
+    switch (currency?.toUpperCase()) {
+      case "INR":
+        return "₹";
+      case "USD":
+        return "$";
+      case "EUR":
+        return "€";
+      default:
+        return currency || "";
+    }
   };
 
   // Helper: Get employee names mapping from comma-separated code list
@@ -499,6 +530,11 @@ const PaymentReminders: React.FC = () => {
     }
   };
 
+  const handleOpenDetailsModal = (item: PaymentReminder) => {
+    setSelectedReminderForDetails(item);
+    setShowDetailsModal(true);
+  };
+
   // 4. Mark As Paid Handlers
   const handleOpenMarkPaidModal = (item: PaymentReminder) => {
     setSelectedReminderForPay(item);
@@ -507,6 +543,7 @@ const PaymentReminders: React.FC = () => {
     setPayRemarks("");
     setReceiptFile(null);
     setReceiptUrl("");
+    setPayDate(new Date().toISOString().substring(0, 10));
     if (fileInputRef.current) fileInputRef.current.value = "";
     setShowMarkPaidModal(true);
   };
@@ -554,14 +591,45 @@ const PaymentReminders: React.FC = () => {
     e.preventDefault();
     if (!selectedReminderForPay) return;
 
+    let finalReceiptUrl = receiptUrl;
+
+    // Auto-upload if file is selected but not uploaded yet
+    if (receiptFile && !finalReceiptUrl) {
+      setUploadingReceipt(true);
+      const formData = new FormData();
+      formData.append("file", receiptFile);
+
+      try {
+        const uploadRes = await axios.post(`${API_BASE}PaymentReminders/UploadReceipt`, formData, {
+          headers: {
+            ...getHeaders(),
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        if (uploadRes.data && uploadRes.data.success) {
+          finalReceiptUrl = uploadRes.data.url;
+          setReceiptUrl(finalReceiptUrl);
+        } else {
+          showToastMessage("Receipt auto-upload failed. Saving without receipt.", "warning");
+        }
+      } catch (err) {
+        console.error("Auto-upload receipt error:", err);
+        showToastMessage("Error auto-uploading receipt. Saving without receipt.", "warning");
+      } finally {
+        setUploadingReceipt(false);
+      }
+    }
+
     const payload = {
       reminderId: selectedReminderForPay.id,
       paidAmount: Number(payAmount),
       currency: payCurrency,
       paidByEmpCode: payEmpCode,
-      receiptAttachment: receiptUrl,
+      receiptAttachment: finalReceiptUrl,
       paymentMethod: payMethod,
       remarks: payRemarks.trim(),
+      paymentDate: payDate ? new Date(payDate).toISOString() : new Date().toISOString(),
     };
 
     try {
@@ -747,124 +815,223 @@ const PaymentReminders: React.FC = () => {
                   </span>
                 </div>
 
-                {filteredReminders.length === 0 ? (
+                 {filteredReminders.length === 0 ? (
                   <div className="empty-state-box">
                     <IonIcon icon={walletOutline} className="empty-icon" />
                     <p className="empty-title">No subscriptions match filters</p>
                     <p className="empty-desc">Create a new subscription or adjust your query.</p>
                   </div>
                 ) : (
-                  <div className="table-responsive">
-                    <table className="reminders-table">
-                      <thead>
-                        <tr>
-                          <th>Subscription / Vendor</th>
-                          <th>Category</th>
-                          <th>Frequency</th>
-                          <th>Cost</th>
-                          <th>Next Due Date</th>
-                          <th>Target Employees</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredReminders.map((item) => {
-                          const dueState = getDueStatus(item.expiryDate, item.reminderThresholds);
-                          return (
-                            <tr key={item.id} className={`row-hover-effect ${item.status === 'Paused' ? 'row-paused' : ''}`}>
-                              <td>
-                                <div className="name-provider-cell">
-                                  <span className="item-main-name">{item.name}</span>
-                                  {item.provider && (
-                                    <span className="item-provider-label">{item.provider}</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td>
-                                <span className={`category-tag tag-${item.category.toLowerCase().replace(" ", "-")}`}>
-                                  {item.category}
-                                </span>
-                              </td>
-                              <td>
-                                <span className="cycle-badge">{item.renewalCycle}</span>
-                              </td>
-                              <td>
-                                <span className="cost-tag font-semibold">
-                                  {item.currency === "INR" ? "₹" : "$"}
-                                  {item.cost.toLocaleString()}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="due-date-cell">
-                                  <span className="date-text">{formatDate(item.expiryDate)}</span>
-                                  {item.status === "Active" ? (
-                                    <span className={`due-countdown-tag badge-${dueState.badge}`}>
-                                      {dueState.text}
-                                    </span>
-                                  ) : (
-                                    <span className="due-countdown-tag badge-secondary">
-                                      {item.status}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td>
-                                <div className="assigned-emps-cell" title={getEmployeeNames(item.notifyEmpCodes)}>
-                                  <User size={14} className="cell-icon-prefix" />
-                                  <span className="truncate-text">
-                                    {getEmployeeNames(item.notifyEmpCodes)}
+                  <>
+                    <div className="table-responsive desktop-only-table">
+                      <table className="reminders-table">
+                        <thead>
+                          <tr>
+                            <th>Subscription / Vendor</th>
+                            <th>Category</th>
+                            <th>Frequency</th>
+                            <th>Cost</th>
+                            <th>Next Due Date</th>
+                            <th>Target Employees</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredReminders.map((item) => {
+                            const dueState = getDueStatus(item.expiryDate, item.reminderThresholds);
+                            return (
+                              <tr key={item.id} className={`row-hover-effect ${item.status === 'Paused' ? 'row-paused' : ''}`} onClick={() => handleOpenDetailsModal(item)} style={{ cursor: 'pointer' }}>
+                                <td>
+                                  <div className="name-provider-cell">
+                                    <span className="item-main-name">{item.name}</span>
+                                    {item.provider && (
+                                      <span className="item-provider-label">{item.provider}</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className={`category-tag tag-${item.category.toLowerCase().replace(" ", "-")}`}>
+                                    {item.category}
                                   </span>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="actions-cell-row">
-                                  {item.status === "Active" && (
+                                </td>
+                                <td>
+                                  <span className="cycle-badge">{item.renewalCycle}</span>
+                                </td>
+                                <td>
+                                  <span className="cost-tag font-semibold">
+                                    {getCurrencySymbol(item.currency)}
+                                    {item.cost.toLocaleString()}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="due-date-cell">
+                                    <span className="date-text">{formatDate(item.expiryDate)}</span>
+                                    {item.status === "Active" ? (
+                                      <span className={`due-countdown-tag badge-${dueState.badge}`}>
+                                        {dueState.text}
+                                      </span>
+                                    ) : (
+                                      <span className="due-countdown-tag badge-secondary">
+                                        {item.status}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="assigned-emps-cell" title={getEmployeeNames(item.notifyEmpCodes)}>
+                                    <User size={14} className="cell-icon-prefix" />
+                                    <span className="truncate-text">
+                                      {getEmployeeNames(item.notifyEmpCodes)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="actions-cell-row" onClick={(e) => e.stopPropagation()}>
+                                    {item.status === "Active" && (
+                                      <button
+                                        className="action-btn pay-btn-icon"
+                                        title="Mark as Paid"
+                                        onClick={() => handleOpenMarkPaidModal(item)}
+                                      >
+                                        <CheckCircle size={15} />
+                                      </button>
+                                    )}
                                     <button
-                                      className="action-btn pay-btn-icon"
-                                      title="Mark as Paid"
-                                      onClick={() => handleOpenMarkPaidModal(item)}
+                                      className="action-btn history-btn-icon"
+                                      title="Payment History Logs"
+                                      onClick={() => handleOpenHistoryModal(item)}
                                     >
-                                      <CheckCircle size={15} />
+                                      <History size={15} />
                                     </button>
-                                  )}
-                                  <button
-                                    className="action-btn history-btn-icon"
-                                    title="Payment History Logs"
-                                    onClick={() => handleOpenHistoryModal(item)}
-                                  >
-                                    <History size={15} />
-                                  </button>
-                                  <button
-                                    className="action-btn edit-btn-icon"
-                                    title="Edit Subscription"
-                                    onClick={() => handleOpenEditModal(item)}
-                                  >
-                                    <Edit size={15} />
-                                  </button>
-                                  {item.status === "Active" && (
                                     <button
-                                      className="action-btn test-btn-icon"
-                                      title="Test Notification"
-                                      onClick={() => handleTriggerTestNotification(item.id, item.name)}
+                                      className="action-btn edit-btn-icon"
+                                      title="Edit Subscription"
+                                      onClick={() => handleOpenEditModal(item)}
                                     >
-                                      <Bell size={15} />
+                                      <Edit size={15} />
                                     </button>
-                                  )}
+                                    {item.status === "Active" && (
+                                      <button
+                                        className="action-btn test-btn-icon"
+                                        title="Test Notification"
+                                        onClick={() => handleTriggerTestNotification(item.id, item.name)}
+                                      >
+                                        <Bell size={15} />
+                                      </button>
+                                    )}
+                                    <button
+                                      className="action-btn delete-btn-icon"
+                                      title="Delete Subscription"
+                                      onClick={() => handleDeleteReminder(item.id, item.name)}
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mobile-only-cards">
+                      {filteredReminders.map((item) => {
+                        const dueState = getDueStatus(item.expiryDate, item.reminderThresholds);
+                        const isOverdue = dueState.badge === "danger";
+                        return (
+                          <div 
+                            key={item.id} 
+                            className={`reminder-mobile-card ${item.status === 'Paused' ? 'row-paused' : ''}`}
+                            onClick={() => handleOpenDetailsModal(item)}
+                          >
+                            <div className="mobile-card-header">
+                              <span className={`category-tag tag-${item.category.toLowerCase().replace(/\s+/g, '-')}`}>
+                                {item.category}
+                              </span>
+                              {item.status === "Active" ? (
+                                <span className={`due-countdown-tag badge-${dueState.badge} ${isOverdue ? 'pulsating-light' : ''}`}>
+                                  {dueState.text}
+                                </span>
+                              ) : (
+                                <span className="due-countdown-tag badge-secondary">
+                                  {item.status}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mobile-card-body">
+                              <h4 className="mobile-card-title">{item.name}</h4>
+                              {item.provider && <p className="mobile-card-provider">{item.provider}</p>}
+                              
+                              <div className="mobile-card-row">
+                                <span className="mobile-card-cost">
+                                  <span className="cost-tag">
+                                    {getCurrencySymbol(item.currency)}
+                                    {item.cost.toLocaleString()}
+                                  </span>
+                                  <span className="cycle-badge"> / {item.renewalCycle}</span>
+                                </span>
+                                <span className="mobile-card-due-date">
+                                  <strong>Due:</strong> {formatDate(item.expiryDate)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mobile-card-actions" onClick={(e) => e.stopPropagation()}>
+                              <div className="mobile-card-employees" title={getEmployeeNames(item.notifyEmpCodes)}>
+                                <User size={12} className="cell-icon-prefix" />
+                                <span className="truncate-text" style={{ fontSize: '11px', color: '#718096' }}>
+                                  {getEmployeeNames(item.notifyEmpCodes)}
+                                </span>
+                              </div>
+                              <div className="actions-cell-row">
+                                {item.status === "Active" && (
                                   <button
-                                    className="action-btn delete-btn-icon"
-                                    title="Delete Subscription"
-                                    onClick={() => handleDeleteReminder(item.id, item.name)}
+                                    className="action-btn pay-btn-icon"
+                                    title="Mark as Paid"
+                                    onClick={() => handleOpenMarkPaidModal(item)}
                                   >
-                                    <Trash2 size={15} />
+                                    <CheckCircle size={14} />
                                   </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                )}
+                                <button
+                                  className="action-btn history-btn-icon"
+                                  title="Payment History Logs"
+                                  onClick={() => handleOpenHistoryModal(item)}
+                                >
+                                  <History size={14} />
+                                </button>
+                                <button
+                                  className="action-btn edit-btn-icon"
+                                  title="Edit Subscription"
+                                  onClick={() => handleOpenEditModal(item)}
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                {item.status === "Active" && (
+                                  <button
+                                    className="action-btn test-btn-icon"
+                                    title="Test Notification"
+                                    onClick={() => handleTriggerTestNotification(item.id, item.name)}
+                                  >
+                                    <Bell size={14} />
+                                  </button>
+                                )}
+                                <button
+                                  className="action-btn delete-btn-icon"
+                                  title="Delete Subscription"
+                                  onClick={() => handleDeleteReminder(item.id, item.name)}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
             </>
@@ -1033,6 +1200,31 @@ const PaymentReminders: React.FC = () => {
                         Select which employees will receive the dashboard notifications, pushes, and WhatsApp reminders.
                       </p>
 
+                      {formSelectedEmps.length > 0 && (
+                        <div className="selected-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                          {formSelectedEmps.map((code) => {
+                            const emp = employees.find(e => e[0].toString().trim() === code.trim());
+                            const name = emp ? emp[1] : code;
+                            return (
+                              <span key={code} className="selected-emp-tag" style={{
+                                background: 'rgba(var(--ion-color-primary-rgb, 241, 90, 36), 0.1)',
+                                color: 'var(--ion-color-primary, #f15a24)',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                {name}
+                                <X size={10} style={{ cursor: 'pointer' }} onClick={() => handleToggleEmployee(code)} />
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       <input
                         type="text"
                         className="form-input"
@@ -1138,6 +1330,17 @@ const PaymentReminders: React.FC = () => {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div className="form-group-item">
+                    <label>Payment Date *</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={payDate}
+                      onChange={(e) => setPayDate(e.target.value)}
+                      required
+                    />
                   </div>
 
                   <div className="form-row-double">
@@ -1277,9 +1480,9 @@ const PaymentReminders: React.FC = () => {
                       {historyLogs.map((log) => (
                         <div key={log.id} className="timeline-item-card glass-panel">
                           <div className="timeline-badge-date">
-                            <span className="timeline-date">{formatDate(log.paymentDate)}</span>
+                            <span className="timeline-date">{formatDateTime(log.paymentDate)}</span>
                             <span className="timeline-amount-badge">
-                              {log.currency === "INR" ? "₹" : "$"}
+                              {getCurrencySymbol(log.currency)}
                               {log.paidAmount.toLocaleString()}
                             </span>
                           </div>
@@ -1291,17 +1494,15 @@ const PaymentReminders: React.FC = () => {
                             </div>
                             <div className="timeline-row">
                               <span className="log-label">Method:</span>
-                              <span className="log-value">{log.paymentMethod}</span>
+                              <span className="log-value">{log.paymentMethod || "N/A"}</span>
                             </div>
-                            {log.remarks && (
-                              <div className="timeline-row">
-                                <span className="log-label">Transaction Details:</span>
-                                <span className="log-value log-remarks">{log.remarks}</span>
-                              </div>
-                            )}
-                            {log.receiptAttachment && (
-                              <div className="timeline-row">
-                                <span className="log-label">Receipt Proof:</span>
+                            <div className="timeline-row">
+                              <span className="log-label">Transaction Details:</span>
+                              <span className="log-value log-remarks">{log.remarks || "No transaction details / remarks"}</span>
+                            </div>
+                            <div className="timeline-row">
+                              <span className="log-label">Receipt Proof:</span>
+                              {log.receiptAttachment ? (
                                 <a
                                   href={log.receiptAttachment}
                                   target="_blank"
@@ -1311,8 +1512,10 @@ const PaymentReminders: React.FC = () => {
                                   <FileText size={14} style={{ marginRight: '4px' }} />
                                   View Invoice / Receipt Attachment
                                 </a>
-                              </div>
-                            )}
+                              ) : (
+                                <span className="log-value" style={{ fontWeight: 400, color: '#a0aec0' }}>No invoice uploaded</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1324,6 +1527,131 @@ const PaymentReminders: React.FC = () => {
                   <button className="form-cancel-btn" onClick={() => setShowHistoryModal(false)}>
                     Close Logs
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── SUBSCRIPTION DETAILS MODAL ── */}
+          {showDetailsModal && selectedReminderForDetails && (
+            <div className="custom-modal-backdrop" onClick={() => setShowDetailsModal(false)}>
+              <div className="custom-modal-content modal-medium glass-panel" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header-row">
+                  <h3>Subscription Details</h3>
+                  <button className="modal-close-btn" onClick={() => setShowDetailsModal(false)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="details-modal-body">
+                  <div className="details-header-section">
+                    <span className={`category-tag tag-${selectedReminderForDetails.category.toLowerCase().replace(/\s+/g, '-')}`}>
+                      {selectedReminderForDetails.category}
+                    </span>
+                    <h2 className="details-header-title">
+                      {selectedReminderForDetails.name}
+                    </h2>
+                    {selectedReminderForDetails.provider && (
+                      <p className="details-header-subtitle">
+                        Provider: <strong>{selectedReminderForDetails.provider}</strong>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="details-meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                    <div className="details-meta-item">
+                      <label className="details-label">Cost / Cycle</label>
+                      <p className="details-value">
+                        {getCurrencySymbol(selectedReminderForDetails.currency)}
+                        {selectedReminderForDetails.cost.toLocaleString()} / {selectedReminderForDetails.renewalCycle}
+                      </p>
+                    </div>
+                    <div className="details-meta-item">
+                      <label className="details-label">Next Expiry Date</label>
+                      <p className="details-value">
+                        {formatDate(selectedReminderForDetails.expiryDate)}
+                      </p>
+                    </div>
+                    <div className="details-meta-item">
+                      <label className="details-label">Last Paid Date</label>
+                      <p className="details-value">
+                        {selectedReminderForDetails.lastPaymentDate ? formatDate(selectedReminderForDetails.lastPaymentDate) : "Never"}
+                      </p>
+                    </div>
+                    <div className="details-meta-item">
+                      <label className="details-label">Created By</label>
+                      <p className="details-value" style={{ fontSize: '13px' }}>
+                        {selectedReminderForDetails.createdBy || "System"}
+                      </p>
+                    </div>
+                    <div className="details-meta-item">
+                      <label className="details-label">Created Date</label>
+                      <p className="details-value">
+                        {selectedReminderForDetails.createdDate ? formatDate(selectedReminderForDetails.createdDate) : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="details-section-box">
+                    <label className="details-label">Status</label>
+                    <div>
+                      <span className={`due-countdown-tag badge-${getDueStatus(selectedReminderForDetails.expiryDate, selectedReminderForDetails.reminderThresholds).badge}`}>
+                        {selectedReminderForDetails.status} ({
+                          getDueStatus(selectedReminderForDetails.expiryDate, selectedReminderForDetails.reminderThresholds).text
+                        })
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="details-section-box">
+                    <label className="details-label">Alert Intervals</label>
+                    <p style={{ margin: 0, fontSize: '13.5px', color: '#4a5568' }}>
+                      System triggers WhatsApp & FCM alerts at: <strong>{selectedReminderForDetails.reminderThresholds} days</strong> before expiry.
+                    </p>
+                  </div>
+
+                  <div className="details-section-box">
+                    <label className="details-label">Notify Employees</label>
+                    <div className="details-employee-list">
+                      {selectedReminderForDetails.notifyEmpCodes.split(',').filter((c: string) => c).map((empCode: string) => {
+                        const matched = employees.find(e => e[0].toString().trim() === empCode.trim());
+                        const name = matched ? matched[1] : empCode;
+                        return (
+                          <span key={empCode} className="details-employee-tag">
+                            {name} ({empCode})
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {selectedReminderForDetails.remarks && (
+                    <div className="details-section-box">
+                      <label className="details-label">Remarks</label>
+                      <div className="details-remarks-box">
+                        <p className="details-remarks-text">
+                          "{selectedReminderForDetails.remarks}"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-actions-row" style={{ marginTop: '24px' }}>
+                  <button className="form-cancel-btn" onClick={() => setShowDetailsModal(false)}>
+                    Close
+                  </button>
+                  {selectedReminderForDetails.status === "Active" && (
+                    <button 
+                      className="form-submit-btn" 
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        handleOpenMarkPaidModal(selectedReminderForDetails);
+                      }}
+                    >
+                      Mark as Paid
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

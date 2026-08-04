@@ -765,3 +765,15 @@
   background: linear-gradient(135deg, #6366f1, #a855f7);
   color: #fff;
 }
+
+.home-card-payment-reminders { --card-theme-color: 245, 158, 11; }
+.home-card-payment-reminders .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+}
+
+.home-card-live-tracking { --card-theme-color: 16, 185, 129; }
+.home-card-live-tracking .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: #fff;
+}
