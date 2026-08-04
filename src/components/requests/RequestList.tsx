@@ -74,6 +74,34 @@ const pick = (d: any, ...keys: string[]) => {
 };
 
 
+// The overall verdict worked out from the approval chain, for a record that
+// carries no usable status of its own. tbl_On_Duties keeps TWO status columns
+// and only one of them is ever written, so the one the API reads can come back
+// empty on a duty that has actually cleared every level - and calling that
+// "Pending" puts the waiting-on-someone badge on a finished request. People
+// then go chasing approvals that already happened.
+//
+// Slots named "" or "-" are not real approvers and are not waited on. Returns
+// "" for a chain still genuinely in progress, so the caller's "Pending"
+// default still wins - this only ever speaks when the answer is unambiguous.
+const statusFromChain = (x: any): string => {
+  const norm = (s: any) => String(s ?? "").trim().toLowerCase();
+  const slots = [
+    { ra: pick(x, "rA1", "ra1", "RA1"), st: pick(x, "rA1_Status", "ra1_Status", "RA1_Status", "ra1Status", "rA1Status") },
+    { ra: pick(x, "rA2", "ra2", "RA2"), st: pick(x, "rA2_Status", "ra2_Status", "RA2_Status", "ra2Status", "rA2Status") },
+    { ra: pick(x, "rA3", "ra3", "RA3"), st: pick(x, "rA3_Status", "ra3_Status", "RA3_Status", "ra3Status", "rA3Status") },
+    { ra: pick(x, "rA4", "ra4", "RA4"), st: pick(x, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status") },
+  ].filter((s) => {
+    const v = String(s.ra ?? "").trim();
+    return v !== "" && v !== "-";
+  });
+  if (slots.length === 0) return "";
+  if (slots.some((s) => norm(s.st) === "rejected")) return "Rejected";
+  if (slots.every((s) => norm(s.st) === "approved")) return "Approved";
+  return "";
+};
+
+
 // The AttDays_at_Branch column stores day-of-month numbers only ("02,05,06");
 // the month is pinned by the duty's own date range. Pairing them back up here
 // means a bare "03" on a duty that crosses a month boundary can still name its
@@ -251,7 +279,17 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         // - default it to "Pending" like the Duty Manager page does, otherwise
         // the Pending filter tab's substring check finds nothing and the card
         // silently disappears from that tab.
-        L_status: safeText(x.status) || "Pending",
+        // The chain is asked FIRST. What this endpoint calls "status" is not
+        // the stored verdict - it is a progress sentence built from CurrentRA
+        // ("Pending at In-Charge F&A"), and it keeps saying that after the
+        // approvals have finished because CurrentLevel is never advanced past
+        // the final approver. Being truthy, it used to win, and a completed
+        // request sat in the Pending tab indefinitely.
+        //
+        // statusFromChain answers only when every real slot agrees, so a
+        // genuinely mid-flight request still falls through to the server's
+        // sentence, which is the case where that sentence is worth reading.
+        L_status: statusFromChain(x) || safeText(x.status) || "Pending",
 
         CurrentLevel: pick(x, "currentLevel", "CurrentLevel"),
         MaxLevel: pick(x, "maxLevel", "MaxLevel"),

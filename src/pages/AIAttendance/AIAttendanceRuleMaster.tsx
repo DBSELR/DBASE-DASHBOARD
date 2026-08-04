@@ -55,6 +55,37 @@ interface Override {
   startDate: string;
   endDate: string;
   ruleType: string;
+  // Where this person actually is today, resolved from an approved on-duty.
+  // A branch duty names the office they are visiting; Party / Client /
+  // Official duties name no office at all and arrive as "OnDuty", meaning
+  // the punch is allowed wherever they are. Optional because an older API
+  // build predates these fields.
+  onDutyBranch?: string;
+  onDutyAnywhere?: boolean;
+  onDutyType?: string;
+}
+
+// A row nobody typed in. It is derived from an approved on-duty, so there is
+// no id to delete and no stored BT / GPS to edit - the server recomputes both
+// with the same precedence the punch path uses, which is the whole point: what
+// this table shows and what the door actually does cannot drift apart.
+interface AutoOverride {
+  dutyId: string;
+  empId: string;
+  empName: string;
+  designation: string;
+  homeBranch: string;
+  onDutyBranch: string;
+  onDutyType: string;
+  onDutyAnywhere: boolean;
+  btRequired: boolean;
+  gpsRequired: boolean;
+  // Which rule produced btRequired / gpsRequired. Surfaced as the tooltip on
+  // those two cells, because "why is BT on at a branch with no beacon" is the
+  // question this table gets asked, and it should be able to answer it.
+  ruleSource?: string;
+  startDate: string;
+  endDate: string;
 }
 
 interface BluetoothDevice {
@@ -137,6 +168,10 @@ const AIAttendanceRuleMaster: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [overrides, setOverrides] = useState<Override[]>([]);
+  const [autoOverrides, setAutoOverrides] = useState<AutoOverride[]>([]);
+  // An empty table and an unreachable endpoint look identical on screen, and
+  // that ambiguity costs a rebuild to resolve. Keep them apart.
+  const [autoErr, setAutoErr] = useState<string>('');
 
   // --- Bluetooth tab state ---
   const [btDevices, setBtDevices] = useState<BluetoothDevice[]>([]);
@@ -271,6 +306,31 @@ const AIAttendanceRuleMaster: React.FC = () => {
     if (d.success) setOverrides(d.data);
   }, [ruleType]);
 
+  // Deliberately not filtered by the BRANCH / MARKETING tab: an on-duty has no
+  // rule type, so filtering it by one would hide half the travelling staff
+  // depending on which tab happened to be open.
+  const loadAutoOverrides = useCallback(async () => {
+    try {
+      const r = await fetch(API_BASE + 'Checkin/GetOnDutyAutoOverrides?days=7', { headers: hdrs });
+      if (!r.ok) {
+        // 404 is the one worth naming: it means the running API predates this
+        // endpoint, i.e. it has not been rebuilt yet. Saying so beats an empty
+        // table that reads like "nobody is on duty".
+        setAutoOverrides([]);
+        setAutoErr(r.status === 404
+          ? 'This API build does not have the auto-overrides endpoint yet - rebuild and restart the API.'
+          : 'Could not load auto overrides (HTTP ' + r.status + ').');
+        return;
+      }
+      const d = await r.json();
+      if (d.success) { setAutoOverrides(d.data || []); setAutoErr(''); }
+      else { setAutoOverrides([]); setAutoErr(d.message || 'Could not load auto overrides.'); }
+    } catch (e: any) {
+      setAutoOverrides([]);
+      setAutoErr('Could not reach the API: ' + (e?.message || 'network error'));
+    }
+  }, []);
+
   const loadBluetoothDevices = useCallback(async () => {
     setBtLoading(true);
     try {
@@ -380,7 +440,11 @@ const AIAttendanceRuleMaster: React.FC = () => {
     }
   };
 
-  useEffect(() => { if (activeTab === 'overrides') loadOverrides(); }, [activeTab, loadOverrides]);
+  useEffect(() => {
+    if (activeTab !== 'overrides') return;
+    loadOverrides();
+    loadAutoOverrides();
+  }, [activeTab, loadOverrides, loadAutoOverrides]);
   useEffect(() => { if (activeTab === 'bluetooth') loadBluetoothDevices(); }, [activeTab, loadBluetoothDevices]);
 
   const openAddBtModal = () => {
@@ -1422,6 +1486,58 @@ const AIAttendanceRuleMaster: React.FC = () => {
                   )}
                 </div>
 
+                {/* ── Auto Overrides From Approved On-Duties ──── */}
+                <div className="rm-card rm-overrides-list">
+                  <div className="rm-list-header">
+                    <h3>Auto Overrides</h3>
+                    <span className="rm-auto-note">from approved on-duties &middot; next 7 days &middot; read-only</span>
+                  </div>
+                  <table className="rm-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Home Branch</th>
+                        <th>On-Duty Branch</th>
+                        <th>BT</th>
+                        <th>GPS</th>
+                        <th>From</th>
+                        <th>To</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {autoOverrides.map((a, i) => (
+                        <tr key={`${a.dutyId}-${a.empId}-${i}`}>
+                          <td>
+                            <div className="rm-emp-name">{a.empName || a.empId}</div>
+                            <div className="rm-emp-sub">{a.designation}</div>
+                          </td>
+                          <td>{a.homeBranch || <span className="rm-duty-none">&#8212;</span>}</td>
+                          <td>
+                            <span
+                              className="rm-badge-duty"
+                              title={a.onDutyAnywhere
+                                ? (a.onDutyType || 'On') + ' duty \u2013 punch allowed anywhere'
+                                : (a.onDutyType || 'Branch') + ' duty at ' + (a.onDutyBranch || 'branch')}>
+                              {a.onDutyAnywhere ? 'OnDuty' : (a.onDutyBranch || 'OnDuty')}
+                            </span>
+                          </td>
+                          <td title={a.ruleSource || ''}><span className={a.btRequired ? 'rm-badge-on' : 'rm-badge-off'}>{a.btRequired ? 'ON' : 'OFF'}</span></td>
+                          <td title={a.ruleSource || ''}><span className={a.gpsRequired ? 'rm-badge-on' : 'rm-badge-off'}>{a.gpsRequired ? 'ON' : 'OFF'}</span></td>
+                          <td>{a.startDate}</td>
+                          <td>{a.endDate}</td>
+                        </tr>
+                      ))}
+                      {autoOverrides.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className={autoErr ? 'rm-empty rm-auto-err' : 'rm-empty'}>
+                            {autoErr || 'No approved on-duties in the next 7 days.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
                 {/* ── Active Overrides Table ───────────────────────── */}
                 <div className="rm-card rm-overrides-list">
                   <div className="rm-list-header">
@@ -1431,7 +1547,8 @@ const AIAttendanceRuleMaster: React.FC = () => {
                     <thead>
                       <tr>
                         <th>Employee</th>
-                        <th>Branch</th>
+                        <th>Home Branch</th>
+                        <th>On-Duty Branch</th>
                         <th>BT</th>
                         <th>GPS</th>
                         <th>From</th>
@@ -1447,6 +1564,17 @@ const AIAttendanceRuleMaster: React.FC = () => {
                             <div className="rm-emp-sub">{o.designation}</div>
                           </td>
                           <td>{o.liveBranch || o.branch}</td>
+                          <td>
+                            {o.onDutyAnywhere ? (
+                              // No office to name, so the chip says what the
+                              // rule is rather than pretending to be a place.
+                              <span className="rm-badge-duty" title={o.onDutyType ? o.onDutyType + ' duty - punch allowed anywhere' : 'Punch allowed anywhere'}>OnDuty</span>
+                            ) : o.onDutyBranch ? (
+                              <span className="rm-badge-duty">{o.onDutyBranch}</span>
+                            ) : (
+                              <span className="rm-duty-none">&#8212;</span>
+                            )}
+                          </td>
                           <td><span className={o.btRequired ? 'rm-badge-on' : 'rm-badge-off'}>{o.btRequired ? 'ON' : 'OFF'}</span></td>
                           <td><span className={o.gpsRequired ? 'rm-badge-on' : 'rm-badge-off'}>{o.gpsRequired ? 'ON' : 'OFF'}</span></td>
                           <td>{o.startDate}</td>
@@ -1457,7 +1585,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                         </tr>
                       ))}
                       {overrides.length === 0 && (
-                        <tr><td colSpan={7} className="rm-empty">No active overrides.</td></tr>
+                        <tr><td colSpan={8} className="rm-empty">No active overrides.</td></tr>
                       )}
                     </tbody>
                   </table>

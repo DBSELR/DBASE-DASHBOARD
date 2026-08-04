@@ -325,6 +325,22 @@
   background: #f1f5f9; color: #64748b; font-size: 9px; font-weight: 800;
 }
 
+/* The on-duty chip is deliberately a different hue from the ON/OFF badges
+   next to it: it answers "where", not "is this switched on". */
+/* Quieter than the card title next to it - it is a caveat about the table,
+   not a heading, and it has to stop anyone trying to edit these rows. */
+.rm-auto-err { color: #b91c1c; font-weight: 700; }
+.rm-auto-note {
+  margin-left: 8px;
+  font-size: 9px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .03em;
+}
+.rm-badge-duty {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  background: #e0f2fe; color: #0369a1; font-size: 9px; font-weight: 800;
+}
+.rm-duty-none { color: #cbd5e1; font-weight: 700; }
+
 .rm-empty {
   text-align: center; color: #94a3b8;
   font-size: 11px; font-weight: 600;

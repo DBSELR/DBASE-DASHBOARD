@@ -1728,6 +1728,33 @@ useEffect(() => {
     return wanted.map((x) => ({ day: x, full: byDay[x] || x }));
   };
 
+  // The overall verdict worked out from the approval chain, for the case where
+  // the record carries no usable status of its own. The duty table keeps TWO
+  // status columns and only one of them is ever written, so whichever one the
+  // API happens to read can come back empty - and defaulting that to "Pending"
+  // puts the waiting-on-someone badge on a request that has already cleared
+  // every level. People then chase approvals that already happened.
+  //
+  // Slots named "" or "-" are not real approvers and are not waited on, which
+  // is exactly how isFullyApproved already treats them. Returns "" for a chain
+  // that is genuinely still in progress, so the caller's "Pending" still wins.
+  const statusFromChain = (d: any): string => {
+    const norm = (s: any) => String(s ?? "").trim().toLowerCase();
+    const slots = [
+      { ra: pick(d, "rA1", "ra1", "RA1"), st: pick(d, "rA1_Status", "ra1_Status", "RA1_Status", "ra1Status", "rA1Status") },
+      { ra: pick(d, "rA2", "ra2", "RA2"), st: pick(d, "rA2_Status", "ra2_Status", "RA2_Status", "ra2Status", "rA2Status") },
+      { ra: pick(d, "rA3", "ra3", "RA3"), st: pick(d, "rA3_Status", "ra3_Status", "RA3_Status", "ra3Status", "rA3Status") },
+      { ra: pick(d, "rA4", "ra4", "RA4"), st: pick(d, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status") },
+    ].filter((s) => {
+      const v = String(s.ra ?? "").trim();
+      return v !== "" && v !== "-";
+    });
+    if (slots.length === 0) return "";
+    if (slots.some((s) => norm(s.st) === "rejected")) return "Rejected";
+    if (slots.every((s) => norm(s.st) === "approved")) return "Approved";
+    return "";
+  };
+
   const mapDutyRows = (rawData: any[]): DutyRow[] =>
     rawData.map((d: any) => ({
       id: String(d.id),
@@ -1749,7 +1776,22 @@ useEffect(() => {
       // endpoint has been seen serializing the overall verdict as
       // "Status", and a bare d.status then falls through to "Pending"
       // on a record whose approval chain has actually completed.
-      Status: pick(d, "status", "Status", "dutyStatus", "DutyStatus") || "Pending",
+      // The chain is consulted FIRST, not last. The status this endpoint
+      // sends is not the stored verdict at all - it is a progress sentence
+      // built from CurrentRA, and on a duty whose approvals have finished it
+      // still reads "Pending at In-Charge F&A" because CurrentLevel was never
+      // advanced past the last approver. That string is truthy, so preferring
+      // it meant the card called a finished request pending forever.
+      //
+      // statusFromChain only speaks when the answer is unambiguous - every
+      // real slot approved, or one rejected - and stays silent while a chain
+      // is genuinely mid-flight, which is exactly when the server's sentence
+      // is worth showing. So: chain if it knows, server's words if it does
+      // not, "Pending" only if neither has anything to say.
+      Status:
+        statusFromChain(d) ||
+        pick(d, "status", "Status", "dutyStatus", "DutyStatus") ||
+        "Pending",
       DateFrom: d.dateFrom || "",
       DateTo: d.dateTo || "",
       // Same defensive casing lookup as Vehicle_No -> vehicle_No below:
@@ -3799,8 +3841,19 @@ useEffect(() => {
                   <div className="duty-subtitle">{row.Description}</div>
                 </div>
 
+                {/* Hovering the badge says where this verdict came from. The
+                    duty table keeps two status columns and only one of them is
+                    ever written, so "why does an approved duty say Pending" is
+                    a question this badge gets asked - it should be able to
+                    answer it without a rebuild and a console. The tooltip is
+                    also the marker for whether the running bundle has this fix
+                    in it at all: no tooltip, old bundle. */}
                 <span
                   className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
+                  data-probe="dm-status-probe"
+                  title={`status = ${row.Status || "(none)"} | RA: ${[row.RA1_Status, row.RA2_Status, row.RA3_Status, row.RA4_Status]
+                    .map((s) => String(s ?? "-"))
+                    .join(", ")}`}
                 >
                   {rowApproved ? "Approved" : rowRejected ? "Rejected" : "Pending"}
                 </span>
