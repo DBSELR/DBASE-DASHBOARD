@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 import {
   Settings,
@@ -118,6 +118,7 @@ const EmpProfile: React.FC = () => {
     status: "Active",
     dayDA: "",
     hourDA: "",
+    tAperKM: "0",
   });
   const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -209,6 +210,7 @@ const EmpProfile: React.FC = () => {
     _LocationType: "",
     _Location1: "",
     _BranchDept: "",
+    _TAperKM: "0",
   });
   const getMinutes = (checkIn: any) => {
     if (!checkIn) return 0;
@@ -554,6 +556,7 @@ const EmpProfile: React.FC = () => {
       _Project: getValue(51, ["_Project", "Project", "project"], ""),
       _LocationType: getValue(52, ["_LocationType", "LocationType", "locationType"], ""),
       _Location1: getValue(53, ["_Location1", "Location1", "location1"], ""),
+      _TAperKM: getValue(64, ["_TAperKM", "TAperKM", "taPerKm", "taperkm"], "0"),
     };
 
     console.log("Mapped Result:", mapped);
@@ -619,6 +622,7 @@ const EmpProfile: React.FC = () => {
             : "Active",
         dayDA: details._dayDA,
         hourDA: details._hourDA,
+        tAperKM: details._TAperKM,
         leave: details._Allowed_CL,
         sick: details._Allowed_SL,
         p_time: details._P_Time,
@@ -777,6 +781,7 @@ const EmpProfile: React.FC = () => {
                 : "Active",
             dayDA: details._dayDA,
             hourDA: details._hourDA,
+            tAperKM: details._TAperKM,
             leave: details._Allowed_CL,
             sick: details._Allowed_SL,
             p_time: details._P_Time,
@@ -837,6 +842,7 @@ const EmpProfile: React.FC = () => {
             userGroup: userProfile.UserGroup ?? userProfile.UserType ?? userProfile.Usertype ?? userProfile.userGroup ?? userProfile.userType ?? "",
             dayDA: userProfile.dayDA ?? userProfile.DayDA ?? userProfile.dayDa ?? userProfile.DayDa ?? userProfile.dayda ?? userProfile.day_da ?? "0",
             hourDA: userProfile.hourDA ?? userProfile.HourDA ?? userProfile.hourDa ?? userProfile.HourDa ?? userProfile.hourda ?? userProfile.hour_da ?? "0",
+            tAperKM: userProfile.TAperKM ?? userProfile.taPerKM ?? userProfile.taPerKm ?? userProfile.taperkm ?? "0",
           });
         }
 
@@ -1205,6 +1211,7 @@ const EmpProfile: React.FC = () => {
       _LocationType: "",
       _Location1: "",
       _BranchDept: "",
+      _TAperKM: "0",
     });
     setShowRegisterModal(true);
   };
@@ -1777,6 +1784,12 @@ const EmpProfile: React.FC = () => {
               icon={TrendingUp}
               label="Hour DA"
               value={userData.hourDA}
+            />
+
+            <InfoItem
+              icon={TrendingUp}
+              label="TA per KM"
+              value={userData.tAperKM}
             />
 
             {/* Leave */}
@@ -2484,6 +2497,16 @@ const EmpProfile: React.FC = () => {
                       type="number"
                       name="_hourDA"
                       value={formData._hourDA}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div className="ep-input-group">
+                    <label>TA per KM</label>
+                    <input
+                      type="number"
+                      name="_TAperKM"
+                      value={formData._TAperKM}
                       onChange={handleInputChange}
                     />
                   </div>

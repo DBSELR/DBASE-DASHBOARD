@@ -66,6 +66,7 @@ import AnswerKeyImport from "./pages/AnswerKeyImport";
 import MeetingMaster from "./pages/Meetings/MeetingMaster";
 import MeetingDashboard from "./pages/Meetings/MeetingDashboard";
 import MeetingList from "./pages/Meetings/MeetingList";
+import PaymentReminders from "./pages/PaymentReminders";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
 import WorkReportReminderModal from "./components/WorkReportReminderModal";
 import { registerNativePush } from "./services/pushNotification";
@@ -232,6 +233,7 @@ const App: React.FC = () => {
                   <Route exact path="/leave-action" component={LeaveAction} />
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
+                  <Route exact path="/payment-reminders" component={PaymentReminders} />
                   
                   <Route exact path="/stock" component={Stock} />
                   <Route exact path="/terms" component={TermsAndConditions} />

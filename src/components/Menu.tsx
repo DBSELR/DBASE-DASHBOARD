@@ -1,4 +1,4 @@
-﻿import {
+import {
   IonContent,
   IonItem,
   IonLabel,
@@ -350,7 +350,21 @@ const Menu: React.FC = () => {
                   </div>
                 </IonItem> */}
 
-             
+                 {/* Payment Reminders Static Item */}
+                 <IonItem
+                   button
+                   lines="none"
+                   onClick={() => handleTabClick("/payment-reminders")}
+                   className={location.pathname === "/payment-reminders" ? "item-active" : ""}
+                   style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
+                 >
+                   <div className="menu-item-row" title="Payment Reminders">
+                     <div className="menu-icon-chip">
+                       <IonIcon icon={wallet} />
+                     </div>
+                     <span className="menu-item-label">Payment Reminders</span>
+                   </div>
+                 </IonItem>
 
                 {/* Logout Button */}
                 <IonItem
