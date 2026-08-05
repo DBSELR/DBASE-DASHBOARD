@@ -52,6 +52,34 @@ import { apiService } from "../utils/apiService";
 const branchKey = (branch: string, dept: string) =>
   `${String(branch ?? "").trim().toLowerCase()}|${String(dept ?? "").trim().toLowerCase()}`;
 
+// One person's stretch on a duty. FromDate / ToDate always come back
+// filled in - the procedure substitutes the duty's own edges when no
+// window row exists - so the screen never has to reason about nulls.
+// `Partial` is the only thing that marks an exception worth showing.
+type DutyMember = {
+  EmpCode: string;
+  EmpName: string;
+  FromDate: string;
+  ToDate: string;
+  Partial: boolean;
+};
+
+type AttEditState = {
+  open: boolean;
+  row: any | null;
+  /* Day-of-month strings, two digits, exactly as the column stores them. */
+  days: string[];
+  busy: boolean;
+};
+type TeamChangeState = {
+  open: boolean;
+  mode: "add" | "remove";
+  row: any | null;
+  empCode: string;
+  date: string;
+  busy: boolean;
+};
+
 type ClientItem = { Client_ID: string; Client_Name: string };
 
 // One row of tbl_Branch. `label` is both what the user reads and what
@@ -555,6 +583,28 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     );
   }, [branches, profileBranchKey]);
   const [dutiesList, setDutiesList] = useState<DutyRow[]>([]);
+
+  // ---- TEAM CHANGES ON A LIVE DUTY ------------------------------------
+  // People join a duty late and drop out of it early, and re-filing the
+  // whole request to say so loses its approvals. Membership is therefore a
+  // window with a start and an end, and somebody with no window row at all
+  // is on the duty for the whole of it - which is why every duty raised
+  // before this existed still reads exactly as it did.
+  const [dutyMembers, setDutyMembers] = useState<Record<string, DutyMember[]>>({});
+  const [teamChange, setTeamChange] = useState<TeamChangeState>({
+    open: false,
+    mode: "add",
+    row: null,
+    empCode: "",
+    date: "",
+    busy: false,
+  });
+  const [attEdit, setAttEdit] = useState<AttEditState>({
+    open: false,
+    row: null,
+    days: [],
+    busy: false,
+  });
   const [editingId, setEditingId] = useState<string>("");
   const [tripDaysByDuty, setTripDaysByDuty] = useState<Record<string, TripDayItem[]>>({});
   const [showDayTripModal, setShowDayTripModal] = useState(false);
@@ -713,8 +763,19 @@ const [isBranchChangeTypeDropdownOpen, setIsBranchChangeTypeDropdownOpen] = useS
 const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
 // Closed set. "Official Assignment" is the company moving someone;
-// "Employee Request" is the employee asking to be moved.
-const BRANCH_CHANGE_TYPE_OPTIONS = ["Official Assignment", "Employee Request"];
+// "Employee Request" is the employee asking to be moved. The third is both
+// at once - the company wanted them at the other branch and the employee
+// asked to go - so it is settled halfway between the two: travel is paid
+// for the journey one way only, because the return leg was the employee's
+// own doing, while the daily allowance is paid in full exactly as it is on
+// any other duty. Because this is not the literal string "Employee
+// Request", the transport, vehicle and reporting-day fields below stay on
+// screen for it - which is right, since there is still a company journey.
+const BRANCH_CHANGE_TYPE_OPTIONS = [
+  "Official Assignment",
+  "Employee Request",
+  "Mutual",
+];
 
 // Closed set, same as the on-duty types below. "Round Trip" is one journey
 // out and one back; "Daily Shuttle" is that journey repeated on each day of
@@ -1997,6 +2058,254 @@ useEffect(() => {
     return { chips, applicant, assignedBy: applicant && !onIt ? applicant : "" };
   };
 
+  // Dates reach this page in whatever shape the API felt like sending -
+  // dd-MM-yyyy from the duty list, ISO from a picker - and the date input
+  // and the API both want yyyy-MM-dd. An unreadable value returns blank
+  // rather than today, because a silent wrong date is worse than none.
+  const ymd = (v: any): string => {
+    if (v === null || v === undefined) return "";
+    const s = String(v).trim();
+    if (!s) return "";
+    const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmy)
+      return (
+        dmy[3] + "-" + dmy[2].padStart(2, "0") + "-" + dmy[1].padStart(2, "0")
+      );
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return iso[0];
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? "" : moment(d).format("YYYY-MM-DD");
+  };
+
+  const prettyDay = (v: any) => {
+    const y = ymd(v);
+    // DD-MM-YYYY throughout, matching the timeline on the duty card
+    // itself - a date that reads two ways on one screen is a date the
+    // reader has to stop and decode.
+    return y ? moment(y, "YYYY-MM-DD").format("DD-MM-YYYY") : "";
+  };
+
+  // The API answers with a list of dictionaries, and whether the keys come
+  // back capitalised depends on the serializer settings rather than on
+  // anything this page controls - so every read is case-insensitive.
+  const readRows = (data: any): any[] => {
+    let parsed: any = data;
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {
+        parsed = null;
+      }
+    }
+    return Array.isArray(parsed) ? parsed : [];
+  };
+
+  // ASP.NET's BadRequest puts the real reason in the body, and a 404 puts
+  // nothing there at all. Showing the status alone turns every different
+  // failure into the same unactionable sentence, so the body is read first
+  // and the status is only the fallback.
+  const serverSaid = (e: any): string => {
+    const d = e?.response?.data;
+    let text = "";
+    if (typeof d === "string") text = d;
+    else if (d && typeof d === "object")
+      text = String(d.Message ?? d.message ?? d.title ?? d.error ?? "");
+    text = text.trim();
+    if (text) return text.length > 300 ? text.slice(0, 300) + "..." : text;
+
+    const status = e?.response?.status;
+    if (status === 404)
+      return "that endpoint is not there (404) - the API still needs rebuilding and restarting";
+    if (status === 401 || status === 403)
+      return "the server refused the request (" + status + ") - the login may have expired";
+    if (status) return "the server answered " + status;
+    return e?.message || "an unexpected error";
+  };
+
+  const field = (obj: any, name: string) => {
+    if (!obj) return undefined;
+    const want = name.toLowerCase();
+    const hit = Object.keys(obj).find((k) => k.toLowerCase() === want);
+    return hit === undefined ? undefined : obj[hit];
+  };
+
+  // Only fetched for duties the user actually opens a dialog on. A list of
+  // a hundred duties would otherwise cost a hundred round trips to be told
+  // "everybody, all of it" a hundred times over.
+  const loadDutyMembers = async (dutyId: string) => {
+    try {
+      const res = await api.get("OnDuty/onduty_members", {
+        params: { DutyId: dutyId },
+        headers: authHeaders(),
+      });
+      const rows = readRows(res.data).map((r: any) => ({
+        EmpCode: String(field(r, "EmpCode") ?? "").trim(),
+        EmpName: String(field(r, "EmpName") ?? "").trim(),
+        FromDate: ymd(field(r, "FromDate")),
+        ToDate: ymd(field(r, "ToDate")),
+        Partial: !!field(r, "Partial"),
+      }));
+      setDutyMembers((prev) => ({ ...prev, [dutyId]: rows }));
+      return rows;
+    } catch (e) {
+      console.error("loadDutyMembers failed:", e);
+      return [];
+    }
+  };
+
+  const openTeamChange = (mode: "add" | "remove", row: any) => {
+    setTeamChange({
+      open: true,
+      mode,
+      row,
+      empCode: "",
+      // Defaulted to the duty's own first day, which is the answer for a
+      // correction filed after the fact. Anyone changing it forward is
+      // saying "from this day onwards", which is the whole point.
+      date: ymd(row?.DateFrom) || "",
+      busy: false,
+    });
+    if (row?.id) loadDutyMembers(String(row.id));
+  };
+
+  const closeTeamChange = () =>
+    setTeamChange((s) => ({ ...s, open: false, busy: false }));
+
+  const submitTeamChange = async () => {
+    const { mode, row, empCode, date } = teamChange;
+    if (!row?.id) return;
+    if (!empCode) {
+      notify("Pick the person first.", "warning");
+      return;
+    }
+    if (!date) {
+      notify("Pick the day the change takes effect.", "warning");
+      return;
+    }
+
+    setTeamChange((s) => ({ ...s, busy: true }));
+    try {
+      const url =
+        mode === "add" ? "OnDuty/onduty_add_member" : "OnDuty/onduty_remove_member";
+      const res = await api.post(
+        url,
+        { DutyId: String(row.id), EmpCode: empCode, FromDate: date, By: empCode2() },
+        { headers: authHeaders() }
+      );
+
+      const first = readRows(res.data)[0];
+      const ok = !!field(first, "Ok");
+      const message =
+        String(field(first, "Message") ?? "").trim() ||
+        (ok ? "Saved." : "That change was not accepted.");
+
+      // A refusal is a normal answer here, not a failure: the procedure
+      // knows things the screen does not - that the person is already on
+      // for the whole duty, that they are the last one left on it - and
+      // says so in words worth showing rather than a status code.
+      notify(message, ok ? "success" : "warning");
+
+      if (ok) {
+        await loadDutyMembers(String(row.id));
+        await loadDuties();
+        closeTeamChange();
+      } else {
+        setTeamChange((s) => ({ ...s, busy: false }));
+      }
+    } catch (e: any) {
+      console.error("submitTeamChange error:", e);
+      notify("Could not save that change - " + serverSaid(e), "danger");
+      setTeamChange((s) => ({ ...s, busy: false }));
+    }
+  };
+
+  // The logged-in code, read through a function so the closure above does
+  // not capture a stale render's value.
+  const empCode2 = () => empCode;
+
+  // Every day the duty spans, paired with the day-of-month string the
+  // column stores. Built from the duty's own range so a day outside it
+  // can never be marked, which is the failure the free text column
+  // allowed and nobody could see afterwards.
+  const dutyDayList = (row: any): { key: string; label: string }[] => {
+    const from = moment(ymd(row?.DateFrom), "YYYY-MM-DD");
+    const to = moment(ymd(row?.DateTo) || ymd(row?.DateFrom), "YYYY-MM-DD");
+    if (!from.isValid() || !to.isValid() || to.isBefore(from, "day")) return [];
+
+    const out: { key: string; label: string }[] = [];
+    const seen = new Set<string>();
+    const cur = from.clone();
+    let guard = 0;
+    while (cur.isSameOrBefore(to, "day") && guard < 62) {
+      const k = cur.format("DD");
+      // A duty that spans a month boundary can offer the same day number
+      // twice, and the column has no way to tell them apart - so it is
+      // listed once, labelled with the first date it means.
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push({ key: k, label: cur.format("DD-MM-YYYY") });
+      }
+      cur.add(1, "day");
+      guard += 1;
+    }
+    return out;
+  };
+
+  const openAttEdit = (row: any) => {
+    const current = String(row?.AttDays || "")
+      .split(",")
+      .map((x: string) => x.trim())
+      .filter(Boolean)
+      .map((x: string) => x.padStart(2, "0"));
+    setAttEdit({ open: true, row, days: current, busy: false });
+  };
+
+  const closeAttEdit = () =>
+    setAttEdit((s) => ({ ...s, open: false, busy: false }));
+
+  const toggleAttDay = (key: string) =>
+    setAttEdit((s) => ({
+      ...s,
+      days: s.days.includes(key)
+        ? s.days.filter((d) => d !== key)
+        : [...s.days, key].sort(),
+    }));
+
+  const submitAttEdit = async () => {
+    const { row, days } = attEdit;
+    if (!row?.id) return;
+    if (days.length === 0) {
+      notify("Mark at least one day, or cancel the duty instead.", "warning");
+      return;
+    }
+
+    setAttEdit((s) => ({ ...s, busy: true }));
+    try {
+      const res = await api.post(
+        "OnDuty/onduty_save_attdays",
+        { DutyId: String(row.id), Days: days.join(",") },
+        { headers: authHeaders() }
+      );
+      const first = readRows(res.data)[0];
+      const ok = field(first, "Ok") !== false;
+      notify(
+        String(field(first, "Message") ?? "").trim() ||
+          (ok ? "Reporting days saved." : "That change was not accepted."),
+        ok ? "success" : "warning"
+      );
+      if (ok) {
+        await loadDuties();
+        closeAttEdit();
+      } else {
+        setAttEdit((s) => ({ ...s, busy: false }));
+      }
+    } catch (e: any) {
+      console.error("submitAttEdit error:", e);
+      notify("Could not save the reporting days - " + serverSaid(e), "danger");
+      setAttEdit((s) => ({ ...s, busy: false }));
+    }
+  };
+
 
 
 
@@ -2423,16 +2732,108 @@ useEffect(() => {
     }
   };
 
-  const editOnDuty = async (id: string) => {
+  // new Date() understands ISO and the American month-first order, and
+  // nothing else. The camp start and end columns have been seen holding
+  // "06-08-2026 09:30" - day first, the way the card itself prints it - and
+  // on that string new Date() returns an Invalid Date, whose toISOString()
+  // does not return a value but throws. That throw happened inside
+  // editOnDuty's try block, so a record that had arrived complete and
+  // correct was abandoned on the way to the form and the click reported a
+  // load failure. The data was never the problem; reading it was.
+  //
+  // Returns null when there is genuinely nothing to read, so the caller can
+  // fall through to its next choice instead of showing an invented date.
+  const toIsoOrNull = (v: any): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+
+    const direct = new Date(s);
+    if (!isNaN(direct.getTime())) return direct.toISOString();
+
+    // dd-MM-yyyy or dd/MM/yyyy, with an optional time after it.
+    const m = s.match(
+      /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
+    );
+    if (m) {
+      const d = new Date(
+        Number(m[3]),
+        Number(m[2]) - 1,
+        Number(m[1]),
+        Number(m[4] || 0),
+        Number(m[5] || 0),
+        Number(m[6] || 0)
+      );
+      if (!isNaN(d.getTime())) return d.toISOString();
+    }
+    return null;
+  };
+
+  // The camp from and to controls carry the time as well as the date - the
+  // save reads _Starttime and _Endtime straight off them - so restoring only
+  // a date quietly rewrites a 09:30 start as 00:00 the next time the record
+  // is saved. Date and time are stored in separate columns and have to be put
+  // back together here, or editing a duty to change one field would silently
+  // destroy its timeline.
+  const composeDateTime = (dateVal: any, timeVal: any): string | null => {
+    const iso = toIsoOrNull(dateVal);
+    if (!iso) return null;
+
+    const m = String(timeVal ?? "").trim().match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return moment(iso).toISOString(true);
+
+    return moment(iso)
+      .hours(Number(m[1]))
+      .minutes(Number(m[2]))
+      .seconds(0)
+      .milliseconds(0)
+      .toISOString(true);
+  };
+
+  const editOnDuty = async (id: string, ownerHint?: any, card?: DutyRow) => {
     if (!canEdit && !canApprove) {
       notify("Permission Denied", "danger");
       return;
     }
 
     try {
-      const res = await api.get("OnDuty/edit_onduties", {
-        params: { EmpCode: empCode, id },
-      });
+      // App_Get_Duties matches on the empCode handed to it as well as on the
+      // id. Someone opening their own request passes their own code and the
+      // record comes straight back. An Accountant or a Director, though, is
+      // shown the pencil on every card on the page - other people's requests
+      // included - and asking for one of those under the viewer's own code
+      // matches nothing at all, which is the whole of the failure being
+      // reported. So the applicant's own code is tried second, and only an
+      // admin's click can ever reach that second try.
+      const fetchRow = async (code: string) => {
+        const r = await api.get("OnDuty/edit_onduties", {
+          params: { EmpCode: code, id },
+          headers: authHeaders(),
+        });
+        // The controller answers with Ok(JsonConvert.SerializeObject(...)),
+        // which is a JSON *string*. Axios parses it back for us when the
+        // response is labelled as JSON and hands it over untouched when it is
+        // not, so both shapes have to be expected here. A string that will not
+        // parse is treated as no record rather than allowed to throw - a
+        // malformed answer is still an answer, and it is not a fault of the
+        // click.
+        let parsed: any = r.data;
+        if (typeof parsed === "string") {
+          try {
+            parsed = JSON.parse(parsed);
+          } catch {
+            parsed = null;
+          }
+        }
+        return Array.isArray(parsed) && parsed[0] ? parsed[0] : null;
+      };
+
+      let row = await fetchRow(empCode);
+
+      const ownerCode = String(ownerHint ?? "").trim();
+      if (!row && canEdit && ownerCode && ownerCode !== empCode) {
+        row = await fetchRow(ownerCode);
+      }
 
       // Type, branch and marked days come from their own endpoint keyed by
       // name, not from extra positions on the row above - App_Get_Duties'
@@ -2452,43 +2853,73 @@ useEffect(() => {
         // rather than failing the whole edit.
       }
 
-      const row = Array.isArray(res.data) && res.data[0] ? res.data[0] : null;
+      if (!row) {
+        // Neither code found it, so the record is not this person's to open.
+        // That is a rule, not a fault, and saying which one it is spares
+        // somebody hunting for a breakage that never happened.
+        notify(
+          "That request could not be opened for editing - it is not one of your own records.",
+          "warning"
+        );
+        return;
+      }
 
-      if (row) {
+      {
         setEditingId(String(row[0]));
         // Belt and braces with the editingId guard in the defaults effect:
         // the stored times win, whichever order the two states commit in.
         campTimesTouchedRef.current = true;
         setSelectedCodes(String(row[1]).split(",").filter(Boolean));
+        // The card in the list already holds this duty's real range and its
+        // real times - it is what draws "04-08-2026 09:30 -> 05-08-2026 18:30"
+        // on the screen the pencil sits on - so it is read first. The row from
+        // App_Get_Duties stays as a fallback, but its fourteenth and fifteenth
+        // columns have been seen arriving empty, and when they did both ends
+        // of the form fell back to the single start date. A two-day duty then
+        // reopened as a one-day duty, and the second reporting day disappeared
+        // with it, because the day pills only offer days inside the range.
         setDutyFromDate(
-          row[13]
-            ? new Date(row[13]).toISOString()
-            : row[2]
-              ? new Date(row[2]).toISOString()
-              : nowIST().toISOString(true)
+          composeDateTime(card?.DateFrom, card?.Start_Time) ??
+            toIsoOrNull(row[13]) ??
+            composeDateTime(row[2], row[7]) ??
+            nowIST().toISOString(true)
         );
         setDutyToDate(
-          row[14]
-            ? new Date(row[14]).toISOString()
-            : row[2]
-              ? new Date(row[2]).toISOString()
-              : nowIST().toISOString(true)
+          composeDateTime(card?.DateTo, card?.End_Time) ??
+            composeDateTime(card?.DateFrom, card?.End_Time) ??
+            toIsoOrNull(row[14]) ??
+            composeDateTime(row[2], row[8]) ??
+            nowIST().toISOString(true)
         );
         setInstitution(row[3]);
         setLocation(row[15] || "");
-        setOnDutyType(extra ? extra.onDutyType || "" : row[16] || "");
-        setBranchName(extra ? extra.branch || "" : row[17] || "");
+        // Three sources for the same answer, in order of how much they can
+        // be trusted: the endpoint that serves these columns by name, the
+        // card that is already showing them correctly, and finally the row's
+        // positional columns.
+        setOnDutyType(
+          (extra ? extra.onDutyType : "") || card?.OnDutyType || row[16] || ""
+        );
+        setBranchName(
+          (extra ? extra.branch : "") || card?.Branch || row[17] || ""
+        );
         // undefined (no endpoint) and null (column never written for this row)
         // both mean "no stored answer", so leave the defaults to decide. Only a
         // real string - including "" - counts as a selection to restore.
         setPendingAttDays(
-          extra && typeof extra.attDays === "string" ? extra.attDays : null
+          extra && typeof extra.attDays === "string"
+            ? extra.attDays
+            : typeof card?.AttDays === "string"
+              ? card.AttDays
+              : null
         );
         // Safe to set before setTransportMode below: both land in the same
         // commit, so the effect that clears a trip type on a hidden field
         // sees the restored transport mode, not the one being replaced.
-        setTripType(extra ? extra.tripType || "" : "");
-        setBranchChangeType(extra ? extra.branchChangeType || "" : "");
+        setTripType((extra ? extra.tripType : "") || card?.TripType || "");
+        setBranchChangeType(
+          (extra ? extra.branchChangeType : "") || card?.BranchChangeType || ""
+        );
         setDutiesDesc(row[4]);
         setTransportMode(row[5]);
         setKms(row[6]);
@@ -2500,9 +2931,16 @@ useEffect(() => {
         contentRef.current?.scrollToTop(500);
         notify("Record loaded for editing");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("editOnDuty error:", e);
-      notify("Failed to load record", "danger");
+      // "Failed to load record" on its own describes the symptom and names no
+      // cause, so every report of it arrives with nothing to act on. The
+      // status code, or failing that the error's own words, is usually enough
+      // to tell a rejected request from an unreachable server.
+      const why = e?.response?.status
+        ? "the server answered " + e.response.status
+        : e?.message || "an unexpected error";
+      notify("Failed to load record - " + why, "danger");
     }
   };
 
@@ -3880,9 +4318,31 @@ useEffect(() => {
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
               >
                 <div style={{ flex: 1 }}>
-                  <div className="college-name">
-                    {row.College || "Party"}
-                    <span className="dm-id-badge">#{row.id}</span>
+                  {/* The heading is the duty itself now: type and branch,
+                      which used to cost two labelled boxes down in the grid.
+                      "Party" was a placeholder standing in for a column most
+                      duties never fill, so it survives only as the fallback
+                      for a duty that has neither a type nor a branch. */}
+                  <div className="college-name" data-probe="dm-head-title">
+                    {/* The id leads. It is the thing anyone quotes back in a
+                        message or a phone call, so it should not have to be
+                        hunted for at the end of a branch name that varies in
+                        length from card to card. */}
+                    <span className="dm-id-badge lead">#{row.id}</span>
+                    {(() => {
+                      const t = String(row.OnDutyType || "").trim();
+                      const b = String(row.Branch || "").trim();
+                      const head = [t, b].filter(Boolean).join(" - ");
+                      return head || String(row.College || "").trim() || "Duty";
+                    })()}
+                    {/* Why they are at that branch travelled with the branch
+                        in the old box, so it travels with it here too. */}
+                    {!!row.BranchChangeType && (
+                      <span style={{ color: "#64748b", fontWeight: 600 }}>
+                        {" "}
+                        &bull; {row.BranchChangeType}
+                      </span>
+                    )}
                   </div>
                   <div className="duty-subtitle">{row.Description}</div>
                 </div>
@@ -3894,15 +4354,49 @@ useEffect(() => {
                     answer it without a rebuild and a console. The tooltip is
                     also the marker for whether the running bundle has this fix
                     in it at all: no tooltip, old bundle. */}
-                <span
-                  className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
-                  data-probe="dm-status-probe"
-                  title={`status = ${row.Status || "(none)"} | RA: ${[row.RA1_Status, row.RA2_Status, row.RA3_Status, row.RA4_Status]
-                    .map((s) => String(s ?? "-"))
-                    .join(", ")}`}
-                >
-                  {rowApproved ? "Approved" : rowRejected ? "Rejected" : "Pending"}
-                </span>
+                {/* The two things anyone scanning a duty actually wants -
+                    how far the approval has got, and whether there is money
+                    left to settle - now travel with the id instead of
+                    sitting at the foot of the card, so neither costs a
+                    scroll past everything in between. */}
+                <div className="dm-head-right">
+                  {rowChain.length > 0 && (
+                    <div className="dm-chain">
+                      <span className="dm-chain-label">Approval Status:</span>{" "}
+                      {rowChain.map((step, idx) => (
+                        <React.Fragment key={idx}>
+                          <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
+                          {idx < rowChain.length - 1 && (
+                            <span className="dm-chain-arrow"> → </span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* A plain button, not an IonButton: an IonButton carries
+                      its own height and margins and would set the header
+                      row's height all by itself. */}
+                  {(canEdit || canApprove) && isFullyApproved(row) && (
+                    <button
+                      type="button"
+                      className="dm-data-link"
+                      onClick={() => history.push("/datasettlement?duty=" + row.id)}
+                    >
+                      DA / TA
+                    </button>
+                  )}
+
+                  <span
+                    className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
+                    data-probe="dm-status-probe"
+                    title={`status = ${row.Status || "(none)"} | RA: ${[row.RA1_Status, row.RA2_Status, row.RA3_Status, row.RA4_Status]
+                      .map((s) => String(s ?? "-"))
+                      .join(", ")}`}
+                  >
+                    {rowApproved ? "Approved" : rowRejected ? "Rejected" : "Pending"}
+                  </span>
+                </div>
               </div>
               <div
                 style={{
@@ -3911,20 +4405,56 @@ useEffect(() => {
                     window.innerWidth <= 768
                       ? "1fr"
                       : "repeat(4, minmax(0, 1fr))",
-                  gap: "14px",
+                  gap: "10px",
                   alignItems: "start",
-                  marginTop: "14px",
+                  marginTop: "10px",
                 }}
               >
                 <div className="duty-info-box full-width">
-                  <span className="item-label">Employees</span>
+                  {/* Once a duty is approved the pencil is the wrong tool -
+                      re-opening the whole request to move one person would
+                      put its approvals back in play. Add and Remove change
+                      one membership from a stated day and leave everything
+                      else, including the approval chain, alone. While the
+                      duty is still pending the pencil is still the right
+                      answer, so the two never appear together. */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span className="item-label">Employees</span>
+
+                    {(canEdit || (canApprove && row.isOwn !== false)) &&
+                      rowApproved && (
+                        <>
+                          <button
+                            type="button"
+                            className="od-team-btn add"
+                            onClick={() => openTeamChange("add", row)}
+                          >
+                            + Add
+                          </button>
+                          <button
+                            type="button"
+                            className="od-team-btn remove"
+                            onClick={() => openTeamChange("remove", row)}
+                          >
+                            &minus; Remove
+                          </button>
+                        </>
+                      )}
+                  </div>
 
                   <div
                     style={{
                       display: "flex",
                       flexWrap: "wrap",
-                      gap: "8px",
-                      marginTop: "6px",
+                      gap: "6px",
+                      marginTop: "4px",
                     }}
                   >
                     {(() => {
@@ -3951,9 +4481,9 @@ useEffect(() => {
                                   border:
                                     "1px solid " +
                                     (isApplicant ? "#6ee7b7" : "#c7d2fe"),
-                                  padding: "6px 10px",
+                                  padding: "4px 9px",
                                   borderRadius: "20px",
-                                  fontSize: "12px",
+                                  fontSize: "11px",
                                   fontWeight: 600,
                                 }}
                               >
@@ -3961,6 +4491,32 @@ useEffect(() => {
                                 {emp.code && (
                                   <span style={{ opacity: 0.7 }}> ({emp.code})</span>
                                 )}
+                                {/* Shown only for the exceptions. Marking
+                                    every chip with the duty's own dates
+                                    would bury the one person whose stretch
+                                    is actually different. */}
+                                {(() => {
+                                  const w = (dutyMembers[String(row.id)] || []).find(
+                                    (m) =>
+                                      m.EmpCode ===
+                                      String(emp.code ?? "").trim()
+                                  );
+                                  if (!w || !w.Partial) return null;
+                                  return (
+                                    <span
+                                      style={{
+                                        display: "block",
+                                        fontSize: "10px",
+                                        fontWeight: 600,
+                                        opacity: 0.85,
+                                        marginTop: "2px",
+                                      }}
+                                    >
+                                      {prettyDay(w.FromDate)} &rarr;{" "}
+                                      {prettyDay(w.ToDate)}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             );
                           })}
@@ -3972,9 +4528,9 @@ useEffect(() => {
                                 background: "#fff7ed",
                                 color: "#9a3412",
                                 border: "1px dashed #fdba74",
-                                padding: "6px 10px",
+                                padding: "4px 9px",
                                 borderRadius: "20px",
-                                fontSize: "12px",
+                                fontSize: "11px",
                                 fontWeight: 600,
                               }}
                             >
@@ -4042,43 +4598,41 @@ useEffect(() => {
                   </div>
                 )}
 
-                {!!row.OnDutyType && (
-                  <div className="duty-info-box" style={{ minWidth: 0 }}>
-                    <span className="item-label">Duty Type</span>
-                    <span
-                      className="item-value"
-                      style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
-                    >
-                      {row.OnDutyType}
-                    </span>
-                  </div>
-                )}
-
-                {!!row.Branch && (
-                  <div className="duty-info-box" style={{ minWidth: 0 }}>
-                    <span className="item-label">Branch</span>
-                    <span
-                      className="item-value"
-                      style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
-                    >
-                      {row.Branch}
-                      {/* Why they are at that branch belongs with the branch,
-                          not in a box of its own two columns away. */}
-                      {row.BranchChangeType && (
-                        <span style={{ color: "#64748b" }}> • {row.BranchChangeType}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-
                 {/* Only the marked days are stored, so unlike the form there
                     is no unmarked counterpart to show here - every pill is a
                     green one, and the count carries the rest of the meaning. */}
-                {attDayPills(row).length > 0 && (
+                {(attDayPills(row).length > 0 ||
+                  ((canEdit || (canApprove && row.isOwn !== false)) &&
+                    rowApproved &&
+                    !!row.OnDutyType &&
+                    String(row.OnDutyType).toLowerCase().includes("branch"))) && (
                   <div className="duty-info-box" style={{ minWidth: 0 }}>
-                    <span className="item-label">
-                      Reporting Dates at Branch ({attDayPills(row).length})
-                    </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span className="item-label">
+                        Reporting Dates at Branch ({attDayPills(row).length})
+                      </span>
+
+                      {/* Same gate as Add and Remove: while the duty is still
+                          pending the pencil opens the whole form, so a second
+                          way in would only be a second thing to keep in step. */}
+                      {(canEdit || (canApprove && row.isOwn !== false)) &&
+                        rowApproved && (
+                          <button
+                            type="button"
+                            className="od-team-btn"
+                            onClick={() => openAttEdit(row)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                    </div>
                     <div
                       className="item-value"
                       style={{
@@ -4476,23 +5030,6 @@ useEffect(() => {
                 )}
               </div>
               )}
-              {/* Approval trail instead of a pill - the status dot up top
-                  already shows the overall outcome, so this just lists who
-                  acted (or still needs to), colored per RA slot. */}
-              {rowChain.length > 0 && (
-                <div className="dm-chain">
-                  <span className="dm-chain-label">Approval Status:</span>{" "}
-                  {rowChain.map((step, idx) => (
-                    <React.Fragment key={idx}>
-                      <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
-                      {idx < rowChain.length - 1 && (
-                        <span className="dm-chain-arrow"> → </span>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
-
               {canApprove && isMyTurn(row) && (
                 <div className="duty-action-row">
                   <IonButton className="compact-duty-approve" onClick={() => approveDutyRow(row)}>
@@ -4510,39 +5047,280 @@ useEffect(() => {
                   (row.isOwn === false) let approvers click it and always hit
                   "Failed to load record". Admin roles (Accountant/Director)
                   are the exception and can edit any record. */}
-              {(canEdit || (canApprove && row.isOwn !== false)) && (
+              {(canEdit || (canApprove && row.isOwn !== false)) && !rowApproved && (
                 <IonButton
                   fill="clear"
                   color="primary"
                   className="ion-no-margin"
-                  onClick={() => editOnDuty(row.id)}
+                  onClick={() => editOnDuty(row.id, row.AppliedBy, row)}
                 >
                   <IonIcon icon={pencilOutline} />
                 </IonButton>
               )}
 
-              {/* Once the whole chain has approved the duty, the DA / TA
-                  settlement becomes payable - the side menu is DB driven so
-                  this deep link is the reliable way in for approvers.
-                  Gated on isFullyApproved rather than the overall Status
-                  string: every real RA slot reading "Approved" is the same
-                  thing, and it keeps the button visible when the rolled-up
-                  Status column lags behind the chain that produced it. */}
-              {(canEdit || canApprove) && isFullyApproved(row) && (
-                <IonButton
-                  fill="clear"
-                  color="success"
-                  className="ion-no-margin"
-                  onClick={() => history.push("/datasettlement?duty=" + row.id)}
-                >
-                  DA / TA
-                </IonButton>
-              )}
             </div>
               );
             })}
 
         </div>
+
+        {/* One question: which of the duty's days are branch days. Days
+            that are not marked are still on duty, they are just not
+            reporting at the branch - so this is a set of toggles rather
+            than a range, and there is no way to pick a day the duty does
+            not cover. */}
+        <IonModal
+          isOpen={attEdit.open}
+          onDidDismiss={closeAttEdit}
+          className="od-team-modal"
+        >
+          <div className="od-team-sheet">
+            {(() => {
+              const row = attEdit.row;
+              if (!row) return null;
+              const all = dutyDayList(row);
+
+              return (
+                <>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "19px", fontWeight: 700 }}>
+                    Reporting days at the branch
+                  </h2>
+                  <p style={{ margin: "0 0 18px", color: "#64748b", fontSize: "13px" }}>
+                    Duty #{String(row?.id ?? "")} &middot; {prettyDay(row?.DateFrom)}
+                    {ymd(row?.DateTo) && ymd(row?.DateTo) !== ymd(row?.DateFrom)
+                      ? " to " + prettyDay(row?.DateTo)
+                      : ""}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                    }}
+                  >
+                    {all.map((d) => {
+                      const on = attEdit.days.includes(d.key);
+                      return (
+                        <button
+                          key={d.key}
+                          type="button"
+                          className={"od-attday-chip" + (on ? " on" : "")}
+                          onClick={() => toggleAttDay(d.key)}
+                        >
+                          {d.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {all.length === 0 && (
+                    <p style={{ color: "#b91c1c", fontSize: "13px", margin: "6px 2px 0" }}>
+                      This duty has no usable date range, so its days cannot be
+                      listed.
+                    </p>
+                  )}
+
+                  <p style={{ color: "#64748b", fontSize: "12px", margin: "16px 2px 0" }}>
+                    A marked day is a day at the branch, where the branch
+                    check-in rule and its geofence apply. An unmarked day is
+                    still on duty, with neither.
+                  </p>
+
+                  <div style={{ display: "flex", gap: "10px", marginTop: "22px" }}>
+                    <IonButton
+                      expand="block"
+                      style={{ flex: 1 }}
+                      disabled={attEdit.busy || all.length === 0}
+                      onClick={submitAttEdit}
+                    >
+                      {attEdit.busy ? "Saving..." : "Save"}
+                    </IonButton>
+                    <IonButton
+                      expand="block"
+                      fill="outline"
+                      color="medium"
+                      style={{ flex: 1 }}
+                      disabled={attEdit.busy}
+                      onClick={closeAttEdit}
+                    >
+                      Cancel
+                    </IonButton>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </IonModal>
+
+        {/* Two questions and nothing else: who, and from which day. The
+            date is bounded to the duty's own range because a membership
+            that starts outside the duty means nothing. */}
+        <IonModal
+          isOpen={teamChange.open}
+          onDidDismiss={closeTeamChange}
+          className="od-team-modal"
+        >
+          {/* A plain div, not an IonContent. IonContent is a flex child that
+              reports no intrinsic height, so pairing it with --height: auto
+              collapses the sheet to nothing and the modal opens invisible -
+              which reads exactly like the buttons doing nothing at all. */}
+          <div className="od-team-sheet">
+            {(() => {
+              const row = teamChange.row;
+              if (!row) return null;
+              const dFrom = ymd(row?.DateFrom);
+              const dTo = ymd(row?.DateTo) || dFrom;
+              // A duty row that does not parse must not throw here - an
+              // exception inside the modal body unmounts the whole page.
+              let onDuty: any[] = [];
+              try {
+                onDuty = dutyPeople(row || {}).chips || [];
+              } catch (err) {
+                console.error("dutyPeople failed for team dialog:", err);
+              }
+              const onCodes = new Set(
+                onDuty.map((c: any) => String(c.code ?? "").trim()).filter(Boolean)
+              );
+
+              // The duty's own days, spelled the way the rest of the app
+              // spells a date. A native date input renders in whatever
+              // format the browser's locale prefers - 08/06/2026 for the
+              // 6th of August - and there is no attribute that changes
+              // that, so the field is a list rather than a date input.
+              const dayChoices: { value: string; label: string }[] = [];
+              if (dFrom) {
+                const cur = moment(dFrom, "YYYY-MM-DD");
+                const end = moment(dTo || dFrom, "YYYY-MM-DD");
+                let guard = 0;
+                while (cur.isSameOrBefore(end, "day") && guard < 400) {
+                  dayChoices.push({
+                    value: cur.format("YYYY-MM-DD"),
+                    label: cur.format("DD-MM-YYYY"),
+                  });
+                  cur.add(1, "day");
+                  guard += 1;
+                }
+              }
+
+              const options =
+                teamChange.mode === "add"
+                  ? team
+                      .filter(
+                        (t: any) => !onCodes.has(String(t.EmpCode ?? "").trim())
+                      )
+                      .map((t: any) => ({
+                        code: String(t.EmpCode ?? "").trim(),
+                        name: String(t.EmpName ?? "")
+                          .replace(/^\s*\d+\s*-\s*/, "")
+                          .trim()
+                          .toUpperCase(),
+                      }))
+                      .filter((o: any) => o.code)
+                  : onDuty.map((c: any) => ({
+                      code: String(c.code ?? "").trim(),
+                      name: c.name,
+                    }));
+
+              return (
+                <>
+                  <h2 style={{ margin: "4px 0 2px", fontSize: "18px" }}>
+                    {teamChange.mode === "add"
+                      ? "Add someone to this duty"
+                      : "Take someone off this duty"}
+                  </h2>
+                  <p style={{ margin: "0 0 14px", color: "#64748b", fontSize: "13px" }}>
+                    Duty #{String(row?.id ?? "")} &middot; {prettyDay(dFrom)}
+                    {dTo && dTo !== dFrom ? " to " + prettyDay(dTo) : ""}
+                  </p>
+
+                  <IonItem>
+                    <IonLabel position="stacked">
+                      {teamChange.mode === "add" ? "Who joins" : "Who drops"}
+                    </IonLabel>
+                    <IonSelect
+                      value={teamChange.empCode}
+                      placeholder="Select employee"
+                      interface="popover"
+                      onIonChange={(e) =>
+                        setTeamChange((s) => ({
+                          ...s,
+                          empCode: String(e.detail.value ?? ""),
+                        }))
+                      }
+                    >
+                      {options.map((o: any) => (
+                        <IonSelectOption key={o.code} value={o.code}>
+                          {o.name} ({o.code})
+                        </IonSelectOption>
+                      ))}
+                    </IonSelect>
+                  </IonItem>
+
+                  <IonItem lines="none">
+                    <IonLabel position="stacked">
+                      {teamChange.mode === "add"
+                        ? "On the duty from"
+                        : "Off the duty from"}
+                    </IonLabel>
+                    {/* A list of the duty's own days rather than a date
+                        input: the range is at most a few days, every one
+                        of them reads DD-MM-YYYY, and a day outside the
+                        duty cannot be picked at all. */}
+                    <IonSelect
+                      value={teamChange.date}
+                      placeholder="Select date"
+                      interface="popover"
+                      onIonChange={(e) =>
+                        setTeamChange((s) => ({
+                          ...s,
+                          date: String(e.detail.value ?? ""),
+                        }))
+                      }
+                    >
+                      {dayChoices.map((d) => (
+                        <IonSelectOption key={d.value} value={d.value}>
+                          {d.label}
+                        </IonSelectOption>
+                      ))}
+                    </IonSelect>
+                  </IonItem>
+
+                  <p style={{ color: "#64748b", fontSize: "12px", margin: "10px 2px 0" }}>
+                    {teamChange.mode === "add"
+                      ? "They count as on duty from this day onwards, and DA and TA are worked out from it."
+                      : "This is the first day they are no longer on the duty. Pick the duty's own first day to take them off it altogether."}
+                  </p>
+
+                  <div style={{ display: "flex", gap: "10px", marginTop: "22px" }}>
+                    <IonButton
+                      expand="block"
+                      style={{ flex: 1 }}
+                      disabled={teamChange.busy}
+                      onClick={submitTeamChange}
+                    >
+                      {teamChange.busy
+                        ? "Saving..."
+                        : teamChange.mode === "add"
+                          ? "Add"
+                          : "Remove"}
+                    </IonButton>
+                    <IonButton
+                      expand="block"
+                      fill="outline"
+                      color="medium"
+                      style={{ flex: 1 }}
+                      disabled={teamChange.busy}
+                      onClick={closeTeamChange}
+                    >
+                      Cancel
+                    </IonButton>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </IonModal>
 
         <IonModal isOpen={showDayTripModal} onDidDismiss={closeDayTripModal}>
           <IonContent className="ion-padding" ref={modalContentRef}>

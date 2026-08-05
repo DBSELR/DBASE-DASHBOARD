@@ -1990,3 +1990,109 @@ ion-datetime {
   font-weight: 500;
   color: #a8b3c4;
 }
+
+
+/* ---- team requests: matched to the Duty Manager card ---- */
+/* Same three moves as OnDuties.css - the id leads the heading, the approval
+   trail rides in the header beside the status pill, and every spacing value
+   is a tightening of the rule above it. Nothing here changes a colour, a
+   border or a layout. */
+
+.dm-id-badge.lead {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+/* Wraps rather than squeezing, so on a narrow screen the trail drops onto
+   its own line instead of crushing the status pill. */
+.dm-head-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 62%;
+}
+
+/* No top margin here - it earned that below the card body, and in a header
+   row it would only push the pill off centre. */
+.dm-head-right .dm-chain {
+  margin-top: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.dm-card {
+  padding: 12px 14px;
+  margin: 0 14px 12px;
+  border-radius: 16px;
+}
+
+.dm-card-header {
+  margin-bottom: 10px;
+}
+
+.dm-college-name {
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.dm-subtitle {
+  font-size: 0.78rem;
+}
+
+.dm-grid {
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.dm-info-box {
+  padding: 8px 10px;
+  border-radius: 10px;
+  gap: 3px;
+}
+
+.dm-item-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.2px;
+}
+
+.dm-item-value {
+  font-size: 0.8rem;
+}
+
+.dm-emp-chip {
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.dm-view-link {
+  font-size: 0.78rem;
+}
+
+.dm-final-pill {
+  height: 36px;
+  margin-top: 10px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.dm-action-row {
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.dm-approve-btn,
+.dm-reject-btn {
+  height: 38px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+@media screen and (max-width: 768px) {
+  .dm-head-right {
+    max-width: 100%;
+  }
+}

@@ -805,3 +805,17 @@
 .rm-modal-large {
   max-width: 520px;
 }
+
+/* Duty id beside the employee, so the descending sort is legible. */
+.rm-duty-id {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  vertical-align: middle;
+}

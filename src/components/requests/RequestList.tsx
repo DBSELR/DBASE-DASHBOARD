@@ -1799,19 +1799,58 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                   />
                   <div className="dm-card-header">
                     <div style={{ flex: 1 }}>
+                      {/* Same heading as the Duty Manager card: the id leads,
+                          then the duty itself - type and branch - which used
+                          to cost two labelled boxes down in the grid. "Party"
+                          stood in for a column most duties never fill, so it
+                          survives only as the fallback for a duty carrying
+                          neither a type nor a branch. */}
                       <div className="dm-college-name">
-                        {item.College || "Party"}
-                        <span className="dm-id-badge">#{item.lid}</span>
+                        <span className="dm-id-badge lead">#{item.lid}</span>
+                        {(() => {
+                          const t = String(item.OnDutyType || "").trim();
+                          const b = String(item.Branch || "").trim();
+                          const head = [t, b].filter(Boolean).join(" - ");
+                          return head || String(item.College || "").trim() || "Duty";
+                        })()}
+                        {/* Why they are at that branch travelled with the
+                            branch in the old box, so it travels with it
+                            here too. */}
+                        {!!item.BranchChangeType && (
+                          <span style={{ color: "#64748b", fontWeight: 600 }}>
+                            {" "}
+                            &bull; {item.BranchChangeType}
+                          </span>
+                        )}
                       </div>
                       <div className="dm-subtitle">{item.Description}</div>
                     </div>
 
-                    <span
-                      className={`dm-status-dot ${overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
-                        }`}
-                    >
-                      {overallApproved ? "Approved" : overallRejected ? "Rejected" : "Pending"}
-                    </span>
+                    {/* The approval trail rides up here beside the status
+                        pill rather than sitting at the foot of the card, so
+                        how far a request has got costs no scrolling. */}
+                    <div className="dm-head-right">
+                      {approvalChain.length > 0 && (
+                        <div className="dm-chain">
+                          <span className="dm-chain-label">Approval Status:</span>{" "}
+                          {approvalChain.map((step, idx) => (
+                            <React.Fragment key={idx}>
+                              <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
+                              {idx < approvalChain.length - 1 && (
+                                <span className="dm-chain-arrow"> → </span>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
+
+                      <span
+                        className={`dm-status-dot ${overallApproved ? "approved" : overallRejected ? "rejected" : "pending"
+                          }`}
+                      >
+                        {overallApproved ? "Approved" : overallRejected ? "Rejected" : "Pending"}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="dm-grid">
@@ -1892,28 +1931,6 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       </div>
                     )}
 
-                    {!!item.OnDutyType && (
-                      <div className="dm-info-box">
-                        <span className="dm-item-label">Duty Type</span>
-                        <span className="dm-item-value">{item.OnDutyType}</span>
-                      </div>
-                    )}
-
-                    {!!item.Branch && (
-                      <div className="dm-info-box">
-                        <span className="dm-item-label">Branch</span>
-                        <span className="dm-item-value">
-                          {item.Branch}
-                          {/* Why they are at that branch belongs with the
-                              branch, not in a box of its own. This is the
-                              line an approver is weighing. */}
-                          {item.BranchChangeType && (
-                            <span style={{ color: "#64748b" }}> • {item.BranchChangeType}</span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-
                     {/* Only marked days are stored, so unlike the entry form
                         there is no unmarked counterpart to show - every pill
                         here is a green one and the count carries the rest.
@@ -1975,23 +1992,6 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       </a>
                     </div>
                   </div>
-
-                  {/* Approval trail: one role per RA slot, colored by that
-                    slot's own status - approved (green) / rejected (red) /
-                    still pending (blue) - instead of a single pill. */}
-                  {approvalChain.length > 0 && (
-                    <div className="dm-chain">
-                      <span className="dm-chain-label">Approval Status:</span>{" "}
-                      {approvalChain.map((step, idx) => (
-                        <React.Fragment key={idx}>
-                          <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
-                          {idx < approvalChain.length - 1 && (
-                            <span className="dm-chain-arrow"> → </span>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  )}
 
                   {/* Approve/Reject only when it's actually this viewer's
                     turn - being an approver in the chain isn't enough. */}

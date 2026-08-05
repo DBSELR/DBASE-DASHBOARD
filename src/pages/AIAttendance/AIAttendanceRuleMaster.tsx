@@ -1490,7 +1490,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                 <div className="rm-card rm-overrides-list">
                   <div className="rm-list-header">
                     <h3>Auto Overrides</h3>
-                    <span className="rm-auto-note">from approved on-duties &middot; next 7 days &middot; read-only</span>
+                    <span className="rm-auto-note">from approved on-duties &middot; next 7 days &middot; read-only &middot; a duty split across reporting and non-reporting days shows one line per stretch</span>
                   </div>
                   <table className="rm-table">
                     <thead>
@@ -1505,19 +1505,45 @@ const AIAttendanceRuleMaster: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {autoOverrides.map((a, i) => (
+                      {/* Newest duty first. The rows arrive in whatever order
+                          the query produced them, which floated the oldest
+                          stretch to the top - and the duty someone just raised
+                          is the one they are on this screen to check. The
+                          original position is the tie-break, so a duty split
+                          into a reporting and a non-reporting stretch still
+                          reads first-day-first within its own id. A row whose
+                          id will not parse sorts last rather than throwing the
+                          comparison off. */}
+                      {autoOverrides
+                        .map((a, i) => ({ a, i }))
+                        .sort((x, y) => {
+                          const nx = parseInt(String(x.a.dutyId ?? ''), 10);
+                          const ny = parseInt(String(y.a.dutyId ?? ''), 10);
+                          const vx = isNaN(nx) ? -1 : nx;
+                          const vy = isNaN(ny) ? -1 : ny;
+                          if (vx !== vy) return vy - vx;
+                          return x.i - y.i;
+                        })
+                        .map(({ a, i }) => (
                         <tr key={`${a.dutyId}-${a.empId}-${i}`}>
                           <td>
-                            <div className="rm-emp-name">{a.empName || a.empId}</div>
+                            <div className="rm-emp-name">
+                              {a.empName || a.empId}
+                              {/* Without the id on show, sorting by it looks
+                                  like no order at all. */}
+                              {!!a.dutyId && (
+                                <span className="rm-duty-id">#{a.dutyId}</span>
+                              )}
+                            </div>
                             <div className="rm-emp-sub">{a.designation}</div>
                           </td>
                           <td>{a.homeBranch || <span className="rm-duty-none">&#8212;</span>}</td>
                           <td>
                             <span
                               className="rm-badge-duty"
-                              title={a.onDutyAnywhere
+                              title={a.ruleSource || (a.onDutyAnywhere
                                 ? (a.onDutyType || 'On') + ' duty \u2013 punch allowed anywhere'
-                                : (a.onDutyType || 'Branch') + ' duty at ' + (a.onDutyBranch || 'branch')}>
+                                : (a.onDutyType || 'Branch') + ' duty at ' + (a.onDutyBranch || 'branch'))}>
                               {a.onDutyAnywhere ? 'OnDuty' : (a.onDutyBranch || 'OnDuty')}
                             </span>
                           </td>

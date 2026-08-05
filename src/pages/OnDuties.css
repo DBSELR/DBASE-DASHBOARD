@@ -940,3 +940,229 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------------------------
+   Add / Remove beside the Employees label on an approved duty.
+   Deliberately small and quiet: they sit next to a label, not in the
+   action row, and they should read as an amendment to the list below
+   them rather than as another way to approve or reject the duty.
+   ------------------------------------------------------------------ */
+.od-team-btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  line-height: 16px;
+  background: #eef2ff;
+}
+
+.od-team-btn.add {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.od-team-btn.remove {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.od-team-btn:hover {
+  filter: brightness(0.96);
+}
+
+/* A short form on a small sheet - full height would leave two fields
+   floating in a page of white. */
+.od-team-modal {
+  --width: min(420px, 92vw);
+  --height: auto;
+  --min-height: 320px;
+  --max-height: 90vh;
+  --border-radius: 14px;
+}
+
+/* The sheet body. It carries its own padding and scrolling because the
+   modal is auto-height - an IonContent here would measure as zero. */
+.od-team-modal .od-team-sheet {
+  padding: 18px 18px 22px;
+  background: #ffffff;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Only the overflow is ours - leaving Ionic's own positioning of the
+   wrapper alone, since overriding it is what un-centres the sheet. */
+.od-team-modal::part(content) {
+  overflow: hidden;
+}
+
+/* A day toggle. Off is the same grey a disabled day already reads as
+   elsewhere, on is the same green as the pills on the card, so the
+   dialog and the card agree about what a marked day looks like. */
+.od-attday-chip {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.od-attday-chip.on {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.od-attday-chip:hover {
+  filter: brightness(0.97);
+}
+
+
+/* ---- compact duty log ---- */
+/* Same card, less air. Every number below is a tightening of a rule that
+   already exists above; nothing here changes a colour, a border or a
+   layout, so a duty card reads exactly as it did - it just stops costing
+   an entire screen each. Scoped to this page's content so the shared
+   .premium-card / .item-label rules keep their original spacing on every
+   other page that uses them. */
+
+.onduties-content .premium-card {
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 16px;
+}
+
+.onduties-content .card-header {
+  margin-bottom: 10px;
+}
+
+.onduties-content .college-name {
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.onduties-content .duty-subtitle {
+  font-size: 0.78rem;
+}
+
+.onduties-content .duty-info-box {
+  padding: 8px 10px;
+  border-radius: 10px;
+  gap: 3px;
+}
+
+.onduties-content .item-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.2px;
+}
+
+.onduties-content .item-value {
+  font-size: 0.8rem;
+}
+
+.onduties-content .dm-chain {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.onduties-content .duty-final-pill {
+  height: 36px;
+  margin-top: 10px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.onduties-content .duty-action-row {
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.onduties-content .duty-action-row .compact-duty-approve,
+.onduties-content .duty-action-row .compact-duty-reject {
+  height: 38px;
+}
+
+.onduties-content .duty-view-link {
+  font-size: 0.78rem;
+}
+
+/* The small controls that sit inside a card shrink with it, or they end
+   up taller than the box they label. */
+.onduties-content .od-team-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.onduties-content .od-attday-chip {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.onduties-content .history-section-title {
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
+}
+
+
+/* ---- duty header: status, trail and DA/TA together ---- */
+/* The right-hand end of the card header. It wraps rather than squeezing,
+   so on a narrow screen the trail drops onto its own line instead of
+   crushing the status pill. */
+.onduties-content .dm-head-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 62%;
+}
+
+/* No top margin here - it earned that when it sat below the card body,
+   and in a header row it would only push the pill off centre. */
+.onduties-content .dm-head-right .dm-chain {
+  margin-top: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.onduties-content .dm-data-link {
+  border: 1px solid #86efac;
+  background: #ecfdf5;
+  color: #15803d;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.onduties-content .dm-data-link:hover {
+  filter: brightness(0.97);
+}
+
+@media screen and (max-width: 768px) {
+  .onduties-content .dm-head-right {
+    max-width: 100%;
+  }
+}
+
+/* Leading id badge: the margin that separated it from the text on its left
+   now has to sit on its right instead. */
+.dm-id-badge.lead {
+  margin-left: 0;
+  margin-right: 8px;
+}
