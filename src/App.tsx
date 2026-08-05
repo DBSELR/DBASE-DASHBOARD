@@ -92,7 +92,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
 
-AnswerKeyImport
+import ErrorBoundary from "./components/ErrorBoundary";
 
 setupIonicReact();
 
@@ -178,7 +178,8 @@ const App: React.FC = () => {
           <IonSplitPane contentId="main" className={isLoggingOut ? "logout-zoom-out" : ""}>
             <Menu />
             <IonRouterOutlet id="main" animated={false}>
-              <Switch>
+              <ErrorBoundary>
+                <Switch>
                   
                   <Route exact path="/home" component={Home} />
                   <Route exact path="/eprofile" component={EmpProfile} />
@@ -245,8 +246,9 @@ const App: React.FC = () => {
                   <Route exact path="/privacy" component={PrivacyPolicy} />
                   <Route exact path="/account-deletion" component={AccountDeletion} />
 
-                <Redirect from="*" to="/home" />
-              </Switch>
+                  <Redirect from="*" to="/home" />
+                </Switch>
+              </ErrorBoundary>
             </IonRouterOutlet>
           </IonSplitPane>
         )}

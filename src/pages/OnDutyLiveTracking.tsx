@@ -1,11 +1,14 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import {
   IonPage,
   IonContent,
   IonSpinner,
   IonToast,
   IonMenuButton,
+  useIonViewDidEnter,
+  useIonViewWillLeave,
 } from "@ionic/react";
+import { useHistory } from "react-router-dom";
 import {
   Search,
   CloudSun,
@@ -26,6 +29,7 @@ import {
   Menu as MenuIcon,
   MessageCircle,
   Compass,
+  ArrowLeft,
 } from "lucide-react";
 import axios from "axios";
 import * as signalR from "@microsoft/signalr";
@@ -33,18 +37,23 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { API_BASE } from "../config";
 import "./OnDutyLiveTracking.css";
+import ErrorBoundary from "../components/ErrorBoundary";
 
-// Fix Leaflet Vite asset bundler icon paths
+// Fix Leaflet Vite asset bundler icon paths safely
 import markerIconPng from "leaflet/dist/images/marker-icon.png";
 import markerIconRetinaPng from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadowPng from "leaflet/dist/images/marker-shadow.png";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIconPng,
-  iconRetinaUrl: markerIconRetinaPng,
-  shadowUrl: markerShadowPng,
-});
+try {
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconUrl: markerIconPng,
+    iconRetinaUrl: markerIconRetinaPng,
+    shadowUrl: markerShadowPng,
+  });
+} catch (e) {
+  console.warn("[OnDutyLiveTracking] Leaflet icon fix error:", e);
+}
 
 interface ActiveSessionItem {
   SessionId: number;
@@ -53,10 +62,10 @@ interface ActiveSessionItem {
   Mobile?: string;
   Designation?: string;
   Department?: string;
-  SessionType: string;
-  DutyId: string;
-  SessionStartTime: string;
-  SessionStatus: string;
+  SessionType?: string;
+  DutyId?: string;
+  SessionStartTime?: string;
+  SessionStatus?: string;
   ClientOrBranch?: string;
   DutyDescription?: string;
   TransportMode?: string;
@@ -71,7 +80,7 @@ interface ActiveSessionItem {
   IsCharging?: boolean;
   PowerSaveMode?: boolean;
   DevicePlatform?: string;
-  MovementStatus: "Moving" | "Idle" | "Offline" | string;
+  MovementStatus?: "Moving" | "Idle" | "Offline" | string;
   LastUpdated?: string;
   SecondsSinceLastUpdate?: number;
   Image?: string;
@@ -90,18 +99,23 @@ interface LocationLogItem {
 }
 
 const authHeaders = () => {
-  const raw =
-    localStorage.getItem("token") ||
-    localStorage.getItem("Token") ||
-    sessionStorage.getItem("token") ||
-    "";
-  const token = raw.replace(/^"|"$/g, "");
-  return token
-    ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
-    : {};
+  try {
+    const raw =
+      localStorage.getItem("token") ||
+      localStorage.getItem("Token") ||
+      sessionStorage.getItem("token") ||
+      "";
+    const token = raw.replace(/^"|"$/g, "");
+    return token
+      ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+      : {};
+  } catch {
+    return {};
+  }
 };
 
-export const OnDutyLiveTracking: React.FC = () => {
+export const OnDutyLiveTrackingContent: React.FC = () => {
+  const history = useHistory();
   const [sessions, setSessions] = useState<ActiveSessionItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -133,286 +147,341 @@ export const OnDutyLiveTracking: React.FC = () => {
   const replayPolylineRef = useRef<L.Polyline | null>(null);
   const replayMarkerRef = useRef<L.Marker | null>(null);
   const replayTimerRef = useRef<any>(null);
+  const isComponentMounted = useRef<boolean>(true);
+
+  // Safely destroy Leaflet Map instance
+  const destroyMap = useCallback(() => {
+    try {
+      if (replayTimerRef.current) {
+        clearInterval(replayTimerRef.current);
+        replayTimerRef.current = null;
+      }
+      if (mapRef.current) {
+        mapRef.current.off();
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      markersGroupRef.current = null;
+      trailsGroupRef.current = null;
+      tileLayerRef.current = null;
+      empMarkersMapRef.current = {};
+      replayPolylineRef.current = null;
+      replayMarkerRef.current = null;
+
+      const mapElement = document.getElementById("hero-fullscreen-map");
+      if (mapElement) {
+        delete (mapElement as any)._leaflet_id;
+        mapElement.innerHTML = "";
+      }
+    } catch (e) {
+      console.warn("[OnDutyLiveTracking] Map destroy error:", e);
+    }
+  }, []);
 
   // Fetch Active Sessions
-  const fetchActiveSessions = async () => {
+  const fetchActiveSessions = useCallback(async () => {
     try {
       setLoading(true);
       const res = await axios.get(`${API_BASE}Tracking/active-sessions`, {
         headers: authHeaders(),
+        timeout: 10000,
       });
-      if (res.data && Array.isArray(res.data)) {
+      if (isComponentMounted.current && res.data && Array.isArray(res.data)) {
         setSessions(res.data);
       }
     } catch (err: any) {
       console.error("[LiveTracking] Fetch sessions error:", err);
-      setToast({ msg: "Failed to load active tracking sessions", color: "danger" });
+      if (isComponentMounted.current) {
+        setToast({ msg: "Failed to load active tracking sessions", color: "danger" });
+      }
     } finally {
-      setLoading(false);
+      if (isComponentMounted.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  // Map Tile Sources
+  const tileUrls = useMemo(
+    () => ({
+      streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      voyager: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    }),
+    []
+  );
+
+  // Initialize Map Instance
+  const initMap = useCallback(() => {
+    const mapElement = document.getElementById("hero-fullscreen-map");
+    if (!mapElement) return;
+
+    if (mapRef.current) {
+      mapRef.current.invalidateSize();
+      return;
+    }
+
+    // Clean DOM node if stale Leaflet instance exists
+    delete (mapElement as any)._leaflet_id;
+    mapElement.innerHTML = "";
+
+    try {
+      const initialLat = 16.5062; // Vijayawada/AP region default center
+      const initialLng = 80.648;
+
+      const map = L.map(mapElement, {
+        center: [initialLat, initialLng],
+        zoom: 12,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      // Canvas Grid Layer Fallback for Intranet Proxy Networks
+      const LocalGridLayer = (L.GridLayer as any).extend({
+        createTile: function (coords: any) {
+          const tile = document.createElement("canvas");
+          const size = this.getTileSize();
+          tile.width = size.x;
+          tile.height = size.y;
+          const ctx = tile.getContext("2d");
+
+          if (ctx) {
+            ctx.fillStyle = "#f8fafc";
+            ctx.fillRect(0, 0, size.x, size.y);
+
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.lineWidth = 0.8;
+            const step = 64;
+            for (let x = 0; x <= size.x; x += step) {
+              ctx.beginPath();
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x, size.y);
+              ctx.stroke();
+            }
+            for (let y = 0; y <= size.y; y += step) {
+              ctx.beginPath();
+              ctx.moveTo(0, y);
+              ctx.lineTo(size.x, y);
+              ctx.stroke();
+            }
+
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, size.y * 0.4);
+            ctx.lineTo(size.x, size.y * 0.6);
+            ctx.stroke();
+
+            ctx.strokeStyle = "#93c5fd";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(size.x * 0.2, 0);
+            ctx.bezierCurveTo(size.x * 0.3, size.y * 0.5, size.x * 0.7, size.y * 0.5, size.x * 0.9, size.y);
+            ctx.stroke();
+
+            ctx.fillStyle = "#64748b";
+            ctx.font = "600 11px Inter, system-ui, sans-serif";
+            ctx.fillText(`ZONE ${coords.x}-${coords.y}`, 12, 22);
+
+            if (coords.x % 2 === 0 && coords.y % 2 === 0) {
+              ctx.fillStyle = "#4f46e5";
+              ctx.font = "700 10px Inter, sans-serif";
+              ctx.fillText("📍 Vijayawada - Benz Circle", 18, size.y - 20);
+              ctx.fillStyle = "#059669";
+              ctx.fillText("⛽ HP Petrol Pump", size.x - 110, 34);
+            }
+          }
+          return tile;
+        },
+      });
+
+      const primaryTile = L.tileLayer(tileUrls.streets, {
+        maxZoom: 19,
+        subdomains: ["a", "b", "c"],
+      });
+
+      let errCount = 0;
+      primaryTile.on("tileerror", () => {
+        errCount++;
+        if (errCount >= 2 && isComponentMounted.current) {
+          setTileBlocked(true);
+          if (tileLayerRef.current && mapRef.current) {
+            mapRef.current.removeLayer(tileLayerRef.current);
+          }
+          const canvasGrid = new LocalGridLayer();
+          canvasGrid.addTo(map);
+          setTimeout(() => {
+            if (mapRef.current) mapRef.current.invalidateSize();
+          }, 100);
+        }
+      });
+
+      primaryTile.addTo(map);
+      tileLayerRef.current = primaryTile;
+
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+
+      markersGroupRef.current = L.layerGroup().addTo(map);
+      trailsGroupRef.current = L.layerGroup().addTo(map);
+      mapRef.current = map;
+
+      setTimeout(() => {
+        if (mapRef.current) mapRef.current.invalidateSize();
+      }, 200);
+      setTimeout(() => {
+        if (mapRef.current) mapRef.current.invalidateSize();
+      }, 600);
+    } catch (mapErr) {
+      console.warn("[OnDutyLiveTracking] Leaflet init error:", mapErr);
+    }
+  }, [tileUrls]);
+
+  // Ionic Lifecycle Integration
+  useIonViewDidEnter(() => {
+    initMap();
+    fetchActiveSessions();
+    if (mapRef.current) {
+      mapRef.current.invalidateSize();
+    }
+  });
+
+  useIonViewWillLeave(() => {
+    if (mapRef.current) {
+      mapRef.current.invalidateSize();
+    }
+  });
 
   // SignalR Realtime Stream Setup
   useEffect(() => {
-    const rawToken =
-      localStorage.getItem("token") ||
-      localStorage.getItem("Token") ||
-      sessionStorage.getItem("token") ||
-      "";
-    const token = rawToken.replace(/^"|"$/g, "");
+    isComponentMounted.current = true;
+    let hubConnection: signalR.HubConnection | null = null;
 
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${API_BASE.replace(/\/api\/$/, "/")}trackingHub`, {
-        accessTokenFactory: () => token,
-        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
-      })
-      .withAutomaticReconnect()
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
+    try {
+      const rawToken =
+        localStorage.getItem("token") ||
+        localStorage.getItem("Token") ||
+        sessionStorage.getItem("token") ||
+        "";
+      const token = rawToken.replace(/^"|"$/g, "");
 
-    connection
-      .start()
-      .then(() => {
-        setSignalrConnected(true);
-        console.log("[TrackingHub] Connected to live SignalR stream");
+      const cleanApiBase = API_BASE.replace(/\/api\/$/, "/");
+      hubConnection = new signalR.HubConnectionBuilder()
+        .withUrl(`${cleanApiBase}trackingHub`, {
+          accessTokenFactory: () => token,
+          transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+        })
+        .withAutomaticReconnect()
+        .configureLogging(signalR.LogLevel.Warning)
+        .build();
 
-        connection.on("ReceiveLiveLocation", (point: any) => {
-          setSessions((prev) =>
-            prev.map((s) => {
-              if (s.EmpCode === point.EmpCode) {
-                // Update Trail History
-                const currentTrail = empTrailsRef.current[s.EmpCode] || [];
-                const updatedTrail = [...currentTrail, [point.Latitude, point.Longitude] as [number, number]].slice(-10);
-                empTrailsRef.current[s.EmpCode] = updatedTrail;
+      hubConnection
+        .start()
+        .then(() => {
+          if (isComponentMounted.current) {
+            setSignalrConnected(true);
+          }
 
-                return {
-                  ...s,
-                  SessionId: point.SessionId || s.SessionId,
-                  Latitude: point.Latitude,
-                  Longitude: point.Longitude,
-                  Speed: point.Speed,
-                  Heading: point.Heading,
-                  Accuracy: point.Accuracy,
-                  BatteryLevel: point.BatteryLevel,
-                  IsCharging: point.IsCharging,
-                  MovementStatus: point.MovementStatus || "Moving",
-                  LastUpdated: point.RecordedAt || new Date().toISOString(),
-                  SecondsSinceLastUpdate: 0,
-                };
-              }
-              return s;
-            })
-          );
+          if (hubConnection) {
+            hubConnection.on("ReceiveLiveLocation", (point: any) => {
+              if (!isComponentMounted.current || !point || !point.EmpCode) return;
+              setSessions((prev) =>
+                prev.map((s) => {
+                  if (s.EmpCode === point.EmpCode) {
+                    const currentTrail = empTrailsRef.current[s.EmpCode] || [];
+                    const updatedTrail = [
+                      ...currentTrail,
+                      [point.Latitude, point.Longitude] as [number, number],
+                    ].slice(-10);
+                    empTrailsRef.current[s.EmpCode] = updatedTrail;
+
+                    return {
+                      ...s,
+                      SessionId: point.SessionId || s.SessionId,
+                      Latitude: point.Latitude,
+                      Longitude: point.Longitude,
+                      Speed: point.Speed,
+                      Heading: point.Heading,
+                      Accuracy: point.Accuracy,
+                      BatteryLevel: point.BatteryLevel,
+                      IsCharging: point.IsCharging,
+                      MovementStatus: point.MovementStatus || "Moving",
+                      LastUpdated: point.RecordedAt || new Date().toISOString(),
+                      SecondsSinceLastUpdate: 0,
+                    };
+                  }
+                  return s;
+                })
+              );
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn("[TrackingHub] SignalR fallback warning:", err);
+          if (isComponentMounted.current) {
+            setSignalrConnected(false);
+          }
         });
-      })
-      .catch((err) => {
-        console.warn("[TrackingHub] SignalR fallback:", err);
-        setSignalrConnected(false);
-      });
+    } catch (e) {
+      console.warn("[TrackingHub] SignalR setup catch:", e);
+    }
 
     return () => {
-      if (connection) connection.stop();
+      isComponentMounted.current = false;
+      if (hubConnection) {
+        hubConnection.stop().catch(() => {});
+      }
+      destroyMap();
     };
-  }, []);
-
-  // Initial Load
-  useEffect(() => {
-    fetchActiveSessions();
-  }, []);
-
-  // Map Tile Sources (OpenStreetMap #1 for corporate proxy compatibility)
-  const tileUrls = {
-    streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    voyager: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  };
-
-  // Initialize Map
-  useEffect(() => {
-    if (mapRef.current) return;
-    let retryTimer: any = null;
-
-    const handleResize = () => {
-      if (mapRef.current) mapRef.current.invalidateSize();
-    };
-
-    const initMap = () => {
-      if (mapRef.current) return;
-      const mapElement = document.getElementById("hero-fullscreen-map");
-      if (!mapElement) {
-        retryTimer = setTimeout(initMap, 50);
-        return;
-      }
-
-      if ((mapElement as any)._leaflet_id) {
-        (mapElement as any)._leaflet_id = null;
-      }
-
-      let map: L.Map;
-      try {
-        const initialLat = 16.5062; // Vijayawada/AP region default center
-        const initialLng = 80.648;
-
-        map = L.map("hero-fullscreen-map", {
-          center: [initialLat, initialLng],
-          zoom: 12,
-          zoomControl: false,
-          attributionControl: false,
-        });
-      } catch (mapErr) {
-        console.warn("[OnDutyLiveTracking] Leaflet init catch:", mapErr);
-        return;
-      }
-
-    // Rich Indian Map Vector Canvas Fallback for Intranet Proxy Networks
-    const LocalGridLayer = (L.GridLayer as any).extend({
-      createTile: function (coords: any) {
-        const tile = document.createElement("canvas");
-        const size = this.getTileSize();
-        tile.width = size.x;
-        tile.height = size.y;
-        const ctx = tile.getContext("2d");
-
-        if (ctx) {
-          // Soft slate canvas fill
-          ctx.fillStyle = "#f8fafc";
-          ctx.fillRect(0, 0, size.x, size.y);
-
-          // Secondary Grid
-          ctx.strokeStyle = "#e2e8f0";
-          ctx.lineWidth = 0.8;
-          const step = 64;
-          for (let x = 0; x <= size.x; x += step) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, size.y);
-            ctx.stroke();
-          }
-          for (let y = 0; y <= size.y; y += step) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(size.x, y);
-            ctx.stroke();
-          }
-
-          // Draw Highway Lines (NH-16 / NH-65 representation)
-          ctx.strokeStyle = "#cbd5e1";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(0, size.y * 0.4);
-          ctx.lineTo(size.x, size.y * 0.6);
-          ctx.stroke();
-
-          // River Path (Krishna River representation)
-          ctx.strokeStyle = "#93c5fd";
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(size.x * 0.2, 0);
-          ctx.bezierCurveTo(size.x * 0.3, size.y * 0.5, size.x * 0.7, size.y * 0.5, size.x * 0.9, size.y);
-          ctx.stroke();
-
-          // Indian Landmark Labels & Sector Markings
-          ctx.fillStyle = "#64748b";
-          ctx.font = "600 11px Inter, system-ui, sans-serif";
-          ctx.fillText(`ZONE ${coords.x}-${coords.y}`, 12, 22);
-
-          if (coords.x % 2 === 0 && coords.y % 2 === 0) {
-            ctx.fillStyle = "#4f46e5";
-            ctx.font = "700 10px Inter, sans-serif";
-            ctx.fillText("📍 Vijayawada - Benz Circle", 18, size.y - 20);
-            ctx.fillStyle = "#059669";
-            ctx.fillText("⛽ HP Petrol Pump", size.x - 110, 34);
-          }
-        }
-        return tile;
-      },
-    });
-
-    const primaryTile = L.tileLayer(tileUrls.streets, {
-      maxZoom: 19,
-      subdomains: ["a", "b", "c"],
-    });
-
-    let errCount = 0;
-    primaryTile.on("tileerror", () => {
-      errCount++;
-      if (errCount >= 2) {
-        setTileBlocked(true);
-        if (tileLayerRef.current && mapRef.current) {
-          mapRef.current.removeLayer(tileLayerRef.current);
-        }
-        const canvasGrid = new LocalGridLayer();
-        canvasGrid.addTo(map);
-        setTimeout(() => {
-          if (mapRef.current) mapRef.current.invalidateSize();
-        }, 100);
-      }
-    });
-
-    primaryTile.addTo(map);
-    tileLayerRef.current = primaryTile;
-
-    L.control.zoom({ position: "bottomright" }).addTo(map);
-
-    const layerGroup = L.layerGroup().addTo(map);
-    const trailsGroup = L.layerGroup().addTo(map);
-    markersGroupRef.current = layerGroup;
-    trailsGroupRef.current = trailsGroup;
-    mapRef.current = map;
-
-    setTimeout(handleResize, 200);
-    setTimeout(handleResize, 600);
-
-    window.addEventListener("resize", handleResize);
-    };
-
-    initMap();
-
-    return () => {
-      if (retryTimer) clearTimeout(retryTimer);
-      window.removeEventListener("resize", handleResize);
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch {}
-        mapRef.current = null;
-      }
-    };
-  }, []);
+  }, [destroyMap]);
 
   // Update Map Layer Style
   useEffect(() => {
     if (!mapRef.current || tileBlocked) return;
-    if (tileLayerRef.current) {
-      mapRef.current.removeLayer(tileLayerRef.current);
+    try {
+      if (tileLayerRef.current) {
+        mapRef.current.removeLayer(tileLayerRef.current);
+      }
+      const newLayer = L.tileLayer(tileUrls[mapStyle], {
+        maxZoom: 19,
+        subdomains: ["a", "b", "c"],
+      });
+      newLayer.addTo(mapRef.current);
+      tileLayerRef.current = newLayer;
+    } catch (e) {
+      console.warn("[OnDutyLiveTracking] Layer update error:", e);
     }
-    const newLayer = L.tileLayer(tileUrls[mapStyle], {
-      maxZoom: 19,
-      subdomains: ["a", "b", "c"],
-    });
-    newLayer.addTo(mapRef.current);
-    tileLayerRef.current = newLayer;
-  }, [mapStyle, tileBlocked]);
+  }, [mapStyle, tileBlocked, tileUrls]);
 
-  // Filtered Sessions List
+  // Filtered Sessions List (Safely guarded against null/undefined)
   const filteredSessions = useMemo(() => {
+    const searchLower = (searchTerm || "").toLowerCase().trim();
     return sessions.filter((s) => {
-      const matchSearch =
-        s.EmpName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.EmpCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.ClientOrBranch && s.ClientOrBranch.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (s.Mobile && s.Mobile.includes(searchTerm));
+      if (!s) return false;
 
-      const secAgo = s.SecondsSinceLastUpdate ?? 0;
-      const isOff = secAgo > 180 || s.MovementStatus === "Offline";
+      const empName = (s.EmpName || "").toLowerCase();
+      const empCode = (s.EmpCode || "").toLowerCase();
+      const client = (s.ClientOrBranch || "").toLowerCase();
+      const mobile = (s.Mobile || "").toLowerCase();
+
+      const matchSearch =
+        !searchLower ||
+        empName.includes(searchLower) ||
+        empCode.includes(searchLower) ||
+        client.includes(searchLower) ||
+        mobile.includes(searchLower);
+
+      const secAgo = typeof s.SecondsSinceLastUpdate === "number" ? s.SecondsSinceLastUpdate : 0;
+      const statusStr = (s.MovementStatus || "").toLowerCase();
+      const isOff = secAgo > 180 || statusStr === "offline";
+
       const statusMatch =
         statusFilter === "All"
           ? true
           : statusFilter === "Offline"
           ? isOff
           : statusFilter === "Moving"
-          ? s.MovementStatus === "Moving" && !isOff
-          : s.MovementStatus === "Idle" && !isOff;
+          ? statusStr === "moving" && !isOff
+          : statusStr === "idle" && !isOff;
 
       return matchSearch && statusMatch;
     });
@@ -424,22 +493,22 @@ export const OnDutyLiveTracking: React.FC = () => {
       idle = 0,
       offline = 0;
     sessions.forEach((s) => {
-      const secAgo = s.SecondsSinceLastUpdate ?? 0;
-      if (secAgo > 180 || s.MovementStatus === "Offline") offline++;
-      else if (s.MovementStatus === "Moving") moving++;
+      if (!s) return;
+      const secAgo = typeof s.SecondsSinceLastUpdate === "number" ? s.SecondsSinceLastUpdate : 0;
+      const statusStr = (s.MovementStatus || "").toLowerCase();
+      if (secAgo > 180 || statusStr === "offline") offline++;
+      else if (statusStr === "moving") moving++;
       else idle++;
     });
     return { total: sessions.length, moving, idle, offline };
   }, [sessions]);
 
   // Swiggy / Rapido Style Animated Vehicle Marker Generator
-  const createRapidoVehicleMarker = (
-    emp: ActiveSessionItem,
-    isSelected: boolean
-  ) => {
-    const secAgo = emp.SecondsSinceLastUpdate ?? 0;
-    const isOff = secAgo > 180 || emp.MovementStatus === "Offline";
-    const status = isOff ? "Offline" : emp.MovementStatus;
+  const createRapidoVehicleMarker = useCallback((emp: ActiveSessionItem, isSelected: boolean) => {
+    const secAgo = typeof emp.SecondsSinceLastUpdate === "number" ? emp.SecondsSinceLastUpdate : 0;
+    const statusStr = (emp.MovementStatus || "Offline").toLowerCase();
+    const isOff = secAgo > 180 || statusStr === "offline";
+    const status = isOff ? "Offline" : emp.MovementStatus || "Idle";
 
     let pulseColor = "#10b981"; // Emerald - Moving
     let statusClass = "pulse-moving";
@@ -453,8 +522,9 @@ export const OnDutyLiveTracking: React.FC = () => {
     }
 
     const heading = emp.Heading || 0;
-    const initial = emp.EmpName ? emp.EmpName.charAt(0).toUpperCase() : "E";
-    const vehicleIcon = emp.TransportMode?.toLowerCase().includes("car") ? "🚗" : "🛵";
+    const empName = emp.EmpName || emp.EmpCode || "Officer";
+    const initial = empName.charAt(0).toUpperCase();
+    const vehicleIcon = (emp.TransportMode || "").toLowerCase().includes("car") ? "🚗" : "🛵";
     const selectedRing = isSelected ? "border: 3px solid #4f46e5; transform: scale(1.18);" : "";
 
     const markerHtml = `
@@ -463,7 +533,7 @@ export const OnDutyLiveTracking: React.FC = () => {
         <div class="marker-photo-box" style="background: ${pulseColor};">
           ${
             emp.Image
-              ? `<img src="${emp.Image}" class="marker-img" />`
+              ? `<img src="${emp.Image}" class="marker-img" alt="${empName}" />`
               : `<span class="marker-initial">${initial}</span>`
           }
         </div>
@@ -480,9 +550,9 @@ export const OnDutyLiveTracking: React.FC = () => {
       iconSize: [44, 44],
       iconAnchor: [22, 22],
     });
-  };
+  }, []);
 
-  // Render & Update Markers & Live Route Tails
+  // Render & Update Markers & Live Route Trails
   useEffect(() => {
     if (!mapRef.current || !markersGroupRef.current || !trailsGroupRef.current) return;
     const layerGroup = markersGroupRef.current;
@@ -493,14 +563,15 @@ export const OnDutyLiveTracking: React.FC = () => {
     const bounds: [number, number][] = [];
 
     sessions.forEach((s) => {
-      if (!s.Latitude || !s.Longitude) return;
+      if (!s || !s.Latitude || !s.Longitude) return;
 
+      const empCodeKey = s.EmpCode || String(s.SessionId || Math.random());
       const isSelected = selectedSession?.EmpCode === s.EmpCode;
       const icon = createRapidoVehicleMarker(s, isSelected);
       const marker = L.marker([s.Latitude, s.Longitude], { icon });
 
-      // Draw Live Route Tail Trail (Last 5 position points)
-      const trail = empTrailsRef.current[s.EmpCode];
+      // Draw Live Route Tail Trail (Last position points)
+      const trail = empTrailsRef.current[empCodeKey];
       if (trail && trail.length > 1) {
         const polyline = L.polyline(trail, {
           color: "#6366f1",
@@ -511,15 +582,16 @@ export const OnDutyLiveTracking: React.FC = () => {
         trailsGroup.addLayer(polyline);
       }
 
+      const empName = s.EmpName || s.EmpCode || "Officer";
       const popupHtml = `
         <div style="padding: 10px; font-family: Inter, sans-serif; min-width: 210px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
             <div style="width: 36px; height: 36px; border-radius: 50%; background: #4f46e5; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">
-              ${s.EmpName ? s.EmpName.charAt(0) : "E"}
+              ${empName.charAt(0)}
             </div>
             <div>
-              <strong style="font-size: 14px; color: #0f172a;">${s.EmpName}</strong>
-              <div style="font-size: 11px; color: #64748b;">${s.Designation || "Officer"} (${s.EmpCode})</div>
+              <strong style="font-size: 14px; color: #0f172a;">${empName}</strong>
+              <div style="font-size: 11px; color: #64748b;">${s.Designation || "Officer"} (${s.EmpCode || "N/A"})</div>
             </div>
           </div>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 6px 0;"/>
@@ -536,14 +608,16 @@ export const OnDutyLiveTracking: React.FC = () => {
       });
 
       layerGroup.addLayer(marker);
-      empMarkersMapRef.current[s.EmpCode] = marker;
+      if (s.EmpCode) {
+        empMarkersMapRef.current[s.EmpCode] = marker;
+      }
       bounds.push([s.Latitude, s.Longitude]);
     });
 
-    if (bounds.length > 0 && !selectedSession) {
+    if (bounds.length > 0 && !selectedSession && mapRef.current) {
       mapRef.current.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [60, 60], maxZoom: 15 });
     }
-  }, [sessions, selectedSession]);
+  }, [sessions, selectedSession, createRapidoVehicleMarker]);
 
   // Center on Employee
   const focusOnEmployee = (s: ActiveSessionItem) => {
@@ -553,10 +627,11 @@ export const OnDutyLiveTracking: React.FC = () => {
         animate: true,
         duration: 1.2,
       });
-      const marker = empMarkersMapRef.current[s.EmpCode];
-      if (marker) marker.openPopup();
+      if (s.EmpCode && empMarkersMapRef.current[s.EmpCode]) {
+        empMarkersMapRef.current[s.EmpCode].openPopup();
+      }
     } else {
-      setToast({ msg: `Waiting for live position ping from ${s.EmpName}`, color: "warning" });
+      setToast({ msg: `Waiting for live position ping from ${s.EmpName || "Officer"}`, color: "warning" });
     }
   };
 
@@ -564,7 +639,7 @@ export const OnDutyLiveTracking: React.FC = () => {
   const fitAllMarkers = () => {
     if (!mapRef.current) return;
     const pts = sessions
-      .filter((s) => s.Latitude && s.Longitude)
+      .filter((s) => s && s.Latitude && s.Longitude)
       .map((s) => [s.Latitude!, s.Longitude!] as [number, number]);
 
     if (pts.length > 0) {
@@ -585,6 +660,7 @@ export const OnDutyLiveTracking: React.FC = () => {
       setLoading(true);
       const res = await axios.get(`${API_BASE}Tracking/session-history?sessionId=${s.SessionId}`, {
         headers: authHeaders(),
+        timeout: 10000,
       });
 
       if (res.data) {
@@ -677,7 +753,7 @@ export const OnDutyLiveTracking: React.FC = () => {
     return () => {
       if (replayTimerRef.current) clearInterval(replayTimerRef.current);
     };
-  }, [isPlayingReplay, replaySpeed, replayLogs]);
+  }, [isPlayingReplay, replaySpeed, replayLogs, createRapidoVehicleMarker]);
 
   // Exit Replay
   const exitReplay = () => {
@@ -691,21 +767,31 @@ export const OnDutyLiveTracking: React.FC = () => {
 
   // Send Instant Location Ping Request
   const pingOfficerLocation = async (emp: ActiveSessionItem) => {
+    const empName = emp.EmpName || emp.EmpCode || "Officer";
     try {
-      setToast({ msg: `🚀 Location ping request sent to ${emp.EmpName}!`, color: "success" });
+      setToast({ msg: `🚀 Location ping request sent to ${empName}!`, color: "success" });
       await axios.post(
         `${API_BASE}Tracking/ping-officer`,
         { empCode: emp.EmpCode },
-        { headers: authHeaders() }
+        { headers: authHeaders(), timeout: 10000 }
       );
     } catch (e) {
-      setToast({ msg: `Location alert triggered for ${emp.EmpName}`, color: "primary" });
+      setToast({ msg: `Location alert triggered for ${empName}`, color: "primary" });
+    }
+  };
+
+  // Handle Back Navigation
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      history.goBack();
+    } else {
+      history.push("/home");
     }
   };
 
   return (
     <IonPage>
-      <IonContent scrollY={false}>
+      <IonContent scrollY={false} className="tracking-page-content">
         <div className="hero-tracking-viewport">
           {/* Fullscreen Hero Map Canvas */}
           <div id="hero-fullscreen-map"></div>
@@ -719,6 +805,11 @@ export const OnDutyLiveTracking: React.FC = () => {
 
           {/* Top Glassmorphism Floating Search Bar & Weather Strip */}
           <div className="top-floating-glass-bar">
+            {/* Back Button for Mobile App & Web */}
+            <button className="back-glass-btn" onClick={handleBack} title="Back to Previous Screen">
+              <ArrowLeft size={18} />
+            </button>
+
             <div className="menu-btn-wrapper">
               <IonMenuButton style={{ color: "#4f46e5" }}>
                 <MenuIcon size={20} />
@@ -729,7 +820,7 @@ export const OnDutyLiveTracking: React.FC = () => {
               <Search size={18} className="search-glass-icon" />
               <input
                 type="text"
-                placeholder="⌕ Search officer name, client, vehicle, or phone..."
+                placeholder="Search officer, client, vehicle, phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -748,7 +839,7 @@ export const OnDutyLiveTracking: React.FC = () => {
             </button>
           </div>
 
-          {/* Top Floating KPI Strip (Colored Top Borders) */}
+          {/* Top Floating KPI Strip */}
           <div className="top-kpi-floating-strip">
             <div className="kpi-glass-chip total">
               <Users size={15} />
@@ -772,7 +863,7 @@ export const OnDutyLiveTracking: React.FC = () => {
             </div>
           </div>
 
-          {/* Left Collapsible Floating Officer Drawer (Ultra-Compact ~55px Cards) */}
+          {/* Left Collapsible Floating Officer Drawer */}
           <div className={`floating-officer-drawer ${drawerCollapsed ? "collapsed" : ""}`}>
             <div className="drawer-handle-bar" onClick={() => setDrawerCollapsed(!drawerCollapsed)}>
               <div className="handle-title">
@@ -797,7 +888,7 @@ export const OnDutyLiveTracking: React.FC = () => {
               ))}
             </div>
 
-            {/* Swiggy/Rapido Ultra-Compact 55px Cards List */}
+            {/* Swiggy/Rapido Ultra-Compact Cards List */}
             <div className="compact-officers-list">
               {loading ? (
                 <div className="loading-state-box">
@@ -810,30 +901,33 @@ export const OnDutyLiveTracking: React.FC = () => {
                   <span>No Officers Found</span>
                 </div>
               ) : (
-                filteredSessions.map((s) => {
-                  const secAgo = s.SecondsSinceLastUpdate ?? 0;
-                  const isOff = secAgo > 180 || s.MovementStatus === "Offline";
-                  const status = isOff ? "Offline" : s.MovementStatus;
+                filteredSessions.map((s, idx) => {
+                  const secAgo = typeof s.SecondsSinceLastUpdate === "number" ? s.SecondsSinceLastUpdate : 0;
+                  const statusStr = (s.MovementStatus || "Offline").toLowerCase();
+                  const isOff = secAgo > 180 || statusStr === "offline";
+                  const status = isOff ? "Offline" : s.MovementStatus || "Idle";
                   const isSelected = selectedSession?.EmpCode === s.EmpCode;
+                  const empName = s.EmpName || s.EmpCode || "Officer";
+                  const initial = empName.charAt(0).toUpperCase();
 
                   return (
                     <div
-                      key={s.EmpCode + "-" + s.DutyId}
+                      key={(s.EmpCode || "emp") + "-" + (s.DutyId || idx)}
                       className={`compact-card-55px ${isSelected ? "selected" : ""}`}
                       onClick={() => focusOnEmployee(s)}
                     >
                       <div className="card-photo-avatar">
                         {s.Image ? (
-                          <img src={s.Image} alt={s.EmpName} />
+                          <img src={s.Image} alt={empName} />
                         ) : (
-                          <span>{s.EmpName ? s.EmpName.charAt(0) : "E"}</span>
+                          <span>{initial}</span>
                         )}
                         <span className={`avatar-status-dot ${status.toLowerCase()}`}></span>
                       </div>
 
                       <div className="card-main-content">
                         <div className="card-top-line">
-                          <span className="officer-name">{s.EmpName}</span>
+                          <span className="officer-name">{empName}</span>
                           <span className={`status-badge-compact ${status.toLowerCase()}`}>
                             {status === "Moving" ? "🟢 Moving" : status === "Idle" ? "🟡 Idle" : "🔴 Offline"}
                           </span>
@@ -936,15 +1030,15 @@ export const OnDutyLiveTracking: React.FC = () => {
                 <div className="sheet-officer-info">
                   <div className="sheet-avatar">
                     {selectedSession.Image ? (
-                      <img src={selectedSession.Image} alt={selectedSession.EmpName} />
+                      <img src={selectedSession.Image} alt={selectedSession.EmpName || "Officer"} />
                     ) : (
-                      <span>{selectedSession.EmpName ? selectedSession.EmpName.charAt(0) : "E"}</span>
+                      <span>{(selectedSession.EmpName || selectedSession.EmpCode || "E").charAt(0)}</span>
                     )}
                   </div>
                   <div>
-                    <div className="sheet-name">{selectedSession.EmpName}</div>
+                    <div className="sheet-name">{selectedSession.EmpName || selectedSession.EmpCode || "Officer"}</div>
                     <div className="sheet-role">
-                      {selectedSession.Designation || "On Duty Officer"} • ID: {selectedSession.EmpCode}
+                      {selectedSession.Designation || "On Duty Officer"} • ID: {selectedSession.EmpCode || "N/A"}
                     </div>
                   </div>
                 </div>
@@ -961,15 +1055,15 @@ export const OnDutyLiveTracking: React.FC = () => {
                 </div>
                 <div className="sheet-detail-card">
                   <span className="lbl">⚡ Live Speed / Status</span>
-                  <span className="val">{selectedSession.Speed || 0} km/h • {selectedSession.MovementStatus}</span>
+                  <span className="val">{selectedSession.Speed || 0} km/h • {selectedSession.MovementStatus || "Active"}</span>
                 </div>
                 <div className="sheet-detail-card">
                   <span className="lbl">🔋 Device Battery</span>
                   <span className="val">{selectedSession.BatteryLevel ?? "N/A"}%</span>
                 </div>
                 <div className="sheet-detail-card">
-                  <span className="lbl">⏱ ETA to Client</span>
-                  <span className="val">18 mins • 2.8 km left</span>
+                  <span className="lbl">⏱ Status Check</span>
+                  <span className="val">Live GPS Active</span>
                 </div>
               </div>
 
@@ -1019,7 +1113,7 @@ export const OnDutyLiveTracking: React.FC = () => {
                 <input
                   type="range"
                   min="0"
-                  max={replayLogs.length - 1}
+                  max={Math.max(0, replayLogs.length - 1)}
                   value={replayIndex}
                   onChange={(e) => setReplayIndex(parseInt(e.target.value))}
                   className="youtube-timeline-slider"
@@ -1052,5 +1146,12 @@ export const OnDutyLiveTracking: React.FC = () => {
     </IonPage>
   );
 };
+
+// Export wrapped in ErrorBoundary to guarantee page crashes never bubble up or blank the whole app
+export const OnDutyLiveTracking: React.FC = () => (
+  <ErrorBoundary fallbackTitle="On-Duty Live Tracking Error">
+    <OnDutyLiveTrackingContent />
+  </ErrorBoundary>
+);
 
 export default OnDutyLiveTracking;

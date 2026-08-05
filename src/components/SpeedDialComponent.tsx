@@ -10,7 +10,6 @@ import "../theme/Common.css"; // Import the CSS file
 import { LogOut, X, CheckCircle2 } from "lucide-react";
 
 // Updated theme colors with modern Pastel and Premium options
-// Updated theme colors with IDs matching global.css definitions
 const themeColors = [
   { name: "Blue", value: "#0077b6", id: "blue" },
   { name: "Orange", value: "#ff9505", id: "orange" },
@@ -32,7 +31,6 @@ const themeColors = [
   { name: "Coal", value: "#2f3640", id: "coal" }
 ];
 
-
 const SpeedDialComponent: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
@@ -45,11 +43,7 @@ const SpeedDialComponent: React.FC = () => {
   );
   const [showColorModal, setShowColorModal] = useState(false);
 
-  // Hide SpeedDial on live tracking map page
-  if (location.pathname === "/onduty-tracking" || window.location.pathname === "/onduty-tracking") {
-    return null;
-  }
-
+  // ALL useEffect hooks MUST be declared BEFORE any conditional return to obey React Rules of Hooks
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
     localStorage.setItem("themeMode", darkMode ? "dark" : "light");
@@ -67,6 +61,17 @@ const SpeedDialComponent: React.FC = () => {
     localStorage.setItem("themeColor", themeId);
   }, [themeId]);
 
+  // Hide SpeedDial on live tracking map page (checked AFTER all hooks declared)
+  const isTrackingPage =
+    location.pathname === "/onduty-tracking" ||
+    location.pathname === "/onduty tracking" ||
+    location.pathname === "/ondutytracking" ||
+    window.location.pathname.includes("onduty-tracking");
+
+  if (isTrackingPage) {
+    return null;
+  }
+
   const handleThemeChange = (id: string) => {
     setThemeId(id);
     setShowColorModal(false);
@@ -75,16 +80,16 @@ const SpeedDialComponent: React.FC = () => {
   return (
     <>
       <SpeedDial ariaLabel="SpeedDial menu" className="custom-speed-dial" icon={<SpeedDialIcon />}>
-      <SpeedDialAction
-            icon={<HomeIcon />}
-            tooltipTitle="Home"
-            onClick={() => (window.location.href = "/home")}
-          />
-          <SpeedDialAction
-            icon={<AccountCircleIcon />}
-            tooltipTitle="Profile"
-            onClick={() => (window.location.href = "/eprofile")}
-          />
+        <SpeedDialAction
+          icon={<HomeIcon />}
+          tooltipTitle="Home"
+          onClick={() => history.push("/home")}
+        />
+        <SpeedDialAction
+          icon={<AccountCircleIcon />}
+          tooltipTitle="Profile"
+          onClick={() => history.push("/eprofile")}
+        />
         <SpeedDialAction
           icon={<Brightness4Icon />}
           tooltipTitle="Toggle Dark Mode"
