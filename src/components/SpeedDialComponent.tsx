@@ -90,11 +90,11 @@ const SpeedDialComponent: React.FC = () => {
           tooltipTitle="Profile"
           onClick={() => history.push("/eprofile")}
         />
-        <SpeedDialAction
+        {/* <SpeedDialAction
           icon={<Brightness4Icon />}
           tooltipTitle="Toggle Dark Mode"
           onClick={() => setDarkMode((prev) => !prev)}
-        />
+        /> */}
         <SpeedDialAction
           icon={<PaletteIcon />}
           tooltipTitle="Change Theme Color"
