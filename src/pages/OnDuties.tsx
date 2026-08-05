@@ -933,6 +933,52 @@ useEffect(() => {
     return String(row.Status || "").trim().toLowerCase() === "approved";
   };
 
+  // Why "+ Add Party" is unavailable right now, in words, or "" when it is
+  // available. Same two gates the click handler enforces, in the same order,
+  // so this can never disagree with what actually happens.
+  //
+  // The gates were already correct; what was missing is that a disabled
+  // button never gets clicked, so the explanation the click handler carried
+  // was the one thing nobody could ever reach. Someone looking at a request
+  // whose approval line is entirely green, with a greyed-out button and no
+  // reason given, has no way to tell a rule from a bug - and reasonably
+  // reports it as a bug. Naming the slot still outstanding turns that into
+  // something they can act on, usually by going and asking that person.
+  const addPartyBlockReason = (row?: DutyRow | null, tripDate?: string): string => {
+    if (!row) return 'Open a duty day first.';
+    if (String(tripDate || '').slice(0, 10) > nowIST().format('YYYY-MM-DD'))
+      return 'Visits can be recorded from the day itself - this day trip is still in the future.';
+    if (isFullyApproved(row)) return '';
+
+    const norm = (s: any) => String(s ?? '').trim().toLowerCase();
+    // Slots named "" or "-" are placeholders, not people, and are not
+    // waited on - exactly how isFullyApproved treats them.
+    const outstanding = [
+      [row.RA1, row.RA1_Status],
+      [row.RA2, row.RA2_Status],
+      [row.RA3, row.RA3_Status],
+      [row.RA4, row.RA4_Status],
+    ]
+      .filter(([ra]) => {
+        const v = String(ra || '').trim();
+        return v !== '' && v !== '-';
+      })
+      .filter(([, st]) => norm(st) !== 'approved')
+      .map(([ra, st]) =>
+        String(ra).trim() + (norm(st) === 'rejected' ? ' (rejected)' : '')
+      );
+
+    if (outstanding.length > 0)
+      return 'Waiting on ' + outstanding.join(', ') + ' before visits can be recorded.';
+
+    // No named approver is outstanding, yet the request still does not read
+    // as approved - so the blocker is the overall status string itself.
+    // Showing it verbatim is the point: it is the only clue to why, and it
+    // is what someone would otherwise have to open a console to see.
+    return 'Request status is "' + (row.Status || 'unknown') +
+      '" - visits can be recorded once it is fully approved.';
+  };
+
   const openAddDayTripModal = (row: DutyRow) => {
   setTripModalMode("add");
 
@@ -5803,38 +5849,48 @@ updateTripDay(
                         width: "100%",
                       }}
                     >
-                     {tripModalMode === "edit" && (
-  <IonButton
-    type="button"
-    fill="outline"
-    disabled={isTripFuture || !isFullyApproved(selectedDutyRow)}
-    style={{
-      margin: 0,
-      width: "100%",
-      minHeight: "46px",
-      fontSize: "12px",
-      opacity: isTripFuture || !isFullyApproved(selectedDutyRow) ? 0.5 : 1,
-    }}
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (isTripFuture) {
-        notify("Visit entries are not allowed for future dates", "warning");
-        return;
-      }
-      if (!isFullyApproved(selectedDutyRow)) {
-        notify(
-          "Visit entries can be added only after the request is fully approved",
-          "warning"
-        );
-        return;
-      }
-      addTripVisit(editingTripIndex);
-    }}
-  >
-    + Add Party
-  </IonButton>
-)}
+                     {tripModalMode === "edit" && (() => {
+  const gate = addPartyBlockReason(selectedDutyRow, trip.dutyDate);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <IonButton
+        type="button"
+        fill="outline"
+        disabled={!!gate}
+        style={{
+          margin: 0,
+          width: "100%",
+          minHeight: "46px",
+          fontSize: "12px",
+          opacity: gate ? 0.5 : 1,
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (gate) {
+            notify(gate, "warning");
+            return;
+          }
+          addTripVisit(editingTripIndex);
+        }}
+      >
+        + Add Party
+      </IonButton>
+      {gate && (
+        <div
+          style={{
+            fontSize: "11px",
+            lineHeight: 1.35,
+            textAlign: "center",
+            color: "var(--ion-color-medium, #8a8a8a)",
+          }}
+        >
+          {gate}
+        </div>
+      )}
+    </div>
+  );
+})()}
                       <IonButton
                         style={{
                           margin: 0,
