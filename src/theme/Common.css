@@ -1,6 +1,6 @@
 /* Global Font Variables */
 :root {
-  --heading-font: "Poppins", "Montserrat", -apple-system, BlinkMacSystemFont,
+  --heading-font: "Outfit", "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont,
     sans-serif;
   --body-font: "Inter", "Open Sans", "Roboto", -apple-system, BlinkMacSystemFont,
     sans-serif;
