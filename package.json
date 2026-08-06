@@ -12,6 +12,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor-community/barcode-scanner": "^4.0.1",
     "@capacitor-community/bluetooth-le": "^8.2.0",
     "@capacitor/android": "^7.0.0",

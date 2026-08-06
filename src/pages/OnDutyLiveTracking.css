@@ -850,3 +850,45 @@
   font-weight: 900;
   transition: transform 0.3s ease;
 }
+
+/* Recenter Lock Floating Button */
+.recenter-map-floating-btn {
+  position: absolute;
+  bottom: 250px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: #4f46e5;
+  color: #ffffff;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.45);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.recenter-map-floating-btn:hover {
+  background: #4338ca;
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 14px 36px rgba(79, 70, 229, 0.55);
+}
+
+.recenter-map-floating-btn:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.recenter-icon {
+  animation: recenter-pulse-ring 1.8s infinite;
+}
+
+@keyframes recenter-pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0; }
+}

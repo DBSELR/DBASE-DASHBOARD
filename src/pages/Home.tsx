@@ -29,11 +29,14 @@ declare global {
 import { FileWarning } from "lucide-react";
 
 
-const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508'];
+import { LocationStatusBanner } from "../components/LocationStatusBanner";
+import { OnDutyEmployeeStatusCard } from "../components/OnDutyEmployeeStatusCard";
+
+const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508', '1541', '1635'];
 
 const PENDING_LEAVES = ['1601', '1541', '1635'];
 const PAYMENT_REMINDERS = ['1501', '1508', '1531', '1635', '1541'];
-const Live_Tracking_Engine = ['1501'];
+const Live_Tracking_Engine = ['1501', '1509', '1601', '1508', '1541', '1635'];
 const Home: React.FC = () => {
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
@@ -326,6 +329,9 @@ const Home: React.FC = () => {
           <div className="home-status-location">{location}</div>
         </div>
       </div>
+
+      {/* On-Duty & Live GPS Tracking Employee Status Card */}
+      <OnDutyEmployeeStatusCard />
 
       {/* Notice Board and View Toggle */}
       <div className="home-notice-row">

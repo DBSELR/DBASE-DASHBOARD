@@ -30,6 +30,7 @@ import Equipment from "./pages/Equipment";
 import OnDuties from "./pages/OnDuties";
 import OnDutyLiveTracking from "./pages/OnDutyLiveTracking";
 import { useLocationBroadcaster } from "./hooks/useLocationBroadcaster";
+import { LocationPermissionModal } from "./components/LocationPermissionModal";
 import DaTaSettlement from "./pages/DaTaSettlement";
 import SpeedDialComponent from "./components/SpeedDialComponent";
 import CameraPage from "./pages/CameraPage";
@@ -98,7 +99,16 @@ setupIonicReact();
 
 const App: React.FC = () => {
   const user = localStorage.getItem("user");
-  useLocationBroadcaster();
+  const broadcaster = useLocationBroadcaster();
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  useEffect(() => {
+    if (user && broadcaster.permissionState !== "granted" && broadcaster.permissionState !== "unknown") {
+      setShowPermissionModal(true);
+    } else {
+      setShowPermissionModal(false);
+    }
+  }, [user, broadcaster.permissionState]);
 
   const [theme, setTheme] = useState<string>(localStorage.getItem("themeColor") || "orange");
   const [isDarkMode, setIsDarkMode] = useState<boolean>(localStorage.getItem("themeMode") === "dark");
@@ -255,6 +265,13 @@ const App: React.FC = () => {
         {user && <SpeedDialComponent />}
         {user && <TaskNotificationPopup />}
         {user && <WorkReportReminderModal />}
+        {user && (
+          <LocationPermissionModal
+            isOpen={showPermissionModal}
+            onClose={() => setShowPermissionModal(false)}
+            onPermissionGranted={() => broadcaster.triggerImmediatePing()}
+          />
+        )}
       </IonReactRouter>
     </IonApp>
   );

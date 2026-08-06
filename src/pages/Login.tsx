@@ -88,14 +88,17 @@ const Login: React.FC = () => {
 
       const data = await response.json();
 
-     if (data.token) {
-  localStorage.setItem("token", data.token);
-  localStorage.setItem("user", JSON.stringify(data.user));
+      const tokenVal = data.token || data.Token;
+      const userVal = data.user || data.User;
 
-  const empCode =
-    data.user?.EmpCode || data.user?.empCode || uname;
+      if (tokenVal) {
+        localStorage.setItem("token", tokenVal);
+        localStorage.setItem("user", JSON.stringify(userVal));
 
-  console.log("👤 EmpCode:", empCode);
+        const empCode =
+          userVal?.EmpCode || userVal?.empCode || uname;
+
+        console.log("👤 EmpCode:", empCode);
 
   try {
     console.log("🚀 Calling registerNativePush");
