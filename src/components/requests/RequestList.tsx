@@ -851,6 +851,18 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         }
       });
 
+      // On duty rows are always read newest first.  Holding the previous
+      // order steady is right for a list somebody is working down, but a
+      // duty is looked up by its number, and the one just raised is the
+      // one being looked for.
+      if (type === "onduty") {
+        const idNum = (v: any): number => {
+          const n = parseInt(String(v ?? "").replace(/[^0-9]/g, ""), 10);
+          return isNaN(n) ? 0 : n;
+        };
+        orderedResult.sort((a: any, b: any) => idNum(b.lid) - idNum(a.lid));
+      }
+
       prevOrderRef.current = orderedResult.map((it: any) => String(it.lid));
 
       setData(orderedResult);

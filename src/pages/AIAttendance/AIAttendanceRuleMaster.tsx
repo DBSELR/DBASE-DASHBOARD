@@ -84,6 +84,10 @@ interface AutoOverride {
   // those two cells, because "why is BT on at a branch with no beacon" is the
   // question this table gets asked, and it should be able to answer it.
   ruleSource?: string;
+  // Whether the geofence is actually narrowed to the duty's branch, which is
+  // a different question from whether it is switched on.  Undefined on an API
+  // build that predates the field, and then the row reads as it always did.
+  geofenceLimited?: boolean;
   startDate: string;
   endDate: string;
 }
@@ -1548,7 +1552,23 @@ const AIAttendanceRuleMaster: React.FC = () => {
                             </span>
                           </td>
                           <td title={a.ruleSource || ''}><span className={a.btRequired ? 'rm-badge-on' : 'rm-badge-off'}>{a.btRequired ? 'ON' : 'OFF'}</span></td>
-                          <td title={a.ruleSource || ''}><span className={a.gpsRequired ? 'rm-badge-on' : 'rm-badge-off'}>{a.gpsRequired ? 'ON' : 'OFF'}</span></td>
+                          {/* GPS ON is not the same as GPS holding them to
+                              the right building.  With no office row tagged
+                              for the duty's branch the check cannot be
+                              narrowed, so it stays switched on and the HOME
+                              branch keeps matching - the duty says Vijayawada
+                              and the punch is accepted in Eluru.  That was
+                              only ever said in the tooltip; it is the row's
+                              most important fact, so it is now on the badge. */}
+                          <td title={a.ruleSource || ''}>
+                            {a.gpsRequired && a.geofenceLimited === false ? (
+                              <span className="rm-badge-warn">ON &#8226; NOT LIMITED</span>
+                            ) : (
+                              <span className={a.gpsRequired ? 'rm-badge-on' : 'rm-badge-off'}>
+                                {a.gpsRequired ? 'ON' : 'OFF'}
+                              </span>
+                            )}
+                          </td>
                           <td>{a.startDate}</td>
                           <td>{a.endDate}</td>
                         </tr>

@@ -325,6 +325,15 @@
   background: #f1f5f9; color: #64748b; font-size: 9px; font-weight: 800;
 }
 
+/* Switched on, but not actually holding anyone to the right building.
+   Amber rather than green because the row is not in the state it looks
+   like it is in, and red would read as "off", which it is not. */
+.rm-badge-warn {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  background: #fffbeb; color: #b45309; border: 1px solid #fcd34d;
+  font-size: 9px; font-weight: 800; white-space: nowrap;
+}
+
 /* The on-duty chip is deliberately a different hue from the ON/OFF badges
    next to it: it answers "where", not "is this switched on". */
 /* Quieter than the card title next to it - it is a caveat about the table,

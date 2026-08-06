@@ -49,6 +49,11 @@ const RequestsPage: React.FC = () => {
     return rasList.some((r: any) => (r?.name || "").toString().trim().toLowerCase() === des);
   };
 
+  // Worked out once, because the container needs to know it too: someone
+  // with no Team Requests tab still has to be shown work that is waiting
+  // on them, or it would be waiting somewhere they cannot look.
+  const showTeam = canViewTeam();
+
   return (
     <IonPage>
       <IonContent className="page-content">
@@ -94,7 +99,7 @@ const RequestsPage: React.FC = () => {
             <IonIcon icon={personOutline} className="tab-icon" />
             <span>My Requests</span>
           </button>
-          {canViewTeam() && (
+          {showTeam && (
             <button
               className={`req-tab${view === "raised" ? " active" : ""}`}
               onClick={() => setView("raised")}
@@ -105,7 +110,7 @@ const RequestsPage: React.FC = () => {
           )}
         </div>
 
-        <RequestContainer key={type} type={type} view={view} />
+        <RequestContainer key={type} type={type} view={view} hasTeamTab={showTeam} />
 
       </IonContent>
     </IonPage>

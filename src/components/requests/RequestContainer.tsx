@@ -4,6 +4,7 @@ import EquipmentForm from "./EquipmentForm";
 import RequestList from "./RequestList";
 import OverTime from "../../pages/OverTime"; 
 import OnDuties from "../../pages/OnDuties";
+import ChangeApprovalsInbox from "./ChangeApprovalsInbox";
 import {
   IonPage,
   IonHeader,
@@ -35,7 +36,7 @@ import {
   searchOutline
 } from "ionicons/icons";
 
-const RequestContainer = ({ type, view }: any) => {
+const RequestContainer = ({ type, view, hasTeamTab }: any) => {
   const [status, setStatus] = useState("All");
 
   const normalizedType = (type || "").toLowerCase();
@@ -82,6 +83,18 @@ return (
 {normalizedType === "onduty" ? (
   <>
     {view === "my" && <OnDuties statusFilter={status} />}
+
+    {/* Amendments to a duty that has already been approved - someone
+        added, someone taken off, the branch reporting days moved - wait
+        for a decision instead of taking effect.  They belong here and
+        not under My Requests, because they are somebody else's request
+        to answer.  Any one approver of the duty settles it.
+
+        The tab the page calls "Team Requests" is "raised" in code, not
+        "team".  Anyone who has no such tab - a decider who is not on the
+        approver-roles list, for instance - is shown it under My Requests
+        instead, since the alternative is that it reaches nobody. */}
+    {(view !== "my" || hasTeamTab === false) && <ChangeApprovalsInbox />}
 
     <RequestList type="onduty" view={view} status={status} />
   </>

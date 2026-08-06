@@ -1943,6 +1943,13 @@ useEffect(() => {
       RA4_Status: pick(d, "rA4_Status", "ra4_Status", "RA4_Status", "ra4Status", "rA4Status"),
     }));
 
+  // Duty numbers are digits held as text, so they have to be compared as
+  // numbers or "#9" sorts above "#12013".
+  const dutyIdNum = (v: any): number => {
+    const n = parseInt(String(v ?? "").replace(/[^0-9]/g, ""), 10);
+    return isNaN(n) ? 0 : n;
+  };
+
   const loadDuties = async () => {
     try {
       const res = await api.get("OnDuty/load_my_duties", {
@@ -1982,6 +1989,13 @@ useEffect(() => {
           console.error("loadTeamDuties error:", teamErr);
         }
       }
+
+      // Newest first, always.  The two sources arrive in whatever order
+      // each returned and the team rows were simply appended after the
+      // user's own, which put a duty raised this morning below one from
+      // last month.  The duty number counts up, so sorting on it puts the
+      // most recent at the top wherever the row came from.
+      mapped.sort((a: any, b: any) => dutyIdNum(b.id) - dutyIdNum(a.id));
 
       setDutiesList(mapped);
       await loadAllTrips(mapped);
@@ -2346,15 +2360,6 @@ useEffect(() => {
       console.error("loadChangeRequests failed:", e);
     }
   };
-
-  // Everything waiting, flattened out of the per-duty grouping, so the
-  // question "is there anything for me to decide" can be asked once for
-  // the whole page instead of once per card.
-  const allChangeReqs = (): any[] =>
-    ([] as any[]).concat(...Object.keys(changeReqs).map((k) => changeReqs[k] || []));
-
-  const myChangeReqs = (): any[] =>
-    allChangeReqs().filter((cr: any) => !!field(cr, "CanDecide"));
 
   const decideChange = async (id: number, approve: boolean) => {
     if (!id) return;
@@ -3093,6 +3098,21 @@ useEffect(() => {
             : "pending";
         return { role: String(s.role).trim(), color };
       });
+  };
+
+  // A duty whose last day is behind us is history, and history is not
+  // amended - it is settled.  Adding somebody to a duty that finished
+  // last week would invent attendance for days that have already been
+  // punched or not punched, and moving its branch-reporting days would
+  // move the geofence a punch was already judged against.  So the three
+  // amendment controls come off the card once the duty has ended, while
+  // DA / TA stays - reading what happened is the whole point of a duty
+  // that is over.
+  const dutyHasEnded = (row: any): boolean => {
+    const end = ymd(row?.DateTo) || ymd(row?.DateFrom);
+    if (!end) return false;
+    const d = moment(end, "YYYY-MM-DD");
+    return d.isValid() && d.isBefore(moment(), "day");
   };
 
   // Who may amend an approved duty, and who may open its settlement.
@@ -4364,71 +4384,6 @@ useEffect(() => {
               </button>
             </div>
           </div>
-          {/* HR's inbox.  Leaving the decision only on the duty card meant
-              HR had to already be looking at the right card to find it -
-              and a fully approved duty raised by somebody else is not a
-              card HR has any reason to open.  Every amendment waiting on
-              this viewer is therefore collected here, above the list, so
-              the question "is anything waiting on me" is answered by the
-              page rather than by scrolling it. */}
-          {myChangeReqs().length > 0 && (
-            <div className="od-chg-inbox">
-              <div className="od-chg-inbox-head">
-                <span>
-                  Amendments waiting for your decision ({myChangeReqs().length})
-                </span>
-                <button
-                  type="button"
-                  className="od-team-btn"
-                  onClick={() => loadChangeRequests()}
-                >
-                  Refresh
-                </button>
-              </div>
-              {myChangeReqs().map((cr: any, ci: number) => (
-                <div className="od-chg-row" key={String(field(cr, "ID") ?? ci)}>
-                  <div className="od-chg-text">
-                    <span>
-                      <b>#{String(field(cr, "Duty_Id") ?? "").trim()}</b>{" "}
-                      {String(field(cr, "Summary") ?? "").trim()}
-                    </span>
-                    <span className="od-chg-by">
-                      asked by{" "}
-                      {String(
-                        field(cr, "RequestedByName") ??
-                          field(cr, "Requested_By") ??
-                          "someone"
-                      ).trim()}
-                    </span>
-                    {!!String(field(cr, "Outcome") ?? "").trim() && (
-                      <span className="od-chg-why">
-                        {String(field(cr, "Outcome")).trim()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="od-chg-acts">
-                    <button
-                      type="button"
-                      className="od-team-btn add"
-                      disabled={changeBusy === Number(field(cr, "ID"))}
-                      onClick={() => decideChange(Number(field(cr, "ID")), true)}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="od-team-btn remove"
-                      disabled={changeBusy === Number(field(cr, "ID"))}
-                      onClick={() => decideChange(Number(field(cr, "ID")), false)}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           <div className="history-section-title">On Duty Logs</div>
 
           {canApprove && (
@@ -4575,7 +4530,7 @@ useEffect(() => {
               {(changeReqs[String(row.id)] || []).length > 0 && (
                 <div className="od-chg-strip">
                   <div className="od-chg-head">
-                    Waiting for HR ({(changeReqs[String(row.id)] || []).length})
+                    Waiting for approval ({(changeReqs[String(row.id)] || []).length})
                     {/* Without this the strip reads as a broken control to
                         everyone who is not HR: something is clearly waiting,
                         and there is nothing to press. */}
@@ -4583,7 +4538,7 @@ useEffect(() => {
                       (cr: any) => !!field(cr, "CanDecide")
                     ) && (
                       <span className="od-chg-note">
-                        only HR can accept or reject
+                        one of this duty's approvers, or HR, decides this
                       </span>
                     )}
                   </div>
@@ -4660,7 +4615,8 @@ useEffect(() => {
                     <span className="item-label">Employees</span>
 
                     {canAmendDuty(row) &&
-                      rowApproved && (
+                      rowApproved &&
+                      !dutyHasEnded(row) && (
                         <>
                           <button
                             type="button"
@@ -4835,6 +4791,7 @@ useEffect(() => {
                 {(attDayPills(row).length > 0 ||
                   (canAmendDuty(row) &&
                     rowApproved &&
+                    !dutyHasEnded(row) &&
                     !!row.OnDutyType &&
                     String(row.OnDutyType).toLowerCase().includes("branch"))) && (
                   <div className="duty-info-box" style={{ minWidth: 0 }}>
@@ -4854,7 +4811,8 @@ useEffect(() => {
                           pending the pencil opens the whole form, so a second
                           way in would only be a second thing to keep in step. */}
                       {canAmendDuty(row) &&
-                        rowApproved && (
+                        rowApproved &&
+                        !dutyHasEnded(row) && (
                           <button
                             type="button"
                             className="od-team-btn"
