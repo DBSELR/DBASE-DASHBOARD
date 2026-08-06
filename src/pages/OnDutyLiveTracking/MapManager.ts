@@ -2,7 +2,7 @@ import L from 'leaflet';
 
 export class MapManager {
   /**
-   * Initializes Leaflet Map instance with custom canvas fallback layers.
+   * Initializes Leaflet Map instance with full touch & mouse gesture support.
    */
   public static createMap(
     element: HTMLElement,
@@ -14,6 +14,13 @@ export class MapManager {
       zoom,
       zoomControl: false,
       attributionControl: false,
+      dragging: true,
+      touchZoom: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      boxZoom: true,
+      keyboard: true,
+      bounceAtZoomLimits: false,
       tap: false, // Prevents touch interactions from being hijacked by Ionic container
     } as any);
 
