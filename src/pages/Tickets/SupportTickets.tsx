@@ -5,9 +5,9 @@ import { downloadOutline, eyeOutline, sendOutline, timeOutline, personOutline, c
 import { IonModal, IonDatetime } from "@ionic/react";
 import "./SupportTickets.css";
 
-type Props = { 
-  apiBase: string; 
-  empCode: string; 
+type Props = {
+  apiBase: string;
+  empCode: string;
   pIncharge?: string;
   onCountChange?: (count: number) => void;
 };
@@ -17,7 +17,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
   const [dataSupport, setDataSupport] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ open: false, msg: "", color: "success" });
-  
+
   const [targetDate, setTargetDate] = useState<string>(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1); // Default to 1 month ago
@@ -28,10 +28,14 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
   const [endOpen, setEndOpen] = useState(false);
   const [collapsedTickets, setCollapsedTickets] = useState<Record<string, boolean>>({});
 
-  const toggleCollapse = (ticketId: string) => {
+  const toggleCollapse = (ticketId: string, ticket?: any) => {
+    const nextCollapsed = !collapsedTickets[ticketId];
+    if (!nextCollapsed && ticket) {
+      console.log("[SupportTickets] Show detail payload:", ticket);
+    }
     setCollapsedTickets(prev => ({
       ...prev,
-      [ticketId]: !prev[ticketId]
+      [ticketId]: nextCollapsed
     }));
   };
 
@@ -113,9 +117,9 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
       const data = await handleResponse(res, "EMPS");
       console.log("[SupportTickets] Employees loaded:", data?.length);
       setEmpList((data || []).map((e: any) => ({ EmpCode: String(e[0] || e.EmpCode), EmpName: e[1] || e.EmpName })));
-    } catch (err) { 
+    } catch (err) {
       console.error("[SupportTickets] loadEmp ERROR:", err);
-      setEmpList([]); 
+      setEmpList([]);
     }
   }
 
@@ -130,17 +134,17 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
     try {
       const fDate = formatDateToMMDDYYYY(targetDate);
       const tDate = formatDateToMMDDYYYY(endDate);
-      const status = "p"; 
+      const status = "p";
       const clientID = "0";
       const projectID = "0";
 
-      const endpoint = `Tickets/Load_LOADSUPPORTTICKETS_DateWise_FromTo_ALL?FDate=${fDate}&TDate=${tDate}&status=${status}&ClientID=${clientID}&ProjectID=${projectID}&EmpCode=${empCode}`;
-      
+      const endpoint = `Tickets/Load_LOADSUPPORTTICKETS_DateWise_FromTo_ALL?FDate=${fDate}&TDate=${tDate}&status=${status}&ClientID=${clientID}&ProjectID=${projectID}&EmpCode=${empCode}&_nocache=${Date.now()}`;
+
       console.log("[SupportTickets] loadSupportTickets FETCH START:", endpoint);
       const res = await fetch(`${apiBase}${endpoint}`, { headers: getHeaders(true) });
       const raw = await handleResponse(res, "SUPPORT_NEW");
       console.log("[SupportTickets] loadSupportTickets received raw items:", raw?.length);
-      
+
       if (raw && raw.length > 0) {
         console.log("[SupportTickets] loadSupportTickets RAW Sample [0]:", JSON.stringify(raw[0], null, 2));
         // Detailed check for file/img indices (8 and 9 as per user request)
@@ -162,8 +166,20 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
         T_STATUS: r.T_status || r.STATUS || r.Issue_Status || "",
         TDate: r.TDate || "",
         Menu: r.Menu || "",
-        File_Path: String(r[8] || r.File_Path || "").trim(), 
-        Img_Path: String(r[9] || r.Img_Path || "").trim()
+        File_Path: String(
+          r.File_Path || r.file_Path || r.file_path ||
+          (Array.isArray(r) ? (
+            (typeof r[14] === 'string' && r[14].includes('.')) ? r[14] :
+              (typeof r[8] === 'string' && r[8].includes('.')) ? r[8] : ""
+          ) : "") || ""
+        ).trim(),
+        Img_Path: String(
+          r.Img_Path || r.img_Path || r.img_path ||
+          (Array.isArray(r) ? (
+            (typeof r[15] === 'string' && r[15].includes('.')) ? r[15] :
+              (typeof r[9] === 'string' && r[9].includes('.')) ? r[9] : ""
+          ) : "") || ""
+        ).trim()
       }));
 
       console.log("[SupportTickets] loadSupportTickets mapped items:", mapped?.length);
@@ -191,12 +207,12 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
 
   async function updateTMEstimate(ticketId: string, tmTime: string) {
     if (!tmTime) return;
-    const payload = { 
-      _TICKETID: ticketId, 
+    const payload = {
+      _TICKETID: ticketId,
       _EMPCODE: "0", // Documentation shows this is sent as "1524" in example, but purpose says "receives Ticket ID and updated TM estimated time". 
       _CREATEDBYID: empCode,
       _EstimatedTime: "0", // TL estimate, using 0 as fallback
-      _TMEstimatedTime: tmTime 
+      _TMEstimatedTime: tmTime
     };
     console.log("[SupportTickets] updateTMEstimate START", payload);
     try {
@@ -207,7 +223,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
       console.log("[SupportTickets] updateTMEstimate RESPONSE status:", res.status);
       const text = await res.text();
       console.log("[SupportTickets] updateTMEstimate RESPONSE body:", text);
-      
+
       if (res.ok) {
         setToast({ open: true, msg: "TM Estimate Updated", color: "success" });
         await loadSupportTickets();
@@ -265,7 +281,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
         console.warn("[SupportTickets] Invalid URL detected in downloadHandler");
         return;
       }
-      
+
       const res = await fetch(url, { headers: getHeaders(true) });
       if (!res.ok) {
         console.error("[SupportTickets] Download fetch failed:", res.status);
@@ -273,7 +289,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
         window.open(url, '_blank');
         return;
       }
-      
+
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -343,10 +359,10 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
             const statusColor = getStatusColor(x.T_STATUS);
             const statusLabel = getStatusLabel(x.T_STATUS);
             const isCollapsed = collapsedTickets[x.TICKETID] || false;
-            
+
             return (
-              <div 
-                key={`${x.TICKETID || idx}-${idx}`} 
+              <div
+                key={`${x.TICKETID || idx}-${idx}`}
                 className="dbase-ticket-row-container dbase-fade-up"
                 style={{ '--status-color': statusColor } as any}
               >
@@ -354,9 +370,9 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                   {x.TICKETID}
                 </div>
 
-                <div 
-                  className="dbase-card-header" 
-                  onClick={() => toggleCollapse(x.TICKETID)}
+                <div
+                  className="dbase-card-header"
+                  onClick={() => toggleCollapse(x.TICKETID, x)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -368,14 +384,14 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                     userSelect: 'none'
                   }}
                 >
-                  <span 
-                    className="dbase-card-summary-text" 
-                    style={{ 
-                      fontWeight: 'bold', 
-                      fontSize: '13px', 
-                      whiteSpace: 'nowrap', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis', 
+                  <span
+                    className="dbase-card-summary-text"
+                    style={{
+                      fontWeight: 'bold',
+                      fontSize: '13px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                       color: 'var(--ion-color-dark)',
                       maxWidth: '60%',
                       display: isCollapsed ? 'inline' : 'none'
@@ -451,7 +467,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                       <div className="dbase-action-left">
                         <div className="dbase-action-item">
                           <span className="dbase-action-label">Assignee :</span>
-                          <div 
+                          <div
                             className={`dbase-inline-select searchable-trigger ${activeTicketDropdown === x.TICKETID ? 'active' : ''}`}
                             onClick={(e) => toggleDropdown(x.TICKETID, e)}
                           >
@@ -496,7 +512,7 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                           </div>
                         </div>
 
-                        <button 
+                        <button
                           className="dbase-send-icon-btn"
                           onClick={() => {
                             if (isTL) saveAssignment(x.TICKETID, 'TL');
@@ -511,29 +527,61 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                         <div className="dbase-file-status">
                           <span className="status-label">File :</span>
                           {x.File_Path && x.File_Path !== "0" && x.File_Path !== "null" && x.File_Path !== "" ? (
-                            <IonIcon 
-                              icon={downloadOutline} 
-                              className="status-icon active" 
+                            <button
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: 'transparent',
+                                border: '1.5px solid var(--ion-color-primary)',
+                                borderRadius: '8px',
+                                padding: '4px 10px',
+                                color: 'var(--ion-color-primary)',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease-in-out'
+                              }}
                               onClick={() => {
                                 const fileUrl = `https://tickets.dbasesolutions.in/issue_file/${x.File_Path}`;
                                 console.log("[SupportTickets] File click:", fileUrl);
                                 downloadHandler(fileUrl, x.File_Path);
                               }}
-                            />
+                              className="dbase-file-btn"
+                            >
+                              <IonIcon icon={downloadOutline} style={{ fontSize: '14px', pointerEvents: 'none' }} />
+                              Open
+                            </button>
                           ) : <span className="status-none">None</span>}
                         </div>
                         <div className="dbase-file-status">
                           <span className="status-label">Image :</span>
                           {x.Img_Path && x.Img_Path !== "0" && x.Img_Path !== "null" && x.Img_Path !== "FALSE" && x.Img_Path !== "" ? (
-                            <IonIcon 
-                              icon={eyeOutline} 
-                              className="status-icon active" 
+                            <button
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: 'transparent',
+                                border: '1.5px solid var(--ion-color-primary)',
+                                borderRadius: '8px',
+                                padding: '4px 10px',
+                                color: 'var(--ion-color-primary)',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease-in-out'
+                              }}
                               onClick={() => {
                                 const imgUrl = `https://tickets.dbasesolutions.in/issue_img/${x.Img_Path}`;
                                 console.log("[SupportTickets] Image click:", imgUrl);
                                 downloadHandler(imgUrl, x.Img_Path);
                               }}
-                            />
+                              className="dbase-file-btn"
+                            >
+                              <IonIcon icon={eyeOutline} style={{ fontSize: '14px', pointerEvents: 'none' }} />
+                              Open
+                            </button>
                           ) : <span className="status-none">None</span>}
                         </div>
                       </div>
@@ -548,8 +596,8 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
 
         {dataSupport.length === 0 && !loading && (
           <div style={{ textAlign: "center", padding: "20px 16px", color: "var(--ion-color-medium)" }}>
-            <div style={{ 
-              width: '40px', height: '40px', background: 'rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.1)', 
+            <div style={{
+              width: '40px', height: '40px', background: 'rgba(var(--ion-color-primary-rgb, 226, 113, 29), 0.1)',
               borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 10px'
             }}>
@@ -598,9 +646,9 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
               setEndOpen(false);
             }}
           />
-          <IonButton 
-            expand="block" 
-            mode="ios" 
+          <IonButton
+            expand="block"
+            mode="ios"
             onClick={() => setEndOpen(false)}
           >
             Close
@@ -608,19 +656,19 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
         </div>
       </IonModal>
       {/* Date Modal End */}
-      
+
       {/* Searchable Portal Dropdown (Single Instance) */}
       {activeTicketDropdown && createPortal(
         <>
           <div className="dropdown-outside-click-layer" onClick={() => setActiveTicketDropdown(null)} />
-          <div 
+          <div
             className="custom-inline-dropdown"
-            onMouseDown={(e) => e.stopPropagation()} 
-            style={{ 
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
               position: 'absolute',
-              top: `${dropdownPos.top}px`, 
-              left: `${dropdownPos.left}px`, 
-              width: `${dropdownPos.width}px` 
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              width: `${dropdownPos.width}px`
             }}
           >
             <div className="dropdown-search-sec">
@@ -640,18 +688,18 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
                 </button>
               )}
             </div>
-            
+
             <div className="dropdown-body">
               {filteredEmployees.map((e, index) => {
                 const isSelected = assignStates[activeTicketDropdown!]?.emp === e.EmpCode;
-                
+
                 // Clean initials logic (stripping numeric prefixes)
                 const nameWithoutId = e.EmpName.includes("-") ? e.EmpName.split("-")[1].trim() : e.EmpName;
                 const initials = (nameWithoutId.charAt(0) || "?").toUpperCase();
 
                 return (
-                  <div 
-                    key={index} 
+                  <div
+                    key={index}
                     className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
                     onMouseDown={(event) => {
                       event.preventDefault();

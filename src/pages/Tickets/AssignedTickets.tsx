@@ -119,7 +119,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
   async function loadData() {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ empcode: empCode, CLIENTID: clientId, PROJECTID: projectId });
+      const q = new URLSearchParams({ empcode: empCode, CLIENTID: clientId, PROJECTID: projectId, _nocache: Date.now().toString() });
       const url = `${apiBase}Tickets/LOADEMPTASKSLIST?${q.toString()}`;
       const res = await fetch(url, { headers: getHeaders(true) });
       const raw = await handleResponse(res, "ASSIGNED");
@@ -149,8 +149,20 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
         Issue_Status: String(r[22] || 'O').toUpperCase(),
         TicketPriority: r[13],
         TDate: r[10] ? moment(r[10]).format("DD MMM YYYY") : "",
-        File_Path: String(r[8] || r.File_Path || "").trim(),
-        Img_Path: String(r[9] || r.Img_Path || "").trim(),
+        File_Path: String(
+          r.File_Path || r.file_Path || r.file_path || 
+          (Array.isArray(r) ? (
+            (typeof r[14] === 'string' && r[14].includes('.')) ? r[14] : 
+            (typeof r[8] === 'string' && r[8].includes('.')) ? r[8] : ""
+          ) : "") || ""
+        ).trim(),
+        Img_Path: String(
+          r.Img_Path || r.img_Path || r.img_path || 
+          (Array.isArray(r) ? (
+            (typeof r[15] === 'string' && r[15].includes('.')) ? r[15] : 
+            (typeof r[9] === 'string' && r[9].includes('.')) ? r[9] : ""
+          ) : "") || ""
+        ).trim(),
         Target_Time: r[27],
       }));
       setData(mapped);
@@ -347,8 +359,8 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                 #{x.TICKETID}
               </div>
 
-              <div 
-                className="ast-card-header" 
+              <div
+                className="ast-card-header"
                 onClick={() => toggleCollapse(x.TICKETID)}
                 style={{
                   display: 'flex',
@@ -361,14 +373,14 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                   userSelect: 'none'
                 }}
               >
-                <span 
-                  className="ast-card-summary-text" 
-                  style={{ 
-                    fontWeight: 'bold', 
-                    fontSize: '13px', 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
+                <span
+                  className="ast-card-summary-text"
+                  style={{
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     color: 'var(--ion-color-dark)',
                     maxWidth: '60%',
                     display: isCollapsed ? 'inline' : 'none'
