@@ -263,6 +263,19 @@
   letter-spacing: 0.2px;
 }
 
+/* The distance a day was paid on.  Green rather than the blue of the
+   paid-window chip, because it is a different kind of fact: the window
+   explains the hours, this one replaces them. */
+.dt-day-km {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8f6ed;
+  color: #1f6b3f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 .dt-day-flag {
   padding: 1px 8px;
   border-radius: 999px;

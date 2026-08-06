@@ -118,6 +118,7 @@ const EmpProfile: React.FC = () => {
     status: "Active",
     dayDA: "",
     hourDA: "",
+    dAperKM: "1",
     tAperKM: "0",
   });
   const [isNavigating, setIsNavigating] = useState(false);
@@ -211,6 +212,9 @@ const EmpProfile: React.FC = () => {
     _Location1: "",
     _BranchDept: "",
     _TAperKM: "0",
+    // A rupee a kilometre is what the DA calculation did before this field
+    // existed, so that is what an untouched profile shows and saves.
+    _DAperKM: "1",
   });
   const getMinutes = (checkIn: any) => {
     if (!checkIn) return 0;
@@ -557,6 +561,21 @@ const EmpProfile: React.FC = () => {
       _LocationType: getValue(52, ["_LocationType", "LocationType", "locationType"], ""),
       _Location1: getValue(53, ["_Location1", "Location1", "location1"], ""),
       _TAperKM: getValue(64, ["_TAperKM", "TAperKM", "taPerKm", "taperkm"], "0"),
+      // Read off the END of the row rather than by ordinal. The API pins it
+      // there deliberately - see EmployeeController.AppendDAperKM, which drops
+      // any copy the stored procedure returned and re-adds it last - because
+      // this whole payload is positional and the end is the only place a new
+      // field can go without shifting the meaning of every index before it.
+      // Blank or zero shows as 1, which is what the calculation pays anyway.
+      _DAperKM:
+        String(
+          (Array.isArray(row)
+            ? row[row.length - 1]
+            : (row as any)._DAperKM ??
+              (row as any).DAperKM ??
+              (row as any).daPerKm ??
+              (row as any).daperkm) ?? "",
+        ).trim() || "1",
     };
 
     console.log("Mapped Result:", mapped);
@@ -623,6 +642,7 @@ const EmpProfile: React.FC = () => {
         dayDA: details._dayDA,
         hourDA: details._hourDA,
         tAperKM: details._TAperKM,
+        dAperKM: details._DAperKM,
         leave: details._Allowed_CL,
         sick: details._Allowed_SL,
         p_time: details._P_Time,
@@ -782,6 +802,7 @@ const EmpProfile: React.FC = () => {
             dayDA: details._dayDA,
             hourDA: details._hourDA,
             tAperKM: details._TAperKM,
+            dAperKM: details._DAperKM,
             leave: details._Allowed_CL,
             sick: details._Allowed_SL,
             p_time: details._P_Time,
@@ -843,6 +864,7 @@ const EmpProfile: React.FC = () => {
             dayDA: userProfile.dayDA ?? userProfile.DayDA ?? userProfile.dayDa ?? userProfile.DayDa ?? userProfile.dayda ?? userProfile.day_da ?? "0",
             hourDA: userProfile.hourDA ?? userProfile.HourDA ?? userProfile.hourDa ?? userProfile.HourDa ?? userProfile.hourda ?? userProfile.hour_da ?? "0",
             tAperKM: userProfile.TAperKM ?? userProfile.taPerKM ?? userProfile.taPerKm ?? userProfile.taperkm ?? "0",
+            dAperKM: userProfile.DAperKM ?? userProfile.daPerKM ?? userProfile.daPerKm ?? userProfile.daperkm ?? "1",
           });
         }
 
@@ -1212,6 +1234,7 @@ const EmpProfile: React.FC = () => {
       _Location1: "",
       _BranchDept: "",
       _TAperKM: "0",
+      _DAperKM: "1",
     });
     setShowRegisterModal(true);
   };
@@ -1788,7 +1811,13 @@ const EmpProfile: React.FC = () => {
 
             <InfoItem
               icon={TrendingUp}
-              label="TA per KM"
+              label="DA per KM"
+              value={userData.dAperKM}
+            />
+
+            <InfoItem
+              icon={TrendingUp}
+              label="TA per KM (Public Transport)"
               value={userData.tAperKM}
             />
 
@@ -2501,8 +2530,22 @@ const EmpProfile: React.FC = () => {
                     />
                   </div>
 
+                  {/* What a kilometre is worth in DA on a day that is paid on
+                      distance rather than on the clock - a single day camp, or
+                      a longer one where the team comes home every night. Left
+                      at 1 it changes nothing. */}
                   <div className="ep-input-group">
-                    <label>TA per KM</label>
+                    <label>DA per KM</label>
+                    <input
+                      type="number"
+                      name="_DAperKM"
+                      value={formData._DAperKM}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div className="ep-input-group">
+                    <label>TA per KM (Public Transport)</label>
                     <input
                       type="number"
                       name="_TAperKM"

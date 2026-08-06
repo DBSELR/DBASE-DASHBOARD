@@ -64,6 +64,12 @@ type DayRow = {
   PaidTo: string | null;
   Punches: number;
   Hours: number;
+  // Kilometres covered on this day. Set only on a single day trip or a
+  // daily shuttle, where the allowance is paid on the distance rather
+  // than on the clock; null everywhere else, and null on a day where no
+  // distance was ever recorded. When it is set, DA_Amount is this figure
+  // rather than Hours x the rate - which is why it is worth showing.
+  Km: number | null;
   DA_Amount: number;
   MissingPunch: boolean;
 };
@@ -318,6 +324,16 @@ const DaTaSettlement: React.FC = () => {
                                 (d.PaidFrom !== d.FirstIn || d.PaidTo !== d.LastOut) && (
                                 <span className="dt-day-paid">
                                   paid {clock(d.PaidFrom)} to {clock(d.PaidTo)}
+                                </span>
+                              )}
+                              {/* Shown next to the hours rather than instead of
+                                  them: the hours are still what decides whether
+                                  the day pays at all, and a figure of 131 beside
+                                  nine hours worked reads as a mistake unless the
+                                  distance it came from is sitting next to it. */}
+                              {d.Km != null && Number(d.Km) > 0 && (
+                                <span className="dt-day-km">
+                                  {Number(d.Km).toFixed(0)} km
                                 </span>
                               )}
                               <span className="dt-day-hrs">{hours(d.Hours)} h</span>

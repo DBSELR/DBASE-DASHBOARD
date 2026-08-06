@@ -9,6 +9,33 @@ import './AIAttendanceRuleMaster.css';
 const API_KEY = 'dbase-ai-master-key-2026';
 const hdrs = { 'Content-Type': 'application/json', 'x-api-key': API_KEY };
 
+// Today's calendar date as YYYY-MM-DD, read off the browser's own local
+// clock - the same thing a native <input type="date"> uses to decide what
+// "today" is, so the default can never land on a different day than the
+// picker itself would show. (An earlier version of this derived "today" by
+// hand-shifting UTC for IST; on at least one machine that produced a date
+// one day behind the picker, which is exactly backwards for a field whose
+// whole point is showing today by default - this reads the same clock the
+// input already trusts instead of re-deriving it.)
+const todayLocalStr = (): string => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// YYYY-MM-DD (what the input and the API both use) -> dd-mm-yyyy (what gets
+// displayed). The native date input's own on-screen format follows the
+// browser/OS locale and cannot be forced from markup, which is exactly the
+// ambiguity this screen should not have - so the input stays hidden and
+// this formats the label shown in its place.
+const formatDDMMYYYY = (iso: string): string => {
+  const [y, m, d] = (iso || '').split('-');
+  if (!y || !m || !d) return iso || '';
+  return `${d}-${m}-${y}`;
+};
+
 interface BranchRule {
   id: number;
   branch: string;
@@ -90,6 +117,23 @@ interface AutoOverride {
   geofenceLimited?: boolean;
   startDate: string;
   endDate: string;
+  // The duty's own expected start-of-day time ("09:00"), shown next to the
+  // From date. Empty on an API build that predates the field, or on a duty
+  // whose start time was never recorded - both read the same as "unknown",
+  // not as midnight. There is no matching end-of-day field: the schema has
+  // no real end-time column to read one from (see CheckinController.cs),
+  // so To stays date-only rather than showing a fabricated time.
+  startTime?: string;
+  // "Round Trip" or "Daily Shuttle" - decides how Live Location below is
+  // scoped: one camp per reporting day for a shuttle, one camp for the
+  // whole duty for a round trip. Empty on an API build that predates the
+  // field.
+  tripType?: string;
+  // Whether this employee currently has a live Camp tracking session open
+  // (Start Camp / End Camp, either tapped by hand or auto-triggered by an
+  // odometer reading upload). Undefined on an API build that predates the
+  // field, and then the cell reads as unknown rather than No.
+  liveLocation?: boolean;
 }
 
 interface BluetoothDevice {
@@ -176,6 +220,17 @@ const AIAttendanceRuleMaster: React.FC = () => {
   // An empty table and an unreachable endpoint look identical on screen, and
   // that ambiguity costs a rebuild to resolve. Keep them apart.
   const [autoErr, setAutoErr] = useState<string>('');
+  // The Auto Overrides window, replacing the old fixed "next 7 days" - both
+  // default to today, so opening the tab shows today's overrides until
+  // someone deliberately widens the range.
+  const [autoFrom, setAutoFrom] = useState<string>(todayLocalStr());
+  const [autoTo, setAutoTo] = useState<string>(todayLocalStr());
+  const [autoEmpSearch, setAutoEmpSearch] = useState<string>('');
+  // The two native date inputs stay hidden - see formatDDMMYYYY above for
+  // why - and are opened through these refs by clicking the dd-mm-yyyy
+  // label in their place.
+  const autoFromInputRef = useRef<HTMLInputElement>(null);
+  const autoToInputRef = useRef<HTMLInputElement>(null);
 
   // --- Bluetooth tab state ---
   const [btDevices, setBtDevices] = useState<BluetoothDevice[]>([]);
@@ -313,9 +368,13 @@ const AIAttendanceRuleMaster: React.FC = () => {
   // Deliberately not filtered by the BRANCH / MARKETING tab: an on-duty has no
   // rule type, so filtering it by one would hide half the travelling staff
   // depending on which tab happened to be open.
-  const loadAutoOverrides = useCallback(async () => {
+  const loadAutoOverrides = useCallback(async (from: string, to: string) => {
+    if (!from || !to) return;
     try {
-      const r = await fetch(API_BASE + 'Checkin/GetOnDutyAutoOverrides?days=7', { headers: hdrs });
+      const r = await fetch(
+        API_BASE + `Checkin/GetOnDutyAutoOverrides?from=${from}&to=${to}`,
+        { headers: hdrs }
+      );
       if (!r.ok) {
         // 404 is the one worth naming: it means the running API predates this
         // endpoint, i.e. it has not been rebuilt yet. Saying so beats an empty
@@ -446,9 +505,8 @@ const AIAttendanceRuleMaster: React.FC = () => {
 
   useEffect(() => {
     if (activeTab !== 'overrides') return;
-    loadOverrides();
-    loadAutoOverrides();
-  }, [activeTab, loadOverrides, loadAutoOverrides]);
+    loadAutoOverrides(autoFrom, autoTo);
+  }, [activeTab, autoFrom, autoTo, loadAutoOverrides]);
   useEffect(() => { if (activeTab === 'bluetooth') loadBluetoothDevices(); }, [activeTab, loadBluetoothDevices]);
 
   const openAddBtModal = () => {
@@ -1189,321 +1247,92 @@ const AIAttendanceRuleMaster: React.FC = () => {
             {activeTab === 'overrides' && (
               <div className="rm-override-tab">
 
-                {/* ── Wizard ───────────────────────────────────────── */}
-                <div className="rm-card rm-wizard">
-
-                  {/* Step dots */}
-                  <div className="rm-steps">
-                    {stepLabels.map((label, i) => (
-                      <div key={i} className={`rm-step${step >= i + 1 ? ' rm-step-done' : ''}`}>
-                        <div className="rm-step-dot">{i + 1}</div>
-                        <span className="rm-step-label">{label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* BRANCH Step 1: Select Branch */}
-                  {showBranchSelect && (
-                    <div className="rm-step-body">
-                      <p className="rm-label">Select Branch</p>
-                      <select className="rm-select" value={selBranch} onChange={e => setSelBranch(e.target.value)}>
-                        <option value="">-- Select --</option>
-                        {allBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                      <button className="rm-next-btn"
-                        disabled={!selBranch}
-                        onClick={() => { loadBranchEmployees(); setStep(2); }}>
-                        Next &#8594;
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Employees step (BRANCH step 2 / MARKETING step 1) */}
-                  {showEmployeePicker && (
-                    <div className="rm-step-body">
-                      <p className="rm-label" style={{ fontWeight: 800 }}>Transfer To :</p>
-                      
-                      <div className="ntv-form-input-wrapper" ref={triggerRef} onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '12px 14px',
-                        borderRadius: '14px',
-                        border: '1.5px solid rgba(226, 232, 240, 0.8)',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                        position: 'relative',
-                        marginBottom: '16px'
-                      }}>
-                        <IonIcon icon={person} style={{ fontSize: '18px', color: '#64748b' }} />
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: selIds.length > 0 ? '#0f172a' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '85%' }}>
-                          {selIds.length > 0 
-                            ? (selIds.length === 1 
-                                ? (employees.find(e => e.empCode === selIds[0])?.empName || selIds[0])
-                                : `${selIds.length} employees selected: ` + selIds.map(id => employees.find(e => e.empCode === id)?.empName || id).join(', '))
-                            : "Select Employee"}
-                        </span>
-
-                        {isEmployeeDropdownOpen && createPortal(
-                          <>
-                            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsEmployeeDropdownOpen(false); }} />
-                            <div
-                              className="custom-inline-dropdown"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                top: `${dropdownPos.top}px`,
-                                left: `${dropdownPos.left}px`,
-                                width: `${dropdownPos.width}px`,
-                                border: '1px solid #e2e8f0',
-                                background: '#ffffff',
-                                borderRadius: '16px',
-                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                                zIndex: 9999
-                              }}
-                            >
-                              <div className="dropdown-search-sec" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                <IonIcon icon={search} className="dropdown-search-icon" style={{ color: '#94a3b8' }} />
-                                <input
-                                  type="text"
-                                  className="dropdown-pure-input"
-                                  placeholder="Search name or code..."
-                                  value={empSearchTerm}
-                                  onChange={(e) => setEmpSearchTerm(e.target.value)}
-                                  autoFocus
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  style={{ color: '#0f172a' }}
-                                />
-                                {empSearchTerm && (
-                                  <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
-                                    <IonIcon icon={close} />
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Department Filter Section */}
-                              <div className="dropdown-depts-sec" style={{
-                                padding: '8px 12px',
-                                borderBottom: '1px solid #e2e8f0',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '6px',
-                                maxHeight: '80px',
-                                overflowY: 'auto'
-                              }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedDept("")}
-                                  style={{
-                                    padding: '4px 10px',
-                                    borderRadius: '8px',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    border: '1.5px solid ' + (selectedDept === "" ? '#0d9488' : 'rgba(226, 232, 240, 0.8)'),
-                                    background: selectedDept === "" ? '#e6f4f1' : '#ffffff',
-                                    color: selectedDept === "" ? '#0d9488' : '#64748b',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                  }}
-                                >
-                                  All
-                                </button>
-                                {uniqueDepartments.map(dept => (
-                                  <button
-                                    key={dept}
-                                    type="button"
-                                    onClick={() => setSelectedDept(dept)}
-                                    style={{
-                                      padding: '4px 10px',
-                                      borderRadius: '8px',
-                                      fontSize: '11px',
-                                      fontWeight: 700,
-                                      border: '1.5px solid ' + (selectedDept === dept ? '#0d9488' : 'rgba(226, 232, 240, 0.8)'),
-                                      background: selectedDept === dept ? '#e6f4f1' : '#ffffff',
-                                      color: selectedDept === dept ? '#0d9488' : '#64748b',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s'
-                                    }}
-                                  >
-                                    {dept}
-                                  </button>
-                                ))}
-                              </div>
-
-                              {/* Select All and Done controls */}
-                              {filteredEmployees.length > 0 && (
-                                <div style={{
-                                  padding: '8px 12px',
-                                  borderBottom: '1px solid #e2e8f0',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center'
-                                }}>
-                                  <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    color: '#0d9488',
-                                    cursor: 'pointer'
-                                  }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={filteredEmployees.every(emp => selIds.includes(emp.empCode))}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          const toAdd = filteredEmployees.map(emp => emp.empCode);
-                                          setSelIds(prev => Array.from(new Set([...prev, ...toAdd])));
-                                        } else {
-                                          const toRemove = filteredEmployees.map(emp => emp.empCode);
-                                          setSelIds(prev => prev.filter(id => !toRemove.includes(id)));
-                                        }
-                                      }}
-                                      style={{ accentColor: '#0d9488', cursor: 'pointer' }}
-                                    />
-                                    Select All Filtered
-                                  </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setIsEmployeeDropdownOpen(false);
-                                      setEmpSearchTerm("");
-                                    }}
-                                    style={{
-                                      padding: '4px 10px',
-                                      borderRadius: '8px',
-                                      fontSize: '11px',
-                                      fontWeight: 700,
-                                      border: '1.5px solid #0d9488',
-                                      background: '#0d9488',
-                                      color: '#ffffff',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    Done
-                                  </button>
-                                </div>
-                              )}
-
-                              <div className="dropdown-body">
-                                {filteredEmployees.map((emp, index) => {
-                                  const isSelected = selIds.includes(emp.empCode);
-                                  const initials = (emp.empName.charAt(0) || "?").toUpperCase();
-
-                                  return (
-                                    <div
-                                      key={index}
-                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderRadius: '12px', cursor: 'pointer', background: isSelected ? '#f1f5f9' : 'transparent' }}
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        toggleEmp(emp.empCode);
-                                      }}
-                                    >
-                                      <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`} style={{ width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d9488', color: '#ffffff', fontWeight: 800 }}>
-                                        {initials}
-                                      </div>
-                                      <div className="dr-info" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                                        <span className="dr-name" style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{emp.empName}</span>
-                                        <span className="dr-id" style={{ fontSize: '11px', color: '#64748b' }}>ID: {emp.empCode}</span>
-                                      </div>
-                                      {isSelected && <IonIcon icon={checkmarkCircle} style={{ color: '#0d9488', fontSize: '16px' }} />}
-                                    </div>
-                                  );
-                                })}
-                                {filteredEmployees.length === 0 && (
-                                  <div className="dr-no-results" style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>
-                                    <p>No matches for "{empSearchTerm}"</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </>                             ,
-                          document.body
-                        )}
-                      </div>
-
-                      <div className="rm-nav-row">
-                        {empPrevStep !== undefined && (
-                          <button className="rm-back-btn" onClick={() => setStep(empPrevStep)}>&#8592; Back</button>
-                        )}
-                        <button className="rm-next-btn" disabled={selIds.length === 0} onClick={() => setStep(empNextStep)}>Next &#8594;</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Rules step (BRANCH step 3 / MARKETING step 2) */}
-                  {showRules && (
-                    <div className="rm-step-body">
-                      <p className="rm-label">Verification Rules</p>
-                      <div className="rm-rule-row">
-                        <span>Bluetooth Required</span>
-                        <label className="rm-toggle">
-                          <input type="checkbox" checked={btOn} onChange={e => setBtOn(e.target.checked)} />
-                          <span className="rm-slider" />
-                        </label>
-                      </div>
-                      <div className="rm-rule-row">
-                        <span>GPS / Location Required</span>
-                        <label className="rm-toggle">
-                          <input type="checkbox" checked={gpsOn} onChange={e => setGpsOn(e.target.checked)} />
-                          <span className="rm-slider" />
-                        </label>
-                      </div>
-                      <div className="rm-rule-row rm-face-row">
-                        <span>Face Recognition</span>
-                        <span className="rm-always-on">Always ON</span>
-                      </div>
-                      <div className="rm-nav-row">
-                        <button className="rm-back-btn" onClick={() => setStep(rulesPrevStep)}>&#8592; Back</button>
-                        <button className="rm-next-btn" onClick={() => setStep(rulesNextStep)}>Next &#8594;</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Date Range step (BRANCH step 4 / MARKETING step 3) */}
-                  {showDateRange && (
-                    <div className="rm-step-body">
-                      <p className="rm-label">Date Range</p>
-                      <div className="rm-date-row">
-                        <div>
-                          <label className="rm-date-label">From</label>
-                          <input type="date" className="rm-date-input" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="rm-date-label">To</label>
-                          <input type="date" className="rm-date-input" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="rm-nav-row">
-                        <button className="rm-back-btn" onClick={() => setStep(datePrevStep)}>&#8592; Back</button>
-                        <button className="rm-next-btn rm-save-main"
-                          disabled={!startDate || !endDate || saving}
-                          onClick={saveOverrides}>
-                          {saving ? 'Saving…' : `Save for ${selIds.length} employee(s)`}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* ── Auto Overrides From Approved On-Duties ──── */}
                 <div className="rm-card rm-overrides-list">
                   <div className="rm-list-header">
                     <h3>Auto Overrides</h3>
-                    <span className="rm-auto-note">from approved on-duties &middot; next 7 days &middot; read-only &middot; a duty split across reporting and non-reporting days shows one line per stretch</span>
+                    <span className="rm-auto-note">from approved on-duties &middot; read-only &middot; a duty split across reporting and non-reporting days shows one line per stretch</span>
                   </div>
+
+                  {/* Replaces the old fixed "next 7 days" window: the range
+                      is now whatever is picked here, defaulting to today on
+                      the way in. */}
+                  <div className="rm-auto-toolbar">
+                    <div className="rm-date-row">
+                      {/* The real <input type="date"> is hidden and only ever
+                          opened via showPicker() - its own on-screen text
+                          follows whatever locale the browser/OS is set to
+                          (mm-dd-yyyy, dd-mm-yyyy, ...), which is exactly the
+                          ambiguity that prompted this. The label shown here
+                          is always dd-mm-yyyy, unambiguous no matter what
+                          machine this runs on. */}
+                      <div>
+                        <label className="rm-date-label">From</label>
+                        <div className="rm-date-field">
+                          <div
+                            className="rm-date-display"
+                            onClick={() => autoFromInputRef.current?.showPicker?.()}
+                          >
+                            {formatDDMMYYYY(autoFrom) || 'dd-mm-yyyy'}
+                          </div>
+                          <input
+                            ref={autoFromInputRef}
+                            type="date"
+                            className="rm-date-input rm-date-input-hidden"
+                            value={autoFrom}
+                            max={autoTo || undefined}
+                            onChange={e => e.target.value && setAutoFrom(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="rm-date-label">To</label>
+                        <div className="rm-date-field">
+                          <div
+                            className="rm-date-display"
+                            onClick={() => autoToInputRef.current?.showPicker?.()}
+                          >
+                            {formatDDMMYYYY(autoTo) || 'dd-mm-yyyy'}
+                          </div>
+                          <input
+                            ref={autoToInputRef}
+                            type="date"
+                            className="rm-date-input rm-date-input-hidden"
+                            value={autoTo}
+                            min={autoFrom || undefined}
+                            onChange={e => e.target.value && setAutoTo(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rm-bt-search-wrap">
+                      <IonIcon icon={search} className="rm-search-icon" />
+                      <input
+                        type="text"
+                        className="rm-bt-search"
+                        placeholder="Search employee name or code..."
+                        value={autoEmpSearch}
+                        onChange={e => setAutoEmpSearch(e.target.value)}
+                      />
+                      {autoEmpSearch && (
+                        <button className="rm-clear-search" onClick={() => setAutoEmpSearch('')}>
+                          <IonIcon icon={close} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <table className="rm-table">
                     <thead>
                       <tr>
+                        <th>Employee Code</th>
                         <th>Employee</th>
                         <th>Home Branch</th>
                         <th>On-Duty Branch</th>
                         <th>BT</th>
                         <th>GPS</th>
+                        <th>Live Location</th>
                         <th>From</th>
                         <th>To</th>
                       </tr>
@@ -1519,6 +1348,12 @@ const AIAttendanceRuleMaster: React.FC = () => {
                           id will not parse sorts last rather than throwing the
                           comparison off. */}
                       {autoOverrides
+                        .filter(a => {
+                          const q = autoEmpSearch.trim().toLowerCase();
+                          if (!q) return true;
+                          return (a.empName || '').toLowerCase().includes(q)
+                              || (a.empId   || '').toLowerCase().includes(q);
+                        })
                         .map((a, i) => ({ a, i }))
                         .sort((x, y) => {
                           const nx = parseInt(String(x.a.dutyId ?? ''), 10);
@@ -1530,6 +1365,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                         })
                         .map(({ a, i }) => (
                         <tr key={`${a.dutyId}-${a.empId}-${i}`}>
+                          <td className="rm-emp-code">{a.empId || <span className="rm-duty-none">&#8212;</span>}</td>
                           <td>
                             <div className="rm-emp-name">
                               {a.empName || a.empId}
@@ -1569,14 +1405,40 @@ const AIAttendanceRuleMaster: React.FC = () => {
                               </span>
                             )}
                           </td>
-                          <td>{a.startDate}</td>
-                          <td>{a.endDate}</td>
+                          {/* Live Location tracks the Camp, not the duty -
+                              it reads Yes only while a Camp tracking session
+                              is actually open for this employee (Start Camp
+                              tapped or auto-triggered by an odometer start
+                              reading), and No once it has ended or was never
+                              started. Undefined (an older API build) shows a
+                              dash rather than guessing either way. */}
+                          <td title={a.tripType ? `Camp scope: ${a.tripType}` : ''}>
+                            {a.liveLocation === undefined ? (
+                              <span className="rm-duty-none">&#8212;</span>
+                            ) : (
+                              <span className={a.liveLocation ? 'rm-badge-on' : 'rm-badge-off'}>
+                                {a.liveLocation ? 'Yes' : 'No'}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {formatDDMMYYYY(a.startDate)}
+                            {a.startTime && <span className="rm-time-note"> {a.startTime}</span>}
+                          </td>
+                          <td>{formatDDMMYYYY(a.endDate)}</td>
                         </tr>
                       ))}
-                      {autoOverrides.length === 0 && (
+                      {autoOverrides.filter(a => {
+                          const q = autoEmpSearch.trim().toLowerCase();
+                          if (!q) return true;
+                          return (a.empName || '').toLowerCase().includes(q)
+                              || (a.empId   || '').toLowerCase().includes(q);
+                        }).length === 0 && (
                         <tr>
-                          <td colSpan={7} className={autoErr ? 'rm-empty rm-auto-err' : 'rm-empty'}>
-                            {autoErr || 'No approved on-duties in the next 7 days.'}
+                          <td colSpan={9} className={autoErr ? 'rm-empty rm-auto-err' : 'rm-empty'}>
+                            {autoErr || (autoEmpSearch.trim()
+                              ? `No approved on-duties match "${autoEmpSearch.trim()}" in the selected range.`
+                              : 'No approved on-duties in the selected date range.')}
                           </td>
                         </tr>
                       )}
@@ -1584,58 +1446,6 @@ const AIAttendanceRuleMaster: React.FC = () => {
                   </table>
                 </div>
 
-                {/* ── Active Overrides Table ───────────────────────── */}
-                <div className="rm-card rm-overrides-list">
-                  <div className="rm-list-header">
-                    <h3>Active Overrides</h3>
-                  </div>
-                  <table className="rm-table">
-                    <thead>
-                      <tr>
-                        <th>Employee</th>
-                        <th>Home Branch</th>
-                        <th>On-Duty Branch</th>
-                        <th>BT</th>
-                        <th>GPS</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {overrides.map(o => (
-                        <tr key={o.id}>
-                          <td>
-                            <div className="rm-emp-name">{o.empName || o.empId}</div>
-                            <div className="rm-emp-sub">{o.designation}</div>
-                          </td>
-                          <td>{o.liveBranch || o.branch}</td>
-                          <td>
-                            {o.onDutyAnywhere ? (
-                              // No office to name, so the chip says what the
-                              // rule is rather than pretending to be a place.
-                              <span className="rm-badge-duty" title={o.onDutyType ? o.onDutyType + ' duty - punch allowed anywhere' : 'Punch allowed anywhere'}>OnDuty</span>
-                            ) : o.onDutyBranch ? (
-                              <span className="rm-badge-duty">{o.onDutyBranch}</span>
-                            ) : (
-                              <span className="rm-duty-none">&#8212;</span>
-                            )}
-                          </td>
-                          <td><span className={o.btRequired ? 'rm-badge-on' : 'rm-badge-off'}>{o.btRequired ? 'ON' : 'OFF'}</span></td>
-                          <td><span className={o.gpsRequired ? 'rm-badge-on' : 'rm-badge-off'}>{o.gpsRequired ? 'ON' : 'OFF'}</span></td>
-                          <td>{o.startDate}</td>
-                          <td>{o.endDate}</td>
-                          <td>
-                            <button className="rm-del-btn" onClick={() => deleteOverride(o.id)}>&#x2715;</button>
-                          </td>
-                        </tr>
-                      ))}
-                      {overrides.length === 0 && (
-                        <tr><td colSpan={8} className="rm-empty">No active overrides.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
 
               </div>
             )}
