@@ -47,6 +47,7 @@ import ClientDetails from "./pages/ClientDetails";
 import OfficeClientDocs from "./pages/OfficeClientDocs";
 import Home from "./pages/Home";
 import LeaveRequest from "./pages/LeaveRequest";
+import LeaveDashboard from "./pages/LeaveDashboard";
 import AdminWorkReport from "./pages/AdminWorkReport";
 import TicketsDashboard from "./pages/TicketsDashboard";
 import ProjectWiseTickets from "./pages/Tickets/ProjectWiseTickets";
@@ -196,6 +197,7 @@ const App: React.FC = () => {
                   <Route exact path="/timings" component={Timings} />
                   <Route exact path="/adminrequests" component={AdminRequests} />
                   <Route exact path="/leaverequest" component={LeaveRequest} />
+                  <Route exact path="/leave-dashboard" component={LeaveDashboard} />
                   <Route exact path="/transactions/0" component={Transactions} />
                   <Route exact path="/adminworkreport" component={AdminWorkReport} />
                   <Route exact path="/workreport" component={WorkReports} />

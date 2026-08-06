@@ -9,6 +9,7 @@ import {
   IonLoading,
   IonPage,
   IonIcon,
+  IonHeader,
 } from "@ionic/react";
 
 import {
@@ -110,6 +111,8 @@ const Salaries: React.FC = () => {
   const [SalReset, setSalReset] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [openHyear, setOpenHyear] = useState(false);
+  const [openSalMY, setOpenSalMY] = useState(false);
 
   const months = moment.months();
 
@@ -605,11 +608,11 @@ const UpdateAdjustmentField = async (
     <IonPage>
       <ThemeProvider theme={theme}>
         <LocalizationProvider dateAdapter={AdapterMoment}>
-          <IonContent className="page-content">
-            <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+          <IonHeader className="ion-no-border" style={{ background: 'var(--stock-bg, #f4f5f8)', padding: '0 0 4px 0' }}>
+            <div className="wr-container stock-container salary-container" style={{ padding: '16px 16px 0 16px', minHeight: 'auto', backgroundColor: 'transparent' }}>
               
               {/* ── Premium Header ── */}
-              <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
+              <div className="page-wr-header" style={{ margin: 0, borderRadius: '16px', padding: '16px' }}>
                 <div className="page-wr-header-left">
                   <button className="page-wr-back-btn" onClick={() => history.goBack()}>
                     <ChevronLeft size={22} color="white" />
@@ -627,7 +630,7 @@ const UpdateAdjustmentField = async (
               </div>
 
               {/* --- Custom Native-Like Tabs --- */}
-              <div className="stock-tabs" style={{ margin: '0 16px' }}>
+              <div className="stock-tabs" style={{ margin: '12px 0 0 0' }}>
                 <button
                   type="button"
                   className={`stock-tab ${tabValue === 0 ? "active" : ""}`}
@@ -643,6 +646,11 @@ const UpdateAdjustmentField = async (
                   Generate Salaries
                 </button>
               </div>
+            </div>
+          </IonHeader>
+
+          <IonContent className="page-content">
+            <div className="wr-container stock-container salary-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
 
             {/* TAB 1: ASSIGN HOLIDAYS */}
             {tabValue === 0 && (
@@ -653,6 +661,9 @@ const UpdateAdjustmentField = async (
                     label="Mon-Year"
                     format="MMM-YYYY"
                     value={Hyear}
+                    open={openHyear}
+                    onOpen={() => setOpenHyear(true)}
+                    onClose={() => setOpenHyear(false)}
                     onChange={(newValue) => {
                       setHyear(newValue);
                       setHMnth(newValue);
@@ -661,7 +672,16 @@ const UpdateAdjustmentField = async (
                       textField: {
                         size: "small",
                         className: "date-input-field",
+                        onClick: () => setOpenHyear(true),
+                        slotProps: {
+                          htmlInput: { readOnly: true }
+                        }
                       },
+                      popper: {
+                        sx: {
+                          zIndex: 99999
+                        }
+                      }
                     }}
                   />
                   <button
@@ -793,12 +813,24 @@ const UpdateAdjustmentField = async (
                     label="Mon-Year"
                     format="MMM-YYYY"
                     value={SalMY}
+                    open={openSalMY}
+                    onOpen={() => setOpenSalMY(true)}
+                    onClose={() => setOpenSalMY(false)}
                     onChange={(newValue) => setSalMY(newValue)}
                     slotProps={{
                       textField: {
                         size: "small",
                         className: "date-input-field",
+                        onClick: () => setOpenSalMY(true),
+                        slotProps: {
+                          htmlInput: { readOnly: true }
+                        }
                       },
+                      popper: {
+                        sx: {
+                          zIndex: 99999
+                        }
+                      }
                     }}
                   />
                   <button
@@ -819,7 +851,7 @@ const UpdateAdjustmentField = async (
                   <b style={{ fontSize: "14px", color: "var(--stock-text)" }}>Reset Adjustments</b>
                 </div>
 
-                <div className="adjustment-list-container" style={{ backgroundColor: 'var(--stock-elevated-bg)', borderRadius: '12px', border: '1px solid var(--stock-border)', overflow: 'hidden' }}>
+                <div className="adjustment-list-container" style={{ backgroundColor: 'var(--stock-elevated-bg)', borderRadius: '12px', border: '1px solid var(--stock-border)', overflow: 'auto' }}>
                   <IonGrid className="ion-no-padding" style={{ marginTop: 0 }}>
                     <IonRow className="ion-grid-heading-row" style={{ position: "sticky", top: 0, zIndex: 10, backgroundColor: 'var(--stock-bg)' }}>
                       <IonCol size="4"><input value="Employee Name" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>

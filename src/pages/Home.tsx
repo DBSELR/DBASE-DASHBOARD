@@ -213,6 +213,13 @@ const Home: React.FC = () => {
       path: "/employee-penalties",
       colorClass: "home-card-penalties"
     },
+    {
+      id: "leave-dashboard",
+      label: "Leave Dashboard",
+      icon: "https://cdn.lordicon.com/yraqammt.json",
+      path: "/leave-dashboard",
+      colorClass: "home-card-leaves"
+    },
 
     ...(ADMIN_EMPCODES.includes(currentEmpCode) ? [{
       id: "ai-attendance-admin",

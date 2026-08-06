@@ -64,11 +64,11 @@ const safeStr = (v: any) => {
 };
 
 const TYPES = [
-  { value: "leave", label: "Leave", icon: calendarOutline },
-  { value: "permission", label: "Permission", icon: timeOutline },
-  { value: "workreport", label: "Work Report", icon: documentTextOutline },
-  { value: "onduty", label: "On Duty", icon: locationOutline },
-  { value: "overtime", label: "Overtime", icon: alarmOutline },
+  { value: "leave", label: "Pending Leaves", icon: calendarOutline },
+  { value: "permission", label: "Pending Permissions", icon: timeOutline },
+  { value: "workreport", label: "Pending WorkReports", icon: documentTextOutline },
+  { value: "onduty", label: "Pending OnDuty", icon: locationOutline },
+  { value: "overtime", label: "Pending Overtime", icon: alarmOutline },
 ];
 
 const PendingRequests: React.FC = () => {
@@ -462,8 +462,44 @@ const PendingRequests: React.FC = () => {
 
         {/* Category switcher tabs and inline date picker */}
         <div className="pr-tabs-filter-bar">
-          <div className="pr-type-tabs">
-            {TYPES.map((t) => (
+          {/* Row 1: Leaves, Pending Permissions, Pending Work Reports, Pending On Duty + Period Selector */}
+          <div className="pr-tabs-row-1">
+            <div className="pr-tabs-row-1-left">
+              {TYPES.slice(0, 4).map((t) => (
+                <button
+                  key={t.value}
+                  className={`pr-tab${activeType === t.value ? " active" : ""}`}
+                  onClick={() => {
+                    setActiveType(t.value);
+                    setSearchQuery("");
+                  }}
+                >
+                  <IonIcon icon={t.icon} className="pr-tab-icon" />
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div
+              className="pr-inline-period-card"
+              onClick={toggleDropdown}
+            >
+              <div className="pr-period-left-icon-box">
+                <IonIcon icon={calendarOutline} />
+              </div>
+              <div className="pr-period-middle-content">
+                <span className="pr-period-label">PERIOD</span>
+                <span className="pr-period-value">{selectedMonth}</span>
+              </div>
+              <div className="pr-period-right-icon-box">
+                <IonIcon icon={layersOutline} />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Pending Overtime */}
+          <div className="pr-tabs-row-2">
+            {TYPES.slice(4).map((t) => (
               <button
                 key={t.value}
                 className={`pr-tab${activeType === t.value ? " active" : ""}`}
@@ -476,22 +512,6 @@ const PendingRequests: React.FC = () => {
                 <span>{t.label}</span>
               </button>
             ))}
-          </div>
-
-          <div
-            className="pr-inline-period-card"
-            onClick={toggleDropdown}
-          >
-            <div className="pr-period-left-icon-box">
-              <IonIcon icon={calendarOutline} />
-            </div>
-            <div className="pr-period-middle-content">
-              <span className="pr-period-label">PERIOD</span>
-              <span className="pr-period-value">{selectedMonth}</span>
-            </div>
-            <div className="pr-period-right-icon-box">
-              <IonIcon icon={layersOutline} />
-            </div>
           </div>
         </div>
 
