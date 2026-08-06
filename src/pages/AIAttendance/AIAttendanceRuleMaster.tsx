@@ -1326,6 +1326,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                   <table className="rm-table">
                     <thead>
                       <tr>
+                        <th>S.No</th>
                         <th>Employee Code</th>
                         <th>Employee</th>
                         <th>Home Branch</th>
@@ -1338,15 +1339,14 @@ const AIAttendanceRuleMaster: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {/* Newest duty first. The rows arrive in whatever order
-                          the query produced them, which floated the oldest
-                          stretch to the top - and the duty someone just raised
-                          is the one they are on this screen to check. The
-                          original position is the tie-break, so a duty split
-                          into a reporting and a non-reporting stretch still
-                          reads first-day-first within its own id. A row whose
-                          id will not parse sorts last rather than throwing the
-                          comparison off. */}
+                      {/* Ordered by employee code, ascending. Numeric compare when
+                          both codes parse as numbers (the normal case, e.g. "1501"),
+                          else a plain string compare so a non-numeric code still
+                          sorts predictably instead of colliding at one shared
+                          fallback value. Original position is still the tie-break
+                          for two rows sharing the same code (a duty split across a
+                          reporting and non-reporting stretch), so that pair keeps
+                          reading first-day-first within itself. */}
                       {autoOverrides
                         .filter(a => {
                           const q = autoEmpSearch.trim().toLowerCase();
@@ -1356,15 +1356,19 @@ const AIAttendanceRuleMaster: React.FC = () => {
                         })
                         .map((a, i) => ({ a, i }))
                         .sort((x, y) => {
-                          const nx = parseInt(String(x.a.dutyId ?? ''), 10);
-                          const ny = parseInt(String(y.a.dutyId ?? ''), 10);
-                          const vx = isNaN(nx) ? -1 : nx;
-                          const vy = isNaN(ny) ? -1 : ny;
-                          if (vx !== vy) return vy - vx;
+                          const cx = String(x.a.empId ?? '');
+                          const cy = String(y.a.empId ?? '');
+                          const nx = parseInt(cx, 10);
+                          const ny = parseInt(cy, 10);
+                          if (!isNaN(nx) && !isNaN(ny) && nx !== ny) return nx - ny;
+                          if (isNaN(nx) !== isNaN(ny)) return isNaN(nx) ? 1 : -1;
+                          const byCode = cx.localeCompare(cy);
+                          if (byCode !== 0) return byCode;
                           return x.i - y.i;
                         })
-                        .map(({ a, i }) => (
+                        .map(({ a, i }, idx) => (
                         <tr key={`${a.dutyId}-${a.empId}-${i}`}>
+                          <td className="rm-emp-code">{idx + 1}</td>
                           <td className="rm-emp-code">{a.empId || <span className="rm-duty-none">&#8212;</span>}</td>
                           <td>
                             <div className="rm-emp-name">
@@ -1435,7 +1439,7 @@ const AIAttendanceRuleMaster: React.FC = () => {
                               || (a.empId   || '').toLowerCase().includes(q);
                         }).length === 0 && (
                         <tr>
-                          <td colSpan={9} className={autoErr ? 'rm-empty rm-auto-err' : 'rm-empty'}>
+                          <td colSpan={10} className={autoErr ? 'rm-empty rm-auto-err' : 'rm-empty'}>
                             {autoErr || (autoEmpSearch.trim()
                               ? `No approved on-duties match "${autoEmpSearch.trim()}" in the selected range.`
                               : 'No approved on-duties in the selected date range.')}
