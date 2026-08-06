@@ -605,6 +605,14 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     days: [],
     busy: false,
   });
+  // Amendments to an already-approved duty that have been written down and
+  // are waiting for HR, keyed by the duty they belong to. Everybody who can
+  // see the duty sees that a change is pending on it; only HR gets the two
+  // buttons that decide it.
+  const [changeReqs, setChangeReqs] = useState<Record<string, any[]>>({});
+  // The id currently being decided, so one row's buttons grey out rather
+  // than the whole strip.
+  const [changeBusy, setChangeBusy] = useState<number>(0);
   const [editingId, setEditingId] = useState<string>("");
   const [tripDaysByDuty, setTripDaysByDuty] = useState<Record<string, TripDayItem[]>>({});
   const [showDayTripModal, setShowDayTripModal] = useState(false);
@@ -763,7 +771,7 @@ const [isBranchChangeTypeDropdownOpen, setIsBranchChangeTypeDropdownOpen] = useS
 const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
 // Closed set. "Official Assignment" is the company moving someone;
-// "Employee Request" is the employee asking to be moved. The third is both
+// "Employee Request" is the employee asking to be moved. "Mutual" is both
 // at once - the company wanted them at the other branch and the employee
 // asked to go - so it is settled halfway between the two: travel is paid
 // for the journey one way only, because the return leg was the employee's
@@ -771,6 +779,10 @@ const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 // any other duty. Because this is not the literal string "Employee
 // Request", the transport, vehicle and reporting-day fields below stay on
 // screen for it - which is right, since there is still a company journey.
+//
+// The settlement procedure recognises this case by looking for the word
+// "Mutual" in the saved value, so renaming it here means changing the
+// matcher in APP_OnDuty_DA_TA_Setup.sql to suit.
 const BRANCH_CHANGE_TYPE_OPTIONS = [
   "Official Assignment",
   "Employee Request",
@@ -2208,6 +2220,7 @@ useEffect(() => {
       if (ok) {
         await loadDutyMembers(String(row.id));
         await loadDuties();
+        await loadChangeRequests();
         closeTeamChange();
       } else {
         setTeamChange((s) => ({ ...s, busy: false }));
@@ -2283,7 +2296,7 @@ useEffect(() => {
     try {
       const res = await api.post(
         "OnDuty/onduty_save_attdays",
-        { DutyId: String(row.id), Days: days.join(",") },
+        { DutyId: String(row.id), Days: days.join(","), By: empCode2() },
         { headers: authHeaders() }
       );
       const first = readRows(res.data)[0];
@@ -2295,6 +2308,7 @@ useEffect(() => {
       );
       if (ok) {
         await loadDuties();
+        await loadChangeRequests();
         closeAttEdit();
       } else {
         setAttEdit((s) => ({ ...s, busy: false }));
@@ -2309,6 +2323,72 @@ useEffect(() => {
 
 
 
+
+  // Every amendment still waiting on HR, for every duty on screen, in one
+  // call. Fetching per duty would cost a round trip per card to be told
+  // "nothing pending" over and over, which is the usual answer.
+  const loadChangeRequests = async () => {
+    try {
+      const res = await api.get("OnDuty/onduty_change_requests", {
+        params: { By: empCode2(), Status: "Pending" },
+        headers: authHeaders(),
+      });
+      const grouped: Record<string, any[]> = {};
+      readRows(res.data).forEach((r: any) => {
+        const k = String(field(r, "Duty_Id") ?? "").trim();
+        if (!k) return;
+        (grouped[k] = grouped[k] || []).push(r);
+      });
+      setChangeReqs(grouped);
+    } catch (e) {
+      // A database that has not had the new script run yet answers 404
+      // here, and the rest of the screen must carry on exactly as before.
+      console.error("loadChangeRequests failed:", e);
+    }
+  };
+
+  // Everything waiting, flattened out of the per-duty grouping, so the
+  // question "is there anything for me to decide" can be asked once for
+  // the whole page instead of once per card.
+  const allChangeReqs = (): any[] =>
+    ([] as any[]).concat(...Object.keys(changeReqs).map((k) => changeReqs[k] || []));
+
+  const myChangeReqs = (): any[] =>
+    allChangeReqs().filter((cr: any) => !!field(cr, "CanDecide"));
+
+  const decideChange = async (id: number, approve: boolean) => {
+    if (!id) return;
+    setChangeBusy(id);
+    try {
+      const res = await api.post(
+        "OnDuty/onduty_decide_change",
+        {
+          Id: id,
+          Status: approve ? "Approve" : "Reject",
+          By: empCode2(),
+          Remarks: null,
+        },
+        { headers: authHeaders() }
+      );
+      const first = readRows(res.data)[0];
+      const ok = field(first, "Ok") !== false;
+      // The procedure answers in words - "Approved. Added to the duty.",
+      // or the reason an approval could not be carried out - and those
+      // words are worth more than a generic success line.
+      notify(
+        String(field(first, "Message") ?? "").trim() ||
+          (ok ? "Done." : "That decision was not accepted."),
+        ok ? "success" : "warning"
+      );
+      await loadChangeRequests();
+      if (ok && approve) await loadDuties();
+    } catch (e: any) {
+      console.error("decideChange error:", e);
+      notify("Could not record that decision - " + serverSaid(e), "danger");
+    } finally {
+      setChangeBusy(0);
+    }
+  };
 
   const [previewFile, setPreviewFile] = useState<File | string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -2451,6 +2531,7 @@ useEffect(() => {
       loadBranches();
       loadDuties();
       loadVehicleMaster();
+      loadChangeRequests();
 
     }
   }, [userLoaded, empCode]);
@@ -3012,6 +3093,28 @@ useEffect(() => {
             : "pending";
         return { role: String(s.role).trim(), color };
       });
+  };
+
+  // Who may amend an approved duty, and who may open its settlement.
+  //
+  // The blanket designation test these buttons used to lean on asks whether
+  // the viewer is a Team Leader or a Manager in general, which is a different
+  // question from the one actually being asked. An HR named on this very
+  // request's approval line failed it, and so did every approver reading the
+  // Team Requests tab, whose rows are by definition not their own. Yet the
+  // request already names the people entitled to decide it, so that is what
+  // gets asked here: does the viewer hold one of the roles standing in
+  // RA1..RA4. Alongside them sit the accountant and the director, who may act
+  // on any duty at all, and the person who raised the request, who assembled
+  // the team in the first place and is usually the one who notices somebody
+  // missing from it.
+  const canAmendDuty = (row: DutyRow): boolean => {
+    if (canEdit) return true;
+    if ([row.RA1, row.RA2, row.RA3, row.RA4].some((ra) => roleMatchesUser(ra)))
+      return true;
+    if (canApprove && row.isOwn !== false) return true;
+    const applicant = String((row as any)?.AppliedBy ?? "").trim();
+    return !!applicant && applicant === String(empCode || "").trim();
   };
 
   // Whether it's currently the logged-in user's turn: CurrentLevel names a
@@ -4261,6 +4364,71 @@ useEffect(() => {
               </button>
             </div>
           </div>
+          {/* HR's inbox.  Leaving the decision only on the duty card meant
+              HR had to already be looking at the right card to find it -
+              and a fully approved duty raised by somebody else is not a
+              card HR has any reason to open.  Every amendment waiting on
+              this viewer is therefore collected here, above the list, so
+              the question "is anything waiting on me" is answered by the
+              page rather than by scrolling it. */}
+          {myChangeReqs().length > 0 && (
+            <div className="od-chg-inbox">
+              <div className="od-chg-inbox-head">
+                <span>
+                  Amendments waiting for your decision ({myChangeReqs().length})
+                </span>
+                <button
+                  type="button"
+                  className="od-team-btn"
+                  onClick={() => loadChangeRequests()}
+                >
+                  Refresh
+                </button>
+              </div>
+              {myChangeReqs().map((cr: any, ci: number) => (
+                <div className="od-chg-row" key={String(field(cr, "ID") ?? ci)}>
+                  <div className="od-chg-text">
+                    <span>
+                      <b>#{String(field(cr, "Duty_Id") ?? "").trim()}</b>{" "}
+                      {String(field(cr, "Summary") ?? "").trim()}
+                    </span>
+                    <span className="od-chg-by">
+                      asked by{" "}
+                      {String(
+                        field(cr, "RequestedByName") ??
+                          field(cr, "Requested_By") ??
+                          "someone"
+                      ).trim()}
+                    </span>
+                    {!!String(field(cr, "Outcome") ?? "").trim() && (
+                      <span className="od-chg-why">
+                        {String(field(cr, "Outcome")).trim()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="od-chg-acts">
+                    <button
+                      type="button"
+                      className="od-team-btn add"
+                      disabled={changeBusy === Number(field(cr, "ID"))}
+                      onClick={() => decideChange(Number(field(cr, "ID")), true)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="od-team-btn remove"
+                      disabled={changeBusy === Number(field(cr, "ID"))}
+                      onClick={() => decideChange(Number(field(cr, "ID")), false)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="history-section-title">On Duty Logs</div>
 
           {canApprove && (
@@ -4377,7 +4545,7 @@ useEffect(() => {
                   {/* A plain button, not an IonButton: an IonButton carries
                       its own height and margins and would set the header
                       row's height all by itself. */}
-                  {(canEdit || canApprove) && isFullyApproved(row) && (
+                  {canAmendDuty(row) && isFullyApproved(row) && (
                     <button
                       type="button"
                       className="dm-data-link"
@@ -4398,6 +4566,69 @@ useEffect(() => {
                   </span>
                 </div>
               </div>
+              {/* An amendment to an approved duty is a request, not an act,
+                  so the card has to say out loud that something has been
+                  asked for and has not happened yet. Without this strip the
+                  person who pressed the button sees a duty that looks
+                  exactly as it did, and reasonably concludes the button is
+                  broken. The two decision buttons appear only for HR. */}
+              {(changeReqs[String(row.id)] || []).length > 0 && (
+                <div className="od-chg-strip">
+                  <div className="od-chg-head">
+                    Waiting for HR ({(changeReqs[String(row.id)] || []).length})
+                    {/* Without this the strip reads as a broken control to
+                        everyone who is not HR: something is clearly waiting,
+                        and there is nothing to press. */}
+                    {!(changeReqs[String(row.id)] || []).some(
+                      (cr: any) => !!field(cr, "CanDecide")
+                    ) && (
+                      <span className="od-chg-note">
+                        only HR can accept or reject
+                      </span>
+                    )}
+                  </div>
+                  {(changeReqs[String(row.id)] || []).map((cr: any, ci: number) => (
+                    <div className="od-chg-row" key={String(field(cr, "ID") ?? ci)}>
+                      <div className="od-chg-text">
+                        <span>{String(field(cr, "Summary") ?? "").trim()}</span>
+                        <span className="od-chg-by">
+                          asked by{" "}
+                          {String(
+                            field(cr, "RequestedByName") ??
+                              field(cr, "Requested_By") ??
+                              "someone"
+                          ).trim()}
+                        </span>
+                        {!!String(field(cr, "Outcome") ?? "").trim() && (
+                          <span className="od-chg-why">
+                            {String(field(cr, "Outcome")).trim()}
+                          </span>
+                        )}
+                      </div>
+                      {!!field(cr, "CanDecide") && (
+                        <div className="od-chg-acts">
+                          <button
+                            type="button"
+                            className="od-team-btn add"
+                            disabled={changeBusy === Number(field(cr, "ID"))}
+                            onClick={() => decideChange(Number(field(cr, "ID")), true)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="od-team-btn remove"
+                            disabled={changeBusy === Number(field(cr, "ID"))}
+                            onClick={() => decideChange(Number(field(cr, "ID")), false)}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div
                 style={{
                   display: "grid",
@@ -4428,7 +4659,7 @@ useEffect(() => {
                   >
                     <span className="item-label">Employees</span>
 
-                    {(canEdit || (canApprove && row.isOwn !== false)) &&
+                    {canAmendDuty(row) &&
                       rowApproved && (
                         <>
                           <button
@@ -4602,7 +4833,7 @@ useEffect(() => {
                     is no unmarked counterpart to show here - every pill is a
                     green one, and the count carries the rest of the meaning. */}
                 {(attDayPills(row).length > 0 ||
-                  ((canEdit || (canApprove && row.isOwn !== false)) &&
+                  (canAmendDuty(row) &&
                     rowApproved &&
                     !!row.OnDutyType &&
                     String(row.OnDutyType).toLowerCase().includes("branch"))) && (
@@ -4622,7 +4853,7 @@ useEffect(() => {
                       {/* Same gate as Add and Remove: while the duty is still
                           pending the pencil opens the whole form, so a second
                           way in would only be a second thing to keep in step. */}
-                      {(canEdit || (canApprove && row.isOwn !== false)) &&
+                      {canAmendDuty(row) &&
                         rowApproved && (
                           <button
                             type="button"

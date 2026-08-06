@@ -975,6 +975,126 @@
   filter: brightness(0.96);
 }
 
+/* ------------------------------------------------------------------
+   The amendment strip: what has been asked for on an approved duty and
+   is waiting on HR.  Amber rather than red because nothing has gone
+   wrong - a decision simply has not been made yet - and it sits at the
+   top of the card body so it is read before the details it would
+   change, not after them.
+   ------------------------------------------------------------------ */
+.od-chg-strip {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #fcd34d;
+  border-left: 3px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.od-chg-head {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #92400e;
+  margin-bottom: 6px;
+}
+
+.od-chg-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.od-chg-row + .od-chg-row {
+  border-top: 1px dashed #fde68a;
+}
+
+.od-chg-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: #78350f;
+  min-width: 0;
+}
+
+.od-chg-by {
+  font-size: 11px;
+  color: #a16207;
+}
+
+/* Only present when an approval was attempted and could not be carried
+   out - the reason matters more than the fact, so it is not hidden in a
+   toast that has already gone. */
+.od-chg-why {
+  font-size: 11px;
+  color: #b91c1c;
+}
+
+.od-chg-acts {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.od-chg-acts .od-team-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Said once in the strip's heading rather than once per line, because the
+   answer is the same for every line and repeating it turns a note into
+   noise. */
+.od-chg-note {
+  margin-left: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #a16207;
+}
+
+/* ------------------------------------------------------------------
+   HR's inbox, above the duty list.  Stronger than the per-card strip
+   on purpose: the strip is a note on a duty you happened to open, this
+   is a queue of work with your name on it.
+   ------------------------------------------------------------------ */
+.od-chg-inbox {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  background: #fffbeb;
+  box-shadow: 0 1px 3px rgba(146, 64, 14, 0.12);
+}
+
+.od-chg-inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+
+.od-chg-inbox .od-chg-row + .od-chg-row {
+  border-top: 1px dashed #fcd34d;
+}
+
+@media (max-width: 768px) {
+  .od-chg-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* A short form on a small sheet - full height would leave two fields
    floating in a page of white. */
 .od-team-modal {
