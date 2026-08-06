@@ -2478,14 +2478,18 @@ useEffect(() => {
     [selectedCodes, team]
   );
 
-  // Which vehicles this duty could be on.
+  // Which vehicles this duty could be on - straight off the vehicles master,
+  // narrowed only by the transport line.
   //
   // "Office 4 Wheeler" means the office's four wheelers and nobody else's.
-  // "Own 2 Wheeler" means the two wheelers belonging to the people actually
-  // going: whoever is applying, plus anyone they have added to the duty. A
-  // duty is often raised by one person for a group, and the bike that gets
-  // ridden is not always the applicant's - restricting the list to the
-  // applicant would leave the real vehicle untypeable.
+  // "Own 2 Wheeler" means every two wheeler on the master that belongs to a
+  // person rather than to the office. It used to mean only the ones belonging
+  // to people already added to the duty, which read well and worked badly: a
+  // duty is often raised before the passengers are on it, and a vehicle that
+  // is not on the list is a vehicle that has to be typed - which registers it
+  // nowhere and leaves it with no per kilometre rate to be paid at. The
+  // master is the list. Whose it is stays on the row, so the right one is
+  // still easy to find.
   //
   // Public transport has no vehicle to pick, so the list is empty and the
   // field never opens.
@@ -2511,22 +2515,25 @@ useEffect(() => {
         const owner = String(v.OwnedBy ?? "").trim().toLowerCase();
         const isOffice = owner === "office";
         if (isOffice !== wantOffice) return false;
-        // A vehicle belonging to somebody who is not on this duty is not a
-        // vehicle this duty can be taken in.
-        if (!wantOffice && !travellers.has(owner)) return false;
         return String(v.VehType ?? "").trim().toLowerCase() === wantType;
       })
       .map((v: any) => {
         const owner = String(v.OwnedBy ?? "").trim().toLowerCase();
+        const mine = !wantOffice && owner === me;
         return {
           ...v,
-          _isMine: !wantOffice && owner === me,
-          _ownerLabel: wantOffice ? "" : owner === me ? "Yours" : nameOf(owner) || String(v.OwnedBy ?? ""),
+          _isMine: mine,
+          // Yours, then the people already on this duty, then the rest of the
+          // master. Nothing is hidden - the likely answer is just nearer the
+          // top than the unlikely one.
+          _rank: mine ? 0 : travellers.has(owner) ? 1 : 2,
+          _ownerLabel: wantOffice ? "" : mine ? "Yours" : nameOf(owner) || String(v.OwnedBy ?? ""),
         };
       })
-      // The applicant's own vehicles first - the common answer should not have
-      // to be hunted for among the colleagues'.
-      .sort((a: any, b: any) => (a._isMine === b._isMine ? 0 : a._isMine ? -1 : 1));
+      .sort((a: any, b: any) => {
+        if (a._rank !== b._rank) return a._rank - b._rank;
+        return String(a.VehNo ?? "").localeCompare(String(b.VehNo ?? ""));
+      });
   }, [vehicleMaster, transportMode, empCode, selectedCodes, team]);
 
   useEffect(() => {
@@ -4139,13 +4146,29 @@ useEffect(() => {
                         <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
                       </>
                     ) : (
-                      <input
-                        type="text"
-                        placeholder={transportMode ? "Not in vehicles master - type it" : "AP16..."}
-                        value={vehicleNo}
-                        onChange={(e) => setVehicleNo(e.target.value.toUpperCase())}
-                        style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
-                      />
+                      // Nothing to pick, and nothing to type either. A plate
+                      // that is not on the master has no owner and no per
+                      // kilometre rate behind it, so a duty carrying one is
+                      // approved and then quietly pays no TA at all. Better to
+                      // say the vehicle is not registered than to accept a
+                      // number that will not be honoured. It gets added on the
+                      // vehicles master, and then it is here.
+                      <span
+                        style={{
+                          flex: 1,
+                          fontSize: "13px",
+                          fontWeight: "500",
+                          color: vehicleNo ? "#1e293b" : "#94a3b8",
+                        }}
+                      >
+                        {vehicleNo
+                          ? vehicleNo
+                          : !transportMode
+                          ? "Select the transport first"
+                          : String(transportMode).toLowerCase().startsWith("office")
+                          ? "No office vehicle is registered"
+                          : "No vehicle is registered"}
+                      </span>
                     )}
 
                     {isVehicleDropdownOpen && vehicleOptions.length > 0 && createPortal(
