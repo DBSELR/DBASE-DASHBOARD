@@ -1274,6 +1274,126 @@
   filter: brightness(0.97);
 }
 
+.onduties-content .dm-data-link:disabled {
+  opacity: 0.6;
+  cursor: default;
+  filter: none;
+}
+
+/* Amber rather than the green Start Camp uses - the camp is open and this
+   button's whole job is to close it, which is a different kind of action
+   from starting one and should not look identical. */
+.onduties-content .dm-camp-end {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+/* A plain badge, not a button - a Round Trip camp that has ended cannot be
+   restarted, so there is nothing left here to tap. */
+.onduties-content .dm-camp-locked {
+  display: inline-block;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+/* Small, centred confirmation dialog for Start Camp / End Camp - sized like
+   native-date-modal above rather than the full-screen sheet the bigger
+   modals in this file use, because this is one question with two answers. */
+.camp-confirm-modal {
+  --width: 320px;
+  --height: auto;
+  --border-radius: 20px;
+  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+/* Replaces IonContent inside these two modals - IonContent never
+   reports a real height back up to an --height:auto ion-modal, so the
+   modal collapsed to zero visible size while staying "open", and its
+   full-screen backdrop silently ate every click/keypress meant for
+   whatever was underneath it. A plain padded div sizes normally. */
+.camp-confirm-wrapper {
+  padding: 16px;
+}
+
+.camp-confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.camp-confirm-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.camp-confirm-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.camp-confirm-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+/* Informational, not a block - End Camp still works with this showing.
+   Amber for the same reason it is used elsewhere in this file: it is a
+   caveat about the state of things, not a failure. */
+.camp-confirm-warn {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.camp-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.camp-confirm-actions button {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.camp-confirm-no {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.camp-confirm-yes {
+  background: var(--ion-color-primary);
+  color: #fff;
+}
+
+/* Still visible during the count-down, just not clickable - the number
+   itself is the point, so it should not fade into a generic disabled grey. */
+.camp-confirm-yes:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 @media screen and (max-width: 768px) {
   .onduties-content .dm-head-right {
     max-width: 100%;

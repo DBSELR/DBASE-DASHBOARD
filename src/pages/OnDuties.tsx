@@ -584,6 +584,108 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   }, [branches, profileBranchKey]);
   const [dutiesList, setDutiesList] = useState<DutyRow[]>([]);
 
+  // ---- CAMP TRACKING (Start Camp / End Camp) --------------------------
+  // "active" mirrors whether a live GPS tracking session is open for this
+  // duty right now (Daily Shuttle: today's reporting day; Round Trip: the
+  // whole duty). "locked" is Round Trip only - once its camp has ended the
+  // duty is closed to visits, reading uploads, and team changes (enforced
+  // server-side; this is only what the buttons show). Populated in one
+  // batched call per duty-list load, not one round trip per card.
+  const [campStatusByDuty, setCampStatusByDuty] = useState<
+    Record<string, { tripType: string; active: boolean; locked: boolean }>
+  >({});
+  const [campBusy, setCampBusy] = useState<Record<string, boolean>>({});
+
+  // Starting or ending a camp is not something a stray tap should be able
+  // to do - starting one switches on live GPS tracking for someone, and
+  // ending a Round Trip one locks the duty for good. So both go through a
+  // Yes/No confirmation, and Yes stays disabled for a 5 second count-down
+  // rather than being clickable the instant the dialog opens.
+  const [campConfirm, setCampConfirm] = useState<{
+    open: boolean;
+    action: "start" | "end" | null;
+    row: any | null;
+    secondsLeft: number;
+  }>({ open: false, action: null, row: null, secondsLeft: 5 });
+
+  useEffect(() => {
+    if (!campConfirm.open || campConfirm.secondsLeft <= 0) return;
+    const t = setTimeout(() => {
+      setCampConfirm((s) => ({ ...s, secondsLeft: s.secondsLeft - 1 }));
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [campConfirm.open, campConfirm.secondsLeft]);
+
+  const openCampConfirm = (action: "start" | "end", row: any) => {
+    setCampConfirm({ open: true, action, row, secondsLeft: 5 });
+  };
+
+  const closeCampConfirm = () => {
+    setCampConfirm({ open: false, action: null, row: null, secondsLeft: 5 });
+  };
+
+  // Same Yes/No + 5 second wait, but for the day-trip modal's own reading
+  // uploads on a Daily Shuttle own/office-vehicle duty - that combination
+  // has no Start/End Camp button at all (see the card), so the upload
+  // itself is what asks the question.
+  const [dayTripCampConfirm, setDayTripCampConfirm] = useState<{
+    open: boolean;
+    kind: "start" | "end" | "both" | null;
+    isRoundTrip: boolean;
+    secondsLeft: number;
+  }>({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 });
+
+  useEffect(() => {
+    if (!dayTripCampConfirm.open || dayTripCampConfirm.secondsLeft <= 0) return;
+    const t = setTimeout(() => {
+      setDayTripCampConfirm((s) => ({ ...s, secondsLeft: s.secondsLeft - 1 }));
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [dayTripCampConfirm.open, dayTripCampConfirm.secondsLeft]);
+
+  const confirmCampAction = async () => {
+    const { action, row } = campConfirm;
+    closeCampConfirm();
+    if (!action || !row) return;
+    if (action === "start") await handleStartCamp(row);
+    else await handleEndCamp(row);
+  };
+
+  // Calendar days inside this duty's own approved DateFrom..DateTo range,
+  // up to and including today, that have no day-trip record at all yet -
+  // shown as a warning when someone tries to End Camp early on a Round
+  // Trip, so ending before the approved period is over is an informed
+  // choice rather than a silent gap in the log. Not a block: End Camp
+  // always works (see EndCamp on the server) - this only tells the person
+  // what ending now would leave unreported.
+  const pendingOnDutyDays = (row: any): string[] => {
+    const from = row?.DateFrom ? moment(row.DateFrom) : null;
+    const to = row?.DateTo ? moment(row.DateTo) : null;
+    if (!from || !to || !from.isValid() || !to.isValid()) return [];
+
+    const reported = new Set(
+      (tripDaysByDuty[row?.id] || [])
+        .map((t: TripDayItem) => String(t.dutyDate || "").slice(0, 10))
+        .filter(Boolean)
+    );
+
+    const today = nowIST().startOf("day");
+    const cursor = from.clone().startOf("day");
+    const end = to.clone().startOf("day");
+    const pending: string[] = [];
+    // A hard cap, not a real limit any duty should hit - just insurance
+    // against an invalid/reversed date pair looping forever.
+    let guard = 0;
+    while (cursor.isSameOrBefore(end) && guard < 400) {
+      if (!cursor.isAfter(today) && !reported.has(cursor.format("YYYY-MM-DD"))) {
+        pending.push(cursor.format("DD-MM-YYYY"));
+      }
+      cursor.add(1, "day");
+      guard += 1;
+    }
+    return pending;
+  };
+
   // ---- TEAM CHANGES ON A LIVE DUTY ------------------------------------
   // People join a duty late and drop out of it early, and re-filing the
   // whole request to say so loses its approvals. Membership is therefore a
@@ -907,6 +1009,85 @@ useEffect(() => {
 
   const notify = (msg: string, color: string = "primary") =>
     setToast({ msg, color });
+
+  // ---- Odometer photos: uploaded once, replaceable for five minutes ----
+  //
+  // The photo of the odometer is the record of when this part of the day
+  // actually happened - DA is now paid from the moment the opening one
+  // landed - so it is not something that can be quietly swapped out later.
+  // Five minutes of grace, because a shot that came out dark or caught the
+  // wrong dial is a real thing that happens and there has to be a way back
+  // from it.
+  //
+  // The API enforces this; nothing here is a security measure. What this
+  // does is let the screen tell the truth in advance, so nobody picks a
+  // file, waits, and is told afterwards that it was refused.
+  //
+  // Keyed by day and by which end of the trip, holding the moment the FIRST
+  // photo of that kind was chosen in this session. A photo that came back
+  // from the server has no entry, and that reads correctly: it was uploaded
+  // on some earlier visit to this screen and its five minutes are long
+  // gone. The entry deliberately survives the save-and-reload, or the grace
+  // period would be over before it began.
+  const READING_EDIT_MS = 5 * 60 * 1000;
+  const readingLockRef = useRef<Record<string, number>>({});
+  const readingLockKey = (dutyDate: string, which: "from" | "to") =>
+    `${dutyDate}|${which}`;
+
+  const isReadingLocked = (
+    dutyDate: string,
+    which: "from" | "to",
+    hasImage: boolean
+  ): boolean => {
+    if (!hasImage) return false;
+    const firstAt = readingLockRef.current[readingLockKey(dutyDate, which)];
+    if (firstAt === undefined) return true;
+    return Date.now() - firstAt > READING_EDIT_MS;
+  };
+
+  // Returns true if the file picker should be allowed to open. Called from
+  // the file input's onClick, which is the last moment at which opening it
+  // can still be prevented.
+  const confirmReadingUpload = (
+    dutyDate: string,
+    which: "from" | "to",
+    hasImage: boolean
+  ): boolean => {
+    const label = which === "from" ? "starting" : "closing";
+
+    if (isReadingLocked(dutyDate, which, hasImage)) {
+      notify(
+        `The ${label} reading photo for this day has already been uploaded ` +
+          `and can no longer be changed. It could only be replaced within ` +
+          `5 minutes of the first upload.`,
+        "warning"
+      );
+      return false;
+    }
+
+    const firstAt = readingLockRef.current[readingLockKey(dutyDate, which)];
+
+    if (firstAt !== undefined) {
+      const leftMin = Math.max(
+        1,
+        Math.ceil((READING_EDIT_MS - (Date.now() - firstAt)) / 60000)
+      );
+      return window.confirm(
+        `This ${label} reading photo can still be replaced for about ` +
+          `${leftMin} more minute${leftMin === 1 ? "" : "s"}, after which it ` +
+          `is fixed.\n\nReplace it now?`
+      );
+    }
+
+    const ok = window.confirm(
+      `The ${label} reading photo is the record of when this part of the ` +
+        `day happened, so it cannot be edited once it has been uploaded.` +
+        `\n\nIf it comes out wrong you can replace it, but only within ` +
+        `5 minutes of uploading it.\n\nUpload now?`
+    );
+    if (ok) readingLockRef.current[readingLockKey(dutyDate, which)] = Date.now();
+    return ok;
+  };
 
   const postWithFallback = async (
     endpoint: string,
@@ -1351,9 +1532,17 @@ useEffect(() => {
 
   const isSavingTrip = useRef(false);
 
-  const saveDayTripModal = async () => {
+  const saveDayTripModal = async (skipReadingConfirm: boolean = false) => {
     if (isSavingTrip.current) return;
     isSavingTrip.current = true;
+    try {
+    // Everything below is wrapped in this outer try so that ANY
+    // unexpected/uncaught exception (not just the API call itself,
+    // which already has its own inner try/catch below) always shows
+    // the user a toast and always resets isSavingTrip.current - a
+    // silent throw here used to leave the ref stuck true forever,
+    // which looks exactly like "nothing happens" on every future
+    // click of Save Trip with zero error/success feedback.
     if (
       !selectedDutyId ||
       editingTripIndex === null ||
@@ -1414,8 +1603,17 @@ useEffect(() => {
       }
     }
 
-    // At least one visit required (Only in EDIT mode)
-    if (tripModalMode === "edit") {
+    // At least one visit required (Only in EDIT mode) - but not for a plain
+    // Branch duty. Punch-in at the branch already proves attendance there;
+    // it is Party, Client and Official work (and the "Branch & ..." duties
+    // that carry a party/client half alongside the branch stay) where a
+    // visit record is the only proof the work happened, so those are the
+    // ones this still guards. A duty saved before OnDutyType existed has
+    // nothing to match here and keeps needing a visit, same as before.
+    const dutyTypeForVisit = String(selectedDutyRow?.OnDutyType || "").trim();
+    const visitRequiredForDuty = dutyTypeForVisit !== "Branch";
+
+    if (tripModalMode === "edit" && visitRequiredForDuty) {
       if (!trip.visits || !trip.visits.length) {
         notify("At least one visit required", "warning");
         isSavingTrip.current = false;
@@ -1518,6 +1716,48 @@ useEffect(() => {
       }
     }
 
+    // Daily Shuttle never shows a manual Start/End Camp button on an
+    // own/office vehicle (see the card) - every day's own reading upload
+    // does that job instead. Round Trip only shows End Camp manually - the
+    // trip itself still starts from a reading, same as Shuttle, just once
+    // rather than every day. Both ask the same Yes/No + 5 second question
+    // at the point the upload is about to happen, rather than doing it
+    // silently:
+    //   Daily Shuttle - every start reading opens that day's camp, every
+    //     end reading closes it. Confirm on either.
+    //   Round Trip - only the very FIRST start reading starts anything
+    //     (campStatusByDuty says the camp is not active yet); a start
+    //     reading on any day after that is just recording that day's
+    //     numbers, the trip is already running, so no prompt. Round Trip
+    //     never ends from a reading upload at all - only the End Camp
+    //     button on the card does that (see openCampConfirm there), so an
+    //     end reading here never prompts either.
+    const dutyTripTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+    const isDailyShuttleDuty = dutyTripTypeLower === "daily shuttle";
+    const isRoundTripDuty = dutyTripTypeLower === "round trip";
+    const isVehicleDuty = !isPublicTransport && (isDailyShuttleDuty || isRoundTripDuty);
+
+    if (isVehicleDuty && !skipReadingConfirm) {
+      const uploadingStart = trip.readingFromImage instanceof File;
+      const uploadingEnd = trip.readingToImage instanceof File;
+      const campAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
+
+      const needsStartConfirm =
+        uploadingStart && (isDailyShuttleDuty || (isRoundTripDuty && !campAlreadyActive));
+      const needsEndConfirm = uploadingEnd && isDailyShuttleDuty;
+
+      if (needsStartConfirm || needsEndConfirm) {
+        isSavingTrip.current = false;
+        setDayTripCampConfirm({
+          open: true,
+          kind: needsStartConfirm && needsEndConfirm ? "both" : needsStartConfirm ? "start" : "end",
+          isRoundTrip: isRoundTripDuty,
+          secondsLeft: 5,
+        });
+        return;
+      }
+    }
+
     const formData = new FormData();
 
     formData.append("duty_Id", selectedDutyId);
@@ -1607,7 +1847,18 @@ useEffect(() => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      notify("Trip Saved Successfully", "success");
+      // The trip itself always saved if execution reaches here - the
+      // |WARN: suffix (same convention SaveDuties uses) only ever
+      // covers the best-effort camp auto-close failing to find a
+      // session to close, which used to be reported nowhere but the
+      // server console. Surfacing it here is what makes "trip saved,
+      // but live location never turned off" visible instead of silent.
+      const campWarn = String(res?.data?.message ?? "").split("|WARN:")[1];
+      if (campWarn) {
+        notify(campWarn, "warning");
+      } else {
+        notify("Trip Saved Successfully", "success");
+      }
       await loadDuties();
 
       closeDayTripModal();
@@ -1626,6 +1877,16 @@ useEffect(() => {
 
       notify(errorMsg, "danger");
     } finally {
+      isSavingTrip.current = false;
+    }
+    } catch (outerErr: any) {
+      console.error("saveDayTripModal unexpected error", outerErr);
+      notify(
+        outerErr && outerErr.message
+          ? `Save failed: ${outerErr.message}`
+          : "Unexpected error while saving. Please try again.",
+        "danger"
+      );
       isSavingTrip.current = false;
     }
   };
@@ -1999,10 +2260,118 @@ useEffect(() => {
 
       setDutiesList(mapped);
       await loadAllTrips(mapped);
+      // Fire-and-forget: Start/End Camp buttons simply show their default
+      // (Start Camp) state until this resolves, rather than blocking the
+      // rest of the list on a call that only affects a couple of buttons.
+      loadCampStatuses(mapped);
     } catch (err) {
       console.error("loadDuties error:", err);
       setDutiesList([]);
       setTripDaysByDuty({});
+    }
+  };
+
+  // Batched camp status for a set of duties - one call for the whole list
+  // instead of one round trip per card. Best effort: a failure here just
+  // leaves Start Camp showing until the next list reload picks it up.
+  const loadCampStatuses = async (rowsForStatus: DutyRow[]) => {
+    const ids = Array.from(
+      new Set(
+        rowsForStatus.map((r: any) => String(r?.id || "").trim()).filter(Boolean)
+      )
+    );
+    if (!ids.length) return;
+    try {
+      const res = await api.get("OnDuty/camp_status", {
+        params: { dutyIds: ids.join(",") },
+        headers: authHeaders(),
+      });
+      const list = Array.isArray(res.data) ? res.data : [];
+      const next: Record<string, { tripType: string; active: boolean; locked: boolean }> = {};
+      list.forEach((r: any) => {
+        const dutyId = String(r?.dutyId ?? "").trim();
+        if (!dutyId) return;
+        next[dutyId] = {
+          tripType: String(r?.tripType ?? ""),
+          active: !!r?.active,
+          locked: !!r?.locked,
+        };
+      });
+      setCampStatusByDuty((prev) => ({ ...prev, ...next }));
+    } catch (e) {
+      console.error("loadCampStatuses failed:", e);
+    }
+  };
+
+  // A duty can carry more than one employee, but a camp tracking session is
+  // per person. Start/End Camp on the card targets whoever is first on the
+  // duty's own employee list - the common case is one field officer per
+  // duty, which is what both duties in this dataset actually look like. A
+  // duty built around a whole team travelling together would need a picker
+  // here instead; nothing today needs one, so this is deliberately simple
+  // rather than speculative.
+  const primaryEmpCodeForDuty = (row: any): string => {
+    const codes = String(row?.EmpCodes || "")
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+    return codes[0] || "";
+  };
+
+  const campActionErr = (e: any, fallback: string): string => {
+    const d = e?.response?.data;
+    if (typeof d === "string" && d.trim()) return d;
+    if (d && typeof d === "object" && d.message) return String(d.message);
+    return fallback;
+  };
+
+  const handleStartCamp = async (row: any) => {
+    const dutyId = String(row?.id || "");
+    const emp = primaryEmpCodeForDuty(row);
+    if (!dutyId || !emp) {
+      notify("No employee found on this duty to start a camp for.", "warning");
+      return;
+    }
+    setCampBusy((s) => ({ ...s, [dutyId]: true }));
+    try {
+      await api.post(
+        "OnDuty/start_camp",
+        { DutyId: dutyId, EmpCode: emp },
+        { headers: authHeaders() }
+      );
+      notify("Camp started.", "success");
+      await loadCampStatuses([row]);
+    } catch (e: any) {
+      notify(campActionErr(e, "Could not start the camp."), "warning");
+    } finally {
+      setCampBusy((s) => ({ ...s, [dutyId]: false }));
+    }
+  };
+
+  const handleEndCamp = async (row: any) => {
+    const dutyId = String(row?.id || "");
+    const emp = primaryEmpCodeForDuty(row);
+    if (!dutyId || !emp) {
+      notify("No employee found on this duty to end the camp for.", "warning");
+      return;
+    }
+    setCampBusy((s) => ({ ...s, [dutyId]: true }));
+    try {
+      const res = await api.post(
+        "OnDuty/end_camp",
+        { DutyId: dutyId, EmpCode: emp },
+        { headers: authHeaders() }
+      );
+      const locked = !!res?.data?.locked;
+      notify(
+        locked ? "Camp ended. This duty is now closed to further changes." : "Camp ended.",
+        "success"
+      );
+      await loadCampStatuses([row]);
+    } catch (e: any) {
+      notify(campActionErr(e, "Could not end the camp."), "warning");
+    } finally {
+      setCampBusy((s) => ({ ...s, [dutyId]: false }));
     }
   };
 
@@ -4533,6 +4902,84 @@ useEffect(() => {
                     </button>
                   )}
 
+                  {/* Only offered once a duty is actually approved - a camp
+                      for a duty that might still be rejected is not a thing.
+                      Round Trip's ended camp shows as a plain badge instead
+                      of a button: it cannot be restarted (see EndCamp on the
+                      server), so there is nothing left to tap.
+
+                      How much of this is a BUTTON at all depends on trip
+                      type and vehicle, same rule the server enforces:
+                        - Daily Shuttle on an own/office vehicle: no button
+                          at all. That day's own start/end reading upload
+                          opens and closes the camp automatically (with its
+                          own confirmation, in the day-trip modal).
+                        - Round Trip on an own/office vehicle: Start Camp is
+                          never shown - the opening reading starts it. End
+                          Camp still shows, but stays disabled until a
+                          closing reading has actually been uploaded for
+                          some day of the trip.
+                        - Public Transport, or a trip type/mode this card
+                          does not recognise: both buttons work exactly as
+                          before - there is no reading upload to do the job
+                          instead, so a person has to. */}
+                  {rowApproved &&
+                    (() => {
+                      const campStatus = campStatusByDuty[String(row.id)];
+                      const busy = !!campBusy[String(row.id)];
+                      const tripTypeRow = String(row.TripType || "").trim().toLowerCase();
+                      const modeRow = String(row.Mode_of_Trans || "").trim();
+                      const isShuttleRow = tripTypeRow === "daily shuttle";
+                      const isRoundTripRow = tripTypeRow === "round trip";
+                      const isVehicleRow =
+                        modeRow === "Own 4 Wheeler" ||
+                        modeRow === "Own 2 Wheeler" ||
+                        modeRow === "Office 4 Wheeler" ||
+                        modeRow === "Office 2 Wheeler";
+
+                      if (isShuttleRow && isVehicleRow) return null;
+
+                      if (campStatus?.locked) {
+                        return (
+                          <span
+                            className="dm-camp-locked"
+                            title="Round Trip camp has ended - no further visits, reading uploads, or team changes on this duty."
+                          >
+                            Camp Ended
+                          </span>
+                        );
+                      }
+
+                      if (campStatus?.active) {
+                        return (
+                          <button
+                            type="button"
+                            className="dm-data-link dm-camp-end"
+                            disabled={busy}
+                            onClick={() => openCampConfirm("end", row)}
+                          >
+                            {busy ? "Ending…" : "End Camp"}
+                          </button>
+                        );
+                      }
+
+                      // Not active yet. Round Trip on an own/office vehicle
+                      // only ever starts from the opening reading - there is
+                      // no manual Start Camp for that combination.
+                      if (isRoundTripRow && isVehicleRow) return null;
+
+                      return (
+                        <button
+                          type="button"
+                          className="dm-data-link"
+                          disabled={busy}
+                          onClick={() => openCampConfirm("start", row)}
+                        >
+                          {busy ? "Starting…" : "Start Camp"}
+                        </button>
+                      );
+                    })()}
+
                   <span
                     className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
                     data-probe="dm-status-probe"
@@ -5777,7 +6224,19 @@ useEffect(() => {
     hidden
     type="file"
     accept="image/*"
-    onClick={saveModalScroll}
+    onClick={(e) => {
+      if (
+        !confirmReadingUpload(
+          trip.dutyDate,
+          "from",
+          !!trip.readingFromImage
+        )
+      ) {
+        e.preventDefault();
+        return;
+      }
+      saveModalScroll();
+    }}
     onChange={(e) => {
       const file = e.target.files?.[0] || null;
 
@@ -5818,9 +6277,17 @@ useEffect(() => {
 
                         <input
   value={trip.readingFrom}
-  disabled={!hasReadingFromImage}
+  // Locked on the same clock as the photo it was read off. Leaving the
+  // number editable while the image behind it is frozen would let the two
+  // drift apart, which is the one thing the photo exists to prevent.
+  disabled={
+    !hasReadingFromImage ||
+    isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
+  }
   placeholder={
-    hasReadingFromImage
+    isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
+      ? "Locked - uploaded over 5 minutes ago"
+      : hasReadingFromImage
       ? "Reading From"
       : "Upload image to enable"
   }
@@ -5844,7 +6311,17 @@ useEffect(() => {
     autoFillDistance(
       editingTripIndex!,
       value,
-      trip.readingTo
+      // In "add" mode, readingTo was just mirrored to this same
+      // keystroke's value two lines up via updateTripDay - but that
+      // update goes through setState, so `trip.readingTo` here is
+      // still the PREVIOUS keystroke's value (stale closure), one
+      // character behind. Comparing a fresh multi-digit "from"
+      // against a lagging single-digit "to" made toNum < fromNum
+      // true on almost every keystroke, firing a false "Reading To
+      // should be greater than or equal to Reading From" warning
+      // while the user was still typing a normal number. Compare
+      // against the same fresh value instead of the stale one.
+      tripModalMode === "add" ? value : trip.readingTo
     );
   }}
   style={{
@@ -5909,7 +6386,19 @@ useEffect(() => {
             hidden
             type="file"
             accept="image/*"
-            onClick={saveModalScroll}
+            onClick={(e) => {
+              if (
+                !confirmReadingUpload(
+                  trip.dutyDate,
+                  "to",
+                  !!trip.readingToImage
+                )
+              ) {
+                e.preventDefault();
+                return;
+              }
+              saveModalScroll();
+            }}
             onChange={(e) => {
               updateTripDay(
                 editingTripIndex!,
@@ -5941,9 +6430,14 @@ useEffect(() => {
 
     <input
       value={trip.readingTo}
-      disabled={!trip.readingToImage}
+      disabled={
+        !trip.readingToImage ||
+        isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
+      }
       placeholder={
-        trip.readingToImage
+        isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
+          ? "Locked - uploaded over 5 minutes ago"
+          : trip.readingToImage
           ? "Reading To"
           : "Upload image to enable"
       }
@@ -7022,6 +7516,130 @@ updateTripDay(
               />
             )}
           </IonContent>
+        </IonModal>
+        <IonModal
+          isOpen={campConfirm.open}
+          onDidDismiss={closeCampConfirm}
+          className="camp-confirm-modal"
+        >
+          <div className="camp-confirm-wrapper">
+            {(() => {
+              const row = campConfirm.row;
+              const isStart = campConfirm.action === "start";
+              const tripType = row ? campStatusByDuty[String(row.id)]?.tripType : "";
+              const isRoundTrip = !isStart
+                && !!tripType
+                && tripType.toLowerCase() !== "daily shuttle";
+              const ready = campConfirm.secondsLeft <= 0;
+              // Only worth computing for the case it was built for: ending a
+              // Round Trip early. Starting, or ending a Daily Shuttle's own
+              // single day, has nothing "still pending" to warn about.
+              const pendingDays = !isStart && isRoundTrip && row ? pendingOnDutyDays(row) : [];
+              return (
+                <div className="camp-confirm-body">
+                  <div className="camp-confirm-title">
+                    {isStart ? "Start Camp?" : "End Camp?"}
+                  </div>
+                  <div className="camp-confirm-text">
+                    {isStart
+                      ? "This switches on live location tracking for this employee for the duration of the camp."
+                      : isRoundTrip
+                        ? "This stops live location tracking and closes this duty for good – no more visits, reading uploads, or team changes afterwards. It cannot be undone."
+                        : "This stops live location tracking for today's camp."}
+                  </div>
+                  {!!row && (
+                    <div className="camp-confirm-sub">
+                      #{row.id} – {row.OnDutyType || "Duty"}
+                      {row.Branch ? ` – ${row.Branch}` : ""}
+                    </div>
+                  )}
+                  {pendingDays.length > 0 && (
+                    <div className="camp-confirm-warn">
+                      Still no reading logged for {pendingDays.length === 1 ? "this day" : "these days"}{" "}
+                      within the approved period: {pendingDays.join(", ")}. Ending now leaves{" "}
+                      {pendingDays.length === 1 ? "it" : "them"} unreported.
+                    </div>
+                  )}
+                  <div className="camp-confirm-actions">
+                    <button type="button" className="camp-confirm-no" onClick={closeCampConfirm}>
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="camp-confirm-yes"
+                      disabled={!ready}
+                      onClick={confirmCampAction}
+                    >
+                      {ready ? "Yes" : `Yes (${campConfirm.secondsLeft})`}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </IonModal>
+        <IonModal
+          isOpen={dayTripCampConfirm.open}
+          onDidDismiss={() =>
+            setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 })
+          }
+          className="camp-confirm-modal"
+        >
+          <div className="camp-confirm-wrapper">
+            {(() => {
+              const ready = dayTripCampConfirm.secondsLeft <= 0;
+              const kind = dayTripCampConfirm.kind;
+              const isRT = dayTripCampConfirm.isRoundTrip;
+              // Round Trip only ever reaches "start" here (see
+              // needsEndConfirm in saveDayTripModal - Round Trip never
+              // prompts on an end reading), and it is the whole multi-day
+              // trip's camp starting, not just today's.
+              const title =
+                kind === "end"
+                  ? "End today's camp?"
+                  : kind === "both"
+                    ? "Start and end today's camp?"
+                    : isRT
+                      ? "Start this trip's camp?"
+                      : "Start today's camp?";
+              const text =
+                kind === "end"
+                  ? "This closing reading will end today's camp and stop live location tracking for it."
+                  : kind === "both"
+                    ? "These readings will both start and end today's camp in one save."
+                    : isRT
+                      ? "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again."
+                      : "This opening reading will start today's camp and switch on live location tracking for it.";
+              return (
+                <div className="camp-confirm-body">
+                  <div className="camp-confirm-title">{title}</div>
+                  <div className="camp-confirm-text">{text}</div>
+                  <div className="camp-confirm-actions">
+                    <button
+                      type="button"
+                      className="camp-confirm-no"
+                      onClick={() =>
+                        setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 })
+                      }
+                    >
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="camp-confirm-yes"
+                      disabled={!ready}
+                      onClick={() => {
+                        setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 });
+                        saveDayTripModal(true);
+                      }}
+                    >
+                      {ready ? "Yes" : `Yes (${dayTripCampConfirm.secondsLeft})`}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </IonModal>
         <IonToast
           isOpen={!!toast}
