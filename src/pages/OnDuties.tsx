@@ -5022,6 +5022,24 @@ useEffect(() => {
 
                       if (isShuttleRow && isVehicleRow) return null;
 
+                      // campStatusByDuty has no entry for this duty until
+                      // camp_status actually answers for it - undefined is
+                      // "not known yet", not "not active". Falling through
+                      // to the Start Camp default while that answer is
+                      // still in flight is exactly the misleading flash
+                      // this was hiding: a camp that is genuinely already
+                      // running would show "Start Camp" for however long
+                      // the fetch takes, on every single reload. Showing
+                      // nothing until the real answer arrives is honest
+                      // about not knowing yet, instead of guessing wrong.
+                      if (campStatus === undefined) {
+                        return (
+                          <span className="dm-camp-loading" title="Checking camp status...">
+                            &hellip;
+                          </span>
+                        );
+                      }
+
                       if (campStatus?.locked) {
                         return (
                           <span

@@ -1314,6 +1314,18 @@
   white-space: nowrap;
 }
 
+/* Camp status hasn't answered for this duty yet - a quiet placeholder
+   instead of the Start Camp button, so a camp that's actually already
+   running never flashes the wrong control while its real status is still
+   loading. */
+.onduties-content .dm-camp-loading {
+  display: inline-block;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 6px;
+}
+
 /* Small, centred confirmation dialog for Start Camp / End Camp - sized like
    native-date-modal above rather than the full-screen sheet the bigger
    modals in this file use, because this is one question with two answers. */
