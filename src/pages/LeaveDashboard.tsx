@@ -225,7 +225,8 @@ const LeaveDashboard: React.FC = () => {
     cl: { balance: 0, used: 0 },
     sl: { balance: 0, used: 0 },
     perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 0 },
-    lop: { balance: 0, used: 0 }
+    lop: { balance: 0, used: 0 },
+    grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
   });
 
   // UI helpers
@@ -313,7 +314,8 @@ const LeaveDashboard: React.FC = () => {
         cl: { balance: 0, used: 0 },
         sl: { balance: 0, used: 0 },
         perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 6 },
-        lop: { balance: 0, used: 0 }
+        lop: { balance: 0, used: 0 },
+        grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
       });
       setLoading(false);
       return;
@@ -400,6 +402,9 @@ const LeaveDashboard: React.FC = () => {
       let slBalance = 0, slUsed = 0;
       let permBalance = 0, permUsed = 0, permUsedSessions = 0, permMaxSessions = 0;
       let lopBalance = 0, lopUsed = 0;
+      let graceUsed = 0, graceMax = 4, graceUsedMins = 0;
+      let todayGraceUsed = false, todayGraceMins = 0;
+      const todayStr = moment().format("YYYY-MM-DD");
 
       if (isYearly && targetMonths.length > 0) {
         const balancePromises = targetMonths.map((mStr) => {
@@ -463,11 +468,49 @@ const LeaveDashboard: React.FC = () => {
         lopUsed = lopRes.data?.used ?? 0;
       }
 
+      // Fetch Grace from HR Monthly Attendance Matrix
+      try {
+        if (!isYearly) {
+          const parts = month.split("-");
+          if (parts.length === 2) {
+            const mIndex = moment().month(parts[0]).month() + 1;
+            const y = parts[1];
+            const matrixUrl = `${API_BASE}Checkin/GetHRMonthlyAttendanceMatrix?year=${y}&month=${mIndex}`;
+            const mRes = await axios.get(matrixUrl, { headers: getAuthHeaders() });
+            const matrix = mRes.data?.matrix || {};
+            Object.keys(matrix).forEach((key) => {
+              if (key.startsWith(empCode + "_")) {
+                const att = matrix[key];
+                if (att && att.graceType && att.graceType !== "-" && att.graceType.trim() !== "") {
+                  const gt = att.graceType.toLowerCase();
+                  if (gt.includes("grace")) {
+                    graceUsed++;
+                    const mins = parseInt(String(att.totalLate || "0"), 10) || 0;
+                    graceUsedMins += mins;
+                    
+                    if (key === `${empCode}_${todayStr}`) {
+                      todayGraceUsed = true;
+                      todayGraceMins = mins;
+                    }
+                  }
+                }
+              }
+            });
+          }
+        } else {
+          graceMax = 2 * targetMonths.length;
+          // Could implement yearly grace fetching if required, left out for brevity
+        }
+      } catch (err) {
+        console.error("Error fetching grace from matrix", err);
+      }
+
       setBalances({
         cl: { balance: clBalance, used: clUsed },
         sl: { balance: slBalance, used: slUsed },
         perm: { balance: permBalance, used: permUsed, usedSessions: permUsedSessions, maxSessions: permMaxSessions },
-        lop: { balance: lopBalance, used: lopUsed }
+        lop: { balance: lopBalance, used: lopUsed },
+        grace: { used: graceUsed, max: graceMax, usedMins: graceUsedMins, todayUsed: todayGraceUsed, todayMins: todayGraceMins }
       });
     } catch (err) {
       console.error("Error loading report details:", err);
@@ -729,9 +772,21 @@ const LeaveDashboard: React.FC = () => {
               <div className="ld-card-value">{balances.perm.balance} Min</div>
               <div className="ld-card-subvalue">Remaining Minutes</div>
             </div>
-            <div className="ld-card-footer">
-              <span>Sessions</span>
-              <span>{balances.perm.usedSessions} / {balances.perm.maxSessions} Used ({balances.perm.used}m)</span>
+            <div className="ld-card-footer" style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "stretch" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Sessions</span>
+                <span>{balances.perm.usedSessions} / {balances.perm.maxSessions} Used ({balances.perm.used}m)</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Grace</span>
+                <span>{balances.grace.used} / {balances.grace.max} Used ({balances.grace.usedMins}m)</span>
+              </div>
+              {balances.grace.todayUsed && (
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#fde047" }}>
+                  <span>Today's Grace</span>
+                  <span>Used ({balances.grace.todayMins}m)</span>
+                </div>
+              )}
             </div>
           </div>
 
