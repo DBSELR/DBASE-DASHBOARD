@@ -216,7 +216,7 @@ const Home: React.FC = () => {
     {
       id: "leave-dashboard",
       label: "Leave Dashboard",
-      icon: "https://cdn.lordicon.com/yraqammt.json",
+      icon: "https://cdn.lordicon.com/qjuahhae.json",
       path: "/leave-dashboard",
       colorClass: "home-card-leaves"
     },

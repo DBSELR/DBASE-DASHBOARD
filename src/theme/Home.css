@@ -777,3 +777,9 @@
   background: linear-gradient(135deg, #10b981, #047857);
   color: #fff;
 }
+
+.home-card-leaves { --card-theme-color: 110, 142, 107; }
+.home-card-leaves .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #6e8e6b, #4f6a4c);
+  color: #fff;
+}
