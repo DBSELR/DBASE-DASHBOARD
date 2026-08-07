@@ -2042,23 +2042,38 @@ useEffect(() => {
   const loadAllTrips = async (duties: DutyRow[]) => {
     const result: Record<string, TripDayItem[]> = {};
 
-    await Promise.all(
-      duties.map(async (duty) => {
-        try {
-          const res = await api.get("OnDuty/get_daytrips", {
-            params: { dutyId: duty.id },
-          });
-
-          const rows =
-            typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-
-          result[duty.id] = buildTripsFromRows(Array.isArray(rows) ? rows : []);
-        } catch (error) {
-          console.error("loadAllTrips error for duty:", duty.id, error);
-          result[duty.id] = [];
-        }
-      })
+    const ids = Array.from(
+      new Set(duties.map((duty) => String(duty.id || "").trim()).filter(Boolean))
     );
+    if (!ids.length) {
+      setTripDaysByDuty(result);
+      return;
+    }
+
+    // One bulk call instead of one get_daytrips call per duty (via
+    // Promise.all). Firing a couple dozen individual requests at once,
+    // right alongside everything else the page loads on mount, was the
+    // main reason a reload could take tens of seconds before anything -
+    // day trips, camp status badges, all of it - settled: the browser's
+    // per-origin connection limit and the server's own request/connection
+    // pool both queue up under that many simultaneous calls. This keeps
+    // the same App_Get_DayTrips data per duty, just fetched over one round
+    // trip instead of N.
+    try {
+      const res = await api.get("OnDuty/get_daytrips_bulk", {
+        params: { dutyIds: ids.join(",") },
+      });
+      const data = res.data && typeof res.data === "object" ? res.data : {};
+      ids.forEach((id) => {
+        const rows = (data as any)[id];
+        result[id] = buildTripsFromRows(Array.isArray(rows) ? rows : []);
+      });
+    } catch (error) {
+      console.error("loadAllTrips (bulk) error:", error);
+      ids.forEach((id) => {
+        result[id] = [];
+      });
+    }
 
     setTripDaysByDuty(result);
   };
@@ -2259,11 +2274,17 @@ useEffect(() => {
       mapped.sort((a: any, b: any) => dutyIdNum(b.id) - dutyIdNum(a.id));
 
       setDutiesList(mapped);
-      await loadAllTrips(mapped);
-      // Fire-and-forget: Start/End Camp buttons simply show their default
-      // (Start Camp) state until this resolves, rather than blocking the
-      // rest of the list on a call that only affects a couple of buttons.
+      // Fire immediately, in parallel with loadAllTrips below - not after
+      // it. loadAllTrips fires one get_daytrips call per duty (the bulk of
+      // this page's request count), and awaiting that first was queuing
+      // camp_status behind the entire waterfall: the badge was correct,
+      // just stuck showing its "not active yet" default for however long
+      // the day-trip calls took to finish, which on a list with many
+      // duties could be many seconds. Camp status affects only a couple of
+      // buttons and in no way depends on day-trip data, so there is no
+      // reason for one to wait on the other.
       loadCampStatuses(mapped);
+      await loadAllTrips(mapped);
     } catch (err) {
       console.error("loadDuties error:", err);
       setDutiesList([]);
@@ -2272,9 +2293,15 @@ useEffect(() => {
   };
 
   // Batched camp status for a set of duties - one call for the whole list
-  // instead of one round trip per card. Best effort: a failure here just
-  // leaves Start Camp showing until the next list reload picks it up.
-  const loadCampStatuses = async (rowsForStatus: DutyRow[]) => {
+  // instead of one round trip per card. This fires alongside a dozen-plus
+  // other calls the page makes on load (day trips, employees, sources,
+  // change requests...), and under that load a single transient failure
+  // (a connection-pool wait, a slow query) is common enough in practice
+  // that Start Camp kept looking stuck on a fresh reload even though the
+  // session really was active - retrying once, shortly after, catches
+  // exactly that case instead of leaving the badge wrong until the next
+  // 30s poll or a manual reload.
+  const loadCampStatuses = async (rowsForStatus: DutyRow[], isRetry: boolean = false) => {
     const ids = Array.from(
       new Set(
         rowsForStatus.map((r: any) => String(r?.id || "").trim()).filter(Boolean)
@@ -2300,6 +2327,11 @@ useEffect(() => {
       setCampStatusByDuty((prev) => ({ ...prev, ...next }));
     } catch (e) {
       console.error("loadCampStatuses failed:", e);
+      if (!isRetry) {
+        setTimeout(() => {
+          loadCampStatuses(rowsForStatus, true);
+        }, 1500);
+      }
     }
   };
 
@@ -2334,13 +2366,27 @@ useEffect(() => {
     }
     setCampBusy((s) => ({ ...s, [dutyId]: true }));
     try {
-      await api.post(
+      const res = await api.post(
         "OnDuty/start_camp",
         { DutyId: dutyId, EmpCode: emp },
         { headers: authHeaders() }
       );
       notify("Camp started.", "success");
-      await loadCampStatuses([row]);
+      // start_camp's own response already IS the answer (it just created
+      // the session(s) that make it true) - a whole extra camp_status
+      // round trip right after it, only to re-derive what the POST already
+      // told us, was most of why the badge felt slow to flip. Set it
+      // straight from the response and let the periodic 30s poll (and the
+      // next full reload) reconcile anything this optimistic update gets
+      // wrong, rather than paying for a synchronous re-fetch on every tap.
+      setCampStatusByDuty((prev) => ({
+        ...prev,
+        [dutyId]: {
+          tripType: String(res?.data?.tripType ?? prev[dutyId]?.tripType ?? ""),
+          active: true,
+          locked: false,
+        },
+      }));
     } catch (e: any) {
       notify(campActionErr(e, "Could not start the camp."), "warning");
     } finally {
@@ -2367,7 +2413,17 @@ useEffect(() => {
         locked ? "Camp ended. This duty is now closed to further changes." : "Camp ended.",
         "success"
       );
-      await loadCampStatuses([row]);
+      // Same reasoning as handleStartCamp above - end_camp's response
+      // already says whether it locked the duty, so use it directly
+      // instead of an extra camp_status round trip just to confirm it.
+      setCampStatusByDuty((prev) => ({
+        ...prev,
+        [dutyId]: {
+          tripType: String(prev[dutyId]?.tripType ?? ""),
+          active: false,
+          locked,
+        },
+      }));
     } catch (e: any) {
       notify(campActionErr(e, "Could not end the camp."), "warning");
     } finally {
@@ -2916,6 +2972,22 @@ useEffect(() => {
 
     }
   }, [userLoaded, empCode]);
+
+  // Start/End Camp badges only ever reflect whatever camp_status answered
+  // the one time loadDuties() ran (page load, or a manual list reload).
+  // Start Camp tapped from another device - or even this same list screen
+  // sitting open in the background - never updates the already-rendered
+  // badge without a refetch, so a duty that is genuinely live can keep
+  // showing "Start Camp" indefinitely. Re-polling camp status periodically
+  // closes that gap without needing a full duty-list reload.
+  useEffect(() => {
+    if (!dutiesList.length) return;
+    const campStatusInterval = setInterval(() => {
+      loadCampStatuses(dutiesList);
+    }, 30000);
+
+    return () => clearInterval(campStatusInterval);
+  }, [dutiesList]);
 
   // A hidden field must stop contributing to the payload. Without this,
   // picking Branch, then switching the type to Party, would still save the
@@ -3490,6 +3562,17 @@ useEffect(() => {
     const d = moment(end, "YYYY-MM-DD");
     return d.isValid() && d.isBefore(moment(), "day");
   };
+
+  // A Round Trip's camp can be ended manually (End Camp) at any point, well
+  // before the duty's own scheduled last day - once it has, the server
+  // refuses further visits, reading uploads, and team changes on the whole
+  // duty right along with it (see EndCamp / RunTeamChange / Save_DayTrip's
+  // lock check on the API). dutyHasEnded alone only catches the scheduled
+  // date passing, so a duty ended early would still show live Add/Remove/
+  // Edit controls that the server would just reject anyway - this also
+  // catches that case.
+  const campHasLocked = (row: any): boolean =>
+    !!campStatusByDuty[String(row?.id || "")]?.locked;
 
   // Who may amend an approved duty, and who may open its settlement.
   //
@@ -5091,14 +5174,26 @@ useEffect(() => {
                           <button
                             type="button"
                             className="od-team-btn add"
-                            onClick={() => openTeamChange("add", row)}
+                            disabled={campHasLocked(row)}
+                            title={
+                              campHasLocked(row)
+                                ? "Camp has ended - team changes are closed on this duty."
+                                : undefined
+                            }
+                            onClick={() => !campHasLocked(row) && openTeamChange("add", row)}
                           >
                             + Add
                           </button>
                           <button
                             type="button"
                             className="od-team-btn remove"
-                            onClick={() => openTeamChange("remove", row)}
+                            disabled={campHasLocked(row)}
+                            title={
+                              campHasLocked(row)
+                                ? "Camp has ended - team changes are closed on this duty."
+                                : undefined
+                            }
+                            onClick={() => !campHasLocked(row) && openTeamChange("remove", row)}
                           >
                             &minus; Remove
                           </button>
@@ -5286,7 +5381,13 @@ useEffect(() => {
                           <button
                             type="button"
                             className="od-team-btn"
-                            onClick={() => openAttEdit(row)}
+                            disabled={campHasLocked(row)}
+                            title={
+                              campHasLocked(row)
+                                ? "Camp has ended - reporting dates are closed on this duty."
+                                : undefined
+                            }
+                            onClick={() => !campHasLocked(row) && openAttEdit(row)}
                           >
                             Edit
                           </button>
@@ -5454,12 +5555,18 @@ useEffect(() => {
                               fill="clear"
                               size="small"
                               color="primary"
+                              disabled={campHasLocked(row)}
+                              title={
+                                campHasLocked(row)
+                                  ? "Camp has ended - this trip's log is closed to further edits."
+                                  : undefined
+                              }
                               style={{
                                 margin: 0,
                                 minHeight: "24px",
                                 fontSize: "11px",
                               }}
-                              onClick={() => openEditDayTripModal(row, index)}
+                              onClick={() => !campHasLocked(row) && openEditDayTripModal(row, index)}
                             >
                               EDIT
                             </IonButton>
@@ -5468,12 +5575,18 @@ useEffect(() => {
                               fill="clear"
                               size="small"
                               color="danger"
+                              disabled={campHasLocked(row)}
+                              title={
+                                campHasLocked(row)
+                                  ? "Camp has ended - this trip's log is closed to further edits."
+                                  : undefined
+                              }
                               style={{
                                 margin: 0,
                                 minHeight: "24px",
                                 fontSize: "11px",
                               }}
-                              onClick={() => removeTripDay(row.id, index)}
+                              onClick={() => !campHasLocked(row) && removeTripDay(row.id, index)}
                             >
                               DELETE
                             </IonButton>

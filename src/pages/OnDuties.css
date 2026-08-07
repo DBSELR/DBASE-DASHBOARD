@@ -975,6 +975,16 @@
   filter: brightness(0.96);
 }
 
+/* Once a trip's camp has ended early (End Camp, before the duty's own
+   scheduled last day), Add/Remove/Edit stay visible but go inert - a
+   greyed-out control that explains itself via title reads better than one
+   that vanishes or fails silently after the tap. */
+.od-team-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+
 /* ------------------------------------------------------------------
    The amendment strip: what has been asked for on an approved duty and
    is waiting on HR.  Amber rather than red because nothing has gone

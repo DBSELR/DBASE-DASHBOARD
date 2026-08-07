@@ -566,6 +566,22 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
     }
   });
 
+  // Periodic refresh of the tracked-employee list. Start/End Camp and the
+  // liveLocation flag it drives (see CheckinController's GetOnDutyAutoOverrides)
+  // can change for a teammate while this page is already open - a duty's
+  // second employee going live after page load is exactly that case - so
+  // this re-pulls the roster every 30s rather than only ever fetching it
+  // once on view-enter.
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      if (isComponentMounted.current) {
+        fetchActiveSessions();
+      }
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
+  }, [fetchActiveSessions]);
+
   // ResizeObserver to invalidate map size automatically when sidebar expands/collapses or screen resizes
   useEffect(() => {
     const mapElem = document.getElementById("hero-fullscreen-map");
@@ -611,45 +627,80 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
               const targetEmpCode = point.EmpCode || point.empCode;
               if (!targetEmpCode) return;
 
-              setSessions((prev) =>
-                prev.map((s) => {
-                  if (s.EmpCode === targetEmpCode) {
-                    const lat = point.Latitude ?? point.latitude;
-                    const lng = point.Longitude ?? point.longitude;
-                    const speed = point.Speed ?? point.speed ?? 0;
-                    const heading = point.Heading ?? point.heading ?? 0;
-                    const accuracy = point.Accuracy ?? point.accuracy ?? 0;
-                    const batt = point.BatteryLevel ?? point.batteryLevel;
-                    const charging = point.IsCharging ?? point.isCharging ?? false;
-                    const status = point.MovementStatus ?? point.movementStatus ?? "Idle";
+              const lat = point.Latitude ?? point.latitude;
+              const lng = point.Longitude ?? point.longitude;
+              const speed = point.Speed ?? point.speed ?? 0;
+              const heading = point.Heading ?? point.heading ?? 0;
+              const accuracy = point.Accuracy ?? point.accuracy ?? 0;
+              const batt = point.BatteryLevel ?? point.batteryLevel;
+              const charging = point.IsCharging ?? point.isCharging ?? false;
+              const status = point.MovementStatus ?? point.movementStatus ?? "Idle";
 
-                    if (lat && lng) {
-                      const currentTrail = empTrailsRef.current[s.EmpCode] || [];
-                      const updatedTrail = [
-                        ...currentTrail,
-                        [lat, lng] as [number, number],
-                      ].slice(-20);
-                      empTrailsRef.current[s.EmpCode] = updatedTrail;
-                    }
+              if (lat && lng) {
+                const currentTrail = empTrailsRef.current[targetEmpCode] || [];
+                const updatedTrail = [
+                  ...currentTrail,
+                  [lat, lng] as [number, number],
+                ].slice(-20);
+                empTrailsRef.current[targetEmpCode] = updatedTrail;
+              }
 
-                    return {
-                      ...s,
-                      SessionId: point.SessionId || point.sessionId || s.SessionId,
-                      Latitude: lat ?? s.Latitude,
-                      Longitude: lng ?? s.Longitude,
-                      Speed: speed,
-                      Heading: heading,
-                      Accuracy: accuracy,
-                      BatteryLevel: batt ?? s.BatteryLevel,
-                      IsCharging: charging,
-                      MovementStatus: status,
-                      LastUpdated: point.RecordedAt || point.recordedAt || new Date().toISOString(),
-                      SecondsSinceLastUpdate: 0,
-                    };
-                  }
-                  return s;
-                })
-              );
+              setSessions((prev) => {
+                let matched = false;
+                const next = prev.map((s) => {
+                  if (s.EmpCode !== targetEmpCode) return s;
+                  matched = true;
+                  return {
+                    ...s,
+                    SessionId: point.SessionId || point.sessionId || s.SessionId,
+                    Latitude: lat ?? s.Latitude,
+                    Longitude: lng ?? s.Longitude,
+                    Speed: speed,
+                    Heading: heading,
+                    Accuracy: accuracy,
+                    BatteryLevel: batt ?? s.BatteryLevel,
+                    IsCharging: charging,
+                    MovementStatus: status,
+                    LastUpdated: point.RecordedAt || point.recordedAt || new Date().toISOString(),
+                    SecondsSinceLastUpdate: 0,
+                  };
+                });
+
+                // A teammate on the same duty (e.g. a shared Camp) can start
+                // sending GPS after this page already loaded its marker
+                // list - without this, their live pings arrived here and
+                // were silently dropped because no existing entry matched
+                // their EmpCode, so the map never grew a second marker for
+                // a genuinely live second phone.
+                if (!matched) {
+                  next.push({
+                    SessionId: point.SessionId || point.sessionId || 0,
+                    EmpCode: targetEmpCode,
+                    EmpName: point.EmpName || point.empName || targetEmpCode,
+                    Mobile: point.Mobile || point.mobile,
+                    Designation: point.Designation || point.designation,
+                    Department: point.Department || point.department,
+                    SessionType: point.SessionType || point.sessionType || "OnDuty",
+                    DutyId: String(point.DutyId || point.dutyId || "0"),
+                    SessionStartTime: point.SessionStartTime || point.sessionStartTime,
+                    SessionStatus: point.SessionStatus || point.sessionStatus || "Started",
+                    ClientOrBranch: point.ClientOrBranch || point.clientOrBranch || "OnDuty",
+                    Latitude: lat ?? 0,
+                    Longitude: lng ?? 0,
+                    Speed: speed,
+                    Heading: heading,
+                    Accuracy: accuracy,
+                    BatteryLevel: batt,
+                    IsCharging: charging,
+                    MovementStatus: status,
+                    LastUpdated: point.RecordedAt || point.recordedAt || new Date().toISOString(),
+                    SecondsSinceLastUpdate: 0,
+                    LiveLocation: true,
+                  });
+                }
+
+                return next;
+              });
             };
 
             hubConnection.on("ReceiveLiveLocation", handleLivePoint);
