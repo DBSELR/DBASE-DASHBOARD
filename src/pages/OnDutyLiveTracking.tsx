@@ -85,6 +85,9 @@ interface ActiveSessionItem {
   TransportMode?: string;
   VehicleNo?: string;
   DutyLocation?: string;
+  HomeBranch?: string;
+  OnDutyBranch?: string;
+  LiveLocation?: boolean;
   Latitude?: number;
   Longitude?: number;
   Speed?: number;
@@ -261,12 +264,122 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
   const fetchActiveSessions = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}Session/active-sessions`, {
-        headers: authHeaders(),
-        timeout: 10000,
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const todayStr = `${year}-${month}-${day}`;
+
+      const hdrs = {
+        "x-api-key": "dbase-ai-master-key-2026",
+        ...authHeaders(),
+      };
+
+      // 1. Fetch approved on-duties from Checkin/GetOnDutyAutoOverrides for today
+      const overridesPromise = axios
+        .get(`${API_BASE}Checkin/GetOnDutyAutoOverrides?from=${todayStr}&to=${todayStr}`, {
+          headers: hdrs,
+          timeout: 10000,
+        })
+        .catch((err) => {
+          console.warn("[LiveTracking] GetOnDutyAutoOverrides fetch warning:", err);
+          return null;
+        });
+
+      // 2. Fetch live tracking telemetry sessions for real-time lat/long/speed/battery
+      const activeSessionsPromise = axios
+        .get(`${API_BASE}Session/active-sessions`, {
+          headers: authHeaders(),
+          timeout: 10000,
+        })
+        .catch((err) => {
+          console.warn("[LiveTracking] Active-sessions fetch warning:", err);
+          return null;
+        });
+
+      const [overridesRes, activeRes] = await Promise.all([overridesPromise, activeSessionsPromise]);
+
+      let autoOverrideRows: any[] = [];
+      if (overridesRes?.data?.success && Array.isArray(overridesRes.data.data)) {
+        autoOverrideRows = overridesRes.data.data;
+      } else if (Array.isArray(overridesRes?.data)) {
+        autoOverrideRows = overridesRes.data;
+      }
+
+      // Filter strictly for officers where Live Location == Yes (liveLocation === true / "Yes")
+      const liveLocationOnlyRows = autoOverrideRows.filter((r: any) => {
+        const val = r.liveLocation;
+        return (
+          val === true ||
+          val === "Yes" ||
+          val === "yes" ||
+          String(val).toLowerCase() === "true" ||
+          String(val).toLowerCase() === "yes"
+        );
       });
-      if (isComponentMounted.current && res.data && Array.isArray(res.data)) {
-        setSessions(res.data);
+
+      let activeSessionsList: ActiveSessionItem[] = [];
+      if (activeRes?.data && Array.isArray(activeRes.data)) {
+        activeSessionsList = activeRes.data;
+      }
+
+      // Map live telemetry sessions by EmpCode
+      const activeTelemetryMap = new Map<string, ActiveSessionItem>();
+      activeSessionsList.forEach((s) => {
+        if (s.EmpCode) {
+          activeTelemetryMap.set(String(s.EmpCode).trim().toLowerCase(), s);
+        }
+      });
+
+      const mergedSessions: ActiveSessionItem[] = [];
+      const processedEmpCodes = new Set<string>();
+
+      liveLocationOnlyRows.forEach((row: any) => {
+        const empCodeRaw = String(row.empId || row.empCode || "").trim();
+        if (!empCodeRaw) return;
+        const empCodeKey = empCodeRaw.toLowerCase();
+        if (processedEmpCodes.has(empCodeKey)) return;
+        processedEmpCodes.add(empCodeKey);
+
+        const cleanEmpName = row.empName ? String(row.empName).split("#")[0].trim() : empCodeRaw;
+        const telemetry = activeTelemetryMap.get(empCodeKey);
+
+        if (telemetry) {
+          mergedSessions.push({
+            ...telemetry,
+            EmpCode: empCodeRaw,
+            EmpName: cleanEmpName || telemetry.EmpName,
+            Designation: row.designation || telemetry.Designation,
+            HomeBranch: row.homeBranch,
+            OnDutyBranch: row.onDutyBranch,
+            ClientOrBranch: row.onDutyBranch || telemetry.ClientOrBranch || "OnDuty",
+            DutyId: String(row.dutyId || telemetry.DutyId || "0"),
+            LiveLocation: true,
+          });
+        } else {
+          mergedSessions.push({
+            SessionId: 0,
+            EmpCode: empCodeRaw,
+            EmpName: cleanEmpName,
+            Designation: row.designation || "Officer",
+            HomeBranch: row.homeBranch,
+            OnDutyBranch: row.onDutyBranch,
+            ClientOrBranch: row.onDutyBranch || "OnDuty",
+            SessionType: "OnDuty",
+            DutyId: String(row.dutyId || "0"),
+            MovementStatus: "Idle",
+            SessionStatus: "Active",
+            SecondsSinceLastUpdate: 0,
+            Latitude: 0,
+            Longitude: 0,
+            LiveLocation: true,
+          });
+        }
+      });
+
+      if (isComponentMounted.current) {
+        setSessions(mergedSessions);
       }
     } catch (err: any) {
       console.error("[LiveTracking] Fetch sessions error:", err);
