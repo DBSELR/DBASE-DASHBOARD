@@ -1736,6 +1736,15 @@ useEffect(() => {
     const isDailyShuttleDuty = dutyTripTypeLower === "daily shuttle";
     const isRoundTripDuty = dutyTripTypeLower === "round trip";
     const isVehicleDuty = !isPublicTransport && (isDailyShuttleDuty || isRoundTripDuty);
+    // A Round Trip whose own DateFrom/DateTo fall on the same calendar day
+    // now auto-closes (and permanently locks) exactly like Daily Shuttle's
+    // final reading does - see Save_DayTrip on the API. A multi-day Round
+    // Trip still only ever ends from the explicit End Camp button.
+    const isSameDayRoundTrip =
+      isRoundTripDuty &&
+      !!selectedDutyRow?.DateFrom &&
+      !!selectedDutyRow?.DateTo &&
+      String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
 
     if (isVehicleDuty && !skipReadingConfirm) {
       const uploadingStart = trip.readingFromImage instanceof File;
@@ -1744,7 +1753,7 @@ useEffect(() => {
 
       const needsStartConfirm =
         uploadingStart && (isDailyShuttleDuty || (isRoundTripDuty && !campAlreadyActive));
-      const needsEndConfirm = uploadingEnd && isDailyShuttleDuty;
+      const needsEndConfirm = uploadingEnd && (isDailyShuttleDuty || isSameDayRoundTrip);
 
       if (needsStartConfirm || needsEndConfirm) {
         isSavingTrip.current = false;
@@ -1856,6 +1865,16 @@ useEffect(() => {
       const campWarn = String(res?.data?.message ?? "").split("|WARN:")[1];
       if (campWarn) {
         notify(campWarn, "warning");
+      } else if (res?.data?.campStartAttempted && Number(res?.data?.campStartedCount) > 0) {
+        // Uploading the start reading auto-opens the camp for every
+        // teammate on the duty (same as tapping Start Camp by hand) -
+        // say so here instead of a generic "Trip Saved" that leaves the
+        // team-wide effect invisible unless someone checks the map.
+        const n = Number(res.data.campStartedCount);
+        notify(
+          `Trip Saved - Live location turned on for ${n} team member${n === 1 ? "" : "s"}`,
+          "success"
+        );
       } else {
         notify("Trip Saved Successfully", "success");
       }
@@ -2371,7 +2390,21 @@ useEffect(() => {
         { DutyId: dutyId, EmpCode: emp },
         { headers: authHeaders() }
       );
-      notify("Camp started.", "success");
+      // start_camp now isolates each teammate's session so one bad EmpCode
+      // can't abort the rest of the team - but that also means it can come
+      // back partially successful (2 of 3 started) instead of all-or-
+      // nothing. Say so instead of a flat "Camp started" that would hide
+      // exactly the "live location is No for one teammate" symptom this
+      // was built to fix.
+      const failedFor: string[] = Array.isArray(res?.data?.failedFor) ? res.data.failedFor : [];
+      if (failedFor.length > 0) {
+        notify(
+          `Camp started, but live location could not be turned on for: ${failedFor.join(", ")}. Please check with your admin.`,
+          "warning"
+        );
+      } else {
+        notify("Camp started.", "success");
+      }
       // start_camp's own response already IS the answer (it just created
       // the session(s) that make it true) - a whole extra camp_status
       // round trip right after it, only to re-derive what the POST already
@@ -7721,23 +7754,33 @@ updateTripDay(
               const ready = dayTripCampConfirm.secondsLeft <= 0;
               const kind = dayTripCampConfirm.kind;
               const isRT = dayTripCampConfirm.isRoundTrip;
-              // Round Trip only ever reaches "start" here (see
-              // needsEndConfirm in saveDayTripModal - Round Trip never
-              // prompts on an end reading), and it is the whole multi-day
-              // trip's camp starting, not just today's.
+              // Round Trip reaches "start" for the trip-opening reading, and
+              // now also "end"/"both" for a SAME-DAY Round Trip's closing
+              // reading (see isSameDayRoundTrip in saveDayTripModal) - a
+              // multi-day Round Trip still only ever ends from the explicit
+              // End Camp button, so it never reaches "end"/"both" here.
+              // Round Trip's end is a permanent, whole-duty lock (no more
+              // visits, reading uploads, or team changes), unlike Daily
+              // Shuttle's end which only closes that one day - the copy
+              // below says so explicitly rather than implying it is
+              // reversible the way "today's camp" would.
               const title =
                 kind === "end"
-                  ? "End today's camp?"
+                  ? (isRT ? "End this trip's camp?" : "End today's camp?")
                   : kind === "both"
-                    ? "Start and end today's camp?"
+                    ? (isRT ? "Start and permanently end this trip's camp?" : "Start and end today's camp?")
                     : isRT
                       ? "Start this trip's camp?"
                       : "Start today's camp?";
               const text =
                 kind === "end"
-                  ? "This closing reading will end today's camp and stop live location tracking for it."
+                  ? (isRT
+                      ? "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards."
+                      : "This closing reading will end today's camp and stop live location tracking for it.")
                   : kind === "both"
-                    ? "These readings will both start and end today's camp in one save."
+                    ? (isRT
+                        ? "These readings will start this trip's camp and immediately end it again, since the trip is scheduled for a single day - the duty will be permanently locked afterwards: no more visits, reading uploads, or team changes."
+                        : "These readings will both start and end today's camp in one save.")
                     : isRT
                       ? "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again."
                       : "This opening reading will start today's camp and switch on live location tracking for it.";
