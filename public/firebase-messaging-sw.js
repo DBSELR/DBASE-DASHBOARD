@@ -1,13 +1,8 @@
 console.log("🔥 SW START");
 
 try {
-  importScripts(
-    "https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"
-  );
-
-  importScripts(
-    "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"
-  );
+  importScripts("/firebase-app-compat.js");
+  importScripts("/firebase-messaging-compat.js");
 
   firebase.initializeApp({
     apiKey: "AIzaSyAxbahDANKCJWylY9gHrNXfYM3olBnxKEE",
