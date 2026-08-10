@@ -842,7 +842,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 320;
+      const maxDim = 640;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
       let targetWidth = videoWidth;
@@ -872,7 +872,7 @@ const SecurityAttendanceScanner: React.FC = () => {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      const image = canvas.toDataURL("image/jpeg", 0.75);
+      const image = canvas.toDataURL("image/jpeg", 0.85);
       setCapturedImg(image);
       
       logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);

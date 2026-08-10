@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 
 class LocationNameCacheService {
   private cache: Map<string, string> = new Map();
@@ -25,8 +26,14 @@ class LocationNameCacheService {
 
     const requestPromise = (async () => {
       try {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isNative = Capacitor.isNativePlatform();
+        const url = (isLocal && !isNative)
+          ? `/nominatim/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`
+          : `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`;
+
         const response = await axios.get(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+          url,
           { timeout: 5000 }
         );
 

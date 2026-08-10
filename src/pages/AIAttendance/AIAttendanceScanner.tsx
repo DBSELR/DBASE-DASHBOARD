@@ -357,9 +357,13 @@ const AIAttendanceScanner: React.FC = () => {
     const fetchCityName = async () => {
       if (latitude !== 0 && longitude !== 0 && !cityName) {
         try {
-          const response = await axios.get(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
+          const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+          const isNative = Capacitor.isNativePlatform();
+          const url = (isLocal && !isNative)
+            ? `/nominatim/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            : `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
+
+          const response = await axios.get(url);
           if (response.data && response.data.address) {
             const addr = response.data.address;
             const cityOrTown = addr.city || addr.town || addr.village || addr.suburb || addr.city_district || addr.municipality || addr.county || addr.state || "";
@@ -484,7 +488,7 @@ const AIAttendanceScanner: React.FC = () => {
     setResultMessage("Scanning face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 360;
+      const maxDim = 640;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
       let targetWidth = videoWidth;
@@ -510,7 +514,7 @@ const AIAttendanceScanner: React.FC = () => {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         context.restore();
 
-        const imageData = canvas.toDataURL("image/jpeg", 0.8);
+        const imageData = canvas.toDataURL("image/jpeg", 0.85);
         setCapturedImg(imageData);
 
         const finalEmpId = userDataRef.current?.empCode || userDataRef.current?.EmpCode || "";

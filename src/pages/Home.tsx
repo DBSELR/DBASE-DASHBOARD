@@ -13,6 +13,7 @@ import {
   List
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
+import { Capacitor } from "@capacitor/core";
 import axios from "axios";
 import "../theme/Home.css";
 import { useHistory } from "react-router-dom";
@@ -153,9 +154,13 @@ const Home: React.FC = () => {
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await axios.get(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      );
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const isNative = Capacitor.isNativePlatform();
+      const url = (isLocal && !isNative)
+        ? `/nominatim/reverse?format=json&lat=${lat}&lon=${lng}`
+        : `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+
+      const response = await axios.get(url);
       if (response.data.display_name) {
         setLocation(response.data.display_name);
       } else {
