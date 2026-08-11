@@ -52,8 +52,8 @@
   border-radius: var(--ld-radius-lg);
   color: white;
   margin-bottom: 24px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  background: linear-gradient(135deg, #6e8e6b 0%, #9cb798 100%);
+  box-shadow: 0 10px 25px rgba(var(--ion-color-primary-rgb, 0, 0, 0), 0.2);
+  background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-secondary, var(--ion-color-primary)) 100%);
 }
 
 .ld-header-left {
@@ -114,7 +114,7 @@
   border-radius: 12px;
   background: #ffffff;
   border: none;
-  color: #6e8e6b;
+  color: var(--ion-color-primary, #6e8e6b);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -500,8 +500,8 @@
 }
 
 .ld-inline-period-card:hover {
-  border-color: #6e8e6b;
-  box-shadow: 0 2px 8px rgba(110, 142, 107, 0.15);
+  border-color: var(--ion-color-primary, #6e8e6b);
+  box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb, 110, 142, 107), 0.15);
 }
 
 .ld-period-left-icon-box {
@@ -510,7 +510,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: #6e8e6b;
+  background: var(--ion-color-primary, #6e8e6b);
   color: white;
   border-radius: 8px;
   font-size: 14px;
@@ -606,7 +606,7 @@
 }
 
 .ld-dropdown-pure-input:focus {
-  border-color: #6e8e6b;
+  border-color: var(--ion-color-primary, #6e8e6b);
 }
 
 .ld-dropdown-clear-btn {

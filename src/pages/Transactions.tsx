@@ -450,6 +450,7 @@ const Transactions: React.FC = () => {
     "transfer" | "voucher" | "advances"
   >("transfer");
 
+  const [txnViewEmpCode, setTxnViewEmpCode] = useState<string>(EmpCode);
   const [loading, setLoading] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
   const filterSearchRef = useRef(false);
@@ -525,144 +526,150 @@ const Transactions: React.FC = () => {
   const [empSearchTerm, setEmpSearchTerm] = useState<string>("");
   const empTriggerRef = useRef<HTMLDivElement>(null);
 
+  // Searchable Employee Dropdown for Transfer Filter
+  const [isTransferEmpDropdownOpen, setIsTransferEmpDropdownOpen] = useState<boolean>(false);
+  const [transferEmpDropdownPos, setTransferEmpDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 240 });
+  const [transferEmpSearchTerm, setTransferEmpSearchTerm] = useState<string>("");
+  const transferEmpTriggerRef = useRef<HTMLDivElement>(null);
+
   const [menuOpen, setMenuOpen] = useState(false);
-const streamRef = useRef<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-// ✅ Upload file input
-const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // ✅ Upload file input
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-const [cameraOpen, setCameraOpen] = useState(false);
-const [cameraType, setCameraType] = useState<"user" | "environment">(
-  "environment"
-);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraType, setCameraType] = useState<"user" | "environment">(
+    "environment"
+  );
 
-const [captureFor, setCaptureFor] = useState<"voucher" | "bill">("voucher");
+  const [captureFor, setCaptureFor] = useState<"voucher" | "bill">("voucher");
 
-const triggerUpload = () => {
-  fileInputRef.current?.click();
-};
-
-const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    const base64 = String(reader.result);
-
-    if (captureFor === "voucher") {
-      setPhotoVoucher(base64);
-    } else {
-      setPhotoBill(base64);
-    }
+  const triggerUpload = () => {
+    fileInputRef.current?.click();
   };
 
-  reader.readAsDataURL(file);
-  e.target.value = "";
-};
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const base64 = String(reader.result);
+
+      if (captureFor === "voucher") {
+        setPhotoVoucher(base64);
+      } else {
+        setPhotoBill(base64);
+      }
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
 
 
-const openCamera = async (
-  type: "voucher" | "bill",
-  facing: "user" | "environment" = "environment"
-) => {
-  try {
-    setCaptureFor(type);
-    setCameraType(facing);
-    setCameraOpen(true);
+  const openCamera = async (
+    type: "voucher" | "bill",
+    facing: "user" | "environment" = "environment"
+  ) => {
+    try {
+      setCaptureFor(type);
+      setCameraType(facing);
+      setCameraOpen(true);
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: facing,
-      },
-    });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facing,
+        },
+      });
 
-    streamRef.current = stream;
+      streamRef.current = stream;
 
-    setTimeout(() => {
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error(err);
+      presentToast("Unable to access camera", false);
+    }
+  };
+  const switchCamera = async () => {
+    try {
+      const newType =
+        cameraType === "environment" ? "user" : "environment";
+
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newType,
+        },
+      });
+
+      streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    }, 100);
-  } catch (err) {
-    console.error(err);
-    presentToast("Unable to access camera", false);
-  }
-};
-const switchCamera = async () => {
-  try {
-    const newType =
-      cameraType === "environment" ? "user" : "environment";
 
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+      setCameraType(newType);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: newType,
-      },
-    });
+    const canvas = document.createElement("canvas");
 
-    streamRef.current = stream;
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return;
+
+    ctx.drawImage(
+      videoRef.current,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    const imageData = canvas.toDataURL("image/jpeg", 0.9);
+
+    if (captureFor === "voucher") {
+      setPhotoVoucher(imageData);
+    } else {
+      setPhotoBill(imageData);
     }
 
-    setCameraType(newType);
-  } catch (err) {
-    console.error(err);
-  }
-};
-const capturePhoto = () => {
-  if (!videoRef.current) return;
+    closeCamera();
+  };
+  const closeCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
 
-  const canvas = document.createElement("canvas");
+    streamRef.current = null;
 
-  canvas.width = videoRef.current.videoWidth;
-  canvas.height = videoRef.current.videoHeight;
+    setCameraOpen(false);
+  };
+  const triggerVoucherUpload = () => {
+    if (voucherFileInputRef.current) {
+      (voucherFileInputRef.current as HTMLInputElement).click();
+    }
+  };
 
-  const ctx = canvas.getContext("2d");
-
-  if (!ctx) return;
-
-  ctx.drawImage(
-    videoRef.current,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-  const imageData = canvas.toDataURL("image/jpeg", 0.9);
-
-  if (captureFor === "voucher") {
-    setPhotoVoucher(imageData);
-  } else {
-    setPhotoBill(imageData);
-  }
-
-  closeCamera();
-};
-const closeCamera = () => {
-  streamRef.current?.getTracks().forEach((track) => track.stop());
-
-  streamRef.current = null;
-
-  setCameraOpen(false);
-};
-const triggerVoucherUpload = () => {
-  if (voucherFileInputRef.current) {
-    (voucherFileInputRef.current as HTMLInputElement).click();
-  }
-};
-
-const triggerBillUpload = () => {
-  if (billFileInputRef.current) {
-    (billFileInputRef.current as HTMLInputElement).click();
-  }
-};
+  const triggerBillUpload = () => {
+    if (billFileInputRef.current) {
+      (billFileInputRef.current as HTMLInputElement).click();
+    }
+  };
 
   /* -------- toast helper -------- */
   const presentToast = (msg: string, ok = true) => {
@@ -700,7 +707,7 @@ const triggerBillUpload = () => {
         fetchTxnTypes(),
         fetchYears(),
         fetchMonths(moment().format("YYYY")),
-        fetchTransactions(EmpCode),
+        fetchTransactions(txnViewEmpCode),
         fetchUserProfile(EmpCode),
       ]);
     } catch (e) {
@@ -797,9 +804,9 @@ const triggerBillUpload = () => {
     let list = normalizeTransactions(res.data || []);
 
     // Client-side filtering — backend SP does not respect FYear/TStartDt/TEndDt
-    const effectiveYear  = overrides?.year  !== undefined ? overrides.year  : selectedYear;
+    const effectiveYear = overrides?.year !== undefined ? overrides.year : selectedYear;
     const effectiveStart = overrides?.start !== undefined ? overrides.start : startDate;
-    const effectiveEnd   = overrides?.end   !== undefined ? overrides.end   : endDate;
+    const effectiveEnd = overrides?.end !== undefined ? overrides.end : endDate;
 
     if ((effectiveYear && effectiveYear !== "All") || effectiveStart || effectiveEnd) {
       list = list.filter((t) => {
@@ -810,7 +817,7 @@ const triggerBillUpload = () => {
         if (effectiveYear && effectiveYear !== "All") {
           const fyStart = Number(effectiveYear.split("-")[0]);
           const fyFrom = moment(`${fyStart}-04-01`, "YYYY-MM-DD");
-          const fyTo   = moment(`${fyStart + 1}-03-31`, "YYYY-MM-DD");
+          const fyTo = moment(`${fyStart + 1}-03-31`, "YYYY-MM-DD");
           if (!d.isBetween(fyFrom, fyTo, "day", "[]")) return false;
         }
 
@@ -996,7 +1003,7 @@ const triggerBillUpload = () => {
       presentToast("Money Transfer successful...");
       await Promise.all([
         fetchCurrentCash(),
-        fetchTransactions(EmpCode),
+        fetchTransactions(txnViewEmpCode),
         fetchAdvancePending(),
       ]);
       await sendSMSTransfer(
@@ -1245,8 +1252,8 @@ const triggerBillUpload = () => {
       if (isEmployeeDropdownOpen && empTriggerRef.current) {
         const rect = empTriggerRef.current.getBoundingClientRect();
         setEmployeeDropdownPos({
-          top: rect.bottom + window.scrollY,
-          left: rect.left + window.scrollX,
+          top: rect.bottom + 4,
+          left: rect.left,
           width: rect.width
         });
       }
@@ -1260,10 +1267,36 @@ const triggerBillUpload = () => {
     };
   }, [isEmployeeDropdownOpen]);
 
+  useEffect(() => {
+    const updatePosition = () => {
+      if (isTransferEmpDropdownOpen && transferEmpTriggerRef.current) {
+        const rect = transferEmpTriggerRef.current.getBoundingClientRect();
+        setTransferEmpDropdownPos({
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width
+        });
+      }
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isTransferEmpDropdownOpen]);
+
   const filteredEmployees = employees.filter((emp) => {
     const term = empSearchTerm.toLowerCase();
     return String(emp.EmpCode).toLowerCase().includes(term) ||
-           String(emp.EmpName).toLowerCase().includes(term);
+      String(emp.EmpName).toLowerCase().includes(term);
+  });
+
+  const filteredTransferEmployees = employees.filter((emp) => {
+    const term = transferEmpSearchTerm.toLowerCase();
+    return String(emp.EmpCode).toLowerCase().includes(term) ||
+      String(emp.EmpName).toLowerCase().includes(term);
   });
 
   /* -------- UI -------- */
@@ -1304,6 +1337,9 @@ const triggerBillUpload = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div style={{ marginTop: '16px' }}>
 
           {/* --- Premium Balance Cards --- */}
           <div className="balance-grid" style={{ padding: '0 16px', marginBottom: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -1472,11 +1508,62 @@ const triggerBillUpload = () => {
             {/* Filters + list */}
             <div className="stock-panel">
               <h3 className="stock-section-heading">
-                {userProfile ? `${userProfile.EmpID} - ${userProfile.EmpName}` : EmpCodeName}
+                {txnViewEmpCode === EmpCode
+                  ? (userProfile ? `${userProfile.EmpID} - ${userProfile.EmpName}` : EmpCodeName)
+                  : (() => {
+                    const sel = employees.find(e => e.EmpCode === txnViewEmpCode);
+                    return sel ? `${sel.EmpCode} - ${sel.EmpName}` : txnViewEmpCode;
+                  })()
+                }
               </h3>
 
               {/* ── Filter Bar ── */}
-              <div className="stock-grid">
+              <div
+                className="stock-grid"
+                style={{
+                  gridTemplateColumns: (UserDesig === "Director" || UserDesig === "In-Charge F&A" || EmpCode === "1508")
+                    ? 'repeat(5, 1fr)'
+                    : 'repeat(auto-fit, minmax(180px, 1fr))'
+                }}
+              >
+                {(UserDesig === "Director" || UserDesig === "In-Charge F&A" || EmpCode === "1508") && (
+                  <div className="stock-field" style={{ minWidth: 0 }}>
+                    <label>Employee</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+                        <div
+                          ref={transferEmpTriggerRef}
+                          className={`dbase-inline-select searchable-trigger ${isTransferEmpDropdownOpen ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTransferEmpSearchTerm("");
+                            setIsTransferEmpDropdownOpen(!isTransferEmpDropdownOpen);
+                          }}
+                          style={{ 
+                            width: '100%', 
+                            minHeight: '38px', 
+                            background: 'var(--stock-panel-bg)', 
+                            border: '1px solid var(--stock-border)', 
+                            borderRadius: 'var(--stock-radius-md)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0 12px'
+                          }}
+                        >
+                          <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {(() => {
+                              const sel = employees.find(e => e.EmpCode === txnViewEmpCode);
+                              return sel ? `${sel.EmpCode} - ${sel.EmpName}` : txnViewEmpCode;
+                            })()}
+                          </span>
+                          <IonIcon icon={chevronDown} className="select-chevron" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="stock-field">
                   <label>Year</label>
                   <div className="stock-select-wrapper">
@@ -1486,7 +1573,7 @@ const triggerBillUpload = () => {
                       onChange={(e) => {
                         const y = e.target.value;
                         setSelectedYear(y);
-                        fetchTransactions(EmpCode, { year: y });
+                        fetchTransactions(txnViewEmpCode, { year: y });
                       }}
                     >
                       <option value="">All Years</option>
@@ -1535,7 +1622,7 @@ const triggerBillUpload = () => {
                       onClick={async () => {
                         filterSearchRef.current = true;
                         setFilterLoading(true);
-                        await fetchTransactions(EmpCode);
+                        await fetchTransactions(txnViewEmpCode);
                         presentToast("Filter applied successfully");
                       }}
                     >
@@ -1544,7 +1631,7 @@ const triggerBillUpload = () => {
                     <button className="stock-button stock-button--secondary" style={{ flex: 1 }} onClick={() => {
                       setStartDate(""); setEndDate(""); setSelectedYear("");
                       setTransCredDebt("All"); setSelectedTxnType("All");
-                      fetchTransactions(EmpCode, { start: "", end: "", year: "", type: "All", head: "All" });
+                      fetchTransactions(txnViewEmpCode, { start: "", end: "", year: "", type: "All", head: "All" });
                     }}>
                       Clear
                     </button>
@@ -1572,8 +1659,8 @@ const triggerBillUpload = () => {
                       isCredit = false;
                     } else {
                       const d = cdesc.toLowerCase();
-                      const toMe   = new RegExp(`\\bto\\s+${EmpCode}\\b`).test(d);
-                      const fromMe = new RegExp(`\\bfrom\\s+${EmpCode}\\b`).test(d);
+                      const toMe = new RegExp(`\\bto\\s+${txnViewEmpCode}\\b`).test(d);
+                      const fromMe = new RegExp(`\\bfrom\\s+${txnViewEmpCode}\\b`).test(d);
                       // money comes IN when "to {me}" and NOT "from {me}"
                       isCredit = toMe && !fromMe;
                     }
@@ -1745,14 +1832,14 @@ const triggerBillUpload = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Voucher filter (Admin only) */}
             {(UserDesig === "Director" || UserDesig === "In-Charge F&A") && (
               <div className="stock-panel">
-                <div className="stock-field">
+                <div className="stock-field" style={{ minWidth: 0 }}>
                   <label>Filter by Employee</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
+                    <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
                       <div
                         ref={empTriggerRef}
                         className={`dbase-inline-select searchable-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
@@ -1761,9 +1848,19 @@ const triggerBillUpload = () => {
                           setEmpSearchTerm("");
                           setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen);
                         }}
-                        style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)' }}
+                        style={{ 
+                          width: '100%', 
+                          minHeight: '38px', 
+                          background: 'var(--stock-panel-bg)', 
+                          border: '1px solid var(--stock-border)', 
+                          borderRadius: 'var(--stock-radius-md)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0 12px'
+                        }}
                       >
-                        <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: '600' }}>
+                        <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {voucherEmpView || "Show All"}
                         </span>
                         <IonIcon icon={chevronDown} className="select-chevron" />
@@ -1915,24 +2012,24 @@ const triggerBillUpload = () => {
             </IonButton>
           </div>
         </IonModal>
-         <IonModal
-  isOpen={cameraOpen}
-  onDidDismiss={closeCamera}
-  className="camera-modal"
->
-<IonContent fullscreen className="camera-content">
-  <div className="camera-wrapper">
+        <IonModal
+          isOpen={cameraOpen}
+          onDidDismiss={closeCamera}
+          className="camera-modal"
+        >
+          <IonContent fullscreen className="camera-content">
+            <div className="camera-wrapper">
 
-    {/* 3 DOTS BUTTON */}
-    {/* <div
+              {/* 3 DOTS BUTTON */}
+              {/* <div
       className="camera-menu-btn"
       onClick={() => setMenuOpen(!menuOpen)}
     >
       ⋮
     </div> */}
 
-    {/* MENU */}  
-    {/* {menuOpen && (
+              {/* MENU */}
+              {/* {menuOpen && (
       <div className="camera-menu">
         <button onClick={capturePhoto}>Capture</button>
         <button onClick={switchCamera}>Switch</button>
@@ -1942,36 +2039,36 @@ const triggerBillUpload = () => {
         </button>
       </div>
     )} */}
-    <div className="camera-menus">
-      <button onClick={capturePhoto}>Capture</button>
-      <button onClick={switchCamera}>Switch</button>
-        <button onClick={triggerUpload}>Browse</button>
-        <button className="danger" onClick={closeCamera}>
-          Close
-        </button>
-    </div>
+              <div className="camera-menus">
+                <button onClick={capturePhoto}>Capture</button>
+                <button onClick={switchCamera}>Switch</button>
+                <button onClick={triggerUpload}>Browse</button>
+                <button className="danger" onClick={closeCamera}>
+                  Close
+                </button>
+              </div>
 
-    {/* VIDEO */}
-    <video
-      ref={videoRef}
-      autoPlay
-      playsInline
-      muted
-      className="camera-video"
-    />
+              {/* VIDEO */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="camera-video"
+              />
 
-    {/* hidden file input */}
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept="image/*"
-      style={{ display: "none" }}
-      onChange={handleFileUpload}
-    />
+              {/* hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleFileUpload}
+              />
 
-  </div>
-</IonContent>
-</IonModal>
+            </div>
+          </IonContent>
+        </IonModal>
         {/* DA/TA employee selection */}
         <IonModal
           isOpen={openDA_TA_Modal}
@@ -2140,7 +2237,7 @@ const triggerBillUpload = () => {
               className="custom-inline-dropdown"
               onMouseDown={(e) => e.stopPropagation()}
               style={{
-                position: 'absolute',
+                position: 'fixed',
                 top: `${employeeDropdownPos.top}px`,
                 left: `${employeeDropdownPos.left}px`,
                 width: `${employeeDropdownPos.width}px`
@@ -2210,6 +2307,77 @@ const triggerBillUpload = () => {
                 {filteredEmployees.length === 0 && (
                   <div className="dr-no-results">
                     <p>No matches for "{empSearchTerm}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {/* Employee Dropdown Portal (Transfer Filter) */}
+        {isTransferEmpDropdownOpen && createPortal(
+          <>
+            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTransferEmpDropdownOpen(false); }} />
+            <div
+              className="custom-inline-dropdown"
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: `${transferEmpDropdownPos.top}px`,
+                left: `${transferEmpDropdownPos.left}px`,
+                width: `${transferEmpDropdownPos.width}px`
+              }}
+            >
+              <div className="dropdown-search-sec">
+                <IonIcon icon={search} className="dropdown-search-icon" />
+                <input
+                  type="text"
+                  className="dropdown-pure-input"
+                  placeholder="Search employee..."
+                  value={transferEmpSearchTerm}
+                  onChange={(e) => setTransferEmpSearchTerm(e.target.value)}
+                  autoFocus
+                  onMouseDown={(e) => e.stopPropagation()}
+                />
+                {transferEmpSearchTerm && (
+                  <button className="dropdown-clear-btn" onClick={() => setTransferEmpSearchTerm("")}>
+                    <IonIcon icon={close} />
+                  </button>
+                )}
+              </div>
+
+              <div className="dropdown-body">
+                {filteredTransferEmployees.map((emp, index) => {
+                  const empId = String(emp.EmpCode);
+                  const empName = String(emp.EmpName);
+                  const isSelected = txnViewEmpCode === empId;
+                  const initials = (empName.charAt(0) || "?").toUpperCase();
+
+                  return (
+                    <div
+                      key={index}
+                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                      onClick={async () => {
+                        setTxnViewEmpCode(empId);
+                        setIsTransferEmpDropdownOpen(false);
+                        await fetchTransactions(empId);
+                      }}
+                    >
+                      <div className={`dr-avatar grad-${(parseInt(empId) % 5) || 0}`}>
+                        {initials}
+                      </div>
+                      <div className="dr-info">
+                        <span className="dr-name">{empName}</span>
+                        <span className="dr-id">ID: {empId}</span>
+                      </div>
+                      {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                    </div>
+                  );
+                })}
+                {filteredTransferEmployees.length === 0 && (
+                  <div className="dr-no-results">
+                    <p>No matches for "{transferEmpSearchTerm}"</p>
                   </div>
                 )}
               </div>

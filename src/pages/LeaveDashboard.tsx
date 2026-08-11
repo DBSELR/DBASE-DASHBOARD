@@ -462,8 +462,9 @@ const LeaveDashboard: React.FC = () => {
         slUsed = slRes.data?.used ?? 0;
         permBalance = permRes.data?.balance ?? 0;
         permUsed = permRes.data?.used ?? 0;
-        permUsedSessions = permRes.data?.usedSessions ?? 0;
         permMaxSessions = permRes.data?.maxSessions ?? 0;
+        const rawUsedSessions = permRes.data?.usedSessions ?? 0;
+        permUsedSessions = permMaxSessions > 0 && rawUsedSessions > permMaxSessions ? permMaxSessions : rawUsedSessions;
         lopBalance = lopRes.data?.balance ?? 0;
         lopUsed = lopRes.data?.used ?? 0;
       }

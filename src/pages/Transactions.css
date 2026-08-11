@@ -98,7 +98,7 @@
     position: relative;
     z-index: 10;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .txn-tab-item {
@@ -694,76 +694,76 @@
 
 /* --- Refined Header Style --- */
 .page-txn-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 28px;
-  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary, var(--ion-color-primary)));
-  padding: 16px 20px;
-  border-radius: var(--card-radius);
-  box-shadow: 0 8px 24px rgba(var(--ion-color-primary-rgb), 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary, var(--ion-color-primary)));
+    padding: 16px 20px;
+    border-radius: var(--card-radius);
+    box-shadow: 0 8px 24px rgba(var(--ion-color-primary-rgb), 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .page-txn-header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .page-txn-back-btn {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 0;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0;
 }
 
 .page-txn-back-btn:active {
-  transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.3);
+    transform: scale(0.92);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .page-txn-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.5px;
-  margin: 0;
-  line-height: 1.2;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    margin: 0;
+    line-height: 1.2;
 }
 
 .page-txn-subtitle {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .page-txn-header-right {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 .page-txn-header-icon-box {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* .preview-img-container {
@@ -1097,212 +1097,219 @@
 
 /* ===== VIDEO ===== */
 .camera-video {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  display: block;
-  border-radius: 22px;
-  background-color: #0d0d0d;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+    border-radius: 22px;
+    background-color: #0d0d0d;
 }
 
 /* ===== 3 DOT BUTTON ===== */
 .camera-menu-btn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: rgba(32, 32, 32, .78);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 500;
-  cursor: pointer;
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255,255,255,.08);
-  z-index: 20;
-  transition: .25s;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: rgba(32, 32, 32, .78);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 500;
+    cursor: pointer;
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, .08);
+    z-index: 20;
+    transition: .25s;
 }
 
 .camera-menu-btn:hover {
-  transform: scale(1.03);
-  background: rgba(55,55,55,.92);
+    transform: scale(1.03);
+    background: rgba(55, 55, 55, .92);
 }
 
 /* ===== MENU ===== */
 .camera-menu {
-  position: absolute;
-  top: 56px;
-  right: 14px;
-  width: 180px;
-  background: rgba(40,40,40,.96);
-  border-radius: 16px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgba(255,255,255,.08);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 14px 30px rgba(0,0,0,.35);
-  animation: teamsMenu .18s ease;
-  z-index: 50;
+    position: absolute;
+    top: 56px;
+    right: 14px;
+    width: 180px;
+    background: rgba(40, 40, 40, .96);
+    border-radius: 16px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, .08);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .35);
+    animation: teamsMenu .18s ease;
+    z-index: 50;
 }
 
 /* ===== MENU ITEMS ===== */
 .camera-menu button {
-  background: transparent;
-  border: none;
-  color: #b3acac;
-  padding: 12px 14px;
-  text-align: left;
-  border-radius: 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: .18s;
-  display: flex;
-  align-items: center;
-  min-height: 44px;
+    background: transparent;
+    border: none;
+    color: #b3acac;
+    padding: 12px 14px;
+    text-align: left;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: .18s;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
 }
 
 .camera-menu button:hover {
-  background: rgba(255,255,255,.08);
+    background: rgba(255, 255, 255, .08);
 }
 
 .camera-menu .danger {
-  color: #ff6b6b;
+    color: #ff6b6b;
 }
 
 .camera-menu .danger:hover {
-  background: rgba(255,77,77,.12);
+    background: rgba(255, 77, 77, .12);
 }
 
 /* ===== OPEN EFFECT ===== */
 @keyframes teamsMenu {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .camera-modal {
-  --background: transparent;
-  --box-shadow: none;
-  --border-radius: 0px;
+    --background: transparent;
+    --box-shadow: none;
+    --border-radius: 0px;
 }
+
 .camera-modal::part(content) {
-  background: transparent;
-  box-shadow: none;
+    background: transparent;
+    box-shadow: none;
 }
 
 .camera-content {
-  --background: transparent;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-} 
+    --background: transparent;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
 
 .camera-wrapper {
-  position: relative;
-  width: 100%;
-  max-width: 550px;
-  margin: auto;
-  
-  border-radius: 26px;
-  overflow: hidden;
- 
-  --background: whitesmoke; /* white background */
-  border-radius: 25px; /* optional rounded corners */
-  padding: 2px; /* optional spacing */
-  animation: teamsMenu .18s ease;
-  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
-  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+    position: relative;
+    width: 100%;
+    max-width: 550px;
+    margin: auto;
+
+    border-radius: 26px;
+    overflow: hidden;
+
+    --background: whitesmoke;
+    /* white background */
+    border-radius: 25px;
+    /* optional rounded corners */
+    padding: 2px;
+    /* optional spacing */
+    animation: teamsMenu .18s ease;
+    background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+    transition: transform var(--transition-speed), box-shadow var(--transition-speed);
 }
 
 /* MENU */
 .camera-menus {
-  position: absolute;
-  bottom: 10px;              /* move down */
-  left: 50%;
-  transform: translateX(-50%);
+    position: absolute;
+    bottom: 10px;
+    /* move down */
+    left: 50%;
+    transform: translateX(-50%);
 
-  display: flex;
-  gap: 10px;
+    display: flex;
+    gap: 10px;
 
-  background: rgba(255,255,255,0.14);
-  backdrop-filter: blur(14px);
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(14px);
 
-  padding: 8px 10px;
-  border-radius: 999px;
+    padding: 8px 10px;
+    border-radius: 999px;
 
-  z-index: 999;
+    z-index: 999;
 }
 
 /* SMALL PREMIUM BUTTON */
 .camera-menus button {
-  min-width: 80px;
-  height: 34px;
+    min-width: 80px;
+    height: 34px;
 
-  border: none;
-  border-radius: 18px;
+    border: none;
+    border-radius: 18px;
 
-  font-size: 12px;
-  font-weight: 500;
+    font-size: 12px;
+    font-weight: 500;
 
-  color: #fff;
-  background: rgba(35,35,35,.78);
+    color: #fff;
+    background: rgba(35, 35, 35, .78);
 
-  cursor: pointer;
+    cursor: pointer;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-  transition: .2s;
+    transition: .2s;
 }
 
 /* Hover */
 .camera-menus button:hover {
-  transform: translateY(-2px);
-  background: rgba(10, 10, 10, 0.9);
+    transform: translateY(-2px);
+    background: rgba(10, 10, 10, 0.9);
 }
 
 /* Capture Highlight */
 .camera-menus button:first-child {
-  background: #2e8660;
-  color: #f9f8f8;
+    background: #2e8660;
+    color: #f9f8f8;
 }
 
 /* Close */
-.camera-menus .danger{
-  background: #bb3a3a;
-  
-  
+.camera-menus .danger {
+    background: #bb3a3a;
+
+
 }
-.camera-menus .danger:hover{
-transform: translateY(-2px);
-  background: rgba(123, 12, 12, 0.9);
+
+.camera-menus .danger:hover {
+    transform: translateY(-2px);
+    background: rgba(123, 12, 12, 0.9);
 }
 
 /* Mobile */
 @media (max-width:768px) {
-  .camera-menus {
-    bottom: 10px;
-    gap: 6px;
-    padding: 6px;
-  }
+    .camera-menus {
+        bottom: 10px;
+        gap: 6px;
+        padding: 6px;
+    }
 
-  .camera-menus button {
-    min-width: 52px;
-    height: 30px;
-    font-size: 10px;
-  }
+    .camera-menus button {
+        min-width: 52px;
+        height: 30px;
+        font-size: 10px;
+    }
 }
