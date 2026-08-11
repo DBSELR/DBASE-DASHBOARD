@@ -1832,7 +1832,22 @@ useEffect(() => {
         formData.append(`visits[${i}].contact_Person`, v.contactPerson);
         formData.append(`visits[${i}].mobile_Number`, v.mobile);
         formData.append(`visits[${i}].remarks`, v.remarks);
-        formData.append(`visits[${i}].localTransportAmount`, v.localTransportAmount || "");
+        {
+          // Guard against a non-primitive ever being serialized here -
+          // FormData silently stringifies any object to the literal text
+          // "[object Object]", which the backend then rejects with a
+          // validation error ("The value '[object Object]' is not valid
+          // for LocalTransportAmount") that is meaningless to whoever is
+          // filling out the trip. Only a string/number is ever sent;
+          // anything else is treated as "not entered" instead of corrupting
+          // the request.
+          const rawAmount = v.localTransportAmount as unknown;
+          const safeAmount =
+            typeof rawAmount === "string" || typeof rawAmount === "number"
+              ? String(rawAmount)
+              : "";
+          formData.append(`visits[${i}].localTransportAmount`, safeAmount);
+        }
 
         if (v.visitSlipImage instanceof File) {
           formData.append(`visits[${i}].visit_Image`, v.visitSlipImage);
@@ -1884,11 +1899,35 @@ useEffect(() => {
 
     } catch (error: any) {
       let errorMsg = "Save failed";
-      if (error?.response?.data) {
-        if (typeof error.response.data === "string") {
-          errorMsg = error.response.data;
-        } else if (typeof error.response.data === "object") {
-          errorMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+      const data = error?.response?.data;
+      if (data) {
+        if (typeof data === "string") {
+          errorMsg = data;
+        } else if (typeof data === "object") {
+          // ASP.NET's automatic [ApiController] model-validation response
+          // (HTTP 400) is a ProblemDetails object: { errors: { "Visits[0].
+          // LocalTransportAmount": ["message"], ... }, title, status, ... }.
+          // Neither .message nor .error exists on it, so this used to fall
+          // through to JSON.stringify(data) and show the raw payload -
+          // type, title, status, traceId and all - in a danger toast. Pull
+          // the field-level messages out instead so the person filling the
+          // form sees "Local Transport Amount: The value ... is not valid"
+          // rather than a wall of JSON they can't act on.
+          const validationErrors = data.errors && typeof data.errors === "object" ? data.errors : null;
+          if (validationErrors) {
+            const messages = Object.entries(validationErrors)
+              .map(([field, msgs]) => {
+                const label = field
+                  .replace(/^Visits\[\d+\]\./, "")
+                  .replace(/([a-z])([A-Z])/g, "$1 $2");
+                const text = Array.isArray(msgs) ? msgs.join(" ") : String(msgs);
+                return `${label}: ${text}`;
+              })
+              .join("\n");
+            errorMsg = messages || data.title || "Save failed";
+          } else {
+            errorMsg = data.message || data.error || data.title || "Save failed";
+          }
         }
       } else if (error?.message) {
         errorMsg = error.message;
