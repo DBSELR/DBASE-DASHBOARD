@@ -33,7 +33,18 @@ const FloatingTabBar: React.FC = () => {
     }
   };
 
-  if (["/ai-attendance-scanner", "/security-attendance"].includes(location.pathname)) {
+  const isTrackingPage =
+    location.pathname === "/onduty-tracking" ||
+    location.pathname === "/onduty tracking" ||
+    location.pathname === "/ondutytracking" ||
+    location.pathname.includes("onduty-tracking") ||
+    location.pathname.includes("onduty tracking") ||
+    location.pathname.includes("ondutytracking");
+
+  if (
+    ["/ai-attendance-scanner", "/security-attendance"].includes(location.pathname) ||
+    isTrackingPage
+  ) {
     return null;
   }
 

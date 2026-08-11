@@ -8,12 +8,23 @@ import {
   IonButton,
   IonIcon
 } from "@ionic/react";
-import { calendarOutline, documentTextOutline, optionsOutline, timeOutline, informationCircleOutline, alertCircleOutline } from "ionicons/icons";
+import {
+  calendarOutline,
+  documentTextOutline,
+  optionsOutline,
+  timeOutline,
+  informationCircleOutline,
+  alertCircleOutline,
+  checkmarkCircleOutline,
+  sparklesOutline,
+  arrowForwardOutline,
+  walletOutline
+} from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
 import { apiService } from "../../utils/apiService";
-import "./RequestList.css";
+import "./LeaveForm.css";
 
 const getUser = () => JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -695,234 +706,274 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   }, [requestType, leaveMode]);
 
   return (
-    <div style={{ width: '100%', overflowX: 'hidden' }}>
-
-      {/* ── FORM GRID ── */}
-      <div className="lr-bento-grid" style={requestType === 'Permission' ? { gridTemplateColumns: 'repeat(3, 1fr)' } : {}}>
-
-        {/* Row 1: Leave Type | Category */}
-        {requestType === "Leave" && (
-          <div className="lr-field-box">
-            <label className="lr-field-label">Leave Type</label>
-            <div className="lr-field-content">
-              <IonIcon icon={optionsOutline} className="lr-field-icon" />
-              <IonSelect
-                value={leaveMode}
-                onIonChange={(e) => {
-                  const v = e.detail.value;
-                  setLeaveMode(v);
-                  if (v !== "Leave") setLeaveCategory("");
-                  if (v === "Forenoon" || v === "Afternoon") {
-                    setSingleDateMode(true);
-                    setEndDate(null);
-                  } else {
-                    setSingleDateMode(false);
-                  }
-                }}
-                interface="popover"
-                className="lr-popover-select"
-              >
-                <IonSelectOption value="">Select Leave Type</IonSelectOption>
-                <IonSelectOption value="Leave">Leave</IonSelectOption>
-                <IonSelectOption value="Forenoon">Forenoon</IonSelectOption>
-                <IonSelectOption value="Afternoon">Afternoon</IonSelectOption>
-                <IonSelectOption value="Maternity">Maternity</IonSelectOption>
-                <IonSelectOption value="Paternity">Paternity</IonSelectOption>
-              </IonSelect>
+    <div className="lf-v3-container">
+      <div className="lf-v3-master-card">
+        {/* ── HEADER ROW ── */}
+        <div className="lf-v3-header-row">
+          <div className="lf-v3-header-left">
+            <div className="lf-v3-header-icon-chip">
+              <IonIcon icon={requestType === "Permission" ? timeOutline : calendarOutline} />
+            </div>
+            <div>
+              <h3 className="lf-v3-header-title">
+                {requestType === "Permission" ? "Permission Request" : "Leave Application"}
+              </h3>
+              <p className="lf-v3-header-sub">
+                {requestType === "Permission"
+                  ? "Submit time permission for authority approval"
+                  : "Apply for leaves with real-time balance tracking"}
+              </p>
             </div>
           </div>
-        )}
-
-        {requestType === "Leave" && leaveMode === "Leave" ? (
-          <div className="lr-field-box">
-            <label className="lr-field-label">Category</label>
-            <div className="lr-field-content">
-              <IonIcon icon={optionsOutline} className="lr-field-icon" />
-              <IonSelect
-                placeholder="Select Category"
-                value={leaveCategory}
-                onIonChange={(e) => setLeaveCategory(e.detail.value)}
-                interface="popover"
-                className="lr-popover-select"
-              >
-                <IonSelectOption value="">Select Category</IonSelectOption>
-                <IonSelectOption value="Casual">Casual</IonSelectOption>
-                <IonSelectOption value="Sick">Sick</IonSelectOption>
-              </IonSelect>
-            </div>
-          </div>
-        ) : requestType === "Leave" ? (
-          <div className="lr-field-box">
-            <label className="lr-field-label">Category</label>
-            <div className="lr-field-content">
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{leaveMode}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Row 2: Start Date | Minutes (permission) */}
-        <div className="lr-field-box" onClick={() => setStartModal(true)}
-          style={(requestType !== "Leave" && requestType !== "Permission") ? { gridColumn: '1 / -1' } : {}}>
-          {/* <label className="lr-field-label">Start Date</label> */}
-          <label className="lr-field-label">
-            {singleDateMode ? "Select Date" : "Start Date"}
-          </label>
-          <div className="lr-field-content">
-            <IonIcon icon={calendarOutline} className="lr-field-icon" />
-            <span style={{ fontSize: 14, fontWeight: 500, color: startDate ? '#1e293b' : '#cbd5e1' }}>
-              {startDate ? fmtDMY(startDate) : 'Select'}
-            </span>
+          <div className="lf-v3-header-pill">
+            <IonIcon icon={sparklesOutline} />
+            <span>{requestType} Mode</span>
           </div>
         </div>
-        {requestType === "Permission" && (
-          <div className="lr-field-box">
-            <label className="lr-field-label">Time</label>
-            <div className="lr-field-content">
-              <IonIcon icon={timeOutline} className="lr-field-icon" />
 
-              <input
-                type="time"
-                value={inTime}
-                onChange={(e) => setInTime(e.target.value)}
-                style={{
-                  flex: 1,
-                  border: "none",
-                  background: "transparent",
-                  outline: "none"
-                }}
-              />
-            </div>
-          </div>
-        )}
+        {/* ── FORM INPUTS GRID ── */}
+        <div className={`lf-v3-grid ${requestType === "Leave" ? (singleDateMode ? "three-col" : "four-col") : "three-col"}`}>
+          {requestType === "Leave" && (
+            <>
+              {/* Leave Type Select */}
+              <div className="lf-v3-field">
+                <label className="lf-v3-label">Leave Type</label>
+                <div className="lf-v3-input-box">
+                  <IonIcon icon={optionsOutline} className="lf-v3-input-icon" />
+                  <IonSelect
+                    value={leaveMode}
+                    onIonChange={(e) => {
+                      const v = e.detail.value;
+                      setLeaveMode(v);
+                      if (v !== "Leave") setLeaveCategory("");
+                      if (v === "Forenoon" || v === "Afternoon") {
+                        setSingleDateMode(true);
+                        setEndDate(null);
+                      } else {
+                        setSingleDateMode(false);
+                      }
+                    }}
+                    interface="popover"
+                    className="lf-v3-select"
+                    placeholder="Select Type"
+                  >
+                    <IonSelectOption value="">Select Type</IonSelectOption>
+                    <IonSelectOption value="Leave">Leave</IonSelectOption>
+                    <IonSelectOption value="Forenoon">Forenoon</IonSelectOption>
+                    <IonSelectOption value="Afternoon">Afternoon</IonSelectOption>
+                    <IonSelectOption value="Maternity">Maternity</IonSelectOption>
+                    <IonSelectOption value="Paternity">Paternity</IonSelectOption>
+                  </IonSelect>
+                </div>
+              </div>
 
-        {requestType === "Permission" && (
-          <div className="lr-field-box">
-            <label className="lr-field-label">Minutes</label>
-            <div className="lr-field-content">
-              <IonIcon icon={timeOutline} className="lr-field-icon" />
-              <input
-                type="number"
-                placeholder="E.x. 60"
-                value={permTime}
-                onChange={(e) => setPermTime(e.target.value)}
-                style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 14, fontWeight: 500, outline: 'none', color: '#1e293b', width: '100%' }}
-              />
-            </div>
-          </div>
-        )}
+              {/* Category Select / Badge */}
+              {leaveMode === "Leave" ? (
+                <div className="lf-v3-field">
+                  <label className="lf-v3-label">Category</label>
+                  <div className="lf-v3-input-box">
+                    <IonIcon icon={optionsOutline} className="lf-v3-input-icon" />
+                    <IonSelect
+                      placeholder="Select Category"
+                      value={leaveCategory}
+                      onIonChange={(e) => setLeaveCategory(e.detail.value)}
+                      interface="popover"
+                      className="lf-v3-select"
+                    >
+                      <IonSelectOption value="">Select Category</IonSelectOption>
+                      <IonSelectOption value="Casual">Casual</IonSelectOption>
+                      <IonSelectOption value="Sick">Sick</IonSelectOption>
+                    </IonSelect>
+                  </div>
+                </div>
+              ) : leaveMode ? (
+                <div className="lf-v3-field">
+                  <label className="lf-v3-label">Category</label>
+                  <div className="lf-v3-input-box" style={{ background: '#f5f5f4', cursor: 'default' }}>
+                    <IonIcon icon={sparklesOutline} className="lf-v3-input-icon" />
+                    <span className="lf-v3-input-text">{leaveMode}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="lf-v3-field">
+                  <label className="lf-v3-label">Category</label>
+                  <div className="lf-v3-input-box" style={{ opacity: 0.6 }}>
+                    <IonIcon icon={optionsOutline} className="lf-v3-input-icon" />
+                    <span className="lf-v3-input-text placeholder">Select Type first</span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
-        {/* Row 3: End Date | Remarks (same row) */}
-        {requestType === "Leave" && !singleDateMode && (
-          <div className="lr-field-box" onClick={() => setEndModal(true)}>
-            <label className="lr-field-label">End Date</label>
-            <div className="lr-field-content">
-              <IonIcon icon={calendarOutline} className="lr-field-icon" />
-              <span style={{ fontSize: 14, fontWeight: 500, color: endDate ? '#1e293b' : '#cbd5e1' }}>
-                {endDate ? fmtDMY(endDate) : 'Select'}
+          {/* Start Date / Date trigger */}
+          <div className="lf-v3-field" onClick={() => setStartModal(true)}>
+            <label className="lf-v3-label">
+              {singleDateMode ? "Select Date" : "Start Date"}
+            </label>
+            <div className={`lf-v3-input-box ${startDate ? "active" : ""}`}>
+              <IonIcon icon={calendarOutline} className="lf-v3-input-icon" />
+              <span className={`lf-v3-input-text ${!startDate ? "placeholder" : ""}`}>
+                {startDate ? fmtDMY(startDate) : "Select date"}
               </span>
             </div>
           </div>
-        )}
 
-        <div className="lr-field-box"
-          style={(requestType !== "Leave" && requestType !== "Permission") ? { gridColumn: '1 / -1' } : {}}>
-          <label className="lr-field-label">Remarks</label>
-          <div className="lr-field-content" style={{ alignItems: 'flex-start' }}>
-            <IonIcon icon={documentTextOutline} className="lr-field-icon" style={{ marginTop: 3 }} />
-            <textarea
-              placeholder="Enter details..."
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              rows={2}
-              style={{
-                flex: 1, border: 'none', background: 'transparent',
-                fontSize: 14, fontWeight: 500, outline: 'none',
-                resize: 'none', color: '#1e293b', fontFamily: 'inherit', width: '100%'
-              }}
-            />
+          {/* End Date (if not single date mode & is Leave) */}
+          {requestType === "Leave" && !singleDateMode && (
+            <div className="lf-v3-field" onClick={() => setEndModal(true)}>
+              <label className="lf-v3-label">End Date</label>
+              <div className={`lf-v3-input-box ${endDate ? "active" : ""}`}>
+                <IonIcon icon={calendarOutline} className="lf-v3-input-icon" />
+                <span className={`lf-v3-input-text ${!endDate ? "placeholder" : ""}`}>
+                  {endDate ? fmtDMY(endDate) : "Select date"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Permission InTime */}
+          {requestType === "Permission" && (
+            <div className="lf-v3-field">
+              <label className="lf-v3-label">Time</label>
+              <div className="lf-v3-input-box">
+                <IonIcon icon={timeOutline} className="lf-v3-input-icon" />
+                <input
+                  type="time"
+                  value={inTime}
+                  onChange={(e) => setInTime(e.target.value)}
+                  className="lf-v3-native-input"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Permission Minutes */}
+          {requestType === "Permission" && (
+            <div className="lf-v3-field">
+              <label className="lf-v3-label">Duration (Minutes)</label>
+              <div className="lf-v3-input-box">
+                <IonIcon icon={timeOutline} className="lf-v3-input-icon" />
+                <input
+                  type="number"
+                  placeholder="e.g. 60"
+                  value={permTime}
+                  onChange={(e) => setPermTime(e.target.value)}
+                  className="lf-v3-native-input"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Remarks Field (Full width) */}
+          <div className="lf-v3-field lf-v3-grid-full">
+            <label className="lf-v3-label">Remarks / Purpose</label>
+            <div className="lf-v3-input-box" style={{ minHeight: "72px", alignItems: "flex-start", paddingTop: "10px" }}>
+              <IonIcon icon={documentTextOutline} className="lf-v3-input-icon" style={{ marginTop: "2px" }} />
+              <textarea
+                placeholder="Enter details or purpose of request..."
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                rows={2}
+                className="lf-v3-textarea"
+              />
+            </div>
           </div>
         </div>
 
+        {/* ── INTEGRATED BOTTOM SECTION (BALANCE + ACTION) ── */}
+        <div className="lf-v3-bottom-section">
+          {/* HARMONIZED BALANCE BOX */}
+          <div className="lf-v3-balance-box">
+            <div className="lf-v3-balance-top">
+              <div className="lf-v3-balance-title-group">
+                <IonIcon icon={walletOutline} />
+                <span className="lf-v3-balance-heading">Leave Balance</span>
+              </div>
+              <span className="lf-v3-balance-badge">
+                {requestType === "Permission" ? "Permission" : (leaveCategory || leaveMode || "Overview")}
+              </span>
+            </div>
+
+            {balance && startDate ? (
+              <>
+                <div className="lf-v3-metrics-row">
+                  <div className="lf-v3-metric-item">
+                    <span className="lf-v3-metric-label">Used</span>
+                    <span className="lf-v3-metric-val used">
+                      {balance.used}{requestType === "Permission" ? "m" : ""}
+                    </span>
+                  </div>
+                  <div className="lf-v3-metric-item">
+                    <span className="lf-v3-metric-label">Available</span>
+                    <span className="lf-v3-metric-val available">
+                      {balance.balance}{requestType === "Permission" ? "m" : ""}
+                    </span>
+                  </div>
+                  {requestType === "Permission" && (
+                    <div className="lf-v3-metric-item">
+                      <span className="lf-v3-metric-label">Sessions</span>
+                      <span className="lf-v3-metric-val sessions">
+                        {balance.usedSessions}/{balance.maxSessions}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="lf-v3-progress-track">
+                  <div
+                    className="lf-v3-progress-fill"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (Number(balance.balance || 0) /
+                          (Number(balance.balance || 0) + Number(balance.used || 1))) *
+                          100
+                      )}%`
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '12px', color: '#9a3412', fontWeight: 500 }}>
+                  {startDate ? "Check real-time balance for selected category" : "Select date to view balance details"}
+                </span>
+                <button type="button" className="lf-v3-fetch-balance-btn" onClick={checkBalance}>
+                  <IonIcon icon={informationCircleOutline} />
+                  <span>Fetch Balance</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ACTION PANEL */}
+          <div className="lf-v3-action-panel">
+            <button
+              className="lf-v3-submit-btn"
+              onClick={onSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div className="lf-v3-btn-spinner" />
+                  <span>Submitting Request...</span>
+                </>
+              ) : (
+                <>
+                  <span>Submit Application</span>
+                  <IonIcon icon={arrowForwardOutline} />
+                </>
+              )}
+            </button>
+            <div className="lf-v3-info-note">
+              <IonIcon icon={checkmarkCircleOutline} />
+              <span>Instant notification sent to reporting manager</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* ── Show Balance Button ── */}
-      {leaveCategory === "Casual" && !balance && (
-        <button
-          onClick={checkBalance}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            margin: '0 14px 12px', background: 'transparent',
-            border: 'none', color: 'var(--ion-color-primary)', fontWeight: 700, fontSize: 13, cursor: 'pointer'
-          }}
-        >
-          <IonIcon icon={informationCircleOutline} /> Show Leave Balance
-        </button>
-      )}
-
-      {/* ── Balance Widget ── */}
-      {balance && startDate && (
-        <div style={{
-          display: 'flex', justifyContent: 'space-around',
-          margin: '0 14px 14px', background: '#f8fafc',
-          border: '1px solid #e2e8f0', borderRadius: 14, padding: 14
-        }}>
-          {requestType === "Permission" ? (
-            <>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Used</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#ef4444' }}>{balance.used}m</span>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Available</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{balance.balance}m</span>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Sessions</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#1e293b' }}>{balance.usedSessions}/{balance.maxSessions}</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ textAlign: 'center', flex: 1 }}>
-                <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Used</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#ef4444' }}>{balance.used}</span>
-              </div>
-              <div style={{ width: 1, background: '#e2e8f0' }} />
-              <div style={{ textAlign: 'center', flex: 1 }}>
-                <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Available</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{balance.balance}</span>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-
-      <button
-        className="lr-gradient-btn"
-        onClick={onSubmit}
-        disabled={loading}
-        style={{
-          opacity: loading ? 0.7 : 1,
-          cursor: loading ? "not-allowed" : "pointer",
-          margin: "16px 14px",
-          width: "calc(100% - 28px)"
-        }}
-      >
-        {loading ? (
-          <>
-            <span
-              className="spinner-border spinner-border-sm"
-              style={{ marginRight: "8px" }}
-            />
-            Submitting...
-          </>
-        ) : (
-          "Submit Request"
-        )}
-      </button>
-
-      {/* ✅ START DATE MODAL */}
+      {/* ── START DATE MODAL ── */}
       <IonModal
         isOpen={startModal}
         className="small-datetime-modal"
@@ -940,21 +991,11 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           isDateEnabled={(dateString) => {
             const date = dateString.split("T")[0];
             const today = new Date().toISOString().split("T")[0];
-
-            // Approved date
-            if (
-              unlockRange.approved &&
-              date === unlockRange.fromDate
-            ) {
-              return true;
-            }
-
-            // Today and future
+            if (unlockRange.approved && date === unlockRange.fromDate) return true;
             return date >= today;
           }}
           onIonChange={(e) => {
             const value = e.detail.value;
-
             if (value) {
               const selected = String(value).split("T")[0];
               setStartDate(selected);
@@ -964,9 +1005,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         />
       </IonModal>
 
-
-
-      {/* ✅ END DATE MODAL */}
+      {/* ── END DATE MODAL ── */}
       <IonModal
         isOpen={endModal}
         className="small-datetime-modal"
@@ -993,22 +1032,13 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             isDateEnabled={(dateString) => {
               const date = dateString.split("T")[0];
               const today = new Date().toISOString().split("T")[0];
-
-              // If approved date selected as Start Date,
-              // restrict End Date to approval range only
               if (startDate === unlockRange.fromDate) {
-                return (
-                  date >= unlockRange.fromDate &&
-                  date <= unlockRange.toDate
-                );
+                return date >= unlockRange.fromDate && date <= unlockRange.toDate;
               }
-
-              // Normal behavior
               return date >= (startDate || today);
             }}
             onIonChange={(e) => {
               const value = e.detail.value;
-
               if (value) {
                 setEndDate(String(value).split("T")[0]);
               }
@@ -1016,84 +1046,43 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           />
         </div>
       </IonModal>
-      {/* ✅ LOP CONFIRMATION MODAL */}
+
+      {/* ── LOP CONFIRMATION MODAL ── */}
       <IonModal
         isOpen={confirmLOP}
         onDidDismiss={() => setConfirmLOP(false)}
         style={{
-          '--border-radius': '25px',
+          '--border-radius': '24px',
           '--height': 'auto',
           '--width': '90%',
-          '--max-width': '400px'
+          '--max-width': '420px'
         }}
       >
-        <div style={{
-          padding: '32px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-          fontFamily: 'inherit',
-          background: '#ffffff'
-        }}>
-          {/* Alert Icon */}
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: '#fee2e2',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '20px'
-          }}>
-            <IonIcon icon={alertCircleOutline} style={{ fontSize: '32px', color: '#dc2626' }} />
+        <div className="lf-v2-lop-dialog">
+          <div className="lf-v2-lop-icon-wrap">
+            <IonIcon icon={alertCircleOutline} />
           </div>
 
-          <h3 style={{ margin: '0 0 12px', fontSize: '22px', fontWeight: '700', color: '#1e293b' }}>
-            Confirmation
-          </h3>
+          <h3 className="lf-v2-lop-title">LOP Confirmation</h3>
 
-          <p style={{ margin: '0 0 32px', fontSize: '15px', color: '#64748b', lineHeight: '1.5' }}>
-            {lopMessage}
-          </p>
+          <p className="lf-v2-lop-msg">{lopMessage}</p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
+          <div className="lf-v2-lop-actions">
             <button
+              className="lf-v2-lop-btn-confirm"
               onClick={() => {
                 setConfirmLOP(false);
                 submitSplitLeave();
               }}
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: '#761f1fff',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: '600',
-                fontSize: '15px',
-                cursor: 'pointer'
-              }}
             >
-              YES CONTINUE (LOP)
+              YES, CONTINUE (CONVERT TO LOP)
             </button>
 
             <button
+              className="lf-v2-lop-btn-cancel"
               onClick={() => {
                 setConfirmLOP(false);
                 clearForm();
-              }}
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: '#5c805a',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: '600',
-                fontSize: '15px',
-                cursor: 'pointer'
               }}
             >
               CANCEL
@@ -1102,28 +1091,24 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         </div>
       </IonModal>
 
-
-
+      {/* ── TOAST NOTIFICATION ── */}
       <IonToast
         isOpen={toastOpen}
         message={toastMsg}
         duration={2000}
         onDidDismiss={() => setToastOpen(false)}
       />
+
+      {/* ── LOADING OVERLAY ── */}
       {loading && (
-        <div className="leave-loader-overlay">
-          <div className="leave-loader-box">
-            <div className="leave-spinner"></div>
-            <div className="leave-loader-text">
-              Submitting Leave Request...
-            </div>
+        <div className="lf-v2-loader-overlay">
+          <div className="lf-v2-loader-box">
+            <div className="lf-v2-loader-spinner" />
+            <div className="lf-v2-loader-text">Submitting Request...</div>
           </div>
         </div>
       )}
-
     </div>
-
-
   );
 };
 

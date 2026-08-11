@@ -87,9 +87,8 @@ export const OnDutyEmployeeStatusCard: React.FC = () => {
 
         // 2. Fallback check via OnDuty list endpoints
         try {
-          const cleanApiBase = API_BASE.replace(/\/api\/$/, "/");
           const dutyRes = await axios.get(
-            `${cleanApiBase}OnDuty/load_my_duties?empCode=${empCode}`,
+            `${API_BASE}OnDuty/load_my_duties?empCode=${empCode}`,
             { headers, timeout: 8000 }
           );
 

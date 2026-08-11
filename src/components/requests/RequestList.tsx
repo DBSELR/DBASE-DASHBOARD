@@ -18,7 +18,15 @@ import {
   layersOutline,
   searchOutline,
   closeCircle,
-  checkmarkCircle
+  checkmarkCircle,
+  timeOutline,
+  pricetagOutline,
+  cashOutline,
+  locationOutline,
+  documentTextOutline,
+  alertCircleOutline,
+  busOutline,
+  hardwareChipOutline
 } from "ionicons/icons";
 
 import { createPortal } from "react-dom";
@@ -2022,7 +2030,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
             }
 
             return (
-              <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card themed-bg status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
+              <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
                 <div className="lr-card-inner">
                   <div className="lr-card-header-row">
                     <div className="lr-card-main">
@@ -2035,8 +2043,22 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                           : type === "overtime"
                             ? item.Empname
                             : type === "onduty"
-                              ? item.College : (item.empcode + ' : ' + item.Empname)}
-
+                              ? item.College : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{
+                                    background: '#fff7ed',
+                                    color: 'var(--ion-color-primary, #e2711d)',
+                                    border: '1px solid #fed7aa',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 800
+                                  }}>
+                                    ID {item.empcode}
+                                  </span>
+                                  <span>{item.Empname}</span>
+                                </span>
+                              )}
                       </div>
                       <div className="lr-card-subtitle">
                         {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
@@ -2225,7 +2247,10 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
                   {getRejectionInfo(item) && <p style={{ color: 'red', fontWeight: 'bold', fontSize: '12px', marginTop: '8px' }}>{getRejectionInfo(item)}</p>}
                   {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'overtime' && type !== 'onduty' && (
-                    <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: 600 }}>Approved By: {getApprovedBy(item)}</p>
+                    <div className="lr-approved-stepper-box">
+                      <span className="lr-stepper-check-badge">✓</span>
+                      <span><b>Approved By:</b> <span style={{ color: '#0f172a', fontWeight: 700 }}>{getApprovedBy(item)}</span></span>
+                    </div>
                   )}
 
                   {/* ── OnDuty team-view: always show status-driven action buttons ── */}

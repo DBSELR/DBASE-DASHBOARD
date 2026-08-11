@@ -72,8 +72,7 @@ const PrivacyPolicy: React.FC = () => {
                 <p>Depending on your device settings and app usage, we may request and collect the following permissions:</p>
                 <ul>
                   <li>
-                    <strong>Location Data (Geolocation):</strong> We collect coarse and fine location data (with your permission) to verify on-duty
-                    status, track work-related travel, and ensure accurate attendance logging.
+                    <strong>Location Data (Geolocation):</strong> DBase Office collects location data (coarse, fine, and background location) to enable field attendance and work-location tracking for authorized marketing activities. Location may be collected in the background while field tracking is active, including when the app is closed or not in use, to verify field presence and work-related activities.
                   </li>
                   <li>
                     <strong>Camera and Photos:</strong> With your permission, we access your camera and photo gallery to allow you to upload profile

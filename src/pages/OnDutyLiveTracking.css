@@ -1532,3 +1532,182 @@
   font-weight: 700;
 }
 
+/* ==========================================================================
+   ULTRA-PREMIUM NATIVE MOBILE RESPONSIVE STYLES (iOS/Android Map UI)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* 1. Intranet warning badge - compact & centered */
+  .intranet-grid-badge {
+    top: 6px;
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    z-index: 1002;
+  }
+
+  /* 2. Sleek Top Bar */
+  .top-floating-glass-bar {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    gap: 8px;
+    max-width: 100%;
+  }
+
+  .back-glass-btn,
+  .refresh-glass-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .menu-btn-wrapper {
+    border-radius: 12px;
+  }
+
+  .hero-search-box {
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 12px;
+  }
+
+  .hero-search-box input {
+    font-size: 0.8rem;
+  }
+
+  .weather-glass-widget {
+    height: 40px;
+    padding: 0 8px;
+    border-radius: 12px;
+  }
+
+  .weather-text {
+    display: none; /* Hide location text on mobile screens */
+  }
+
+  /* 3. Horizontal Scrollable Stat Chips Bar */
+  .top-kpi-floating-strip {
+    top: 58px;
+    left: 10px;
+    right: 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .top-kpi-floating-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kpi-glass-chip {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border-radius: 14px;
+  }
+
+  /* 4. Right Glass Floating Toolbar - Compact Icon Pills */
+  .right-glass-floating-toolbar {
+    top: 100px;
+    right: 10px;
+    padding: 4px;
+    gap: 4px;
+    border-radius: 12px;
+    z-index: 997;
+  }
+
+  .right-tool-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-size: 0.55rem;
+    gap: 1px;
+  }
+
+  .right-tool-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .right-tool-btn span {
+    display: none; /* Hide button text labels on mobile for clean icon look */
+  }
+
+  /* 5. Hide orange floating tab bar on mobile for live tracking map */
+  .floating-tab-bar,
+  .custom-speed-dial {
+    display: none !important;
+  }
+
+  /* 6. Native iOS/Android Bottom Sheet Officer Drawer */
+  .floating-officer-drawer {
+    top: auto;
+    bottom: 12px;
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px);
+    max-height: 55vh;
+    border-radius: 20px;
+    z-index: 1000;
+    box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.2);
+  }
+
+  .drawer-handle-bar {
+    position: relative;
+    padding-top: 14px;
+  }
+
+  .drawer-handle-bar::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #cbd5e1;
+  }
+
+  /* 7. Officer Card Typography & Overflow protection */
+  .compact-card-55px {
+    min-height: 50px;
+    padding: 6px 8px;
+  }
+
+  .officer-name {
+    font-size: 0.8rem;
+    max-width: 150px;
+  }
+
+  .card-sub-line {
+    max-width: 200px;
+  }
+
+  /* 8. Layer Picker Floating Popup position */
+  .layer-picker-floating-card {
+    top: 100px;
+    right: 52px;
+    min-width: 190px;
+    z-index: 1001;
+  }
+
+  /* 9. Sliding Detail Bottom Sheet */
+  .sliding-bottom-sheet {
+    bottom: 12px;
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px);
+    border-radius: 20px;
+    z-index: 1001;
+  }
+}
+
+@media (max-width: 400px) {
+  .hero-search-box {
+    display: none;
+  }
+}
+

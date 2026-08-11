@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { IonModal, IonButton, IonIcon, IonSpinner } from "@ionic/react";
+import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import { BackgroundGeolocation } from "../TrackingEngine/Core/BackgroundPlugin";
-import { locationOutline, shieldCheckmarkOutline, settingsOutline, alertCircleOutline } from "ionicons/icons";
+import { locationOutline, shieldCheckmarkOutline, settingsOutline, alertCircleOutline, batteryChargingOutline } from "ionicons/icons";
 import "./LocationPermissionModal.css";
 
 interface Props {
@@ -52,15 +53,24 @@ export const LocationPermissionModal: React.FC<Props> = ({
   const handleRequestPermission = async () => {
     setLoading(true);
     try {
-      // 1. Request foreground permission first
+      // 1. On Web Browser (development / desktop): request standard browser geolocation
+      if (!Capacitor.isNativePlatform()) {
+        const res = await Geolocation.requestPermissions();
+        setPermissionState(res.location);
+        if (res.location === "granted") {
+          if (onPermissionGranted) onPermissionGranted();
+          onClose();
+        }
+        return;
+      }
+
+      // 2. On Native Mobile App (Android/iOS):
       const res = await Geolocation.requestPermissions();
       setPermissionState(res.location);
       
       if (res.location === "granted") {
-        // On native platforms, attempt to request background location via plugin
         try {
-          // Using imported BackgroundGeolocation instance
-
+          // Attempt to request background location watcher permission
           const watcherId = await BackgroundGeolocation.addWatcher(
             {
               backgroundMessage: "Your coordinates are synced with management while on-duty.",
@@ -71,22 +81,18 @@ export const LocationPermissionModal: React.FC<Props> = ({
             },
             () => {}
           );
-          // Clean up the temporary watcher immediately
+          // Clean up watcher immediately (it was only to prompt permission)
           await BackgroundGeolocation.removeWatcher({ id: watcherId });
           
           if (onPermissionGranted) onPermissionGranted();
           onClose();
         } catch (bgErr) {
           console.warn("[LocationModal] Background location permission check failed:", bgErr);
-          // If background permission is not granted, guide the user to system settings
-          if (window.confirm("To enable background tracking even when the app is minimized or locked, please select 'Allow All The Time' in the app settings. Open settings now?")) {
-            // Using imported BackgroundGeolocation instance
-            await BackgroundGeolocation.openSettings();
-          }
+          // If background permission is still missing or denied, open system settings for user
+          await BackgroundGeolocation.openSettings();
         }
-      } else if (res.location === "denied") {
-        // If foreground is denied, directly prompt to open settings
-        // Using imported BackgroundGeolocation instance
+      } else {
+        // If foreground location was denied by user, open app settings directly
         await BackgroundGeolocation.openSettings();
       }
     } catch (err) {
@@ -105,10 +111,10 @@ export const LocationPermissionModal: React.FC<Props> = ({
           </div>
         </div>
 
-        <h3 className="location-modal-title">Enable Live Field Location</h3>
+        <h3 className="location-modal-title">Location Tracking Disclosure</h3>
 
         <p className="location-modal-desc">
-          To display your duty status, log movement trails, and sync field locations with management, please grant location access.
+          DBase Office collects your location to enable field attendance and work-location tracking for authorized marketing activities. Your location may be collected in the background while field tracking is active, including when the app is closed or not in use. This information is used by your organization to verify field presence and work-related activities.
         </p>
 
         <div className="location-modal-steps">
@@ -124,6 +130,13 @@ export const LocationPermissionModal: React.FC<Props> = ({
             <div>
               <strong>Allow All The Time</strong>
               <p>For background tracking while on duty even when app is minimized.</p>
+            </div>
+          </div>
+          <div className="step-item">
+            <IonIcon icon={batteryChargingOutline} className="step-icon" />
+            <div>
+              <strong>Unrestricted Battery</strong>
+              <p>Set app battery usage to 'Unrestricted' for continuous background sync.</p>
             </div>
           </div>
         </div>

@@ -104,7 +104,8 @@ const App: React.FC = () => {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
-    if (user && broadcaster.permissionState !== "granted" && broadcaster.permissionState !== "unknown") {
+    const isDismissed = sessionStorage.getItem("location_modal_dismissed");
+    if (user && broadcaster.permissionState !== "granted" && broadcaster.permissionState !== "unknown" && !isDismissed) {
       setShowPermissionModal(true);
     } else {
       setShowPermissionModal(false);
@@ -270,8 +271,16 @@ const App: React.FC = () => {
         {user && (
           <LocationPermissionModal
             isOpen={showPermissionModal}
-            onClose={() => setShowPermissionModal(false)}
-            onPermissionGranted={() => broadcaster.triggerImmediatePing()}
+            onClose={() => {
+              sessionStorage.getItem("location_modal_dismissed");
+              sessionStorage.setItem("location_modal_dismissed", "true");
+              setShowPermissionModal(false);
+            }}
+            onPermissionGranted={() => {
+              sessionStorage.removeItem("location_modal_dismissed");
+              broadcaster.requestLocationPermission();
+              broadcaster.triggerImmediatePing();
+            }}
           />
         )}
       </IonReactRouter>
