@@ -33,6 +33,16 @@ const FloatingTabBar: React.FC = () => {
     }
   };
 
+  const [isSmallScreen, setIsSmallScreen] = useState<boolean>(() => window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth <= 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const isTrackingPage =
     location.pathname === "/onduty-tracking" ||
     location.pathname === "/onduty tracking" ||
@@ -41,10 +51,12 @@ const FloatingTabBar: React.FC = () => {
     location.pathname.includes("onduty tracking") ||
     location.pathname.includes("ondutytracking");
 
-  if (
-    ["/ai-attendance-scanner", "/security-attendance"].includes(location.pathname) ||
-    isTrackingPage
-  ) {
+  if (["/ai-attendance-scanner", "/security-attendance"].includes(location.pathname)) {
+    return null;
+  }
+
+  // Hide floating tab bar ONLY on small screens (mobile view) for OnDutyLiveTracking page!
+  if (isTrackingPage && isSmallScreen) {
     return null;
   }
 

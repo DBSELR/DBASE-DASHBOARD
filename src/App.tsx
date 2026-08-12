@@ -93,6 +93,7 @@ import LeaveReport from "./pages/AIAttendance/LeaveReport";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
+import FieldDutyStatusPage from "./pages/FieldDutyStatusPage";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -254,6 +255,8 @@ const App: React.FC = () => {
                   <Route exact path="/onduty-tracking" component={OnDutyLiveTracking} />
                   <Route exact path="/onduty tracking" component={OnDutyLiveTracking} />
                   <Route exact path="/ondutytracking" component={OnDutyLiveTracking} />
+                  <Route exact path="/field-duty" component={FieldDutyStatusPage} />
+                  <Route exact path="/field-status" component={FieldDutyStatusPage} />
                   <Route exact path="/stock" component={Stock} />
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />

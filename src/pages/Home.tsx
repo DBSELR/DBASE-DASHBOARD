@@ -31,7 +31,6 @@ import { FileWarning } from "lucide-react";
 
 
 import { LocationStatusBanner } from "../components/LocationStatusBanner";
-import { OnDutyEmployeeStatusCard } from "../components/OnDutyEmployeeStatusCard";
 
 const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508', '1541', '1635'];
 
@@ -197,6 +196,7 @@ const Home: React.FC = () => {
     { id: "performance", label: "Performance", icon: "https://cdn.lordicon.com/kwnsnjyg.json", path: null, colorClass: "home-card-performance" },
     { id: "punctuality", label: "Punctuality", icon: "https://cdn.lordicon.com/kiqyrejq.json", path: null, colorClass: "home-card-punctuality" },
     { id: "requests", label: "Requests", icon: "https://cdn.lordicon.com/zpxybbhl.json", path: "/requests", colorClass: "home-card-requests" },
+    { id: "field-duty-status", label: "Field Duty Status", icon: "https://cdn.lordicon.com/oaflahpk.json", path: "/field-duty", colorClass: "home-card-field-duty" },
 
     { id: "transactions", label: "Transactions", icon: "https://cdn.lordicon.com/ynsswhvj.json", path: "/transactions/0", colorClass: "home-card-transactions" },
     { id: "stock", label: "Stock", icon: "https://cdn.lordicon.com/uomkwtjh.json", path: "/stock", colorClass: "home-card-stock" },
@@ -342,8 +342,7 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* On-Duty & Live GPS Tracking Employee Status Card */}
-      <OnDutyEmployeeStatusCard />
+
 
       {/* Notice Board and View Toggle */}
       <div className="home-notice-row">

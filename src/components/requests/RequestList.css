@@ -258,7 +258,8 @@
 ═══════════════════════════════════════════════════ */
 
 .lr-history-card {
-  margin: 0 0 18px 0 !important;
+  width: 95% !important;
+  margin: 0 auto 18px auto !important;
   background: #ffffff !important;
   border-radius: 20px !important;
   padding: 0;
@@ -620,16 +621,26 @@
 ═══════════════════════════════════════════════════ */
 
 .dm-card {
+  width: 80% !important;
+  margin: 0 auto 16px auto !important;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(15px);
   border-radius: 20px;
   padding: 16px 18px;
-  margin: 0 0 16px 0;
   box-shadow: 0 10px 28px -4px rgba(15, 23, 42, 0.06), 0 4px 10px rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(226, 232, 240, 0.9);
   transition: all 0.28s ease;
   position: relative;
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .lr-history-card,
+  .dm-card {
+    width: 95% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
 }
 
 .dm-card:hover {
@@ -918,29 +929,184 @@
   background: #ffffff;
 }
 
-/* Permission Dashboard Modal Cards */
+/* ═══════════════════════════════════════════════════
+   PERMISSION DASHBOARD MODAL & CARDS
+═══════════════════════════════════════════════════ */
+
+.team-permission-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .team-permission-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: #ffffff;
   border-radius: 20px;
   padding: 20px;
+  margin-bottom: 4px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.team-permission-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+/* Header */
+.team-card-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   margin-bottom: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .team-avatar {
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--ion-color-primary, #e2711d), #d05c10);
   color: #ffffff;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(226, 113, 29, 0.25);
+}
+
+.team-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+  line-height: 1.25;
+}
+
+.team-code {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ion-color-primary, #e2711d);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  padding: 3px 10px;
+  border-radius: 8px;
+}
+
+/* Stats 4-Column Responsive Grid */
+.team-card-right {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .team-card-right {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.team-stat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  transition: transform 0.15s ease;
+}
+
+.team-stat:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+}
+
+.team-stat span {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.team-stat strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  display: block;
+}
+
+/* Specific Stat Highlight Tints */
+.team-stat:nth-child(1) { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #bfdbfe; }
+.team-stat:nth-child(1) span { color: #1d4ed8; }
+.team-stat:nth-child(1) strong { color: #1e40af; }
+
+.team-stat:nth-child(2) { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-color: #fed7aa; }
+.team-stat:nth-child(2) span { color: #c2410c; }
+.team-stat:nth-child(2) strong { color: #9a3412; }
+
+.team-stat:nth-child(3) { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #bbf7d0; }
+.team-stat:nth-child(3) span { color: #15803d; }
+.team-stat:nth-child(3) strong { color: #166534; }
+
+.team-stat:nth-child(4) { background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-color: #ddd6fe; }
+.team-stat:nth-child(4) span { color: #6d28d9; }
+.team-stat:nth-child(4) strong { color: #5b21b6; }
+
+/* Progress Section */
+.team-progress-section {
+  margin-top: 16px;
+}
+
+.team-progress-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.team-progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.team-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* Progress Colors */
+.safe-row .team-progress-fill {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.medium-row .team-progress-fill {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.warning-row .team-progress-fill {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.danger-row .team-progress-fill {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
 .permission-dashboard-btn {
@@ -961,6 +1127,71 @@
 
 .permission-dashboard-btn:hover {
   transform: translateY(-2px);
+}
+
+/* ═══════════════════════════════════════════════════
+   DATETIME WHEEL PICKER MODAL (.pwt-date-modal)
+═══════════════════════════════════════════════════ */
+
+.pwt-date-modal,
+.small-datetime-modal {
+  --width: min(380px, 92vw);
+  --height: auto;
+  --border-radius: 28px;
+  --background: #ffffff;
+  --box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.3);
+}
+
+.pwt-date-modal::part(content),
+.small-datetime-modal::part(content) {
+  border-radius: 28px;
+  background: #ffffff !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.3);
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.datetime-card {
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 20px;
+}
+
+ion-datetime {
+  --background: #ffffff !important;
+  --wheel-highlight-background: rgba(226, 113, 29, 0.12) !important;
+  --wheel-highlight-border-radius: 14px !important;
+  --wheel-fade-background-rgb: 255, 255, 255 !important;
+  color: #0f172a !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  border-radius: 20px;
+}
+
+ion-datetime::part(wheel-item) {
+  color: #475569;
+  font-weight: 600;
+}
+
+ion-datetime::part(wheel-item active) {
+  color: var(--ion-color-primary, #e2711d) !important;
+  font-weight: 800 !important;
+  font-size: 18px !important;
+}
+
+/* Datetime Action Buttons (CANCEL / DONE) */
+ion-datetime::part(button) {
+  color: var(--ion-color-primary, #e2711d);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+}
+
+ion-datetime::part(button):hover {
+  background: rgba(226, 113, 29, 0.08);
 }
 
 /* ── Skeleton & Empty States ── */

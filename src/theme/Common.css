@@ -3195,23 +3195,33 @@ ion-toast {
 
 /* Date Modal Specifics */
 .pwt-date-modal {
-  --height: fit-content;
-  --width: fit-content;
-  --max-width: 90%;
-  --max-height: 90%;
-  --border-radius: 20px;
-  --background: var(--ion-background-color, #fff);
-  --box-shadow: 0 28px 48px rgba(0, 0, 0, 0.4);
+  --height: auto;
+  --width: min(380px, 92vw);
+  --border-radius: 24px;
+  --background: #ffffff;
+  --box-shadow: 0 28px 48px rgba(0, 0, 0, 0.25);
 }
 
 .pwt-date-modal::part(content) {
-  /* position: absolute; */
   top: 0;
   bottom: 0;
   left: 0;
   right: 0;
   margin: auto;
-  border-radius: 20px;
+  border-radius: 24px;
+  background: #ffffff !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.pwt-date-modal ion-datetime {
+  --background: #ffffff !important;
+  --wheel-highlight-background: rgba(226, 113, 29, 0.12) !important;
+  --wheel-highlight-border-radius: 12px !important;
+  color: #0f172a !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
 }
 
 .pwt-modal-content {

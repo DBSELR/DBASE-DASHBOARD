@@ -55,11 +55,26 @@ export const LocationPermissionModal: React.FC<Props> = ({
     try {
       // 1. On Web Browser (development / desktop): request standard browser geolocation
       if (!Capacitor.isNativePlatform()) {
-        const res = await Geolocation.requestPermissions();
-        setPermissionState(res.location);
-        if (res.location === "granted") {
+        try {
+          await new Promise<GeolocationPosition>((resolve, reject) => {
+            if ("geolocation" in navigator) {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+              });
+            } else {
+              reject(new Error("Geolocation not supported by browser."));
+            }
+          });
+          setPermissionState("granted");
           if (onPermissionGranted) onPermissionGranted();
           onClose();
+        } catch (webErr: any) {
+          console.warn("[LocationModal] Web Geolocation failed/denied:", webErr);
+          setPermissionState("denied");
+          alert(
+            "Browser Location Access: Location permission is blocked in your browser. Please click the lock 🔒 icon next to your URL bar and allow Location access."
+          );
         }
         return;
       }
