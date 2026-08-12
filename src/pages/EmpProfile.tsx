@@ -238,7 +238,7 @@ const EmpProfile: React.FC = () => {
     const OtherAmt = G - used;
 
     // 📉 PF (FIXED RULE)
-    const PFAmt = G > 15000 ? 3600 : 0;
+    const PFAmt = G * 0.12;
 
     // 📉 ESI
     const ESIAmt = G <= 21000 ? G * 0.0075 : 0;

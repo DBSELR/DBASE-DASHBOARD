@@ -934,6 +934,11 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       if (selectedEmpCode === "0") return true;
 
       return String(x.empcode) === String(selectedEmpCode);
+    })
+    .filter((x) => {
+      if (type !== "overtime") return true;
+      if (!x.lfrom) return true;
+      return moment(x.lfrom, "YYYY-MM-DD").format("MMM-YYYY") === selectedMonth;
     });
   //  const finalData = filtered.filter(Boolean).filter(filterByStatus);
   const updateOnDuty = async (item: any, status: string) => {

@@ -138,7 +138,11 @@ const PendingRequests: React.FC = () => {
       else if (activeType === "overtime") flag = "OVERTIME";
       else if (activeType === "workreport") flag = "WORKREPORTS";
 
-      const url = `${baseUrl}ApprovalRequest/GetPendingApprovals?monthYear=${selectedMonth}&flag=${flag}`;
+      let url = `${baseUrl}ApprovalRequest/GetPendingApprovals?monthYear=${selectedMonth}&flag=${flag}`;
+      if (activeType === "overtime") {
+        url = `${baseUrl}OverTime/load_team_overtime_duties?EmpCode=${empCode}`;
+      }
+
       const res = await axios.get(url, { headers: getAuthHeaders() });
       const dataList = Array.isArray(res.data) ? res.data : [];
       setRequests(dataList);
@@ -283,18 +287,22 @@ const PendingRequests: React.FC = () => {
     }
 
     if (activeType === "overtime") {
-      // Array format or object format from SP
+      // When fetched from load_team_overtime_duties, indices are:
+      // [0]=id, [1]=empCode, [2]=Date, [3]=College, [4]=Fromtime, [5]=Totime, [6]=Desc, [11]=MinDiff, [13]=CurrentRA, [14]=Status, [15]=EmpName
       const isArr = Array.isArray(x);
+      
+      const isTeamDuties = isArr && !!(x[2] && String(x[2]).includes("-")); // x[2] is Date in load_team_overtime_duties
+
       const id = isArr ? x[0] : (x.Id || x.id || x.lid || "");
       const empCode = isArr ? x[1] : (x.EMPCODE || x.empcode || "");
-      const empName = isArr ? x[2] : (x.EMPNAME || x.Empname || x.empName || "Unknown");
-      const from = moment(isArr ? x[3] : (x.Date || x.date || x.lfrom)).format("DD-MM-YYYY");
-      const college = isArr ? x[4] : (x.College || x.college || "");
-      const fromTime = isArr ? x[5] : (x.Fromtime || x.fromTime || "");
-      const toTime = isArr ? x[6] : (x.Totime || x.toTime || "");
-      const remarks = isArr ? x[7] : (x.Description || x.description || x.Remarks || x.remarks || "");
-      const durationMin = isArr ? x[8] : (x.OT_MIN || x.MinDiff || x.duration || 0);
-      const status = safeStr(isArr ? x[23] : (x.Status || x.status || x.L_status || "Pending"));
+      const empName = isArr ? (isTeamDuties ? x[15] : x[2]) : (x.EMPNAME || x.Empname || x.empName || "Unknown");
+      const from = moment(isArr ? (isTeamDuties ? x[2] : x[3]) : (x.Date || x.date || x.lfrom)).format("DD-MM-YYYY");
+      const college = isArr ? (isTeamDuties ? x[3] : x[4]) : (x.College || x.college || "");
+      const fromTime = isArr ? (isTeamDuties ? x[4] : x[5]) : (x.Fromtime || x.fromTime || "");
+      const toTime = isArr ? (isTeamDuties ? x[5] : x[6]) : (x.Totime || x.toTime || "");
+      const remarks = isArr ? (isTeamDuties ? x[6] : x[7]) : (x.Description || x.description || x.Remarks || x.remarks || "");
+      const durationMin = isArr ? (isTeamDuties ? x[11] : x[8]) : (x.OT_MIN || x.MinDiff || x.duration || 0);
+      const status = safeStr(isArr ? (isTeamDuties ? x[14] : x[23]) : (x.Status || x.status || x.L_status || "Pending"));
       const pendingRA = isArr ? x[13] : (x.PendingAt || x.PendingRA || x.CurrentRA || "");
 
       let statusClass = "pending";
@@ -406,6 +414,15 @@ const PendingRequests: React.FC = () => {
   // Filter requests based on status tab, employee name, or employee code
   const filteredRequests = useMemo(() => {
     let list = requests.map(normalizeRow).filter(Boolean);
+
+    // 0. Fallback Month Filter for Overtime (backend ignores monthYear for flag=OVERTIME)
+    if (activeType === "overtime") {
+      list = list.filter((r: any) => {
+        if (!r.from) return true;
+        // r.from is DD-MM-YYYY
+        return moment(r.from, "DD-MM-YYYY").format("MMM-YYYY") === selectedMonth;
+      });
+    }
 
     // 1. Status Filter
     if (statusFilter !== "All") {
