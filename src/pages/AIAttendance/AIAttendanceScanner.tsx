@@ -357,19 +357,34 @@ const AIAttendanceScanner: React.FC = () => {
     const fetchCityName = async () => {
       if (latitude !== 0 && longitude !== 0 && !cityName) {
         try {
+          // 1. Try BigDataCloud free reverse geocode API (Fast & Reliable)
+          const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`;
+          const bdcRes = await axios.get(bdcUrl, { timeout: 3000 });
+          if (bdcRes.data) {
+            const city = bdcRes.data.city || bdcRes.data.locality || bdcRes.data.principalSubdivision || "";
+            if (city) {
+              setCityName(city);
+              logDebug(`City geocoded (BigDataCloud): ${city}`);
+              return;
+            }
+          }
+        } catch { }
+
+        try {
+          // 2. Fallback to OpenStreetMap Nominatim
           const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
           const isNative = Capacitor.isNativePlatform();
           const url = (isLocal && !isNative)
             ? `/nominatim/reverse?format=json&lat=${latitude}&lon=${longitude}`
             : `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
 
-          const response = await axios.get(url);
+          const response = await axios.get(url, { timeout: 3000 });
           if (response.data && response.data.address) {
             const addr = response.data.address;
             const cityOrTown = addr.city || addr.town || addr.village || addr.suburb || addr.city_district || addr.municipality || addr.county || addr.state || "";
             if (cityOrTown) {
               setCityName(cityOrTown);
-              logDebug(`City geocoded: ${cityOrTown}`);
+              logDebug(`City geocoded (Nominatim): ${cityOrTown}`);
             }
           }
         } catch (error) {

@@ -168,7 +168,7 @@ interface BranchDirectoryRow {
 
 const AIAttendanceRuleMaster: React.FC = () => {
   const history = useHistory();
-  const [activeTab, setActiveTab] = useState<'branches' | 'directory' | 'overrides' | 'bluetooth' | 'locations'>('branches');
+  const [activeTab, setActiveTab] = useState<'branches' | 'directory' | 'overrides' | 'bluetooth' | 'locations' | 'docs'>('branches');
   const [toast, setToast] = useState('');
 
   // --- Branch tab state ---
@@ -915,6 +915,9 @@ const AIAttendanceRuleMaster: React.FC = () => {
             </button>
             <button className={`rm-tab${activeTab === 'locations' ? ' rm-tab-active' : ''}`} onClick={() => setActiveTab('locations')}>
               GPS &amp; Locations
+            </button>
+            <button className={`rm-tab${activeTab === 'docs' ? ' rm-tab-active' : ''}`} onClick={() => setActiveTab('docs')}>
+              ⚡ Rules &amp; Architecture
             </button>
           </div>
 
@@ -2010,10 +2013,555 @@ const AIAttendanceRuleMaster: React.FC = () => {
                 )}
               </div>
             )}
+
+            {/* ════ RULES & ARCHITECTURE DOCS TAB ════ */}
+            {activeTab === 'docs' && (
+              <AIAttendanceRulesDocView />
+            )}
           </div>
         </div>
       </IonContent>
     </IonPage>
+  );
+};
+
+/* ── RULES & ARCHITECTURE INTERACTIVE DOCUMENTATION VIEW ───────────────── */
+const AIAttendanceRulesDocView: React.FC = () => {
+  const [subNav, setSubNav] = useState<'arch' | 'db' | 'backend' | 'frontend' | 'scenarios'>('arch');
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('normal_ontime');
+
+  const DB_TABLES = [
+    { name: 'tbl_employee', purpose: 'Employee master data: EmpCode, InTime (Reporting time), Location1 (Branch), BranchDept, P_Time (Monthly permission allowance min)' },
+    { name: 'AI_ModelStore', purpose: 'Face embeddings: Emp_ID, Emp_Name, FaceEmbedding (128-d float JSON vector array)' },
+    { name: 'face_Attendance', purpose: 'Daily attendance logs holding 6 slots: Morning_In, Lunch_Out, Lunch_In, Evening_Out, Permission_Out, Permission_In, LogDate, LateMinutes, GraceType, AttendanceStatus, LOPMinutes, Geolocation' },
+    { name: 'Tbl_BluetoothMaster', purpose: 'Registered EasyReach Bluetooth Beacons: DeviceMac, DeviceName, Branch, BranchDept, IsActive' },
+    { name: 'Tbl_OfficeLocationMaster', purpose: 'Office Geofences: OfficeName, Branch, BranchDept, Latitude1, Longitude1, Latitude2, Longitude2, AllowedRadiusMeters, IsActive' },
+    { name: 'AI_AttendanceEmployeeOverride', purpose: 'Per-employee overrides: Emp_ID, BT_Required, GPS_Required, StartDate, EndDate, RuleType, IsActive' },
+    { name: 'AI_AttendanceBranchRule', purpose: 'Branch/Dept rules: Branch, BranchDept, BT_Required, GPS_Required' },
+    { name: 'tbl_leaves', purpose: 'Permission/Leave requests: EmpCode, LTYPE ("Permission"), L_STATUS ("Approved","Accepted","In-Use"), PTime, LFrom' },
+    { name: 'tbl_onduty', purpose: 'Outdoor / On-Duty records: EMPCODE, ON_DUTY_TYPE ("Party Duty","Official Duty","Client Site"), BRANCH, STATUS ("Approved")' },
+    { name: 'tbl_LateAttendanceAudit', purpose: 'Tracks used monthly free grace counts: EmpCode, LogDate, GraceType = "FREE_GRACE"' },
+    { name: 'tbl_overtime', purpose: 'Overtime permission credits: EmpCode, OT_TYPE = "PER", OT_MIN, STATUS = "Approved"' },
+  ];
+
+  const SCENARIOS = [
+    {
+      id: 'normal_ontime',
+      name: 'Normal On-Time',
+      presence: 'BT + GPS / GPS',
+      status: 'Morning In / Present',
+      logic: 'LogTime <= ReportingTime (09:30 or 10:00). Late = 0 min. No grace or permission used.',
+      graceType: 'None',
+      lateMin: 0,
+      permBalanceDeduction: 0,
+      freeGracesLeft: '4 / 4',
+      backendCode: 'LogTime <= ReportingTime -> Status = "Present", GraceType = NULL',
+    },
+    {
+      id: 'late_grace_avail',
+      name: 'Late <= 15 Min (Free Graces Available < 4)',
+      presence: 'BT + GPS / GPS',
+      status: 'Morning In / Grace',
+      logic: 'LateMinutes <= 15 AND FreeGraceUsed < 4. Consumes 1 of 4 monthly FREE_GRACE allocations.',
+      graceType: 'FREE_GRACE',
+      lateMin: 12,
+      permBalanceDeduction: 0,
+      freeGracesLeft: '3 / 4',
+      backendCode: 'LateMinutes <= 15 && FreeGraceUsed < 4 -> Status = "Grace", GraceType = "FREE_GRACE"',
+    },
+    {
+      id: 'late_grace_exhausted',
+      name: 'Late <= 15 Min (Graces Exhausted >= 4)',
+      presence: 'BT + GPS / GPS',
+      status: 'Morning In / Permission Adjusted',
+      logic: 'Free graces used up (4/4). Deducts late minutes from monthly Permission Balance. Auto-creates permission record in tbl_leaves.',
+      graceType: 'PERMISSION',
+      lateMin: 14,
+      permBalanceDeduction: 14,
+      freeGracesLeft: '0 / 4',
+      backendCode: 'PermissionBalance >= LateMinutes -> Status = "Permission Adjusted", GraceType = "PERMISSION"',
+    },
+    {
+      id: 'late_over_15_perm_avail',
+      name: 'Late > 15 Min (Permission Balance Available)',
+      presence: 'BT + GPS / GPS',
+      status: 'Morning In / Permission Adjusted',
+      logic: 'Late exceeds 15 mins. Free grace cannot be used. Permission Balance >= LateMinutes. Deducts full late minutes from Permission Balance.',
+      graceType: 'PERMISSION',
+      lateMin: 35,
+      permBalanceDeduction: 35,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'PermissionBalance >= LateMinutes -> Auto-executes APP_Save_EMP_LeaveRequest',
+    },
+    {
+      id: 'late_over_15_no_perm',
+      name: 'Late > 15 Min (Permission Balance Exhausted)',
+      presence: 'BT + GPS / GPS',
+      status: 'Morning In / LOP',
+      logic: 'Late exceeds 15 mins AND Permission Balance is 0. Loss of Pay applied. Marks LOPMinutes and auto-creates LOP record in tbl_leaves.',
+      graceType: 'LOP',
+      lateMin: 45,
+      permBalanceDeduction: 0,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'PermissionBalance < LateMinutes -> Status = "LOP", LOPMinutes = LateMinutes',
+    },
+    {
+      id: 'lunch_late_grace',
+      name: 'Lunch Late <= 15 Min',
+      presence: 'BT + GPS / GPS',
+      status: 'Lunch In / Grace',
+      logic: 'Expected Lunch In = 14:30 or (Lunch_Out + 1 Hr). LunchLateMinutes <= 15 & FreeGraceUsed < 4. Consumes FREE_GRACE if morning was not PERMISSION/LOP.',
+      graceType: 'FREE_GRACE',
+      lateMin: 10,
+      permBalanceDeduction: 0,
+      freeGracesLeft: '3 / 4',
+      backendCode: 'LunchLateMinutes <= 15 -> GraceType = FREE_GRACE (inherits Morning grace state)',
+    },
+    {
+      id: 'lunch_late_over',
+      name: 'Lunch Late > 15 Min',
+      presence: 'BT + GPS / GPS',
+      status: 'Lunch In / Permission Adjusted or LOP',
+      logic: 'Exceeds 15 min lunch delay. Deducts from Permission Balance or adds to LOPMinutes (Existing LOP + Lunch Late).',
+      graceType: 'PERMISSION / LOP',
+      lateMin: 25,
+      permBalanceDeduction: 25,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'LOPMinutes = ExistingLOP + LunchLateMinutes',
+    },
+    {
+      id: 'permission_approved',
+      name: 'Permission Out / In (Approved)',
+      presence: 'Verified',
+      status: 'Permission Out / Permission In',
+      logic: 'Checks tbl_leaves for approved permission today. Records Permission_Out. On Permission_In, calculates actual duration Perm_Actual_Min and overstay if any.',
+      graceType: 'PERMISSION',
+      lateMin: 0,
+      permBalanceDeduction: 'Approved PTime',
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'Perm_Actual_Min = DATEDIFF(MINUTE, Permission_Out, Permission_In)',
+    },
+    {
+      id: 'permission_unapproved',
+      name: 'Permission Out / In (No Approval)',
+      presence: 'Blocked',
+      status: 'Rejected (Error)',
+      logic: 'No record in tbl_leaves with status Approved/Accepted/In-Use today. Rejects scan automatically.',
+      graceType: 'REJECTED',
+      lateMin: 0,
+      permBalanceDeduction: 0,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'SELECT TOP 1 LID FROM tbl_leaves WHERE Status IN ("Approved","Accepted","In-Use") == NULL -> Blocked',
+    },
+    {
+      id: 'onduty_party',
+      name: 'On-Duty (Party / Client / Official)',
+      presence: 'Face Match Only',
+      status: 'Any Slot Allowed',
+      logic: 'Approved On-Duty with anywhere status. BT_Required and GPS_Required are set to FALSE. Face recognition alone validates punch. Geolocation saved for audit.',
+      graceType: 'ON_DUTY',
+      lateMin: 0,
+      permBalanceDeduction: 0,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'duty.Anywhere == true -> btRequired = false, gpsRequired = false',
+    },
+    {
+      id: 'onduty_branch_visit',
+      name: 'On-Duty (Visited Branch)',
+      presence: 'Visited Branch Rules',
+      status: 'Any Slot Allowed',
+      logic: 'Employee approved to visit another office branch. Inherits geofence and beacons of visited branch instead of home branch to prevent false rejection.',
+      graceType: 'ON_DUTY',
+      lateMin: 0,
+      permBalanceDeduction: 0,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'GetBranchRuleCached(dutyBranch) -> Replaces home branch rule with target office rule',
+    },
+    {
+      id: 'no_beacon_waiver',
+      name: 'No Beacon in Office',
+      presence: 'GPS Geofence Only',
+      status: 'Verified (GPS)',
+      logic: 'Rule demands Bluetooth, but physical office has zero registered Bluetooth beacons in Tbl_BluetoothMaster. Automatically waives Bluetooth requirement to GPS-only.',
+      graceType: 'BEACON_WAIVER',
+      lateMin: 0,
+      permBalanceDeduction: 0,
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'OfficeHasNoBeaconAsync(officeName) == true -> btRequired = false',
+    },
+  ];
+
+  const currentScenario = SCENARIOS.find(s => s.id === selectedScenarioId) || SCENARIOS[0];
+
+  return (
+    <div className="rm-docs-container">
+      {/* Hero Card */}
+      <div className="rm-docs-hero">
+        <h2 className="rm-docs-hero-title">
+          <span>⚡</span> AIAttendance Architecture & System Rules
+        </h2>
+        <p className="rm-docs-hero-desc">
+          Complete end-to-end technical reference covering Database Schema, Stored Procedure logic (<code>APP_AI_SaveAttendance</code>), Backend API Rules (<code>CheckinController.cs</code>), Frontend Architecture, and Case Matrix.
+        </p>
+      </div>
+
+      {/* Sub-Navigation */}
+      <div className="rm-docs-subnav">
+        <button className={`rm-docs-subbtn ${subNav === 'arch' ? 'rm-docs-subbtn-active' : ''}`} onClick={() => setSubNav('arch')}>
+          🏗️ Architecture Flow
+        </button>
+        <button className={`rm-docs-subbtn ${subNav === 'db' ? 'rm-docs-subbtn-active' : ''}`} onClick={() => setSubNav('db')}>
+          🗄️ DB &amp; SP Logic
+        </button>
+        <button className={`rm-docs-subbtn ${subNav === 'backend' ? 'rm-docs-subbtn-active' : ''}`} onClick={() => setSubNav('backend')}>
+          ⚙️ Backend (.NET C#)
+        </button>
+        <button className={`rm-docs-subbtn ${subNav === 'frontend' ? 'rm-docs-subbtn-active' : ''}`} onClick={() => setSubNav('frontend')}>
+          📱 Frontend Apps
+        </button>
+        <button className={`rm-docs-subbtn ${subNav === 'scenarios' ? 'rm-docs-subbtn-active' : ''}`} onClick={() => setSubNav('scenarios')}>
+          🧪 Scenario Simulator
+        </button>
+      </div>
+
+      {/* 1. ARCHITECTURE FLOW SUB-TAB */}
+      {subNav === 'arch' && (
+        <div className="rm-docs-flow">
+          <div className="rm-docs-flow-node rm-docs-flow-node-frontend">
+            <div className="rm-docs-flow-header">
+              <span className="rm-docs-flow-title">1. Frontend Capture Layer (React / Ionic)</span>
+              <span className="rm-docs-flow-tag rm-docs-flow-tag-fe">Client UI</span>
+            </div>
+            <ul className="rm-docs-flow-list">
+              <li>Captures live video frame canvas and converts to Base64 image payload.</li>
+              <li>Scans Web Bluetooth LE (<code>navigator.bluetooth</code>) for nearby EasyReach beacon MAC addresses.</li>
+              <li>Requests device GPS Geolocation (Latitude &amp; Longitude).</li>
+              <li>Sends payload to <code>/api/Checkin/AILogAttendance</code> or <code>/api/Checkin/AISecurityAttendance</code>.</li>
+            </ul>
+          </div>
+
+          <div className="rm-docs-arrow">▼</div>
+
+          <div className="rm-docs-flow-node rm-docs-flow-node-backend">
+            <div className="rm-docs-flow-header">
+              <span className="rm-docs-flow-title">2. Backend Processing Pipeline (CheckinController.cs)</span>
+              <span className="rm-docs-flow-tag rm-docs-flow-tag-be">.NET Core API</span>
+            </div>
+            <ul className="rm-docs-flow-list">
+              <li><strong>API Auth:</strong> Validates <code>x-api-key: dbase-ai-master-key-2026</code>.</li>
+              <li><strong>Rule Hierarchy:</strong> Resolves BT/GPS requirements (Employee Override &rarr; Branch/Dept Rule &rarr; Default).</li>
+              <li><strong>On-Duty Evaluation:</strong> Waives GPS/BT for "Party/Client Duty" or switches geofence to visited branch.</li>
+              <li><strong>Geofence &amp; Beacon Verification:</strong> Haversine distance check (&le; 100m) &amp; Beacon waiver check.</li>
+              <li><strong>Face Recognition Engine:</strong> Extracts 128-d embedding, calculates Euclidean distance ($\le 0.48$), requires $\ge 50\%$ confidence.</li>
+              <li><strong>Strict Permission Approval Check:</strong> Validates approved permission in <code>tbl_leaves</code> for Perm Out/In scans.</li>
+            </ul>
+          </div>
+
+          <div className="rm-docs-arrow">▼</div>
+
+          <div className="rm-docs-flow-node rm-docs-flow-node-db">
+            <div className="rm-docs-flow-header">
+              <span className="rm-docs-flow-title">3. Database &amp; Stored Procedure Layer (SQL Server)</span>
+              <span className="rm-docs-flow-tag rm-docs-flow-tag-db">Stored Procedure</span>
+            </div>
+            <ul className="rm-docs-flow-list">
+              <li>Executes <code>APP_AI_SaveAttendance</code> to update today's log in <code>face_Attendance</code>.</li>
+              <li>Determines reporting time (09:30 or 10:00 for Marketing or <code>tbl_employee.InTime</code>).</li>
+              <li>Calculates monthly permission balance and checks 4-instance monthly <code>FREE_GRACE</code> limit.</li>
+              <li>Auto-creates Permission or LOP leave requests in <code>tbl_leaves</code> when thresholds are exceeded.</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* 2. DB & SP LOGIC SUB-TAB */}
+      {subNav === 'db' && (
+        <div className="rm-docs-container">
+          <div className="rm-docs-card">
+            <h3 className="rm-docs-card-title">🗄️ Database Tables Schema Reference</h3>
+            <table className="rm-table">
+              <thead>
+                <tr>
+                  <th>Table Name</th>
+                  <th>Key Columns &amp; Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                {DB_TABLES.map(t => (
+                  <tr key={t.name}>
+                    <td><strong className="rm-branch-name">{t.name}</strong></td>
+                    <td>{t.purpose}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rm-docs-card">
+            <h3 className="rm-docs-card-title">⚙️ Stored Procedure: <code>APP_AI_SaveAttendance</code> Logic</h3>
+            
+            <div className="rm-tree-box">
+              <div className="rm-tree-node-title">1. Reporting Time &amp; Permission Balance Calculation</div>
+              <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+                Reporting time defaults to <code>09:30:00</code> (or <code>10:00:00</code> for Marketing / custom <code>InTime</code>).
+              </p>
+              <div className="rm-formula-box">
+                Total Permission Balance = (Base P_Time + Approved Overtime PER Minutes) - Used Permission Minutes
+              </div>
+            </div>
+
+            <div className="rm-tree-box">
+              <div className="rm-tree-node-title">2. Morning In Decision Tree</div>
+              <div className="rm-tree-branch">
+                <div className="rm-tree-node">
+                  <strong>LogTime &le; ReportingTime:</strong> <span className="rm-tree-badge-green">Status: Present</span> | GraceType: NULL
+                </div>
+                <div className="rm-tree-node">
+                  <strong>Late &le; 15 Min AND FreeGraceUsed &lt; 4:</strong> <span className="rm-tree-badge-orange">Status: Grace</span> | GraceType: FREE_GRACE (Audit logged in <code>tbl_LateAttendanceAudit</code>)
+                </div>
+                <div className="rm-tree-node">
+                  <strong>PermissionBalance &ge; LateMinutes:</strong> <span className="rm-tree-badge-blue">Status: Permission Adjusted</span> | GraceType: PERMISSION (Auto-inserts permission into <code>tbl_leaves</code>)
+                </div>
+                <div className="rm-tree-node">
+                  <strong>PermissionBalance &lt; LateMinutes:</strong> <span className="rm-tree-badge-red">Status: LOP</span> | GraceType: LOP (Auto-inserts LOP record into <code>tbl_leaves</code>)
+                </div>
+              </div>
+            </div>
+
+            <div className="rm-tree-box">
+              <div className="rm-tree-node-title">3. Lunch In Decision Tree</div>
+              <div className="rm-tree-branch">
+                <div className="rm-tree-node">
+                  Expected Lunch In = <code>14:30:00</code> OR <code>Lunch_Out + 1 Hour</code>.
+                </div>
+                <div className="rm-tree-node">
+                  <strong>LunchLateMinutes &le; 0:</strong> <span className="rm-tree-badge-green">Status: Present</span>
+                </div>
+                <div className="rm-tree-node">
+                  <strong>LunchLateMinutes &le; 15 Min &amp; FreeGraceUsed &lt; 4:</strong> <span className="rm-tree-badge-orange">Status: Grace (FREE_GRACE)</span>
+                </div>
+                <div className="rm-tree-node">
+                  <strong>PermissionBalance &ge; LunchLateMinutes:</strong> <span className="rm-tree-badge-blue">Status: Permission Adjusted</span>
+                </div>
+                <div className="rm-tree-node">
+                  <strong>Otherwise:</strong> <span className="rm-tree-badge-red">Status: LOP</span> (LOPMinutes = Existing LOP + Lunch Late)
+                </div>
+              </div>
+            </div>
+
+            <div className="rm-tree-box">
+              <div className="rm-tree-node-title">4. Permission Out &amp; In Duration Formula</div>
+              <div className="rm-formula-box">
+                Perm_Actual_Min = DATEDIFF(MINUTE, Permission_Out, Permission_In)
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. BACKEND (.NET C#) SUB-TAB */}
+      {subNav === 'backend' && (
+        <div className="rm-docs-grid-3">
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">🔐 Rule Resolution Hierarchy</h4>
+            <ul className="rm-docs-flow-list">
+              <li><strong>Rule 1 (Highest):</strong> Employee Override (<code>AI_AttendanceEmployeeOverride</code>).</li>
+              <li><strong>Rule 2:</strong> Branch &amp; Dept Master (<code>AI_AttendanceBranchRule</code>).</li>
+              <li><strong>Rule 3 (Default):</strong> Eluru = BT + GPS; Others = GPS Only.</li>
+            </ul>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">🚗 On-Duty Logic (<code>GetOnDutyContextAsync</code>)</h4>
+            <ul className="rm-docs-flow-list">
+              <li><strong>Party/Client/Official Duty:</strong> <code>BT_Required = FALSE</code>, <code>GPS_Required = FALSE</code>. Face match carries punch anywhere!</li>
+              <li><strong>Visited Branch Duty:</strong> Inherits target branch's geofences &amp; beacons so visitors aren't blocked.</li>
+            </ul>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">📡 Beacon Waiver Logic</h4>
+            <ul className="rm-docs-flow-list">
+              <li>If employee rule requires BT, but employee is inside a valid GPS office geofence and that office has 0 registered beacons in <code>Tbl_BluetoothMaster</code>:</li>
+              <li><code>BT_Required</code> is automatically waived to <strong>FALSE</strong> (GPS-Only).</li>
+            </ul>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">📐 Geofence Haversine Formula</h4>
+            <div className="rm-formula-box">
+              a = sin²(Δlat/2) + cos(lat1)·cos(lat2)·sin²(Δlon/2)
+              c = 2·atan2(√a, √(1-a))
+              Distance = R · c  (R = 6,371,000 m)
+            </div>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Valid if Distance &le; AllowedRadiusMeters (default 100m).
+            </p>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">👤 Face Recognition Math</h4>
+            <ul className="rm-docs-flow-list">
+              <li>Standard Distance Threshold: &le; 0.48.</li>
+              <li>Security Kiosk Distance Threshold: &le; 0.42 with &ge; 0.06 match margin.</li>
+            </ul>
+            <div className="rm-formula-box">
+              Confidence = dist &le; 0.24 ? (100 - (dist/0.24)*25) : (75 - ((dist-0.24)/0.24)*25)
+            </div>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>Minimum confidence required: 50%.</p>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">⏰ Time Slot Auto-Resolution</h4>
+            <table className="rm-table">
+              <thead>
+                <tr>
+                  <th>Time Window</th>
+                  <th>Resolved Slot</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>07:00 – 12:30</td><td>Morning In</td></tr>
+                <tr><td>12:30 – 14:15</td><td>Lunch Out</td></tr>
+                <tr><td>14:15 – 16:00</td><td>Lunch In</td></tr>
+                <tr><td>16:00 onwards</td><td>Evening Out</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 4. FRONTEND APPS SUB-TAB */}
+      {subNav === 'frontend' && (
+        <div className="rm-docs-grid-3">
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">📱 AIAttendanceScanner.tsx</h4>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Employee Kiosk Scanner. Uses Web Camera, Web Bluetooth LE (<code>navigator.bluetooth</code>), and GPS Geolocation. Calls <code>GetActivePermissionForToday</code> on launch.
+            </p>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">🛡️ SecurityAttendanceScanner.tsx</h4>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Security Kiosk Gate Scanner. Continuously auto-detects employee faces in real time at main gates, supporting multi-face bounding box tracking.
+            </p>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">📊 AIAttendanceLog.tsx</h4>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Admin &amp; HR Attendance Matrix. Shows all 6 slots, highlights grace usage, late minutes, LOP warnings, and direct Google Maps links.
+            </p>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">⚙️ AIAttendanceRuleMaster.tsx</h4>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Central Rule Management Portal. Configures branch default rules, per-employee overrides, Bluetooth Beacons, and GPS geofences.
+            </p>
+          </div>
+
+          <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">📸 AIAttendanceRegister.tsx</h4>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Biometric Registration Portal. Validates 3D face pose quality (front, left, right, tilt) before storing the 128-d embedding vector.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 5. SCENARIO SIMULATOR SUB-TAB */}
+      {subNav === 'scenarios' && (
+        <div className="rm-docs-container">
+          <div className="rm-sim-card">
+            <h3 className="rm-docs-card-title" style={{ color: '#0f766e' }}>
+              🧪 Interactive Attendance Rule Case Simulator
+            </h3>
+            <p className="rm-docs-hero-desc" style={{ color: '#334155', marginBottom: 12 }}>
+              Select any scenario below to see the live breakdown of rules, presence requirements, status outputs, grace deductions, and backend code logic!
+            </p>
+
+            <div className="rm-sim-selector">
+              {SCENARIOS.map(s => (
+                <button
+                  key={s.id}
+                  className={`rm-sim-btn ${selectedScenarioId === s.id ? 'rm-sim-btn-active' : ''}`}
+                  onClick={() => setSelectedScenarioId(s.id)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="rm-sim-output">
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Scenario Name</span>
+                <span className="rm-sim-stat-val" style={{ color: '#0f766e' }}>{currentScenario.name}</span>
+              </div>
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Presence Verification</span>
+                <span className="rm-sim-stat-val">{currentScenario.presence}</span>
+              </div>
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Assigned Status</span>
+                <span className="rm-sim-stat-val" style={{ color: '#0284c7' }}>{currentScenario.status}</span>
+              </div>
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Grace Type</span>
+                <span className="rm-sim-stat-val">{currentScenario.graceType}</span>
+              </div>
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Late Minutes</span>
+                <span className="rm-sim-stat-val" style={{ color: currentScenario.lateMin > 0 ? '#e11d48' : '#16a34a' }}>
+                  {currentScenario.lateMin} Min
+                </span>
+              </div>
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Permission Balance Used</span>
+                <span className="rm-sim-stat-val">{currentScenario.permBalanceDeduction}</span>
+              </div>
+              <div className="rm-sim-stat">
+                <span className="rm-sim-stat-label">Free Graces Remaining</span>
+                <span className="rm-sim-stat-val">{currentScenario.freeGracesLeft}</span>
+              </div>
+            </div>
+
+            <div className="rm-tree-box" style={{ marginTop: 12 }}>
+              <div className="rm-tree-node-title">Execution Explanation</div>
+              <p className="rm-docs-hero-desc" style={{ color: '#334155' }}>{currentScenario.logic}</p>
+              <div className="rm-formula-box" style={{ marginTop: 6 }}>
+                Backend SP Condition: {currentScenario.backendCode}
+              </div>
+            </div>
+          </div>
+
+          <div className="rm-docs-card">
+            <h3 className="rm-docs-card-title">📋 Complete Case Summary Matrix</h3>
+            <table className="rm-table">
+              <thead>
+                <tr>
+                  <th>Case Scenario</th>
+                  <th>Presence Check</th>
+                  <th>Status Assigned</th>
+                  <th>Grace / Deduction Logic</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SCENARIOS.map(s => (
+                  <tr key={s.id}>
+                    <td><strong className="rm-branch-name">{s.name}</strong></td>
+                    <td><span className="rm-loc-badge-sub" style={{ padding: '2px 6px', borderRadius: 4 }}>{s.presence}</span></td>
+                    <td><span className="rm-tree-badge-blue">{s.status}</span></td>
+                    <td style={{ fontSize: 11 }}>{s.logic}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

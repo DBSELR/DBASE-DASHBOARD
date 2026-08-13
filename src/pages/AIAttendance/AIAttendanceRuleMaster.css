@@ -896,3 +896,308 @@
   letter-spacing: 0.2px;
   vertical-align: middle;
 }
+
+/* ── RULES & ARCHITECTURE DOCS TAB ─────────────────────────────────────── */
+.rm-docs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rm-docs-subnav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.rm-docs-subbtn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rm-docs-subbtn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.rm-docs-subbtn-active {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: #ffffff;
+  border-color: #0d9488;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+
+.rm-docs-hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.rm-docs-hero::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.rm-docs-hero-title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rm-docs-hero-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.rm-docs-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.rm-docs-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1.5px solid #e2e8f0;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.rm-docs-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1.5px solid #f1f5f9;
+  padding-bottom: 8px;
+}
+
+.rm-docs-card-title span.badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #ccfbf1;
+  color: #0f766e;
+  font-weight: 700;
+}
+
+/* System Flow Architecture */
+.rm-docs-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rm-docs-flow-node {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.rm-docs-flow-node:hover {
+  transform: translateY(-2px);
+  border-color: #0d9488;
+}
+
+.rm-docs-flow-node-frontend {
+  border-left: 5px solid #3b82f6;
+}
+
+.rm-docs-flow-node-backend {
+  border-left: 5px solid #0d9488;
+}
+
+.rm-docs-flow-node-db {
+  border-left: 5px solid #8b5cf6;
+}
+
+.rm-docs-flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.rm-docs-flow-title {
+  font-weight: 800;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.rm-docs-flow-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.rm-docs-flow-tag-fe { background: #dbeafe; color: #1e40af; }
+.rm-docs-flow-tag-be { background: #ccfbf1; color: #0f766e; }
+.rm-docs-flow-tag-db { background: #ede9fe; color: #5b21b6; }
+
+.rm-docs-flow-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.rm-docs-arrow {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* Decision Tree Diagram */
+.rm-tree-box {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  margin-top: 10px;
+}
+
+.rm-tree-branch {
+  border-left: 2px dashed #0d9488;
+  margin-left: 12px;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.rm-tree-node {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 11px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.rm-tree-node-title {
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.rm-tree-badge-green { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.rm-tree-badge-orange { background: #ffedd5; color: #9a3412; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.rm-tree-badge-red { background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.rm-tree-badge-blue { background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+
+/* Mathematical Formulas */
+.rm-formula-box {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  border-left: 4px solid #38bdf8;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+/* Interactive Simulator */
+.rm-sim-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 2px solid #0d9488;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.rm-sim-selector {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rm-sim-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rm-sim-btn-active {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
+}
+
+.rm-sim-output {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.rm-sim-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rm-sim-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.rm-sim-stat-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
