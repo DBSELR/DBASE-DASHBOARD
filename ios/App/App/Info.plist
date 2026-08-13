@@ -27,7 +27,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This app requires access to your camera to capture photos for profile and document uploads.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app requires access to your location for attendance tracking and office check-ins.</string>
+	<string>DBS OFFICE requires background location access to continuously track field marketing employees during business hours for client visit verification and task management.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app requires access to your location for attendance tracking and office check-ins.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
