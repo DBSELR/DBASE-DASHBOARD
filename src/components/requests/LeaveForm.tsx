@@ -531,8 +531,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         requestType === "Permission"
           ? permTime
           : overrideDays !== undefined
-          ? String(overrideDays)
-          : "",
+            ? String(overrideDays)
+            : "",
       _InTime:
         requestType === "Permission"
           ? moment(inTime, "HH:mm").format("HH:mm")
@@ -865,10 +865,14 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             </div>
           )}
 
-          {/* Remarks Field (Full width) */}
-          <div className="lf-v3-field lf-v3-grid-full">
+        </div>
+
+        {/* ── HALF ROW FOR REMARKS AND BALANCE ── */}
+        <div className="lf-v3-remarks-balance-row">
+          {/* Remarks Field (Half width) */}
+          <div className="lf-v3-field">
             <label className="lf-v3-label">Remarks / Purpose</label>
-            <div className="lf-v3-input-box" style={{ minHeight: "72px", alignItems: "flex-start", paddingTop: "10px" }}>
+            <div className="lf-v3-input-box" style={{ flex: 1, minHeight: "72px", maxHeight: "none", alignItems: "flex-start", paddingTop: "10px" }}>
               <IonIcon icon={documentTextOutline} className="lf-v3-input-icon" style={{ marginTop: "2px" }} />
               <textarea
                 placeholder="Enter details or purpose of request..."
@@ -876,76 +880,75 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
                 onChange={(e) => setRemarks(e.target.value)}
                 rows={2}
                 className="lf-v3-textarea"
+                style={{ height: "100%" }}
               />
+            </div>
+          </div>
+
+          {/* HARMONIZED BALANCE BOX (Formatted like a form tab) */}
+          <div className="lf-v3-field">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label className="lf-v3-label" style={{ marginBottom: 0 }}>Leave Balance</label>
+              <span className="lf-v3-balance-badge" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                {requestType === "Permission" ? "Permission" : (leaveCategory || leaveMode || "Overview")}
+              </span>
+            </div>
+            <div className="lf-v3-balance-box" style={{ margin: 0, flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              {balance && startDate ? (
+                <>
+                  <div className="lf-v3-metrics-row">
+                    <div className="lf-v3-metric-item">
+                      <span className="lf-v3-metric-label">Used</span>
+                      <span className="lf-v3-metric-val used">
+                        {balance.used}{requestType === "Permission" ? "m" : ""}
+                      </span>
+                    </div>
+                    <div className="lf-v3-metric-item">
+                      <span className="lf-v3-metric-label">Available</span>
+                      <span className="lf-v3-metric-val available">
+                        {balance.balance}{requestType === "Permission" ? "m" : ""}
+                      </span>
+                    </div>
+                    {requestType === "Permission" && (
+                      <div className="lf-v3-metric-item">
+                        <span className="lf-v3-metric-label">Sessions</span>
+                        <span className="lf-v3-metric-val sessions">
+                          {balance.usedSessions}/{balance.maxSessions}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="lf-v3-progress-track">
+                    <div
+                      className="lf-v3-progress-fill"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (Number(balance.balance || 0) /
+                            (Number(balance.balance || 0) + Number(balance.used || 1))) *
+                            100
+                        )}%`
+                      }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--ion-color-primary, #1e293b)', fontWeight: 600 }}>
+                    {startDate ? "Check real-time balance for selected category" : "Select date to view balance details"}
+                  </span>
+                  <button type="button" className="lf-v3-fetch-balance-btn" onClick={checkBalance}>
+                    <IonIcon icon={informationCircleOutline} />
+                    <span>Fetch Balance</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ── INTEGRATED BOTTOM SECTION (BALANCE + ACTION) ── */}
+        {/* ── INTEGRATED BOTTOM SECTION (ACTION) ── */}
         <div className="lf-v3-bottom-section">
-          {/* HARMONIZED BALANCE BOX */}
-          <div className="lf-v3-balance-box">
-            <div className="lf-v3-balance-top">
-              <div className="lf-v3-balance-title-group">
-                <IonIcon icon={walletOutline} />
-                <span className="lf-v3-balance-heading">Leave Balance</span>
-              </div>
-              <span className="lf-v3-balance-badge">
-                {requestType === "Permission" ? "Permission" : (leaveCategory || leaveMode || "Overview")}
-              </span>
-            </div>
-
-            {balance && startDate ? (
-              <>
-                <div className="lf-v3-metrics-row">
-                  <div className="lf-v3-metric-item">
-                    <span className="lf-v3-metric-label">Used</span>
-                    <span className="lf-v3-metric-val used">
-                      {balance.used}{requestType === "Permission" ? "m" : ""}
-                    </span>
-                  </div>
-                  <div className="lf-v3-metric-item">
-                    <span className="lf-v3-metric-label">Available</span>
-                    <span className="lf-v3-metric-val available">
-                      {balance.balance}{requestType === "Permission" ? "m" : ""}
-                    </span>
-                  </div>
-                  {requestType === "Permission" && (
-                    <div className="lf-v3-metric-item">
-                      <span className="lf-v3-metric-label">Sessions</span>
-                      <span className="lf-v3-metric-val sessions">
-                        {balance.usedSessions}/{balance.maxSessions}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="lf-v3-progress-track">
-                  <div
-                    className="lf-v3-progress-fill"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (Number(balance.balance || 0) /
-                          (Number(balance.balance || 0) + Number(balance.used || 1))) *
-                          100
-                      )}%`
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', color: '#9a3412', fontWeight: 500 }}>
-                  {startDate ? "Check real-time balance for selected category" : "Select date to view balance details"}
-                </span>
-                <button type="button" className="lf-v3-fetch-balance-btn" onClick={checkBalance}>
-                  <IonIcon icon={informationCircleOutline} />
-                  <span>Fetch Balance</span>
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* ACTION PANEL */}
           <div className="lf-v3-action-panel">
             <button
@@ -956,18 +959,16 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
               {loading ? (
                 <>
                   <div className="lf-v3-btn-spinner" />
-                  <span>Submitting Request...</span>
+                  <span style={{ fontWeight: 'bold' }}>Submitting Request...</span>
                 </>
               ) : (
                 <>
-                  <span>Submit Application</span>
-                  <IonIcon icon={arrowForwardOutline} />
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>Submit Request</span>
+                  <IonIcon icon={arrowForwardOutline} style={{ color: '#ffffff' }} />
                 </>
               )}
             </button>
             <div className="lf-v3-info-note">
-              <IonIcon icon={checkmarkCircleOutline} />
-              <span>Instant notification sent to reporting manager</span>
             </div>
           </div>
         </div>
@@ -1063,7 +1064,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             <IonIcon icon={alertCircleOutline} />
           </div>
 
-          <h3 className="lf-v2-lop-title">LOP Confirmation</h3>
+          <h3 className="lf-v2-lop-title">Confirmation</h3>
 
           <p className="lf-v2-lop-msg">{lopMessage}</p>
 
@@ -1075,7 +1076,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
                 submitSplitLeave();
               }}
             >
-              YES, CONTINUE (CONVERT TO LOP)
+              YES CONTINUE (LOP)
             </button>
 
             <button

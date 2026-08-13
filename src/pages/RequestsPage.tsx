@@ -59,7 +59,7 @@ const RequestsPage: React.FC = () => {
       <IonContent className="page-content">
 
         {/* ── Premium Header ── */}
-        <div className="page-wr-header" style={{ margin: '16px 16px 24px 16px' }}>
+        <div className="page-wr-header" style={{ margin: '16px 16px 4px 16px' }}>
           <div className="page-wr-header-left">
             <button className="page-wr-back-btn" onClick={() => history.goBack()} style={{ color: 'white' }}>
               <ChevronLeft size={22} />

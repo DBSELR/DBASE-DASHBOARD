@@ -87,7 +87,7 @@
 .req-type-tabs {
   display: flex;
   gap: 8px;
-  padding: 12px 12px 12px;
+  padding: 4px 16px 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -150,7 +150,7 @@
 ══════════════════════════════════════════════ */
 .req-view-tabs {
   display: flex;
-  margin: 2px 14px 16px;
+  margin: 2px 16px 4px;
   background: #e4e9f2;
   border-radius: 50px;
   padding: 4px;
@@ -204,7 +204,7 @@
 .status-filter-bar {
   display: flex;
   gap: 7px;
-  padding: 5px 10px 5px;
+  padding: 4px 16px 0px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
