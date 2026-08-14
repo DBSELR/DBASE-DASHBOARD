@@ -88,6 +88,7 @@ import ViolationApproval from "./pages/ViolationApproval";
 import ChangePassword from "./pages/ChangePassword";
 import ApprovalDates from "./components/requests/ApprovalDates";
 import LeaveAction from "./pages/LeaveAction";
+import OnDutyAction from "./pages/OnDutyAction";
 import VisitTickets from "./pages/Tickets/components/VisitTickets";
 import LeaveReport from "./pages/AIAttendance/LeaveReport";
 import TermsAndConditions from "./pages/TermsAndConditions";
@@ -184,6 +185,8 @@ const App: React.FC = () => {
               <Route exact path="/terms" component={TermsAndConditions} />
               <Route exact path="/privacy" component={PrivacyPolicy} />
               <Route exact path="/account-deletion" component={AccountDeletion} />
+              <Route exact path="/leave-action" component={LeaveAction} />
+              <Route exact path="/onduty-action" component={OnDutyAction} />
               <Redirect from="*" to="/login" />
             </Switch>
           </IonRouterOutlet>
@@ -249,6 +252,7 @@ const App: React.FC = () => {
                   <Route exact path="/change-password" component={ChangePassword} />
                   <Route exact path="/Approval-Dates" component={ApprovalDates} />
                   <Route exact path="/leave-action" component={LeaveAction} />
+                  <Route exact path="/onduty-action" component={OnDutyAction} />
                   <Route exact path="/visit-tickets" component={VisitTickets} />
                   <Route exact path="/leave-report" component={LeaveReport} />
                   <Route exact path="/payment-reminders" component={PaymentReminders} />

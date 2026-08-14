@@ -326,6 +326,20 @@
   font-weight: 700;
 }
 
+.fds-act-btn.success {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+}
+
+.fds-act-btn.disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  border: 1px solid #cbd5e1;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 @media (max-width: 480px) {
   .fds-metrics-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -335,3 +349,4 @@
     flex: none;
   }
 }
+

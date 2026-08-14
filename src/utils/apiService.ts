@@ -159,6 +159,189 @@ export const apiService = {
         });
     },
 
+    sendOnDutyRAApprovalNotification: async (
+        dutyId: string | number,
+        raMobile: string,
+        raName: string,
+        raEmpCode: string,
+        details: {
+            empNames: string;
+            dateFrom: string;
+            dateTo: string;
+            location: string;
+            onDutyType?: string;
+            description?: string;
+            vehicle?: string;
+        }
+    ) => {
+        if (!raMobile || raMobile.trim() === "") {
+            console.warn("⚠️ [WhatsApp Dispatch] Skipped RA notification: No RA mobile provided.");
+            return null;
+        }
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        const domain = isLocal ? "https://mobile.dbasesolutions.in" : (window.location.origin || "https://mobile.dbasesolutions.in");
+        const acceptUrl = `${domain}/onduty-action?did=${dutyId}&action=Approved&by=${raEmpCode}`;
+        const rejectUrl = `${domain}/onduty-action?did=${dutyId}&action=Rejected&by=${raEmpCode}`;
+
+        console.group("🚀 [WhatsApp API] Sending RA Approval Notification");
+        console.log("📲 To RA Mobile:", raMobile);
+        console.log("👤 RA Name:", raName, `(${raEmpCode})`);
+        console.log("🆔 Duty ID:", dutyId);
+        console.log("✅ Accept URL:", acceptUrl);
+        console.log("❌ Reject URL:", rejectUrl);
+        console.groupEnd();
+
+        // Attempt sending registered Meta template first
+        let templateRes = null;
+        try {
+            templateRes = await apiService.sendWhatsAppTemplate(raMobile, "onduty_approval_request", [
+                raName || "Manager",
+                String(dutyId),
+                details.empNames || "Employee",
+                details.dateFrom,
+                details.dateTo,
+                details.location || "Field Duty",
+                details.onDutyType || "Field Duty",
+                details.description || "N/A"
+            ]);
+            console.log("✅ [WhatsApp Template] Delivered template onduty_approval_request:", templateRes);
+        } catch (e) {
+            console.warn("⚠️ [WhatsApp Template] Template fallback to text message:", e);
+        }
+
+        const msg =
+            `📋 *NEW ON-DUTY APPROVAL REQUEST*\n\n` +
+            `Hi ${raName || "Manager"},\n` +
+            `An On-Duty request requires your approval:\n\n` +
+            `🆔 Duty ID  : #${dutyId}\n` +
+            `👤 Employee : ${details.empNames}\n` +
+            `📅 Dates    : ${details.dateFrom} to ${details.dateTo}\n` +
+            `📍 Location : ${details.location}\n` +
+            `📝 Type     : ${details.onDutyType || "Field Duty"}\n` +
+            `💬 Purpose  : ${details.description || "N/A"}\n` +
+            (details.vehicle ? `🚗 Vehicle  : ${details.vehicle}\n\n` : `\n`) +
+            `Please review and choose an action:\n\n` +
+            `✅ *ACCEPT ON-DUTY*:\n${acceptUrl}\n\n` +
+            `❌ *REJECT ON-DUTY*:\n${rejectUrl}`;
+
+        const textRes = await apiService.sendMessage(raMobile, msg);
+        console.log("✅ [WhatsApp Text+Links] Message response:", textRes);
+        return templateRes || textRes;
+    },
+
+    sendOnDutyEmployeeStatusNotification: async (
+        dutyId: string | number,
+        empMobile: string,
+        empName: string,
+        action: "Approved" | "Rejected",
+        raName: string,
+        details: {
+            dateFrom: string;
+            dateTo: string;
+            location: string;
+        }
+    ) => {
+        if (!empMobile || empMobile.trim() === "") return null;
+        const emoji = action === "Approved" ? "✅" : "❌";
+        const verb = action === "Approved" ? "APPROVED" : "REJECTED";
+        const dates = `${details.dateFrom} to ${details.dateTo}`;
+        const instruction = action === "Approved"
+            ? "All approvals received! You can now start your ride in the app with vehicle reading photo."
+            : "Your request was rejected. Please contact your manager for details.";
+
+        // Attempt sending registered Meta template first
+        try {
+            await apiService.sendWhatsAppTemplate(empMobile, "onduty_status_notify", [
+                empName || "Employee",
+                String(dutyId),
+                verb,
+                raName || "Reporting Authority",
+                dates,
+                details.location || "Field Duty",
+            ]);
+        } catch (e) {
+            console.warn("[WhatsApp Template] Fallback to raw text message:", e);
+        }
+
+        // Send raw text message with emoji styling
+        const msg =
+            `${emoji} *ON-DUTY ${verb}*\n\n` +
+            `Hi ${empName},\n\n` +
+            `Your On-Duty request (#${dutyId}) has been *${verb}* by ${raName}.\n\n` +
+            `📅 Dates    : ${dates}\n` +
+            `📍 Location : ${details.location}\n\n` +
+            `${instruction}`;
+
+        return apiService.sendMessage(empMobile, msg);
+    },
+
+    resolveRAMobileAndName: async (raIdentifier: string): Promise<{ mobile: string; name: string; empCode: string } | null> => {
+        if (!raIdentifier || !raIdentifier.trim() || raIdentifier === "-" || raIdentifier.includes("AB-")) {
+            return null;
+        }
+        const cleanId = raIdentifier.trim();
+        console.log(`🔍 [resolveRAMobileAndName] Resolving RA identifier: "${cleanId}"`);
+
+        const parseRow = (e: any) => {
+            if (!e) return { empCode: "", empName: "", designation: "", mobile: "" };
+            if (Array.isArray(e)) {
+                return {
+                    empCode: String(e[1] ?? e[0] ?? "").trim(),
+                    empName: String(e[2] ?? "").trim(),
+                    designation: String(e[3] ?? "").trim(),
+                    mobile: String(e[6] ?? e[5] ?? e[4] ?? "").trim(),
+                };
+            }
+            return {
+                empCode: String(e.EmpCode || e.empCode || "").trim(),
+                empName: String(e.EmpName || e.empName || "").trim(),
+                designation: String(e.Designation || e.designation || "").trim(),
+                mobile: String(e.Mobile || e.mobile || e.MobileNo || e.mobileNo || "").trim(),
+            };
+        };
+
+        // 1. If cleanId is numeric employee code (e.g. "1524")
+        if (/^\d+$/.test(cleanId)) {
+            try {
+                const empRes = await apiService.getEmployee(cleanId);
+                const row = Array.isArray(empRes) ? empRes[0] : empRes;
+                if (row) {
+                    const parsed = parseRow(row);
+                    if (parsed.mobile) {
+                        console.log(`✅ [resolveRAMobileAndName] Found via Direct EmpCode: ${parsed.empName} (${cleanId}) -> ${parsed.mobile}`);
+                        return { mobile: parsed.mobile, name: parsed.empName, empCode: cleanId };
+                    }
+                }
+            } catch (e) {
+                console.warn(`⚠️ [resolveRAMobileAndName] EmpCode query failed for ${cleanId}:`, e);
+            }
+        }
+
+        // 2. Query all employees to match by Designation or Name or EmpCode
+        try {
+            const allEmps = await apiService.loadEmployees("");
+            const list: any[] = Array.isArray(allEmps) ? allEmps : [];
+            const normId = cleanId.toLowerCase();
+
+            // Search for matching designation or name or empCode
+            for (const item of list) {
+                const parsed = parseRow(item);
+                const desigNorm = parsed.designation.toLowerCase();
+                const nameNorm = parsed.empName.toLowerCase();
+                const codeNorm = parsed.empCode.toLowerCase();
+
+                if ((desigNorm === normId || nameNorm === normId || codeNorm === normId) && parsed.mobile !== "") {
+                    console.log(`✅ [resolveRAMobileAndName] Found via Designation/Name Match: ${parsed.empName} (${parsed.empCode}, Desig: "${parsed.designation}") -> ${parsed.mobile}`);
+                    return { mobile: parsed.mobile, name: parsed.empName, empCode: parsed.empCode };
+                }
+            }
+        } catch (e) {
+            console.warn(`⚠️ [resolveRAMobileAndName] Employee list search failed:`, e);
+        }
+
+        return null;
+    },
+
     saveWorkReportTicketWise: async (reportData: any) => {
         console.log("API: Save Work Report Ticket Wise", reportData);
         return apiService.post("/Tickets/SaveWorkReport_TicketWise", reportData);

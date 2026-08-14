@@ -31,6 +31,7 @@ import { FileWarning } from "lucide-react";
 
 
 import { LocationStatusBanner } from "../components/LocationStatusBanner";
+import { OnDutyEmployeeStatusCard } from "../components/OnDutyEmployeeStatusCard";
 
 const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508', '1541', '1635'];
 
@@ -341,6 +342,9 @@ const Home: React.FC = () => {
           <div className="home-status-location">{location}</div>
         </div>
       </div>
+
+      {/* On-Duty Employee Status Card with Approval Badge & Ride Instructions */}
+      <OnDutyEmployeeStatusCard />
 
 
 

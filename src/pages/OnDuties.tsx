@@ -1,4 +1,4 @@
-﻿// src/pages/OnDuties.tsx
+// src/pages/OnDuties.tsx
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addOutline } from "ionicons/icons";
 import {
@@ -3326,6 +3326,166 @@ useEffect(() => {
         } else {
           notify("On-Duty request submitted successfully", "success");
         }
+
+        // 📱 Dispatch WhatsApp notifications to assigned RAs
+        (async () => {
+          try {
+            console.group("📱 [OnDuty WhatsApp Dispatcher]");
+            const rawBody = typeof res?.data === "object" ? JSON.stringify(res?.data) : String(res?.data ?? "");
+            let dutyId = rawBody.match(/\d+/)?.[0] || "";
+
+            if (!dutyId || dutyId === "NEW") {
+              try {
+                const logsRes: any = await apiService.get(`/Employee/GetOnDutyLogs?empCode=${empCode}`);
+                const logs = Array.isArray(logsRes) ? logsRes : (logsRes?.data || []);
+                if (logs && logs.length > 0) {
+                  const topDuty = logs[0];
+                  dutyId = String(topDuty.id || topDuty.ID || topDuty.dutyId || topDuty.lid || topDuty.LID || "").trim();
+                  console.log("🎯 Resolved latest Duty ID from On-Duty Logs:", dutyId);
+                }
+              } catch (e) {
+                console.warn("⚠️ Could not fetch latest duty ID from logs:", e);
+              }
+            }
+            if (!dutyId) dutyId = "NEW";
+
+            console.log("🆔 Final Duty ID for WhatsApp links:", dutyId);
+            console.log("👤 Submitted EmpCode:", empCode);
+
+            const matrixRes = await apiService.loadReportingMatrix(empCode);
+            console.log("🔍 Raw Reporting Matrix Response:", matrixRes);
+
+            const getMatrixVal = (obj: any, ...keys: string[]) => {
+              if (!obj || typeof obj !== "object") return "";
+              for (const k of keys) {
+                if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") {
+                  return String(obj[k]).trim();
+                }
+              }
+              const objKeys = Object.keys(obj);
+              for (const targetKey of keys) {
+                const matchedKey = objKeys.find((k) => k.toLowerCase() === targetKey.toLowerCase());
+                if (
+                  matchedKey &&
+                  obj[matchedKey] !== undefined &&
+                  obj[matchedKey] !== null &&
+                  String(obj[matchedKey]).trim() !== ""
+                ) {
+                  return String(obj[matchedKey]).trim();
+                }
+              }
+              return "";
+            };
+
+            let matrix: any = null;
+            if (Array.isArray(matrixRes)) {
+              // Try to find duty matrix row
+              matrix =
+                matrixRes.find((r: any) => {
+                  const type = String(r.RequestType || r.requestType || r.Type || r[1] || "").toLowerCase();
+                  return type.includes("duty") || type.includes("onduty") || type.includes("field");
+                }) || matrixRes[0];
+            } else if (matrixRes && typeof matrixRes === "object") {
+              matrix = matrixRes;
+            }
+            console.log("🎯 Selected Matrix Row:", matrix);
+
+            let ra1Code = getMatrixVal(matrix, "rA1", "RA1", "ra1");
+            let ra2Code = getMatrixVal(matrix, "rA2", "RA2", "ra2");
+
+            // Fallback: Query employee profile ONLY if matrix has no RA1
+            if (!ra1Code) {
+              console.log("🔍 Matrix row has no RA1. Querying Employee Profile for RA1 fallback...");
+              try {
+                const empDetails = await apiService.getEmployee(empCode);
+                const empRow = Array.isArray(empDetails) ? empDetails[0] : empDetails;
+                if (empRow) {
+                  const possibleRA = String(
+                    empRow.RA1 || empRow.ra1 || empRow.rA1 || empRow.ReportingManager || empRow.RA || ""
+                  ).trim();
+                  if (possibleRA && !possibleRA.includes("AB-") && possibleRA !== "-") {
+                    ra1Code = possibleRA;
+                    console.log("🎯 Fallback RA1 from Profile:", ra1Code);
+                  }
+                }
+              } catch (profileErr) {
+                console.warn("⚠️ Employee profile query error:", profileErr);
+              }
+            }
+
+            const selectedEmpNames = team
+              .filter((e) => selectedCodes.includes(String(e.EmpCode)))
+              .map((e) => e.EmpName)
+              .join(", ") || empCode;
+
+            const details = {
+              empNames: selectedEmpNames,
+              dateFrom: moment(dutyFromDate).format("YYYY-MM-DD"),
+              dateTo: moment(dutyToDate).format("YYYY-MM-DD"),
+              location: location || institution || branchName || "Field Duty",
+              onDutyType: onDutyType || "Field Duty",
+              description: dutiesDesc,
+              vehicle: vehicleNo,
+            };
+
+            const raSlots = [
+              {
+                code: ra1Code,
+                name: getMatrixVal(matrix, "rA1_Name", "RA1_Name", "ra1Name") || "Reporting Manager (RA1)",
+                mobile: getMatrixVal(matrix, "rA1_Mobile", "RA1_Mobile", "ra1Mobile", "RA1_Phone"),
+              },
+              {
+                code: ra2Code,
+                name: getMatrixVal(matrix, "rA2_Name", "RA2_Name", "ra2Name") || "Reporting Manager (RA2)",
+                mobile: getMatrixVal(matrix, "rA2_Mobile", "RA2_Mobile", "ra2Mobile", "RA2_Phone"),
+              },
+            ].filter((r) => r.code && r.code !== "-" && !r.code.includes("AB-"));
+
+            console.log("👥 Identified RA Slots:", raSlots);
+
+            for (const ra of raSlots) {
+              let targetMobile = ra.mobile;
+              let targetName = ra.name;
+              let targetCode = ra.code;
+
+              // Resolve RA mobile & name using apiService helper
+              if (!targetMobile && ra.code) {
+                try {
+                  const resolved = await apiService.resolveRAMobileAndName(String(ra.code));
+                  if (resolved) {
+                    targetMobile = resolved.mobile;
+                    targetName = resolved.name;
+                    targetCode = resolved.empCode;
+                    console.log(`✅ Resolved RA "${ra.code}" -> Name: ${targetName}, Mobile: ${targetMobile}`);
+                  }
+                } catch (e) {
+                  console.warn("⚠️ Get RA profile error:", e);
+                }
+              }
+
+              if (targetMobile) {
+                console.log(`🚀 Dispatching WhatsApp to RA ${targetName} (${targetCode}) at ${targetMobile}`);
+                await apiService.sendOnDutyRAApprovalNotification(
+                  dutyId,
+                  String(targetMobile),
+                  String(targetName),
+                  String(targetCode),
+                  details
+                );
+              } else {
+                console.warn(`⚠️ Could not resolve mobile number for RA Code/Designation: ${ra.code}`);
+              }
+            }
+
+            if (raSlots.length === 0) {
+              console.warn("⚠️ No Reporting Matrix slots found for employee:", empCode);
+            }
+            console.groupEnd();
+          } catch (waErr) {
+            console.warn("❌ [OnDuty WhatsApp] Auto notify RA error:", waErr);
+          }
+        })();
+
         clearOnDutyForm();
         loadDuties();
       } else {
