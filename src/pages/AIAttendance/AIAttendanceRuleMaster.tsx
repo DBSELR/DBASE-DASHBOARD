@@ -919,6 +919,9 @@ const AIAttendanceRuleMaster: React.FC = () => {
             <button className={`rm-tab${activeTab === 'docs' ? ' rm-tab-active' : ''}`} onClick={() => setActiveTab('docs')}>
               ⚡ Rules &amp; Architecture
             </button>
+            <button className="rm-tab" style={{ background: '#0284c7', color: '#ffffff', fontWeight: 700 }} onClick={() => history.push('/policy-master')}>
+              📋 Policy Master ↗
+            </button>
           </div>
 
           {/* ── Toast ─────────────────────────────────────────────────── */}
@@ -2031,38 +2034,39 @@ const AIAttendanceRulesDocView: React.FC = () => {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('normal_ontime');
 
   const DB_TABLES = [
-    { name: 'tbl_employee', purpose: 'Employee master data: EmpCode, InTime (Reporting time), Location1 (Branch), BranchDept, P_Time (Monthly permission allowance min)' },
-    { name: 'AI_ModelStore', purpose: 'Face embeddings: Emp_ID, Emp_Name, FaceEmbedding (128-d float JSON vector array)' },
-    { name: 'face_Attendance', purpose: 'Daily attendance logs holding 6 slots: Morning_In, Lunch_Out, Lunch_In, Evening_Out, Permission_Out, Permission_In, LogDate, LateMinutes, GraceType, AttendanceStatus, LOPMinutes, Geolocation' },
-    { name: 'Tbl_BluetoothMaster', purpose: 'Registered EasyReach Bluetooth Beacons: DeviceMac, DeviceName, Branch, BranchDept, IsActive' },
-    { name: 'Tbl_OfficeLocationMaster', purpose: 'Office Geofences: OfficeName, Branch, BranchDept, Latitude1, Longitude1, Latitude2, Longitude2, AllowedRadiusMeters, IsActive' },
-    { name: 'AI_AttendanceEmployeeOverride', purpose: 'Per-employee overrides: Emp_ID, BT_Required, GPS_Required, StartDate, EndDate, RuleType, IsActive' },
-    { name: 'AI_AttendanceBranchRule', purpose: 'Branch/Dept rules: Branch, BranchDept, BT_Required, GPS_Required' },
-    { name: 'tbl_leaves', purpose: 'Permission/Leave requests: EmpCode, LTYPE ("Permission"), L_STATUS ("Approved","Accepted","In-Use"), PTime, LFrom' },
-    { name: 'tbl_onduty', purpose: 'Outdoor / On-Duty records: EMPCODE, ON_DUTY_TYPE ("Party Duty","Official Duty","Client Site"), BRANCH, STATUS ("Approved")' },
-    { name: 'tbl_LateAttendanceAudit', purpose: 'Tracks used monthly free grace counts: EmpCode, LogDate, GraceType = "FREE_GRACE"' },
-    { name: 'tbl_overtime', purpose: 'Overtime permission credits: EmpCode, OT_TYPE = "PER", OT_MIN, STATUS = "Approved"' },
+    { name: 'tbl_AttendancePolicyMaster', purpose: 'Central Face Attendance Policy configurations: 21 active parameters controlling monthly free graces (4), max grace min (15m), max permission sessions (6), total occasions cap (10), lunch duration (60m auto), evening out (18:33), role quotas (P_Time: 60/90/240m), excess Double LOP, and yellow slip triggers.' },
+    { name: 'tbl_employee', purpose: 'Employee master data: EmpCode, InTime (dynamic profile reporting time: e.g. 09:00, 09:30, 10:00), Location1 (Branch), BranchDept, P_Time (monthly permission allowance minutes synchronized from Policy Master).' },
+    { name: 'AI_ModelStore', purpose: 'Face embeddings: Emp_ID, Emp_Name, FaceEmbedding (128-d float JSON vector array).' },
+    { name: 'face_Attendance', purpose: 'Daily attendance logs holding 6 slots: Morning_In, Lunch_Out, Lunch_In, Evening_Out, Permission_Out, Permission_In, LogDate, LateMinutes, GraceType, AttendanceStatus, LOPMinutes, Geolocation, Bluetooth verification.' },
+    { name: 'Tbl_BluetoothMaster', purpose: 'Registered EasyReach Bluetooth Beacons: DeviceMac, DeviceName, Branch, BranchDept, IsActive.' },
+    { name: 'Tbl_OfficeLocationMaster', purpose: 'Office Geofences: OfficeName, Branch, BranchDept, Latitude1, Longitude1, Latitude2, Longitude2, AllowedRadiusMeters, IsActive.' },
+    { name: 'AI_AttendanceEmployeeOverride', purpose: 'Per-employee overrides: Emp_ID, BT_Required, GPS_Required, StartDate, EndDate, RuleType, IsActive.' },
+    { name: 'AI_AttendanceBranchRule', purpose: 'Branch/Dept rules: Branch, BranchDept, BT_Required, GPS_Required.' },
+    { name: 'tbl_leaves', purpose: 'Permission/Leave requests: EmpCode, LTYPE ("Permission"), L_STATUS ("Approved","Accepted","In-Use"), PTime, LFrom.' },
+    { name: 'tbl_onduty', purpose: 'Outdoor / On-Duty records: EMPCODE, ON_DUTY_TYPE ("Party Duty","Official Duty","Client Site"), BRANCH, STATUS ("Approved").' },
+    { name: 'tbl_LateAttendanceAudit', purpose: 'Tracks used monthly free grace counts and permission adjustments: EmpCode, LogDate, GraceType = "FREE_GRACE" / "PERMISSION".' },
+    { name: 'tbl_overtime', purpose: 'Overtime permission credits: EmpCode, OT_TYPE = "PER", OT_MIN, STATUS = "Approved".' },
   ];
 
   const SCENARIOS = [
     {
       id: 'normal_ontime',
-      name: 'Normal On-Time',
+      name: 'Normal On-Time (Dynamic In-Time)',
       presence: 'BT + GPS / GPS',
       status: 'Morning In / Present',
-      logic: 'LogTime <= ReportingTime (09:30 or 10:00). Late = 0 min. No grace or permission used.',
+      logic: 'LogTime <= ReportingTime from employee profile in tbl_employee.InTime (e.g. 09:00, 09:30, 10:00). Late = 0 min. No grace or permission deducted.',
       graceType: 'None',
       lateMin: 0,
       permBalanceDeduction: 0,
       freeGracesLeft: '4 / 4',
-      backendCode: 'LogTime <= ReportingTime -> Status = "Present", GraceType = NULL',
+      backendCode: 'LogTime <= tbl_employee.InTime -> Status = "Present", GraceType = NULL',
     },
     {
       id: 'late_grace_avail',
-      name: 'Late <= 15 Min (Free Graces Available < 4)',
+      name: 'Late <= 15 Min (Free Grace Available < 4)',
       presence: 'BT + GPS / GPS',
       status: 'Morning In / Grace',
-      logic: 'LateMinutes <= 15 AND FreeGraceUsed < 4. Consumes 1 of 4 monthly FREE_GRACE allocations.',
+      logic: 'LateMinutes <= 15 AND FreeGraceUsed < 4 AND TotalLateOccasions < 10. Consumes 1 of 4 monthly FREE_GRACE allocations (Morning In only).',
       graceType: 'FREE_GRACE',
       lateMin: 12,
       permBalanceDeduction: 0,
@@ -2074,70 +2078,82 @@ const AIAttendanceRulesDocView: React.FC = () => {
       name: 'Late <= 15 Min (Graces Exhausted >= 4)',
       presence: 'BT + GPS / GPS',
       status: 'Morning In / Permission Adjusted',
-      logic: 'Free graces used up (4/4). Deducts late minutes from monthly Permission Balance. Auto-creates permission record in tbl_leaves.',
+      logic: 'Free graces used up (4/4). Automatically adjusts from monthly allotted P_Time balance (Session 1 of 6). Tracked towards 10-occasion monthly cap.',
       graceType: 'PERMISSION',
       lateMin: 14,
       permBalanceDeduction: 14,
       freeGracesLeft: '0 / 4',
-      backendCode: 'PermissionBalance >= LateMinutes -> Status = "Permission Adjusted", GraceType = "PERMISSION"',
+      backendCode: 'PermSessions < 6 && PermissionBalance >= LateMinutes -> Status = "Permission Adjusted", GraceType = "PERMISSION"',
     },
     {
       id: 'late_over_15_perm_avail',
       name: 'Late > 15 Min (Permission Balance Available)',
       presence: 'BT + GPS / GPS',
       status: 'Morning In / Permission Adjusted',
-      logic: 'Late exceeds 15 mins. Free grace cannot be used. Permission Balance >= LateMinutes. Deducts full late minutes from Permission Balance.',
+      logic: 'Late exceeds 15 mins. Free grace ineligible. Deducts full late minutes from allotted P_Time balance (up to 6 sessions / month). Auto-creates permission in tbl_leaves.',
       graceType: 'PERMISSION',
       lateMin: 35,
       permBalanceDeduction: 35,
       freeGracesLeft: 'Unchanged',
-      backendCode: 'PermissionBalance >= LateMinutes -> Auto-executes APP_Save_EMP_LeaveRequest',
+      backendCode: 'PermSessions < 6 && PermissionBalance >= LateMinutes -> Auto-executes APP_Save_EMP_LeaveRequest',
     },
     {
       id: 'late_over_15_no_perm',
-      name: 'Late > 15 Min (Permission Balance Exhausted)',
+      name: 'Late > 15 Min (Zero Permission Balance)',
       presence: 'BT + GPS / GPS',
-      status: 'Morning In / LOP',
-      logic: 'Late exceeds 15 mins AND Permission Balance is 0. Loss of Pay applied. Marks LOPMinutes and auto-creates LOP record in tbl_leaves.',
+      status: 'Morning In / LOP + Yellow Slip',
+      logic: 'Late arrival when Permission Balance is 0. Converted to Loss of Pay (LOP) + 1 Yellow Slip. Full late time including the 60 min grace is treated as LOP.',
       graceType: 'LOP',
       lateMin: 45,
       permBalanceDeduction: 0,
       freeGracesLeft: 'Unchanged',
-      backendCode: 'PermissionBalance < LateMinutes -> Status = "LOP", LOPMinutes = LateMinutes',
+      backendCode: 'PermissionBalance <= 0 -> Status = "LOP", LOPMinutes = LateMinutes, Issue Yellow Slip',
     },
     {
-      id: 'lunch_late_grace',
-      name: 'Lunch Late <= 15 Min',
+      id: 'exceed_10_occasions',
+      name: 'Exceeding 10 Late Occasions Cap',
       presence: 'BT + GPS / GPS',
-      status: 'Lunch In / Grace',
-      logic: 'Expected Lunch In = 14:30 or (Lunch_Out + 1 Hr). LunchLateMinutes <= 15 & FreeGraceUsed < 4. Consumes FREE_GRACE if morning was not PERMISSION/LOP.',
-      graceType: 'FREE_GRACE',
-      lateMin: 10,
+      status: 'Morning In / LOP + Yellow Slip',
+      logic: 'Employee exceeds total 10 late occasions in a calendar month (4 free graces + 6 permissions). Permission adjustments are blocked even if balance remains. Entire late time converts to LOP + 1 Yellow Slip.',
+      graceType: 'LOP',
+      lateMin: 22,
       permBalanceDeduction: 0,
-      freeGracesLeft: '3 / 4',
-      backendCode: 'LunchLateMinutes <= 15 -> GraceType = FREE_GRACE (inherits Morning grace state)',
+      freeGracesLeft: '0 / 4',
+      backendCode: 'TotalLateOccasions >= 10 -> LOPMinutes = LateMinutes + 60, Trigger +1 Yellow Slip',
     },
     {
-      id: 'lunch_late_over',
-      name: 'Lunch Late > 15 Min',
+      id: 'lunch_late_auto_1hr',
+      name: 'Lunch In (1-Hour Auto Window)',
       presence: 'BT + GPS / GPS',
-      status: 'Lunch In / Permission Adjusted or LOP',
-      logic: 'Exceeds 15 min lunch delay. Deducts from Permission Balance or adds to LOPMinutes (Existing LOP + Lunch Late).',
+      status: 'Lunch In / Permission or LOP',
+      logic: 'Official window 1:30 PM to 2:30 PM. If Lunch Out logged at 2 PM, 3 PM, etc., system auto-allocates exactly 1 hour (60m) break from actual Lunch Out. No free grace in afternoon; arrival after 1 hour auto-deducts from P_Time balance or LOP.',
       graceType: 'PERMISSION / LOP',
-      lateMin: 25,
-      permBalanceDeduction: 25,
+      lateMin: 20,
+      permBalanceDeduction: 20,
       freeGracesLeft: 'Unchanged',
-      backendCode: 'LOPMinutes = ExistingLOP + LunchLateMinutes',
+      backendCode: 'ExpectedLunchIn = DATEADD(minute, 60, Lunch_Out) -> LunchLateMinutes > 0 deducts from P_Time/LOP',
+    },
+    {
+      id: 'excess_double_lop',
+      name: 'Excess Permission > 2 Hours (Double LOP)',
+      presence: 'BT + GPS / GPS',
+      status: 'Excess Permission / Double LOP',
+      logic: 'Excess permission usage exceeding 2 hours (120 min) without available balance attracts Double Loss of Pay (2x LOP) including allotted time in total deduction. +1 Yellow Slip for every 3 excess sessions.',
+      graceType: 'DOUBLE_LOP',
+      lateMin: 140,
+      permBalanceDeduction: 'Allotted + 2x Excess',
+      freeGracesLeft: 'Unchanged',
+      backendCode: 'ExcessMinutes > 120 -> LOPMinutes = (Allotted + ExcessMinutes) * 2',
     },
     {
       id: 'permission_approved',
       name: 'Permission Out / In (Approved)',
       presence: 'Verified',
       status: 'Permission Out / Permission In',
-      logic: 'Checks tbl_leaves for approved permission today. Records Permission_Out. On Permission_In, calculates actual duration Perm_Actual_Min and overstay if any.',
+      logic: 'Checks tbl_leaves for approved permission today. Max single session = 60 minutes. Records Permission_Out. On Permission_In, calculates actual duration Perm_Actual_Min and overstay.',
       graceType: 'PERMISSION',
       lateMin: 0,
-      permBalanceDeduction: 'Approved PTime',
+      permBalanceDeduction: 'Approved PTime (Max 60m)',
       freeGracesLeft: 'Unchanged',
       backendCode: 'Perm_Actual_Min = DATEDIFF(MINUTE, Permission_Out, Permission_In)',
     },
@@ -2198,10 +2214,10 @@ const AIAttendanceRulesDocView: React.FC = () => {
       {/* Hero Card */}
       <div className="rm-docs-hero">
         <h2 className="rm-docs-hero-title">
-          <span>⚡</span> AIAttendance Architecture & System Rules
+          <span>⚡</span> AIAttendance Architecture &amp; System Rules
         </h2>
         <p className="rm-docs-hero-desc">
-          Complete end-to-end technical reference covering Database Schema, Stored Procedure logic (<code>APP_AI_SaveAttendance</code>), Backend API Rules (<code>CheckinController.cs</code>), Frontend Architecture, and Case Matrix.
+          Complete end-to-end technical reference covering Database Schema, Policy Master parameters (<code>tbl_AttendancePolicyMaster</code>), Stored Procedure logic (<code>APP_AI_SaveAttendance</code>), Backend API Rules (<code>CheckinController.cs</code>), Frontend Architecture, and Case Matrix.
         </p>
       </div>
 
@@ -2236,6 +2252,7 @@ const AIAttendanceRulesDocView: React.FC = () => {
               <li>Captures live video frame canvas and converts to Base64 image payload.</li>
               <li>Scans Web Bluetooth LE (<code>navigator.bluetooth</code>) for nearby EasyReach beacon MAC addresses.</li>
               <li>Requests device GPS Geolocation (Latitude &amp; Longitude).</li>
+              <li>Displays live Grace Tracker telemetry (Graces <code>[X/4]</code>, Permissions <code>[Y/6]</code>, Occasions <code>[Z/10]</code>).</li>
               <li>Sends payload to <code>/api/Checkin/AILogAttendance</code> or <code>/api/Checkin/AISecurityAttendance</code>.</li>
             </ul>
           </div>
@@ -2249,10 +2266,12 @@ const AIAttendanceRulesDocView: React.FC = () => {
             </div>
             <ul className="rm-docs-flow-list">
               <li><strong>API Auth:</strong> Validates <code>x-api-key: dbase-ai-master-key-2026</code>.</li>
+              <li><strong>Dynamic Policy Resolution:</strong> Reads active parameters dynamically from <code>tbl_AttendancePolicyMaster</code>.</li>
+              <li><strong>Auto-Sync Quotas:</strong> Propagates role quotas (Technical 60m, Non-Tech 90m, Marketing 240m) to <code>tbl_employee.P_Time</code>.</li>
               <li><strong>Rule Hierarchy:</strong> Resolves BT/GPS requirements (Employee Override &rarr; Branch/Dept Rule &rarr; Default).</li>
               <li><strong>On-Duty Evaluation:</strong> Waives GPS/BT for "Party/Client Duty" or switches geofence to visited branch.</li>
               <li><strong>Geofence &amp; Beacon Verification:</strong> Haversine distance check (&le; 100m) &amp; Beacon waiver check.</li>
-              <li><strong>Face Recognition Engine:</strong> Extracts 128-d embedding, calculates Euclidean distance ($\le 0.48$), requires $\ge 50\%$ confidence.</li>
+              <li><strong>Face Recognition Engine:</strong> Extracts 128-d embedding, calculates Euclidean distance (&le; 0.48), requires &ge; 50% confidence.</li>
               <li><strong>Strict Permission Approval Check:</strong> Validates approved permission in <code>tbl_leaves</code> for Perm Out/In scans.</li>
             </ul>
           </div>
@@ -2266,9 +2285,10 @@ const AIAttendanceRulesDocView: React.FC = () => {
             </div>
             <ul className="rm-docs-flow-list">
               <li>Executes <code>APP_AI_SaveAttendance</code> to update today's log in <code>face_Attendance</code>.</li>
-              <li>Determines reporting time (09:30 or 10:00 for Marketing or <code>tbl_employee.InTime</code>).</li>
-              <li>Calculates monthly permission balance and checks 4-instance monthly <code>FREE_GRACE</code> limit.</li>
-              <li>Auto-creates Permission or LOP leave requests in <code>tbl_leaves</code> when thresholds are exceeded.</li>
+              <li>Dynamically reads reporting time strictly from <code>tbl_employee.InTime</code> (e.g. 09:00, 09:30, 10:00).</li>
+              <li>Enforces Policy Master limits: 4 Free Graces (&le; 15m), 6 Permission Sessions, and 10 Total Late Occasions Cap.</li>
+              <li>Auto-calculates exactly 1 hour (60 min) lunch duration from actual Lunch Out punch (no afternoon grace).</li>
+              <li>Applies Double LOP for excess permission &gt; 2 hours without balance and triggers Yellow Slip records.</li>
             </ul>
           </div>
         </div>
@@ -2303,56 +2323,61 @@ const AIAttendanceRulesDocView: React.FC = () => {
             <div className="rm-tree-box">
               <div className="rm-tree-node-title">1. Reporting Time &amp; Permission Balance Calculation</div>
               <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
-                Reporting time defaults to <code>09:30:00</code> (or <code>10:00:00</code> for Marketing / custom <code>InTime</code>).
+                Reporting time is strictly read from <code>tbl_employee.InTime</code> (standardizing dot and colon formats: 09:00, 09:30, 10:00).
               </p>
               <div className="rm-formula-box">
-                Total Permission Balance = (Base P_Time + Approved Overtime PER Minutes) - Used Permission Minutes
+                Total Permission Balance = (Base P_Time from tbl_employee + Approved Overtime PER Minutes) - Used Permission Minutes
               </div>
             </div>
 
             <div className="rm-tree-box">
-              <div className="rm-tree-node-title">2. Morning In Decision Tree</div>
+              <div className="rm-tree-node-title">2. Morning In Decision Tree (Governed by tbl_AttendancePolicyMaster)</div>
               <div className="rm-tree-branch">
                 <div className="rm-tree-node">
                   <strong>LogTime &le; ReportingTime:</strong> <span className="rm-tree-badge-green">Status: Present</span> | GraceType: NULL
                 </div>
                 <div className="rm-tree-node">
-                  <strong>Late &le; 15 Min AND FreeGraceUsed &lt; 4:</strong> <span className="rm-tree-badge-orange">Status: Grace</span> | GraceType: FREE_GRACE (Audit logged in <code>tbl_LateAttendanceAudit</code>)
+                  <strong>Late &le; 15 Min AND FreeGraceUsed &lt; 4 AND TotalLateOccasions &lt; 10:</strong> <span className="rm-tree-badge-orange">Status: Grace</span> | GraceType: FREE_GRACE (Logged in <code>tbl_LateAttendanceAudit</code>)
                 </div>
                 <div className="rm-tree-node">
-                  <strong>PermissionBalance &ge; LateMinutes:</strong> <span className="rm-tree-badge-blue">Status: Permission Adjusted</span> | GraceType: PERMISSION (Auto-inserts permission into <code>tbl_leaves</code>)
+                  <strong>PermSessions &lt; 6 AND TotalLateOccasions &lt; 10 AND PermissionBalance &ge; LateMinutes:</strong> <span className="rm-tree-badge-blue">Status: Permission Adjusted</span> | GraceType: PERMISSION (Auto-inserts permission into <code>tbl_leaves</code>)
                 </div>
                 <div className="rm-tree-node">
-                  <strong>PermissionBalance &lt; LateMinutes:</strong> <span className="rm-tree-badge-red">Status: LOP</span> | GraceType: LOP (Auto-inserts LOP record into <code>tbl_leaves</code>)
+                  <strong>TotalLateOccasions &ge; 10 OR PermissionBalance &le; 0:</strong> <span className="rm-tree-badge-red">Status: LOP + 1 Yellow Slip</span> | Entire late time including 60 min grace is treated as Loss of Pay (LOP).
                 </div>
               </div>
             </div>
 
             <div className="rm-tree-box">
-              <div className="rm-tree-node-title">3. Lunch In Decision Tree</div>
+              <div className="rm-tree-node-title">3. Lunch In Decision Tree (1-Hour Auto Window)</div>
               <div className="rm-tree-branch">
                 <div className="rm-tree-node">
-                  Expected Lunch In = <code>14:30:00</code> OR <code>Lunch_Out + 1 Hour</code>.
+                  Official Lunch Window: <strong>1:30 PM to 2:30 PM</strong>.
+                </div>
+                <div className="rm-tree-node">
+                  Auto Break: <strong>Expected Lunch In = Lunch_Out + 1 Hour (60 minutes)</strong> from actual Lunch Out punch.
                 </div>
                 <div className="rm-tree-node">
                   <strong>LunchLateMinutes &le; 0:</strong> <span className="rm-tree-badge-green">Status: Present</span>
                 </div>
                 <div className="rm-tree-node">
-                  <strong>LunchLateMinutes &le; 15 Min &amp; FreeGraceUsed &lt; 4:</strong> <span className="rm-tree-badge-orange">Status: Grace (FREE_GRACE)</span>
-                </div>
-                <div className="rm-tree-node">
-                  <strong>PermissionBalance &ge; LunchLateMinutes:</strong> <span className="rm-tree-badge-blue">Status: Permission Adjusted</span>
-                </div>
-                <div className="rm-tree-node">
-                  <strong>Otherwise:</strong> <span className="rm-tree-badge-red">Status: LOP</span> (LOPMinutes = Existing LOP + Lunch Late)
+                  <strong>LunchLateMinutes &gt; 0:</strong> <span className="rm-tree-badge-blue">No Afternoon Grace.</span> Deducts from monthly Permission Balance if available, otherwise converts to LOP.
                 </div>
               </div>
             </div>
 
             <div className="rm-tree-box">
-              <div className="rm-tree-node-title">4. Permission Out &amp; In Duration Formula</div>
-              <div className="rm-formula-box">
-                Perm_Actual_Min = DATEDIFF(MINUTE, Permission_Out, Permission_In)
+              <div className="rm-tree-node-title">4. Excess Permission &amp; Double LOP Penalty Matrix</div>
+              <div className="rm-tree-branch">
+                <div className="rm-tree-node">
+                  <strong>Excess &le; 2 Hours Without Balance:</strong> Single Loss of Pay (1x LOP).
+                </div>
+                <div className="rm-tree-node">
+                  <strong>Excess &gt; 2 Hours Without Balance:</strong> <span className="rm-tree-badge-red">Double Loss of Pay (Double LOP / 2x LOP)</span> (allotted permission time is also included in total deduction).
+                </div>
+                <div className="rm-tree-node">
+                  <strong>Yellow Slip Trigger:</strong> <strong>+1 Yellow Slip</strong> for every 3 excess permission sessions without balance.
+                </div>
               </div>
             </div>
           </div>
@@ -2423,8 +2448,8 @@ const AIAttendanceRulesDocView: React.FC = () => {
               <tbody>
                 <tr><td>07:00 – 12:30</td><td>Morning In</td></tr>
                 <tr><td>12:30 – 14:15</td><td>Lunch Out</td></tr>
-                <tr><td>14:15 – 16:00</td><td>Lunch In</td></tr>
-                <tr><td>16:00 onwards</td><td>Evening Out</td></tr>
+                <tr><td>14:15 – 16:00</td><td>Lunch In (1-Hr Auto Window)</td></tr>
+                <tr><td>16:00 onwards</td><td>Evening Out (06:33 PM Threshold)</td></tr>
               </tbody>
             </table>
           </div>
@@ -2435,16 +2460,23 @@ const AIAttendanceRulesDocView: React.FC = () => {
       {subNav === 'frontend' && (
         <div className="rm-docs-grid-3">
           <div className="rm-docs-card">
+            <h4 className="rm-docs-card-title">📋 PolicyMaster.tsx</h4>
+            <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
+              Central Face Attendance Policy Master. Dynamically controls 21 policy parameters, auto-syncs <code>tbl_employee.P_Time</code> by department, and provides a live Month-To-Date employee policy audit &amp; simulation tool.
+            </p>
+          </div>
+
+          <div className="rm-docs-card">
             <h4 className="rm-docs-card-title">📱 AIAttendanceScanner.tsx</h4>
             <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
-              Employee Kiosk Scanner. Uses Web Camera, Web Bluetooth LE (<code>navigator.bluetooth</code>), and GPS Geolocation. Calls <code>GetActivePermissionForToday</code> on launch.
+              Employee Kiosk Scanner. Uses Web Camera, Web Bluetooth LE (<code>navigator.bluetooth</code>), and GPS Geolocation. Displays live monthly Grace Tracker telemetry (<code>[X/4]</code>, <code>[Y/6]</code>, <code>[Z/10]</code>).
             </p>
           </div>
 
           <div className="rm-docs-card">
             <h4 className="rm-docs-card-title">🛡️ SecurityAttendanceScanner.tsx</h4>
             <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
-              Security Kiosk Gate Scanner. Continuously auto-detects employee faces in real time at main gates, supporting multi-face bounding box tracking.
+              Security Kiosk Gate Scanner. Continuously auto-detects employee faces in real time at main gates, supporting multi-face bounding box tracking and instant policy status feedback.
             </p>
           </div>
 
@@ -2458,7 +2490,7 @@ const AIAttendanceRulesDocView: React.FC = () => {
           <div className="rm-docs-card">
             <h4 className="rm-docs-card-title">⚙️ AIAttendanceRuleMaster.tsx</h4>
             <p className="rm-docs-hero-desc" style={{ color: '#475569' }}>
-              Central Rule Management Portal. Configures branch default rules, per-employee overrides, Bluetooth Beacons, and GPS geofences.
+              Central Bluetooth &amp; GPS Rule Management Portal. Configures branch default rules, per-employee overrides, Bluetooth Beacons, and GPS geofences.
             </p>
           </div>
 

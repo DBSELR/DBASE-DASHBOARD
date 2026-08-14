@@ -43,6 +43,13 @@ interface AttendanceRecord {
   eveningOutLat?: number;
   eveningOutLng?: number;
   eveningOutCity?: string;
+
+  morningInPhoto?: string;
+  lunchOutPhoto?: string;
+  lunchInPhoto?: string;
+  eveningOutPhoto?: string;
+  permissionOutPhoto?: string;
+  permissionInPhoto?: string;
 }
 
 const AVATAR_CONFIG = [
@@ -59,10 +66,10 @@ const AVATAR_CONFIG = [
 ];
 
 const SLOTS = [
-  { key: 'Morning In' as const, short: 'M-IN', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
-  { key: 'Lunch Out' as const, short: 'L-OUT', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
-  { key: 'Lunch In' as const, short: 'L-IN', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
-  { key: 'Evening Out' as const, short: 'E-OUT', color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3' },
+  { key: 'Morning In' as const, photoKey: 'morningInPhoto' as const, latKey: 'morningInLat' as const, lngKey: 'morningInLng' as const, short: 'M-IN', label: 'Morning In', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
+  { key: 'Lunch Out' as const, photoKey: 'lunchOutPhoto' as const, latKey: 'lunchOutLat' as const, lngKey: 'lunchOutLng' as const, short: 'L-OUT', label: 'Lunch Out', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
+  { key: 'Lunch In' as const, photoKey: 'lunchInPhoto' as const, latKey: 'lunchInLat' as const, lngKey: 'lunchInLng' as const, short: 'L-IN', label: 'Lunch In', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+  { key: 'Evening Out' as const, photoKey: 'eveningOutPhoto' as const, latKey: 'eveningOutLat' as const, lngKey: 'eveningOutLng' as const, short: 'E-OUT', label: 'Evening Out', color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3' },
 ];
 
 const MONTH_NAMES = [
@@ -130,6 +137,54 @@ const AIAttendanceLog: React.FC = () => {
     empName?: string;
     empCode?: string;
   } | null>(null);
+
+  // ── Photo Zoom / Verification Modal State ──
+  const [photoModal, setPhotoModal] = useState<{
+    empName: string;
+    empId: string;
+    slotLabel: string;
+    slotColor: string;
+    time?: string;
+    location?: string;
+    photoUrl: string;
+    lat?: number;
+    lng?: number;
+    status?: string;
+  } | null>(null);
+
+  const getFullPhotoUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image')) return url;
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+    const origin = baseUrl.replace(/\/api\/?$/i, '');
+    return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const openPhotoModal = (
+    log: AttendanceRecord | any,
+    slotLabel: string,
+    photoUrl: string,
+    slotColor: string,
+    time?: string,
+    location?: string,
+    lat?: number,
+    lng?: number,
+    status?: string
+  ) => {
+    if (!photoUrl) return;
+    setPhotoModal({
+      empName: log.Name || log.name || log.empName || "Employee",
+      empId: log['Emp ID'] || log.empId || log.empCode || "-",
+      slotLabel,
+      slotColor,
+      photoUrl,
+      time: time || '-',
+      location: location || log.officeName || log.OfficeName || '',
+      lat: lat || 0,
+      lng: lng || 0,
+      status: status || log.attendanceStatus || log.AttendanceStatus || 'Verified'
+    });
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token") || "";
@@ -363,6 +418,12 @@ const AIAttendanceLog: React.FC = () => {
             eveningOutLat: r.eveningOutLat,
             eveningOutLng: r.eveningOutLng,
             eveningOutCity: r.eveningOutCity,
+            morningInPhoto: r.morningInPhoto || r.Morning_In_Photo || '',
+            lunchOutPhoto: r.lunchOutPhoto || r.Lunch_Out_Photo || '',
+            lunchInPhoto: r.lunchInPhoto || r.Lunch_In_Photo || '',
+            eveningOutPhoto: r.eveningOutPhoto || r.Evening_Out_Photo || '',
+            permissionOutPhoto: r.permissionOutPhoto || r.Permission_Out_Photo || '',
+            permissionInPhoto: r.permissionInPhoto || r.Permission_In_Photo || '',
           };
         };
 
@@ -474,6 +535,12 @@ const AIAttendanceLog: React.FC = () => {
               eveningOutLat: r.eveningOutLat,
               eveningOutLng: r.eveningOutLng,
               eveningOutCity: r.eveningOutCity,
+              morningInPhoto: r.morningInPhoto || r.Morning_In_Photo || '',
+              lunchOutPhoto: r.lunchOutPhoto || r.Lunch_Out_Photo || '',
+              lunchInPhoto: r.lunchInPhoto || r.Lunch_In_Photo || '',
+              eveningOutPhoto: r.eveningOutPhoto || r.Evening_Out_Photo || '',
+              permissionOutPhoto: r.permissionOutPhoto || r.Permission_Out_Photo || '',
+              permissionInPhoto: r.permissionInPhoto || r.Permission_In_Photo || '',
             };
           });
 
@@ -972,6 +1039,12 @@ const AIAttendanceLog: React.FC = () => {
                               morningInLng: att.morningInLng,
                               eveningOutLat: att.eveningOutLat,
                               eveningOutLng: att.eveningOutLng,
+                              morningInPhoto: att.morningInPhoto,
+                              lunchOutPhoto: att.lunchOutPhoto,
+                              lunchInPhoto: att.lunchInPhoto,
+                              eveningOutPhoto: att.eveningOutPhoto,
+                              permissionOutPhoto: att.permissionOutPhoto,
+                              permissionInPhoto: att.permissionInPhoto,
                             } : undefined,
                             status: statusText,
                             holidayRemark: holiday,
@@ -1154,16 +1227,34 @@ const AIAttendanceLog: React.FC = () => {
                   const checkedInScans = SLOTS.filter(s => selectedLog[s.key] && selectedLog[s.key] !== '-').length;
                   const status = selectedLog.attendanceStatus || (absent ? "Absent" : "Present");
                   const sc = statusClass(status);
+                  const latestPhoto = selectedLog.morningInPhoto || selectedLog.lunchInPhoto || selectedLog.lunchOutPhoto || selectedLog.eveningOutPhoto;
 
                   return (
                     <div className={`stock-panel ${sc} animate-fade-in`} style={{ marginBottom: '24px', borderLeft: '6px solid', borderRadius: '16px' }}>
                       <div className="emp-card-head" style={{ marginBottom: '18px' }}>
-                        <div className="emp-avatar-circle" style={{
-                          background: 'linear-gradient(145deg, var(--ion-color-primary, #0d9488) 0%, #a855f7 100%)',
-                          boxShadow: `0 6px 20px rgba(13,148,136,0.25)`,
-                          width: '48px', height: '48px', fontSize: '16px'
-                        }}>
-                          {getInitials(selectedLog.Name || currentUser?.empName || currentUser?.EmpName || "E")}
+                        <div
+                          className={`emp-avatar-circle ${latestPhoto ? 'emp-avatar-has-photo' : ''}`}
+                          style={{
+                            background: 'linear-gradient(145deg, var(--ion-color-primary, #0d9488) 0%, #a855f7 100%)',
+                            boxShadow: `0 6px 20px rgba(13,148,136,0.25)`,
+                            width: '48px', height: '48px', fontSize: '16px',
+                            cursor: latestPhoto ? 'pointer' : 'default'
+                          }}
+                          onClick={() => latestPhoto && openPhotoModal(selectedLog, 'Live Check-In Snapshot', latestPhoto, 'var(--ion-color-primary, #0d9488)')}
+                          title={latestPhoto ? "Click to enlarge captured scan photo" : undefined}
+                        >
+                          {latestPhoto && (
+                            <img
+                              src={getFullPhotoUrl(latestPhoto)}
+                              alt="Avatar"
+                              className="emp-avatar-img"
+                              onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                            />
+                          )}
+                          <span className="emp-avatar-fallback">
+                            {getInitials(selectedLog.Name || currentUser?.empName || currentUser?.EmpName || "E")}
+                          </span>
+                          {latestPhoto && <span className="emp-avatar-cam-badge">📷</span>}
                         </div>
                         <div className="emp-meta">
                           <div className="emp-name-text" style={{ fontSize: '16px' }}>{selectedLog.Name || currentUser?.empName || currentUser?.EmpName}</div>
@@ -1186,16 +1277,36 @@ const AIAttendanceLog: React.FC = () => {
                           const filled = val && val !== '-';
                           const isLast = si === SLOTS.length - 1;
                           const location = getLocationName(s.key, selectedLog);
+                          const slotPhoto = s.photoKey ? (selectedLog as any)[s.photoKey] : null;
+                          const slotLat = s.latKey ? (selectedLog as any)[s.latKey] : 0;
+                          const slotLng = s.lngKey ? (selectedLog as any)[s.lngKey] : 0;
 
                           return (
                             <div key={s.key} className="att-slot-wrap">
                               <div className="att-slot">
-                                <div
-                                  className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
-                                  style={filled ? { background: s.color, borderColor: s.color } as any : {}}
-                                >
-                                  {filled ? '✓' : ''}
-                                </div>
+                                {filled && slotPhoto ? (
+                                  <div
+                                    className="att-node att-node-on att-node-photo"
+                                    style={{ borderColor: s.color }}
+                                    onClick={() => openPhotoModal(selectedLog, s.label, slotPhoto, s.color, val, location, slotLat, slotLng, selectedLog.attendanceStatus)}
+                                    title={`Click to view ${s.label} scan photo`}
+                                  >
+                                    <img
+                                      src={getFullPhotoUrl(slotPhoto)}
+                                      alt={s.short}
+                                      className="att-slot-photo-thumb"
+                                      onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                                    />
+                                    <span className="att-slot-photo-badge">📷</span>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
+                                    style={filled ? { background: s.color, borderColor: s.color } as any : {}}
+                                  >
+                                    {filled ? '✓' : ''}
+                                  </div>
+                                )}
                                 <div
                                   className="att-time-text"
                                   style={filled ? { color: s.color, fontWeight: 800 } as any : {}}
@@ -1431,16 +1542,32 @@ const AIAttendanceLog: React.FC = () => {
                       const cfg = avatarCfg(log.Name);
                       const inits = getInitials(log.Name);
                       const checkedIn = SLOTS.filter(s => log[s.key] && log[s.key] !== '-').length;
+                      const latestPhoto = log.morningInPhoto || log.lunchInPhoto || log.lunchOutPhoto || log.eveningOutPhoto;
 
                       return (
                         <div key={idx} className={`stock-panel ${sc} animate-fade-in`} style={{ borderLeft: '6px solid', borderRadius: '16px' }}>
 
                           <div className="emp-card-head">
-                            <div className="emp-avatar-circle" style={{
-                              background: cfg.grad,
-                              boxShadow: `0 6px 20px ${cfg.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.67)`,
-                            }}>
-                              {inits}
+                            <div
+                              className={`emp-avatar-circle ${latestPhoto ? 'emp-avatar-has-photo' : ''}`}
+                              style={{
+                                background: cfg.grad,
+                                boxShadow: `0 6px 20px ${cfg.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.67)`,
+                                cursor: latestPhoto ? 'pointer' : 'default'
+                              }}
+                              onClick={() => latestPhoto && openPhotoModal(log, 'Live Check-In Snapshot', latestPhoto, '#4f46e5')}
+                              title={latestPhoto ? "Click to enlarge captured scan photo" : undefined}
+                            >
+                              {latestPhoto && (
+                                <img
+                                  src={getFullPhotoUrl(latestPhoto)}
+                                  alt={log.Name}
+                                  className="emp-avatar-img"
+                                  onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                                />
+                              )}
+                              <span className="emp-avatar-fallback">{inits}</span>
+                              {latestPhoto && <span className="emp-avatar-cam-badge">📷</span>}
                             </div>
                             <div className="emp-meta">
                               <div className="emp-name-text">{log.Name}</div>
@@ -1462,16 +1589,36 @@ const AIAttendanceLog: React.FC = () => {
                               const filled = val && val !== '-';
                               const isLast = si === SLOTS.length - 1;
                               const location = getLocationName(s.key, log);
+                              const slotPhoto = s.photoKey ? (log as any)[s.photoKey] : null;
+                              const slotLat = s.latKey ? (log as any)[s.latKey] : 0;
+                              const slotLng = s.lngKey ? (log as any)[s.lngKey] : 0;
 
                               return (
                                 <div key={s.key} className="att-slot-wrap">
                                   <div className="att-slot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <div
-                                      className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
-                                      style={filled ? { background: s.color, borderColor: s.color } as any : {}}
-                                    >
-                                      {filled ? '✓' : ''}
-                                    </div>
+                                    {filled && slotPhoto ? (
+                                      <div
+                                        className="att-node att-node-on att-node-photo"
+                                        style={{ borderColor: s.color }}
+                                        onClick={() => openPhotoModal(log, s.label, slotPhoto, s.color, val, location, slotLat, slotLng, log.attendanceStatus)}
+                                        title={`Click to view ${s.label} scan photo`}
+                                      >
+                                        <img
+                                          src={getFullPhotoUrl(slotPhoto)}
+                                          alt={s.short}
+                                          className="att-slot-photo-thumb"
+                                          onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                                        />
+                                        <span className="att-slot-photo-badge">📷</span>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
+                                        style={filled ? { background: s.color, borderColor: s.color } as any : {}}
+                                      >
+                                        {filled ? '✓' : ''}
+                                      </div>
+                                    )}
                                     <div
                                       className="att-time-text"
                                       style={filled ? { color: s.color, fontWeight: 800 } as any : {}}
@@ -1568,19 +1715,48 @@ const AIAttendanceLog: React.FC = () => {
                     const val = selectedDayDetail.log![s.key];
                     const filled = val && val !== '-';
                     const loc = getLocationName(s.key, selectedDayDetail.log);
+                    const slotPhoto = s.photoKey ? (selectedDayDetail.log as any)[s.photoKey] : null;
 
                     let lat = 0, lng = 0;
                     if (s.key === 'Morning In') { lat = selectedDayDetail.log?.morningInLat || 0; lng = selectedDayDetail.log?.morningInLng || 0; }
+                    else if (s.key === 'Lunch Out') { lat = selectedDayDetail.log?.lunchOutLat || 0; lng = selectedDayDetail.log?.lunchOutLng || 0; }
+                    else if (s.key === 'Lunch In') { lat = selectedDayDetail.log?.lunchInLat || 0; lng = selectedDayDetail.log?.lunchInLng || 0; }
                     else if (s.key === 'Evening Out') { lat = selectedDayDetail.log?.eveningOutLat || 0; lng = selectedDayDetail.log?.eveningOutLng || 0; }
 
                     return (
-                      <div key={s.key} className="modal-slot-item">
-                        <div>
-                          <div style={{ fontSize: '10px', fontWeight: 800, color: s.color, textTransform: uppercase }}>
-                            {s.key}
-                          </div>
-                          <div style={{ fontSize: '15px', fontWeight: 800, color: filled ? '#0f172a' : '#94a3b8', marginTop: '2px' }}>
-                            {cleanTime(val)}
+                      <div key={s.key} className="modal-slot-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {filled && slotPhoto ? (
+                            <div
+                              className="att-node att-node-on att-node-photo"
+                              style={{ width: '40px', height: '40px', borderColor: s.color, cursor: 'pointer', flexShrink: 0 }}
+                              onClick={() => openPhotoModal(selectedDayDetail.log, s.label, slotPhoto, s.color, val, loc, lat, lng, selectedDayDetail.log?.attendanceStatus)}
+                              title={`View ${s.label} scan photo`}
+                            >
+                              <img
+                                src={getFullPhotoUrl(slotPhoto)}
+                                alt={s.short}
+                                className="att-slot-photo-thumb"
+                                onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                              />
+                              <span className="att-slot-photo-badge">📷</span>
+                            </div>
+                          ) : (
+                            <div
+                              className={`att-node ${filled ? 'att-node-on' : 'att-node-off'}`}
+                              style={{ width: '32px', height: '32px', fontSize: '12px', ...(filled ? { background: s.color, borderColor: s.color } : {}) }}
+                            >
+                              {filled ? '✓' : ''}
+                            </div>
+                          )}
+
+                          <div>
+                            <div style={{ fontSize: '10px', fontWeight: 800, color: s.color, textTransform: uppercase }}>
+                              {s.key}
+                            </div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: filled ? '#0f172a' : '#94a3b8', marginTop: '2px' }}>
+                              {cleanTime(val)}
+                            </div>
                           </div>
                         </div>
 
@@ -1625,6 +1801,79 @@ const AIAttendanceLog: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* ════════════════════════════════════════════════════
+           HIGH-RESOLUTION ATTENDANCE PHOTO ZOOM MODAL
+        ════════════════════════════════════════════════════ */}
+        {photoModal && (
+          <div className="photo-preview-backdrop" onClick={() => setPhotoModal(null)}>
+            <div className="photo-preview-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="photo-preview-header">
+                <div>
+                  <div className="photo-preview-badge-slot" style={{ background: photoModal.slotColor || '#4f46e5' }}>
+                    {photoModal.slotLabel}
+                  </div>
+                  <h3 className="photo-preview-emp-name">{photoModal.empName}</h3>
+                  <div className="photo-preview-emp-code">Employee Code: #{photoModal.empId}</div>
+                </div>
+                <button className="modal-close-icon" onClick={() => setPhotoModal(null)}>✕</button>
+              </div>
+
+              <div className="photo-preview-body">
+                <div className="photo-preview-img-container">
+                  <img
+                    src={getFullPhotoUrl(photoModal.photoUrl)}
+                    alt={`${photoModal.empName} scan`}
+                    className="photo-preview-big-img"
+                  />
+                  <div className="photo-preview-overlay-tag">
+                    📸 Live Face Punch Verified
+                  </div>
+                </div>
+
+                <div className="photo-preview-meta-grid">
+                  <div className="photo-meta-card">
+                    <span className="meta-card-label">Punch Time</span>
+                    <span className="meta-card-value" style={{ color: photoModal.slotColor || '#1e293b' }}>
+                      ⏱ {cleanTime(photoModal.time)}
+                    </span>
+                  </div>
+
+                  <div className="photo-meta-card">
+                    <span className="meta-card-label">Status</span>
+                    <span className="meta-card-value">
+                      {photoModal.status || 'Verified'}
+                    </span>
+                  </div>
+
+                  <div className="photo-meta-card" style={{ gridColumn: '1 / -1' }}>
+                    <span className="meta-card-label">Location / Geo Proof</span>
+                    <div className="meta-location-box">
+                      <span>📍 {photoModal.location || 'Office Premises'}</span>
+                      {photoModal.lat !== 0 && photoModal.lng !== 0 && (
+                        <a
+                          href={`https://maps.google.com/?q=${photoModal.lat},${photoModal.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="photo-maps-link"
+                        >
+                          🌐 Open in Google Maps ({photoModal.lat?.toFixed(4)}, {photoModal.lng?.toFixed(4)})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="photo-preview-footer">
+                <button className="photo-preview-close-btn" onClick={() => setPhotoModal(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </IonContent>
     </IonPage>
   );

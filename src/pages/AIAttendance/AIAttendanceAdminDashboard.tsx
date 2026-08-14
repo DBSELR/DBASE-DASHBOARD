@@ -115,6 +115,18 @@ const AIAttendanceAdminDashboard: React.FC = () => {
                 <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#64748b', lineHeight: 1.5 }}>Enforce Bluetooth and GPS validation rules by branch or employee.</p>
               </div>
 
+              <div 
+                className="stock-panel ad-card-hover" 
+                onClick={() => history.push('/policy-master')}
+                style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', cursor: 'pointer', borderRadius: '16px', transition: 'all 0.2s', border: '1.5px solid #0284c7' }}
+              >
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                  <IonIcon icon={settingsOutline} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0369a1' }}>Policy Master ⚡</h3>
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#64748b', lineHeight: 1.5 }}>Configure 4 Free Graces, 6 Permissions, 10 Late Occasions, Lunch &amp; Yellow Slips.</p>
+              </div>
+
             </div>
 
             {/* Email Report section */}

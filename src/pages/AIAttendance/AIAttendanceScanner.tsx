@@ -108,8 +108,14 @@ const AIAttendanceScanner: React.FC = () => {
   // Grace & Rules Telemetry
   const [graceSummary, setGraceSummary] = useState<{
     freeGracesUsed: number;
+    freeGracesMax?: number;
     gracesLeft: number;
     permissionGraceUsed: number;
+    permissionSessionsMax?: number;
+    permissionSessionsLeft?: number;
+    totalLateOccasionsUsed?: number;
+    totalLateOccasionsMax?: number;
+    totalLateOccasionsLeft?: number;
     permissionBalance: number;
     pTime?: number;
     approvedOvertime?: number;
@@ -123,6 +129,30 @@ const AIAttendanceScanner: React.FC = () => {
   const [graceHistoryFilter, setGraceHistoryFilter] = useState<'ALL' | 'LOP' | 'GRACE' | 'PERMISSION'>('ALL');
   const [isScannerPaused, setIsScannerPaused] = useState<boolean>(false);
   const isScannerPausedRef = useRef<boolean>(false);
+  const [activeRule, setActiveRule] = useState<{
+    btRequired: boolean;
+    gpsRequired: boolean;
+    ruleSource: string;
+    branch?: string;
+    branchDept?: string;
+  } | null>(null);
+
+  const [policyMap, setPolicyMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch(`${API_BASE}Checkin/GetAttendancePolicyMaster`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data)) {
+          const map: Record<string, string> = {};
+          data.data.forEach((p: any) => { map[p.policyKey] = p.policyValue; });
+          setPolicyMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const getPolVal = (key: string, fallback: string = '') => policyMap[key] || fallback;
 
   const logDebug = (msg: string) => {
     console.log(`[DEBUG] ${msg}`);
@@ -257,6 +287,24 @@ const AIAttendanceScanner: React.FC = () => {
         const currentEmpId = parsed?.empCode || parsed?.EmpCode || "";
         if (currentEmpId) {
           fetchGraceSummary(currentEmpId);
+          fetch(`${API_BASE}Checkin/GetMyAttendanceRule?empId=${currentEmpId}`, {
+            headers: { 'x-api-key': 'dbase-ai-master-key-2026' }
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data?.success) {
+                setActiveRule({
+                  btRequired: data.btRequired,
+                  gpsRequired: data.gpsRequired,
+                  ruleSource: data.ruleSource,
+                  branch: data.branch,
+                  branchDept: data.branchDept
+                });
+                logDebug(`Rule: BT=${data.btRequired}, GPS=${data.gpsRequired} (${data.ruleSource})`);
+              }
+            })
+            .catch(() => {});
+
           fetch(`${API_BASE}Checkin/GetActivePermissionForToday?empId=${currentEmpId}`)
             .then(res => res.json())
             .then(data => {
@@ -1279,24 +1327,44 @@ const AIAttendanceScanner: React.FC = () => {
                 </div>
 
                 <div className="sc-ind-row">
-                  <div className={`sc-ind ${locationReady ? 'ind-ok' : 'ind-wait'}`}>
-                    <IonIcon icon={pinOutline} />
-                    <span>{locationReady ? 'GPS Verified' : 'GPS Fix…'}</span>
-                  </div>
+                  {/* GPS Indicator */}
                   <div
-                    className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
+                    className={`sc-ind ${activeRule?.gpsRequired === false ? 'ind-ok' : locationReady ? 'ind-ok' : 'ind-wait'}`}
+                    style={activeRule?.gpsRequired === false ? { background: 'rgba(148, 163, 184, 0.1)', color: '#64748b', borderColor: '#cbd5e1' } : {}}
+                    title={activeRule?.gpsRequired === false ? "GPS Geofence is OFF for this profile" : "GPS Geofence Required"}
+                  >
+                    <IonIcon icon={pinOutline} />
+                    <span>
+                      {activeRule?.gpsRequired === false
+                        ? 'GPS: OFF'
+                        : locationReady
+                          ? 'GPS Verified'
+                          : 'GPS Fix… (Req)'}
+                    </span>
+                  </div>
+
+                  {/* Bluetooth Beacon Indicator */}
+                  <div
+                    className={`sc-ind ${activeRule?.btRequired === false ? 'ind-ok' : bleVerified ? 'ind-ok' : 'ind-wait'}`}
                     style={
-                      !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
-                        ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
-                        : {}
+                      activeRule?.btRequired === false
+                        ? { background: 'rgba(148, 163, 184, 0.1)', color: '#64748b', borderColor: '#cbd5e1' }
+                        : !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
+                          ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
+                          : {}
                     }
+                    title={activeRule?.btRequired === false ? "Bluetooth Beacon is OFF for this profile" : "Bluetooth Beacon Required"}
                   >
                     <IonIcon icon={bluetoothOutline} />
-                    <span>{bleVerified
-                      ? 'Beacon OK'
-                      : bleSignalStrength !== null && bleSignalStrength < -80
-                        ? 'BLE Weak'
-                        : 'Beacon…'}</span>
+                    <span>
+                      {activeRule?.btRequired === false
+                        ? 'BLE: OFF'
+                        : bleVerified
+                          ? 'Beacon OK'
+                          : bleSignalStrength !== null && bleSignalStrength < -80
+                            ? 'BLE Weak'
+                            : 'Beacon… (Req)'}
+                    </span>
                   </div>
                 </div>
 
@@ -1541,20 +1609,22 @@ const AIAttendanceScanner: React.FC = () => {
 
                             <div className="grace-details-panel">
                               <div className="grace-stat-row">
-                                <span>Morning Graces Left</span>
-                                <span className="val-high">{graceSummary.gracesLeft} / 4</span>
+                                <span>🟢 Free Graces</span>
+                                <span className="val-high">{graceSummary.gracesLeft} / {graceSummary.freeGracesMax ?? 4} Left</span>
                               </div>
                               <div className="grace-stat-row">
-                                <span>Morning Graces Used</span>
-                                <span className="val-high" style={{ color: '#ef4444' }}>{graceSummary.freeGracesUsed} Used</span>
+                                <span>🟡 Permission Sessions</span>
+                                <span className="val-high" style={{ color: '#d97706' }}>{graceSummary.permissionGraceUsed} / {graceSummary.permissionSessionsMax ?? 6} Used</span>
                               </div>
                               <div className="grace-stat-row">
-                                <span>P_Time (Base Permission)</span>
-                                <span className="val-high">{graceSummary.pTime ?? 0} min</span>
+                                <span>🔴 Total Late Occasions</span>
+                                <span className="val-high" style={{ color: (graceSummary.totalLateOccasionsUsed ?? (graceSummary.freeGracesUsed + graceSummary.permissionGraceUsed)) >= 10 ? '#ef4444' : '#1e293b' }}>
+                                  {graceSummary.totalLateOccasionsUsed ?? (graceSummary.freeGracesUsed + graceSummary.permissionGraceUsed)} / {graceSummary.totalLateOccasionsMax ?? 10}
+                                </span>
                               </div>
                               <div className="grace-stat-row">
-                                <span>Approved Overtime Credits</span>
-                                <span className="val-high" style={{ color: '#16a34a' }}>+ {graceSummary.approvedOvertime ?? 0} min</span>
+                                <span>P_Time Balance</span>
+                                <span className="val-high">{graceSummary.permissionBalance} min</span>
                               </div>
                               <div className="grace-stat-row" style={{ alignItems: 'center' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1853,44 +1923,68 @@ const AIAttendanceScanner: React.FC = () => {
                     <IonIcon icon={closeOutline} />
                   </button>
                 </div>
-                <div className="rules-modal-body">
+                <div className="rules-modal-body" style={{ textAlign: 'left', maxHeight: '70vh', overflowY: 'auto' }}>
                   <div className="rule-section">
-                    <h4 className="rule-sec-title">🌅 Morning In Window</h4>
-                    <p style={{ margin: '4px 0' }}>
-                      Standard check-in slot starts at <strong>7:00 AM</strong>.
-                    </p>
-                    <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
-                      <li>Each employee is allowed <strong>4 Morning Graces</strong> per month (arriving up to 10:30 AM).</li>
-                      <li>If graces are exhausted, late minutes are deducted from your monthly <strong>Permission Balance</strong>.</li>
-                      <li>Check-ins after <strong>10:35 AM</strong> bypass all graces/permissions and are automatically marked as <strong>LOP</strong>.</li>
+                    <h4 className="rule-sec-title">🌅 1. Morning In Window &amp; Monthly Free Grace</h4>
+                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                      <li><strong>Dynamic In-Time:</strong> Reporting time is strictly read from your employee profile in <code>tbl_employee.InTime</code> (e.g. 09:00, 09:30, 10:00).</li>
+                      <li><strong>{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces:</strong> Allowed <strong>{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces</strong> per calendar month for late arrival up to <strong>{getPolVal('FreeGraceMaxMinutes', '15')} minutes</strong> each.</li>
+                      <li><strong>{getPolVal('MaxPermissionSessionsPerMonth', '6')} Permission Sessions:</strong> Subsequent late arrivals auto-deduct from your monthly allotted <code>P_Time</code> balance (up to <strong>{getPolVal('MaxPermissionSessionsPerMonth', '6')} permission sessions</strong>).</li>
+                      <li><strong>{getPolVal('TotalAllowedLateOccasions', '10')} Total Occasion Cap:</strong> Maximum <strong>{getPolVal('TotalAllowedLateOccasions', '10')} late occasions</strong> allowed per month ({getPolVal('FreeGraceMonthlyCount', '4')} free graces + {getPolVal('MaxPermissionSessionsPerMonth', '6')} permissions). After {getPolVal('MaxPermissionSessionsPerMonth', '6')} sessions, permission adjustment is stopped even if P_Time balance remains.</li>
+                      <li><strong>Beyond {getPolVal('TotalAllowedLateOccasions', '10')} Occasions Penalty:</strong> Exceeding {getPolVal('TotalAllowedLateOccasions', '10')} occasions OR having zero permission balance converts the total late time including the 60 min grace to <strong>Loss of Pay (LOP) + 1 Yellow Slip</strong>.</li>
                     </ul>
                   </div>
 
                   <div className="rule-section">
-                    <h4 className="rule-sec-title">🍱 Lunch Out & Lunch In (1-Hour Rule)</h4>
-                    <p style={{ margin: '4px 0' }}>
-                      Lunch break is highly flexible. The system dynamically computes your personal check-in window:
-                    </p>
-                    <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
-                      <li>Your Lunch In cutoff is set to exactly <strong>1 hour from your actual Lunch Out</strong> registration.</li>
-                      <li>For example: If you log Lunch Out at <strong>1:45 PM</strong>, you have until <strong>2:45 PM</strong> to log Lunch In without any late penalties.</li>
-                      <li>If you do not register a Lunch Out today, the Lunch In window defaults to <strong>2:30 PM</strong>.</li>
+                    <h4 className="rule-sec-title">🍱 2. Lunch Break &amp; Afternoon Rules</h4>
+                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                      <li><strong>Official Window:</strong> Standard lunch break is from <strong>{getPolVal('StandardLunchStartTime', '13:30:00')} to {getPolVal('StandardLunchEndTime', '14:30:00')}</strong>.</li>
+                      <li><strong>Auto {getPolVal('LunchBreakDurationMinutes', '60')}-Minute Duration:</strong> If you punch Lunch Out at 2:00 PM, 3:00 PM, 4:00 PM, etc., the system auto-calculates exactly <strong>{getPolVal('LunchBreakDurationMinutes', '60')} minutes break</strong> from your actual Lunch Out punch.</li>
+                      <li><strong>No Afternoon Grace:</strong> Free grace applies ONLY to Morning In. Late arrival beyond {getPolVal('LunchBreakDurationMinutes', '60')} minutes auto-deducts from Permission balance or converts to Loss of Pay (LOP).</li>
                     </ul>
                   </div>
 
                   <div className="rule-section">
-                    <h4 className="rule-sec-title">🌇 Evening Out Window</h4>
-                    <p style={{ margin: '4px 0' }}>
-                      End of shift checkout. Register your logout before leaving.
-                    </p>
+                    <h4 className="rule-sec-title">🌆 3. Evening Out &amp; Shift Defaults</h4>
+                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                      <li>Standard checkout time: <strong>{getPolVal('StandardEveningOutTime', '18:33:00')}</strong>. Register your punch before leaving.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">⏱️ 4. Monthly Permission Quotas (P_Time)</h4>
+                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                      <li><strong>Technical Staff:</strong> {getPolVal('TechnicalDefaultPermissionMinutes', '60')} minutes / month.</li>
+                      <li><strong>Non-Technical Staff:</strong> {getPolVal('NonTechnicalDefaultPermissionMinutes', '90')} minutes / month.</li>
+                      <li><strong>Marketing Executives:</strong> {getPolVal('MarketingDefaultPermissionMinutes', '240')} minutes / month.</li>
+                      <li><strong>Max Single Session:</strong> {getPolVal('MaxSinglePermissionMinutes', '60')} minutes per permission.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">⚠️ 5. Excess Permission &amp; Double LOP Matrix</h4>
+                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                      <li><strong>Approved Excess (Up to {getPolVal('ApprovedExcessPermissionMinutes', '180')} min):</strong> Allowed beyond allotted P_Time subject to available permission balance (procured via overtime or carryover).</li>
+                      <li><strong>Excess Up to {getPolVal('SingleLopExcessMinutes', '120')} min Without Balance:</strong> Attracts <strong>Single Loss of Pay (1x LOP)</strong>.</li>
+                      <li><strong>Excess &gt; {getPolVal('DoubleLopExcessMinutes', '120')} min Without Balance:</strong> Attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in total deduction).</li>
+                      <li><strong>Carry Forward:</strong> Surplus permission time carries forward monthly and can be encashed yearly with management approval.</li>
+                    </ul>
+                  </div>
+
+                  <div className="rule-section">
+                    <h4 className="rule-sec-title">🟨 6. Yellow Slip Issuance Triggers</h4>
+                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                      <li><strong>+1 Yellow Slip:</strong> Issued automatically when exceeding {getPolVal('TotalAllowedLateOccasions', '10')} total late occasions in a month.</li>
+                      <li><strong>+1 Yellow Slip:</strong> Issued for every <strong>{getPolVal('YellowSlipExcessFrequency', '3')} excess permission sessions</strong> without available balance.</li>
+                    </ul>
                   </div>
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
                   <button
                     onClick={() => setShowRulesModal(false)}
-                    style={{ padding: '8px 18px', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ padding: '8px 20px', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
                   >
-                    Got It
+                    Close Policy Guide
                   </button>
                 </div>
               </div>
