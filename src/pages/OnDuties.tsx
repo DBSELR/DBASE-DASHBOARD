@@ -633,7 +633,9 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     kind: "start" | "end" | "both" | null;
     isRoundTrip: boolean;
     secondsLeft: number;
-  }>({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 });
+    readingFrom: string;
+    readingTo: string;
+  }>({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5, readingFrom: "", readingTo: "" });
 
   useEffect(() => {
     if (!dayTripCampConfirm.open || dayTripCampConfirm.secondsLeft <= 0) return;
@@ -642,6 +644,63 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     }, 1000);
     return () => clearTimeout(t);
   }, [dayTripCampConfirm.open, dayTripCampConfirm.secondsLeft]);
+
+  // Asks the same "this starts/ends the camp" question dayTripCampConfirm
+  // asks at Save Trip, but right at the Reading From/To upload click -
+  // before the file picker even opens - since the photo itself can only be
+  // replaced for 5 minutes after upload (see READING_EDIT_MS). Waiting
+  // until Save Trip to ask meant the photo could already be locked in,
+  // with visits/remarks still unsaved, by the time "No" was even an
+  // option. refs below let "Yes" open the real file picker afterwards -
+  // that click is its own fresh user gesture, so browsers allow it same as
+  // any other button-triggered picker.
+  const readingFromInputRef = useRef<HTMLInputElement>(null);
+  const readingToInputRef = useRef<HTMLInputElement>(null);
+  const readingUploadBypassRef = useRef<{ from: boolean; to: boolean }>({ from: false, to: false });
+  // Tracks which (dutyDate|which) pairs already got a "yes" here, so
+  // saveDayTripModal doesn't ask the same start/end question a second time
+  // - it still separately validates the actual reading numbers at save
+  // time (see dtBlockOnSameReading), which this click-time question can't
+  // do yet since the closing number usually isn't typed in until after the
+  // photo is picked.
+  const confirmedReadingUploadsRef = useRef<Set<string>>(new Set());
+
+  const [readingUploadConfirm, setReadingUploadConfirm] = useState<{
+    open: boolean;
+    which: "from" | "to" | null;
+    dutyDate: string;
+    title: string;
+    text: string;
+    secondsLeft: number;
+  }>({ open: false, which: null, dutyDate: "", title: "", text: "", secondsLeft: 5 });
+
+  useEffect(() => {
+    if (!readingUploadConfirm.open || readingUploadConfirm.secondsLeft <= 0) return;
+    const t = setTimeout(() => {
+      setReadingUploadConfirm((s) => ({ ...s, secondsLeft: s.secondsLeft - 1 }));
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [readingUploadConfirm.open, readingUploadConfirm.secondsLeft]);
+
+  const closeReadingUploadConfirm = () => {
+    setReadingUploadConfirm({ open: false, which: null, dutyDate: "", title: "", text: "", secondsLeft: 5 });
+  };
+
+  const confirmReadingUploadAction = () => {
+    const { which, dutyDate } = readingUploadConfirm;
+    closeReadingUploadConfirm();
+    if (!which) return;
+    // Answering "Yes" only records that the camp question was already
+    // asked for this upload (so saveDayTripModal/the next click don't ask
+    // it again) - the actual 5 minute replace clock starts only once a
+    // photo is really chosen (see the onChange handlers below), not here.
+    // Starting it on "Yes" would mean cancelling the native picker with no
+    // photo picked still burned part - or all - of the 5 minutes on a
+    // photo that was never actually uploaded.
+    confirmedReadingUploadsRef.current.add(`${dutyDate}|${which}`);
+    readingUploadBypassRef.current[which] = true;
+    (which === "from" ? readingFromInputRef : readingToInputRef).current?.click();
+  };
 
   const confirmCampAction = async () => {
     const { action, row } = campConfirm;
@@ -1051,9 +1110,19 @@ useEffect(() => {
   const confirmReadingUpload = (
     dutyDate: string,
     which: "from" | "to",
-    hasImage: boolean
+    hasImage: boolean,
+    // Folded into this same click's confirm(s) rather than shown later at
+    // Save Trip - the reading photo itself can only be replaced within 5
+    // minutes of upload (see isReadingLocked/READING_EDIT_MS above), so by
+    // the time someone reaches Save Trip after also filling in the reading
+    // number, visits, etc., that window may already be gone and there is
+    // no real way back. Surfacing the camp consequence at the point the
+    // photo is actually chosen - not after - is what gives the "No" here
+    // any teeth.
+    campConsequence?: string
   ): boolean => {
     const label = which === "from" ? "starting" : "closing";
+    const suffix = campConsequence ? `\n\n${campConsequence}` : "";
 
     if (isReadingLocked(dutyDate, which, hasImage)) {
       notify(
@@ -1075,7 +1144,7 @@ useEffect(() => {
       return window.confirm(
         `This ${label} reading photo can still be replaced for about ` +
           `${leftMin} more minute${leftMin === 1 ? "" : "s"}, after which it ` +
-          `is fixed.\n\nReplace it now?`
+          `is fixed.\n\nReplace it now?${suffix}`
       );
     }
 
@@ -1083,7 +1152,7 @@ useEffect(() => {
       `The ${label} reading photo is the record of when this part of the ` +
         `day happened, so it cannot be edited once it has been uploaded.` +
         `\n\nIf it comes out wrong you can replace it, but only within ` +
-        `5 minutes of uploading it.\n\nUpload now?`
+        `5 minutes of uploading it.\n\nUpload now?${suffix}`
     );
     if (ok) readingLockRef.current[readingLockKey(dutyDate, which)] = Date.now();
     return ok;
@@ -1254,6 +1323,40 @@ useEffect(() => {
   if (!nextDate) {
     notify("All day trips already added", "warning");
     return;
+  }
+
+  // Block adding the next day until the immediately preceding day's
+  // closing (Reading To) photo has actually been uploaded. The card list
+  // can show "Reading X -> X (0 Kms)" for a day whose end reading was
+  // never really uploaded - in "add" mode Reading To is auto-mirrored
+  // from Reading From purely as a form default (see updateTripDay's
+  // readingFrom handler), with no photo behind it - so checking
+  // readingToImage (not readingTo, which can hold that mirrored text)
+  // is the only reliable way to tell a real closing upload from the
+  // placeholder. Without this, a new day could be opened and even saved
+  // while the previous day's vehicle reading was never actually closed
+  // out, leaving a gap in the reading trail and, for a same-day Round
+  // Trip, silently skipping the auto-close/lock that closing reading
+  // was supposed to trigger.
+  //
+  // Public Transport never has a Reading To photo at all - that mode
+  // skips vehicle readings entirely and only ever asks for Distance (see
+  // isPublicTransport throughout this file, e.g. the day-trip modal's
+  // "only distance required" validation) - so this guard would otherwise
+  // permanently block every Public Transport duty from adding a second
+  // day. It only applies to duties that actually upload readings.
+  const isPublicTransportRow = row.Mode_of_Trans === "PublicTransport";
+  if (!isPublicTransportRow) {
+    const previousTrip = [...currentTrips].sort((a, b) =>
+      normalize(a.dutyDate).localeCompare(normalize(b.dutyDate))
+    )[currentTrips.length - 1];
+    if (previousTrip && !previousTrip.readingToImage) {
+      notify(
+        `Please upload the End Reading for ${moment(previousTrip.dutyDate).format("DD-MM-YYYY")} before adding the next day.`,
+        "warning"
+      );
+      return;
+    }
   }
 
   // Note: adding a duty day for a FUTURE date is deliberately allowed - an
@@ -1603,23 +1706,14 @@ useEffect(() => {
       }
     }
 
-    // At least one visit required (Only in EDIT mode) - but not for a plain
-    // Branch duty. Punch-in at the branch already proves attendance there;
-    // it is Party, Client and Official work (and the "Branch & ..." duties
-    // that carry a party/client half alongside the branch stay) where a
-    // visit record is the only proof the work happened, so those are the
-    // ones this still guards. A duty saved before OnDutyType existed has
-    // nothing to match here and keeps needing a visit, same as before.
-    const dutyTypeForVisit = String(selectedDutyRow?.OnDutyType || "").trim();
-    const visitRequiredForDuty = dutyTypeForVisit !== "Branch";
-
-    if (tripModalMode === "edit" && visitRequiredForDuty) {
-      if (!trip.visits || !trip.visits.length) {
-        notify("At least one visit required", "warning");
-        isSavingTrip.current = false;
-        return;
-      }
-
+    // A day trip can now be saved with zero visits recorded - the
+    // reading upload (and, for Party/Client/Official work, the trip
+    // itself) is already the record that the day happened; requiring a
+    // visit on top of that blocked otherwise-valid saves (e.g. a day with
+    // only travel and no client stop). The time-ordering checks below
+    // still apply whenever visits ARE present, for any duty type - they
+    // simply have nothing to check against an empty visits array.
+    if (tripModalMode === "edit") {
       // Visit From Time must not be earlier than the On Duty's own applied
       // Timeline start (selectedDutyRow.Start_Time, fetched from the db -
       // see the mapDutyRows/backend fix). Visit To Time has no Timeline
@@ -1734,7 +1828,19 @@ useEffect(() => {
     //     end reading here never prompts either.
     const dutyTripTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
     const isDailyShuttleDuty = dutyTripTypeLower === "daily shuttle";
-    const isRoundTripDuty = dutyTripTypeLower === "round trip";
+    // The server's own camp-trigger gates (Save_DayTrip's isOwnOrOfficeVehicle,
+    // and EndCamp's isRoundTrip) don't require an exact "Round Trip" match -
+    // they trigger for ANY TripType that isn't "Daily Shuttle", blank
+    // included. Office-vehicle duty types like "Party" never ask Round Trip
+    // vs Daily Shuttle, so TripType is "" for them, yet the server still
+    // auto-starts/closes their camp on a reading upload (and permanently
+    // locks a same-day one) exactly as it does for an explicit "Round Trip".
+    // Requiring an exact match here meant isVehicleDuty was false for every
+    // blank-TripType duty, so this whole confirm-dialog block was skipped
+    // for them: readings got uploaded and camps got started/closed/locked
+    // server-side with no warning ever shown. Matching the server's own
+    // proxy keeps what the user is told in sync with what actually happens.
+    const isRoundTripDuty = !isDailyShuttleDuty;
     const isVehicleDuty = !isPublicTransport && (isDailyShuttleDuty || isRoundTripDuty);
     // A Round Trip whose own DateFrom/DateTo fall on the same calendar day
     // now auto-closes (and permanently locks) exactly like Daily Shuttle's
@@ -1751,9 +1857,44 @@ useEffect(() => {
       const uploadingEnd = trip.readingToImage instanceof File;
       const campAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
 
+      // If the Reading From/To upload click already asked (and got a yes
+      // for) this exact question, don't ask it again here - see
+      // confirmedReadingUploadsRef and the file inputs' onClick above.
+      const alreadyConfirmedStart = confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`);
+      const alreadyConfirmedEnd = confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`);
+
+      const endReadingApplies = uploadingEnd && (isDailyShuttleDuty || isSameDayRoundTrip);
+
+      // The click-time question can only ask "do you want to do this" -
+      // the closing number usually isn't typed in until after that photo
+      // is picked, so it can't check it yet. This is where that check
+      // actually happens once the reading is final - skipping it just
+      // because the click-time question was already answered would drop
+      // the one check that actually looks at the numbers.
+      if (endReadingApplies && alreadyConfirmedEnd) {
+        const endRf = trip.readingFrom || "";
+        const endRt = trip.readingTo || "";
+        if (
+          endRf !== "" &&
+          endRt !== "" &&
+          !Number.isNaN(Number(endRf)) &&
+          Number(endRf) === Number(endRt)
+        ) {
+          isSavingTrip.current = false;
+          notify(
+            `Start and end reading are both ${endRf} - no distance recorded. Please re-check ` +
+              `and update the closing reading before saving.`,
+            "danger"
+          );
+          return;
+        }
+      }
+
       const needsStartConfirm =
-        uploadingStart && (isDailyShuttleDuty || (isRoundTripDuty && !campAlreadyActive));
-      const needsEndConfirm = uploadingEnd && (isDailyShuttleDuty || isSameDayRoundTrip);
+        uploadingStart &&
+        !alreadyConfirmedStart &&
+        (isDailyShuttleDuty || (isRoundTripDuty && !campAlreadyActive));
+      const needsEndConfirm = endReadingApplies && !alreadyConfirmedEnd;
 
       if (needsStartConfirm || needsEndConfirm) {
         isSavingTrip.current = false;
@@ -1762,6 +1903,8 @@ useEffect(() => {
           kind: needsStartConfirm && needsEndConfirm ? "both" : needsStartConfirm ? "start" : "end",
           isRoundTrip: isRoundTripDuty,
           secondsLeft: 5,
+          readingFrom: trip.readingFrom || "",
+          readingTo: trip.readingTo || "",
         });
         return;
       }
@@ -6585,23 +6728,84 @@ useEffect(() => {
   Reading From
   <input
     hidden
+    ref={readingFromInputRef}
     type="file"
     accept="image/*"
     onClick={(e) => {
-      if (
-        !confirmReadingUpload(
-          trip.dutyDate,
-          "from",
-          !!trip.readingFromImage
-        )
-      ) {
-        e.preventDefault();
+      // A bypass "Yes" click on readingUploadConfirm below re-triggers
+      // this same input via the ref - let that one through untouched, the
+      // question has already been asked and answered.
+      if (readingUploadBypassRef.current.from) {
+        readingUploadBypassRef.current.from = false;
+        saveModalScroll();
         return;
       }
-      saveModalScroll();
+
+      if (isReadingLocked(trip.dutyDate, "from", !!trip.readingFromImage)) {
+        e.preventDefault();
+        notify(
+          "The starting reading photo for this day has already been uploaded " +
+            "and can no longer be changed. It could only be replaced within " +
+            "5 minutes of the first upload.",
+          "warning"
+        );
+        return;
+      }
+
+      const rfFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "from")];
+      if (rfFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`)) {
+        // Already asked once (either replacing within the window, or this
+        // exact upload was already confirmed here) - the plain lock-replace
+        // confirm still applies, nothing more to ask about camp.
+        if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
+          e.preventDefault();
+          return;
+        }
+        saveModalScroll();
+        return;
+      }
+
+      // First-time upload. Mirrors needsStartConfirm in saveDayTripModal -
+      // Daily Shuttle asks every day; a Round-Trip-like duty (blank
+      // TripType included, same "not Daily Shuttle" proxy used throughout
+      // this session) only asks on the very first reading of the whole
+      // trip - once the camp is already active, later days' Reading From
+      // uploads are just recording that day's numbers.
+      const rfDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+      const rfIsDailyShuttle = rfDutyTypeLower === "daily shuttle";
+      const rfCampAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
+      const rfNeedsConfirm = rfIsDailyShuttle || !rfCampAlreadyActive;
+
+      if (!rfNeedsConfirm) {
+        if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
+          e.preventDefault();
+          return;
+        }
+        saveModalScroll();
+        return;
+      }
+
+      // Stop here and ask with the same styled dialog Save Trip used to
+      // wait until Save Trip for - before the photo (and its 5 minute
+      // replace clock) exists at all, not after.
+      e.preventDefault();
+      setReadingUploadConfirm({
+        open: true,
+        which: "from",
+        dutyDate: trip.dutyDate,
+        title: rfIsDailyShuttle ? "Start today's camp?" : "Start this trip's camp?",
+        text: rfIsDailyShuttle
+          ? "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+          : "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it.",
+        secondsLeft: 5,
+      });
     }}
     onChange={(e) => {
       const file = e.target.files?.[0] || null;
+
+      if (file && readingLockRef.current[readingLockKey(trip.dutyDate, "from")] === undefined) {
+        readingLockRef.current[readingLockKey(trip.dutyDate, "from")] = Date.now();
+      }
 
       updateTripDay(
         editingTripIndex!,
@@ -6747,26 +6951,90 @@ useEffect(() => {
           Reading To
           <input
             hidden
+            ref={readingToInputRef}
             type="file"
             accept="image/*"
             onClick={(e) => {
-              if (
-                !confirmReadingUpload(
-                  trip.dutyDate,
-                  "to",
-                  !!trip.readingToImage
-                )
-              ) {
-                e.preventDefault();
+              // A bypass "Yes" click on readingUploadConfirm below
+              // re-triggers this same input via the ref - let it through.
+              if (readingUploadBypassRef.current.to) {
+                readingUploadBypassRef.current.to = false;
+                saveModalScroll();
                 return;
               }
-              saveModalScroll();
+
+              if (isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)) {
+                e.preventDefault();
+                notify(
+                  "The closing reading photo for this day has already been uploaded " +
+                    "and can no longer be changed. It could only be replaced within " +
+                    "5 minutes of the first upload.",
+                  "warning"
+                );
+                return;
+              }
+
+              const rtFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "to")];
+              if (rtFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`)) {
+                if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
+                  e.preventDefault();
+                  return;
+                }
+                saveModalScroll();
+                return;
+              }
+
+              // Same "not Daily Shuttle" proxy used everywhere else this
+              // session (Save_DayTrip/EndCamp on the API, isVehicleDuty
+              // above) - a blank TripType office-vehicle duty (e.g.
+              // "Party") is Round-Trip-like here too, not exempt.
+              const rtDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+              const rtIsDailyShuttle = rtDutyTypeLower === "daily shuttle";
+              const rtIsSameDay =
+                !!selectedDutyRow?.DateFrom &&
+                !!selectedDutyRow?.DateTo &&
+                String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
+              const rtIsSameDayRoundTrip = !rtIsDailyShuttle && rtIsSameDay;
+              const rtNeedsConfirm = rtIsDailyShuttle || rtIsSameDayRoundTrip;
+
+              if (!rtNeedsConfirm) {
+                // Multi-day Round Trip - a reading upload never ends camp
+                // here, only the explicit End Camp button does.
+                if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
+                  e.preventDefault();
+                  return;
+                }
+                saveModalScroll();
+                return;
+              }
+
+              // Stop here and ask before the photo (and its 5 minute
+              // replace clock) exists at all, not after - the actual
+              // reading-value check (same start/end reading) still runs
+              // again at Save Trip, once the closing number is known.
+              e.preventDefault();
+              setReadingUploadConfirm({
+                open: true,
+                which: "to",
+                dutyDate: trip.dutyDate,
+                title: rtIsDailyShuttle ? "End today's camp?" : "End this trip's camp?",
+                text: rtIsDailyShuttle
+                  ? "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+                  : "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it.",
+                secondsLeft: 5,
+              });
             }}
             onChange={(e) => {
+              const toFile = e.target.files?.[0] || null;
+
+              if (toFile && readingLockRef.current[readingLockKey(trip.dutyDate, "to")] === undefined) {
+                readingLockRef.current[readingLockKey(trip.dutyDate, "to")] = Date.now();
+              }
+
               updateTripDay(
                 editingTripIndex!,
                 "readingToImage",
-                e.target.files?.[0] || null
+                toFile
               );
               restoreModalScroll();
             }}
@@ -7890,14 +8158,66 @@ updateTripDay(
               const row = campConfirm.row;
               const isStart = campConfirm.action === "start";
               const tripType = row ? campStatusByDuty[String(row.id)]?.tripType : "";
+              // Blank TripType counts as Round Trip here, not "neither" -
+              // office-vehicle duties (e.g. "Party") never ask Round Trip
+              // vs Daily Shuttle, so TripType is "" for them (see the
+              // DutyRow comment on TripType), and the server's own EndCamp
+              // permanent-lock gate already treats "not Daily Shuttle" as
+              // Round Trip for exactly that reason (isRoundTrip in
+              // OnDutyController.cs). Requiring !!tripType here meant a
+              // blank-TripType duty fell through to the plain "stops
+              // tracking for today's camp" copy - implying a reversible,
+              // single-day action - while the server was about to
+              // permanently lock the whole duty underneath it. Matching
+              // the server's proxy keeps the dialog from understating what
+              // Yes is about to do.
               const isRoundTrip = !isStart
-                && !!tripType
-                && tripType.toLowerCase() !== "daily shuttle";
+                && (tripType || "").toLowerCase() !== "daily shuttle";
               const ready = campConfirm.secondsLeft <= 0;
               // Only worth computing for the case it was built for: ending a
               // Round Trip early. Starting, or ending a Daily Shuttle's own
               // single day, has nothing "still pending" to warn about.
               const pendingDays = !isStart && isRoundTrip && row ? pendingOnDutyDays(row) : [];
+              // Ending a Round Trip is a permanent, whole-duty lock (see
+              // isRoundTrip's copy above) - if the duty's own approved
+              // DateTo hasn't arrived yet, tapping End Camp today closes
+              // and locks the whole thing before its scheduled finish, not
+              // just before "all days reported" (pendingDays already
+              // covers that separately). Surfacing this explicitly stops
+              // an early tap from silently pre-closing a trip that still
+              // has scheduled days left on it.
+              const todayStart = nowIST().startOf("day");
+              const dateToStart = row?.DateTo ? moment(row.DateTo).startOf("day") : null;
+              const endsBeforeScheduledDate =
+                !isStart && isRoundTrip && !!dateToStart && dateToStart.isValid() && todayStart.isBefore(dateToStart);
+              // Ending camp always checks the actual odometer trail, not
+              // just whether readings exist - Public Transport never
+              // records readings at all (it only ever asks for Distance),
+              // so it's excluded outright. For everyone else, "start
+              // reading" is the very first day's Reading From and "end
+              // reading" is the most recent day's Reading To (falling back
+              // to that day's own Reading From if its closing reading was
+              // never uploaded) - same reading on both ends means either
+              // nothing actually moved or the closing figure is still just
+              // the mirrored placeholder Reading To defaults to (see
+              // updateTripDay), not a real recorded value. Shown here, and
+              // blocked on, before Yes can be tapped - not after.
+              const endCampIsPublicTransport = row?.Mode_of_Trans === "PublicTransport";
+              const endCampTrips = row ? (tripDaysByDuty[row.id] || []) : [];
+              const endCampSortedTrips = [...endCampTrips].sort((a, b) =>
+                String(a.dutyDate).localeCompare(String(b.dutyDate))
+              );
+              const endCampFirstTrip = endCampSortedTrips[0];
+              const endCampLastTrip = endCampSortedTrips[endCampSortedTrips.length - 1];
+              const endCampReadingFrom = endCampFirstTrip?.readingFrom || "";
+              const endCampReadingTo = endCampLastTrip?.readingTo || endCampLastTrip?.readingFrom || "";
+              const endCampHasBothReadings = endCampReadingFrom !== "" && endCampReadingTo !== "";
+              const endCampReadingsSame =
+                endCampHasBothReadings &&
+                !Number.isNaN(Number(endCampReadingFrom)) &&
+                Number(endCampReadingFrom) === Number(endCampReadingTo);
+              const endCampBlockOnSameReading =
+                !isStart && !endCampIsPublicTransport && endCampReadingsSame;
               return (
                 <div className="camp-confirm-body">
                   <div className="camp-confirm-title">
@@ -7916,11 +8236,29 @@ updateTripDay(
                       {row.Branch ? ` – ${row.Branch}` : ""}
                     </div>
                   )}
+                  {endsBeforeScheduledDate && (
+                    <div className="camp-confirm-warn">
+                      This duty is scheduled to run through {dateToStart.format("DD-MM-YYYY")}, but today is{" "}
+                      {todayStart.format("DD-MM-YYYY")}. Ending now closes and permanently locks the whole duty
+                      before its scheduled end date.
+                    </div>
+                  )}
                   {pendingDays.length > 0 && (
                     <div className="camp-confirm-warn">
                       Still no reading logged for {pendingDays.length === 1 ? "this day" : "these days"}{" "}
                       within the approved period: {pendingDays.join(", ")}. Ending now leaves{" "}
                       {pendingDays.length === 1 ? "it" : "them"} unreported.
+                    </div>
+                  )}
+                  {!isStart && !endCampIsPublicTransport && endCampHasBothReadings && (
+                    <div className="camp-confirm-sub">
+                      Reading: {endCampReadingFrom} &rarr; {endCampReadingTo}
+                    </div>
+                  )}
+                  {endCampBlockOnSameReading && (
+                    <div className="camp-confirm-warn">
+                      Start and end reading are both {endCampReadingFrom} - no distance recorded. Please
+                      re-check and upload the actual closing reading before ending camp.
                     </div>
                   )}
                   <div className="camp-confirm-actions">
@@ -7930,7 +8268,7 @@ updateTripDay(
                     <button
                       type="button"
                       className="camp-confirm-yes"
-                      disabled={!ready}
+                      disabled={!ready || endCampBlockOnSameReading}
                       onClick={confirmCampAction}
                     >
                       {ready ? "Yes" : `Yes (${campConfirm.secondsLeft})`}
@@ -7944,7 +8282,7 @@ updateTripDay(
         <IonModal
           isOpen={dayTripCampConfirm.open}
           onDidDismiss={() =>
-            setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 })
+            setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5, readingFrom: "", readingTo: "" })
           }
           className="camp-confirm-modal"
         >
@@ -7953,6 +8291,26 @@ updateTripDay(
               const ready = dayTripCampConfirm.secondsLeft <= 0;
               const kind = dayTripCampConfirm.kind;
               const isRT = dayTripCampConfirm.isRoundTrip;
+              const dtReadingFrom = dayTripCampConfirm.readingFrom;
+              const dtReadingTo = dayTripCampConfirm.readingTo;
+              // "end"/"both" is exactly the case that closes (and, for a
+              // same-day Round Trip, permanently locks) the camp off this
+              // reading upload - Public Transport never reaches this dialog
+              // at all (isVehicleDuty excludes it in saveDayTripModal), so
+              // no separate check is needed for that here. Showing the
+              // actual readings, and refusing to proceed when they're
+              // identical, catches the exact failure mode this whole
+              // feature exists to prevent: a closing reading that was never
+              // really re-entered (Reading To just mirrors Reading From as
+              // a form default - see updateTripDay) silently ending and
+              // locking a trip with 0 Kms recorded.
+              const dtInvolvesEnd = kind === "end" || kind === "both";
+              const dtHasBothReadings = dtReadingFrom !== "" && dtReadingTo !== "";
+              const dtReadingsSame =
+                dtHasBothReadings &&
+                !Number.isNaN(Number(dtReadingFrom)) &&
+                Number(dtReadingFrom) === Number(dtReadingTo);
+              const dtBlockOnSameReading = dtInvolvesEnd && dtReadingsSame;
               // Round Trip reaches "start" for the trip-opening reading, and
               // now also "end"/"both" for a SAME-DAY Round Trip's closing
               // reading (see isSameDayRoundTrip in saveDayTripModal) - a
@@ -7974,25 +8332,36 @@ updateTripDay(
               const text =
                 kind === "end"
                   ? (isRT
-                      ? "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards."
-                      : "This closing reading will end today's camp and stop live location tracking for it.")
+                      ? "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it."
+                      : "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it.")
                   : kind === "both"
                     ? (isRT
                         ? "These readings will start this trip's camp and immediately end it again, since the trip is scheduled for a single day - the duty will be permanently locked afterwards: no more visits, reading uploads, or team changes."
                         : "These readings will both start and end today's camp in one save.")
                     : isRT
-                      ? "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again."
-                      : "This opening reading will start today's camp and switch on live location tracking for it.";
+                      ? "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it."
+                      : "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it.";
               return (
                 <div className="camp-confirm-body">
                   <div className="camp-confirm-title">{title}</div>
                   <div className="camp-confirm-text">{text}</div>
+                  {dtInvolvesEnd && dtHasBothReadings && (
+                    <div className="camp-confirm-sub">
+                      Reading: {dtReadingFrom} &rarr; {dtReadingTo}
+                    </div>
+                  )}
+                  {dtBlockOnSameReading && (
+                    <div className="camp-confirm-warn">
+                      Start and end reading are both {dtReadingFrom} - no distance recorded. Please re-check
+                      and upload the actual closing reading before {isRT ? "ending and permanently locking this trip" : "ending today's camp"}.
+                    </div>
+                  )}
                   <div className="camp-confirm-actions">
                     <button
                       type="button"
                       className="camp-confirm-no"
                       onClick={() =>
-                        setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 })
+                        setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5, readingFrom: "", readingTo: "" })
                       }
                     >
                       No
@@ -8000,13 +8369,43 @@ updateTripDay(
                     <button
                       type="button"
                       className="camp-confirm-yes"
-                      disabled={!ready}
+                      disabled={!ready || dtBlockOnSameReading}
                       onClick={() => {
-                        setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5 });
+                        setDayTripCampConfirm({ open: false, kind: null, isRoundTrip: false, secondsLeft: 5, readingFrom: "", readingTo: "" });
                         saveDayTripModal(true);
                       }}
                     >
                       {ready ? "Yes" : `Yes (${dayTripCampConfirm.secondsLeft})`}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </IonModal>
+        <IonModal
+          isOpen={readingUploadConfirm.open}
+          onDidDismiss={closeReadingUploadConfirm}
+          className="camp-confirm-modal"
+        >
+          <div className="camp-confirm-wrapper">
+            {(() => {
+              const ready = readingUploadConfirm.secondsLeft <= 0;
+              return (
+                <div className="camp-confirm-body">
+                  <div className="camp-confirm-title">{readingUploadConfirm.title}</div>
+                  <div className="camp-confirm-text">{readingUploadConfirm.text}</div>
+                  <div className="camp-confirm-actions">
+                    <button type="button" className="camp-confirm-no" onClick={closeReadingUploadConfirm}>
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="camp-confirm-yes"
+                      disabled={!ready}
+                      onClick={confirmReadingUploadAction}
+                    >
+                      {ready ? "Yes" : `Yes (${readingUploadConfirm.secondsLeft})`}
                     </button>
                   </div>
                 </div>
