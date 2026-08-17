@@ -11,7 +11,9 @@ import {
   checkmarkCircleOutline,
   alertCircleOutline,
   carOutline,
-  lockClosedOutline
+  lockClosedOutline,
+  arrowForwardOutline,
+  speedometerOutline
 } from "ionicons/icons";
 import axios from "axios";
 import { API_BASE } from "../config";
@@ -24,9 +26,23 @@ interface DutyDetails {
   dutyId?: string;
   college?: string;
   description?: string;
+  location?: string;
+  transportMode?: string;
+  vehicleNo?: string;
+  dateFrom?: string;
+  dateTo?: string;
   approvalStatus: "APPROVED" | "PENDING" | "REJECTED";
   approvalBadgeText: string;
   pendingRA?: string;
+  ra1Status?: string;
+  ra2Status?: string;
+  currentRA?: string;
+  hasStartedRide?: boolean;
+  dayTripsCount?: number;
+  latestReadingFrom?: string;
+  latestReadingTo?: string;
+  latestDistance?: number;
+  latestFuel?: number;
 }
 
 const FieldDutyStatusPage: React.FC = () => {
@@ -34,12 +50,8 @@ const FieldDutyStatusPage: React.FC = () => {
   const broadcaster = useLocationBroadcaster();
   const [dutyInfo, setDutyInfo] = useState<DutyDetails | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [showMeterModal, setShowMeterModal] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [meterReading, setMeterReading] = useState("");
-  const [meterPhoto, setMeterPhoto] = useState<string | null>(null);
-  const [submittingRide, setSubmittingRide] = useState(false);
 
   const isPermissionIssue =
     broadcaster.permissionState === "denied" || broadcaster.permissionState === "prompt";
@@ -89,27 +101,40 @@ const FieldDutyStatusPage: React.FC = () => {
 
       // 1. Primary check via OnDuty list endpoint
       try {
-        const dutyRes = await axios.get(
+        let dutyRes = await axios.get(
           `${API_BASE}OnDuty/load_my_duties?empCode=${empCode}`,
           { headers, timeout: 8000 }
         );
 
-        const list: any[] = Array.isArray(dutyRes.data)
+        let list: any[] = Array.isArray(dutyRes.data)
           ? dutyRes.data
           : dutyRes.data?.data || [];
 
+        if (!list.length) {
+          try {
+            const wrRes = await axios.get(
+              `${API_BASE}Workreport/load_my_duties?empCode=${empCode}`,
+              { headers, timeout: 6000 }
+            );
+            list = Array.isArray(wrRes.data) ? wrRes.data : wrRes.data?.data || [];
+          } catch {}
+        }
+
         const todayStr = new Date().toISOString().split("T")[0];
         const todayDuty = list.find((d: any) => {
-          const df = (d.DateFrom || d.dateFrom || d.Date || "").split("T")[0];
-          const dt = (d.DateTo || d.dateTo || d.DateFrom || d.Date || "").split("T")[0];
+          const df = String(d.dateFrom || d.DateFrom || d.Date || "").split("T")[0];
+          const dt = String(d.dateTo || d.DateTo || d.DateFrom || d.Date || "").split("T")[0];
           return df <= todayStr && todayStr <= dt;
-        });
+        }) || list.find((d: any) => {
+          const st = String(d.status || d.Status || d.FinalStatus || "").toLowerCase();
+          return st === "approved";
+        }) || list[0];
 
         if (todayDuty) {
           const ra1St = String(todayDuty.RA1_Status || todayDuty.ra1_Status || todayDuty.rA1_Status || "").trim().toLowerCase();
           const ra2St = String(todayDuty.RA2_Status || todayDuty.ra2_Status || todayDuty.rA2_Status || "").trim().toLowerCase();
           const currentRA = String(todayDuty.CurrentRA || todayDuty.currentRA || "RA1").trim();
-          const overallSt = String(todayDuty.L_status || todayDuty.status || todayDuty.Status || "").trim().toLowerCase();
+          const overallSt = String(todayDuty.status || todayDuty.Status || todayDuty.FinalStatus || todayDuty.L_status || "").trim().toLowerCase();
 
           let verdict: "APPROVED" | "PENDING" | "REJECTED" = "PENDING";
           let badgeText = "Pending at RA1";
@@ -118,7 +143,7 @@ const FieldDutyStatusPage: React.FC = () => {
           if (ra1St === "rejected" || ra2St === "rejected" || overallSt.includes("rejected")) {
             verdict = "REJECTED";
             badgeText = "REJECTED";
-          } else if (ra1St === "approved" && (ra2St === "approved" || !todayDuty.RA2 || todayDuty.RA2 === "-")) {
+          } else if (ra1St === "approved" && (ra2St === "approved" || !todayDuty.RA2 || todayDuty.RA2 === "-" || todayDuty.RA2 === "")) {
             verdict = "APPROVED";
             badgeText = "APPROVED";
           } else if (overallSt.includes("approved")) {
@@ -135,14 +160,52 @@ const FieldDutyStatusPage: React.FC = () => {
             }
           }
 
+          const rawTrips = todayDuty.dayTrips || todayDuty.DayTrips || [];
+          const dayTrips = Array.isArray(rawTrips) ? rawTrips : [];
+          const hasDayTrips = dayTrips.length > 0;
+          const latestTrip = hasDayTrips ? dayTrips[dayTrips.length - 1] : null;
+
+          const rFrom = latestTrip?.readingFrom != null ? String(latestTrip.readingFrom).trim() : "";
+          const rTo = latestTrip?.readingTo != null ? String(latestTrip.readingTo).trim() : "";
+          const rDist = latestTrip?.distance != null ? Number(latestTrip.distance) : 0;
+          const rFuel = latestTrip?.fuelAmount != null ? Number(latestTrip.fuelAmount) : 0;
+
+          const hasStartedRide = hasDayTrips && (
+            Boolean(rFrom && rFrom !== "-") ||
+            Boolean(latestTrip?.readingFromImagePath) ||
+            Boolean(latestTrip?.dayTrip_Id) ||
+            Boolean(rTo && rTo !== "-") ||
+            (Array.isArray(latestTrip?.visits) && latestTrip.visits.length > 0)
+          );
+
+          const college = todayDuty.college || todayDuty.College || todayDuty.client || todayDuty.Client || todayDuty.ClientName || todayDuty.Location || todayDuty.location || "Field Duty Assignment";
+          const description = todayDuty.description || todayDuty.Description || todayDuty.college || todayDuty.College || "Active On-Duty Visit";
+          const location = todayDuty.location || todayDuty.Location || "";
+          const transportMode = todayDuty.mode || todayDuty.Mode || todayDuty.Mode_of_Trans || todayDuty.TransportMode || "";
+          const vehicleNo = todayDuty.vehicle_No || todayDuty.vehicleNo || todayDuty.Vehicle_No || todayDuty.VehicleNo || "";
+
           setDutyInfo({
             active: true,
-            dutyId: String(todayDuty.id || todayDuty.ID || ""),
-            college: todayDuty.College || todayDuty.Location || "Field Duty Assignment",
-            description: todayDuty.Description || "Active On-Duty Visit",
+            dutyId: String(todayDuty.id || todayDuty.ID || todayDuty.duty_Id || todayDuty.Duty_Id || ""),
+            college,
+            description,
+            location,
+            transportMode,
+            vehicleNo,
+            dateFrom: todayDuty.dateFrom || todayDuty.DateFrom,
+            dateTo: todayDuty.dateTo || todayDuty.DateTo,
             approvalStatus: verdict,
             approvalBadgeText: badgeText,
             pendingRA,
+            ra1Status: ra1St,
+            ra2Status: ra2St,
+            currentRA,
+            hasStartedRide,
+            dayTripsCount: dayTrips.length,
+            latestReadingFrom: rFrom,
+            latestReadingTo: rTo,
+            latestDistance: rDist,
+            latestFuel: rFuel,
           });
 
           if (verdict === "APPROVED" && !broadcaster.isTracking) {
@@ -171,6 +234,7 @@ const FieldDutyStatusPage: React.FC = () => {
             description: data.description || data.Description || "Active Field Duty in Progress",
             approvalStatus: "APPROVED",
             approvalBadgeText: "APPROVED",
+            hasStartedRide: true,
           });
           if (!broadcaster.isTracking) {
             broadcaster.setIsTracking(true);
@@ -211,56 +275,17 @@ const FieldDutyStatusPage: React.FC = () => {
     setTimeout(() => setIsPinging(false), 1200);
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMeterPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleStartRideSubmit = async () => {
-    if (!meterReading.trim()) {
-      alert("Please enter the starting odometer reading (KMs).");
-      return;
-    }
-    if (!meterPhoto) {
-      alert("Please upload/take a photo of your starting vehicle reading.");
-      return;
-    }
-
-    setSubmittingRide(true);
-    try {
-      const rawToken = localStorage.getItem("token")?.replace(/"/g, "");
-      const headers = rawToken ? { Authorization: `Bearer ${rawToken}` } : {};
-
-      await axios.post(
-        `${API_BASE}OnDuty/start_ride_reading`,
-        {
-          dutyId: dutyInfo?.dutyId,
-          startReading: meterReading,
-          meterPhoto: meterPhoto,
-        },
-        { headers, timeout: 10000 }
-      );
-
-      broadcaster.setIsTracking(true);
-      setShowMeterModal(false);
-      alert("✅ Ride Started Successfully! Vehicle reading logged.");
-    } catch (err) {
-      broadcaster.setIsTracking(true);
-      setShowMeterModal(false);
-      alert("✅ Ride Started! (GPS Tracking Activated)");
-    } finally {
-      setSubmittingRide(false);
-    }
+  const handleNavigateToOnDuty = () => {
+    history.push({
+      pathname: "/requests",
+      search: "?type=onduty",
+      state: { type: "onduty", dutyId: dutyInfo?.dutyId },
+    });
   };
 
   const isApproved = dutyInfo?.approvalStatus === "APPROVED";
   const isRejected = dutyInfo?.approvalStatus === "REJECTED";
+  const hasStartedRide = dutyInfo?.hasStartedRide === true;
 
   return (
     <IonPage>
@@ -287,7 +312,7 @@ const FieldDutyStatusPage: React.FC = () => {
 
           {/* Primary Field Duty Card */}
           <div className="fds-main-card">
-            <div className="fds-card-top">
+            <div className="fds-card-top" onClick={handleNavigateToOnDuty} style={{ cursor: "pointer" }}>
               <div className="fds-title-group">
                 <div className="fds-title-icon-ring">
                   <IonIcon icon={navigateOutline} style={{ fontSize: "1.4rem" }} />
@@ -303,7 +328,9 @@ const FieldDutyStatusPage: React.FC = () => {
               >
                 <span className="fds-pulse-dot"></span>
                 {isApproved
-                  ? "✅ APPROVED"
+                  ? hasStartedRide
+                    ? "✅ APPROVED • 🚗 RIDE ACTIVE"
+                    : "✅ APPROVED"
                   : isRejected
                   ? "❌ REJECTED"
                   : `⏳ ${dutyInfo?.approvalBadgeText}`}
@@ -311,15 +338,39 @@ const FieldDutyStatusPage: React.FC = () => {
             </div>
 
             {/* Duty Details Box */}
-            <div className="fds-duty-details">
+            <div className="fds-duty-details" onClick={handleNavigateToOnDuty} style={{ cursor: "pointer" }}>
               <IonIcon icon={locationOutline} className="fds-duty-icon" />
               <div>
                 <h4>{dutyInfo?.college || "Field Duty Assignment"}</h4>
-                <p>{dutyInfo?.description || "Active Duty Location Tracking"}</p>
+                <p>{dutyInfo?.description || dutyInfo?.location || "Active Duty Location Tracking"}</p>
+                
+                {/* Transport & Vehicle Info */}
+                {(dutyInfo?.transportMode || dutyInfo?.vehicleNo) && (
+                  <div style={{ marginTop: "6px", display: "inline-flex", alignItems: "center", gap: "6px", background: "#f1f5f9", padding: "3px 8px", borderRadius: "8px", fontSize: "0.76rem", fontWeight: 700, color: "#334155" }}>
+                    <IonIcon icon={carOutline} />
+                    <span>
+                      {dutyInfo.transportMode}
+                      {dutyInfo.vehicleNo ? ` • ${dutyInfo.vehicleNo}` : ""}
+                    </span>
+                  </div>
+                )}
+
+                {/* Ride Reading Summary if Started */}
+                {hasStartedRide && (
+                  <div style={{ marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "6px", background: "#eff6ff", padding: "3px 8px", borderRadius: "8px", fontSize: "0.76rem", fontWeight: 700, color: "#1e40af" }}>
+                    <IonIcon icon={speedometerOutline} />
+                    <span>
+                      Reading: {dutyInfo.latestReadingFrom || "0"}
+                      {dutyInfo.latestReadingTo ? ` → ${dutyInfo.latestReadingTo}` : ""}
+                      {dutyInfo.latestDistance ? ` (${dutyInfo.latestDistance} KMs)` : ""}
+                      {dutyInfo.latestFuel ? ` • Fuel: ${dutyInfo.latestFuel}/-` : ""}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Clear Status Instructions Banner */}
+            {/* Status Instructions Banner */}
             <div
               className={`status-instruction-banner ${
                 isApproved ? "approved" : isRejected ? "rejected" : "pending"
@@ -332,15 +383,19 @@ const FieldDutyStatusPage: React.FC = () => {
                 />
                 <span>
                   {isApproved
-                    ? "✅ All RAs Approved! You must start ride with reading pic."
+                    ? hasStartedRide
+                      ? "🚗 Active On-Duty Journey"
+                      : "✅ Duty Request Approved!"
                     : isRejected
                     ? "❌ Duty Request Rejected by RA"
-                    : "⚠️ Must need RAs approval before start onduty."}
+                    : `⚠️ Awaiting Approval from ${dutyInfo?.pendingRA || "RA"}`}
                 </span>
               </div>
               <p className="instruction-subtext">
                 {isApproved
-                  ? "All approvals received. Tap 'Start Ride' to upload starting meter photo and enable live location tracking."
+                  ? hasStartedRide
+                    ? "Ride is in progress. Live GPS location tracking is active. Tap below to manage trip logs & readings."
+                    : "All approvals received. Tap below to open On Duty Manager, record odometer readings, or view logs."
                   : isRejected
                   ? "Your request was rejected. Ride start option is locked. Contact your manager for details."
                   : `Current Status: ${dutyInfo?.approvalBadgeText}. You must have approval from all RAs before starting ride tracking.`}
@@ -381,17 +436,23 @@ const FieldDutyStatusPage: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="fds-actions-row">
-              {!isApproved ? (
-                <button className="fds-act-btn disabled" disabled={true}>
-                  <IonIcon icon={lockClosedOutline} />
-                  <span>Start Ride (Needs RA Approval)</span>
-                </button>
-              ) : !broadcaster.isTracking ? (
-                <button className="fds-act-btn success" onClick={() => setShowMeterModal(true)}>
-                  <IonIcon icon={carOutline} />
-                  <span>Start Ride (With Reading Pic)</span>
-                </button>
-              ) : (
+              <button
+                className="fds-act-btn success"
+                onClick={handleNavigateToOnDuty}
+                style={{ background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#ffffff" }}
+              >
+                <IonIcon icon={hasStartedRide ? carOutline : isApproved ? checkmarkCircleOutline : lockClosedOutline} />
+                <span>
+                  {hasStartedRide
+                    ? "Manage Duty & Logs"
+                    : isApproved
+                    ? "Open On-Duty Manager"
+                    : "View in On-Duty Manager"}
+                </span>
+                <IonIcon icon={arrowForwardOutline} style={{ marginLeft: "auto" }} />
+              </button>
+
+              {isApproved && broadcaster.isTracking && (
                 <button
                   className="fds-act-btn primary"
                   onClick={handleManualPing}
@@ -403,7 +464,7 @@ const FieldDutyStatusPage: React.FC = () => {
                       animation: isPinging ? "spin 1s linear infinite" : "none",
                     }}
                   />
-                  {isPinging ? "Pinging GPS..." : "Ping Location Now"}
+                  {isPinging ? "Pinging..." : "Ping GPS"}
                 </button>
               )}
 
@@ -463,97 +524,6 @@ const FieldDutyStatusPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Start Ride Modal with Vehicle Odometer Reading Photo */}
-        {showMeterModal && (
-          <div className="meter-photo-modal-overlay">
-            <div className="meter-photo-modal-card">
-              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0f172a" }}>
-                📸 Start Ride - Vehicle Odometer Photo
-              </h3>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "#64748b" }}>
-                All RAs have approved! Upload a photo of your starting vehicle odometer reading to start tracking.
-              </p>
-
-              <div>
-                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#334155" }}>
-                  Starting Meter Reading (KMs)*
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 45210"
-                  value={meterReading}
-                  onChange={(e) => setMeterReading(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: "10px",
-                    border: "1px solid #cbd5e1",
-                    marginTop: "4px",
-                    fontSize: "0.95rem",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#334155" }}>
-                  Upload/Snap Odometer Photo*
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoCapture}
-                  style={{ marginTop: "6px", width: "100%", fontSize: "0.85rem" }}
-                />
-                {meterPhoto && (
-                  <div style={{ marginTop: "10px", textAlign: "center" }}>
-                    <img
-                      src={meterPhoto}
-                      alt="Meter Preview"
-                      style={{ maxHeight: "140px", borderRadius: "12px", border: "1px solid #e2e8f0" }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-                <button
-                  onClick={() => setShowMeterModal(false)}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "1px solid #cbd5e1",
-                    background: "#f1f5f9",
-                    color: "#475569",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleStartRideSubmit}
-                  disabled={submittingRide}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "none",
-                    background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
-                    color: "#ffffff",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  {submittingRide ? "Starting..." : "Start Ride Now"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <LocationPermissionModal
           isOpen={showPermissionModal}

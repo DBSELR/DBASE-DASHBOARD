@@ -44,7 +44,6 @@ import {
 
 import "../theme/Common.css";
 import "./Menu.css";
-import FloatingTabBar from "./FloatingTabBar";
 
 const BouncingBall: React.FC = () => {
   const ballRef = useRef<HTMLDivElement>(null);
@@ -250,9 +249,8 @@ const Menu: React.FC = () => {
   if (!userData) return null;
 
   return (
-    <>
-      <IonMenu
-        contentId="main"
+    <IonMenu
+      contentId="main"
         menuId="main-menu"
         type="overlay"
         onIonWillOpen={() => {
@@ -376,8 +374,6 @@ const Menu: React.FC = () => {
           </div>
         </IonContent>
       </IonMenu>
-      <FloatingTabBar />
-    </>
   );
 };
 

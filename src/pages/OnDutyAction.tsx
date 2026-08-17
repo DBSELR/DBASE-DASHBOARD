@@ -127,34 +127,44 @@ const OnDutyAction: React.FC = () => {
       if (employeesToNotify.length === 0 && data.empCode) {
         try {
           const empDetails = await apiService.getEmployee(data.empCode);
-          const row = Array.isArray(empDetails) ? empDetails[0] : empDetails;
-          if (row && (row.Mobile || row.mobile)) {
+          let parsed = empDetails;
+          if (typeof parsed === "string") {
+            try { parsed = JSON.parse(parsed); } catch {}
+          }
+          const row = Array.isArray(parsed) ? (Array.isArray(parsed[0]) ? parsed[0] : parsed) : parsed;
+          let mobile = "";
+          let empName = "Employee";
+          if (Array.isArray(row)) {
+            mobile = String(row[6] ?? row[5] ?? "").trim();
+            empName = String(row[2] ?? "Employee").trim();
+          } else if (row && typeof row === "object") {
+            mobile = String(row.Mobile || row.mobile || row._Mobile || "").trim();
+            empName = String(row.EmpName || row.empName || row._Ename || "Employee").trim();
+          }
+          if (mobile) {
             employeesToNotify.push({
-              phone: String(row.Mobile || row.mobile),
-              name: String(row.EmpName || row.empName || "Employee"),
+              phone: mobile,
+              name: empName,
             });
           }
         } catch {}
       }
 
-      // Send WhatsApp message to each employee
-      const isApproved = action === "Approved";
-      const instructionText = isApproved
-        ? "✅ *Next Steps*: All approvals received! You can now start your ride in the app with vehicle reading photo."
-        : "⚠️ *Notice*: Your On-Duty request was rejected. Please contact your Reporting Authority for details.";
-
+      // Send WhatsApp template message to each employee
       for (const emp of employeesToNotify) {
         try {
-          const empMsg =
-            `${emoji} *ON-DUTY ${verb.toUpperCase()}*\n\n` +
-            `Hi ${emp.name},\n\n` +
-            `Your On-Duty request (#${did}) has been *${verb}*.\n\n` +
-            `📅 Dates    : ${dutyInfo.fromDate} to ${dutyInfo.toDate}\n` +
-            `📍 Location : ${dutyInfo.location}\n` +
-            `👤 Action By: ${raName}\n\n` +
-            `${instructionText}`;
-
-          await apiService.sendMessage(emp.phone, empMsg);
+          await apiService.sendOnDutyEmployeeStatusNotification(
+            did,
+            emp.phone,
+            emp.name,
+            action as "Approved" | "Rejected",
+            raName,
+            {
+              dateFrom: dutyInfo.fromDate,
+              dateTo: dutyInfo.toDate,
+              location: dutyInfo.location,
+            }
+          );
         } catch (waErr) {
           console.error("[WhatsApp] Employee notify error:", waErr);
         }

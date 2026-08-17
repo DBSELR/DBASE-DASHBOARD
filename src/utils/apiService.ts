@@ -145,16 +145,17 @@ export const apiService = {
         return apiService.post("/Tickets/SendWhatsApp", { Phone: phone, Message: message });
     },
 
-    sendWhatsAppTemplate: async (mobile: string, templateName: string, parameters: string[]) => {
+    sendWhatsAppTemplate: async (mobile: string, templateName: string, parameters: string[], language?: string) => {
         if (!mobile || mobile.trim() === "") {
             console.warn("⚠️ [WhatsApp] Skipped template: No mobile number provided.");
             return null;
         }
         const phone = mobile.trim();
-        console.log("API: Send WhatsApp Template", { phone, templateName, parameters });
+        console.log("API: Send WhatsApp Template", { phone, templateName, parameters, language });
         return apiService.post("/Tickets/SendWhatsAppTemplate", {
             Phone: phone,
             TemplateName: templateName,
+            Language: language,
             Parameters: parameters
         });
     },
@@ -178,55 +179,60 @@ export const apiService = {
             console.warn("⚠️ [WhatsApp Dispatch] Skipped RA notification: No RA mobile provided.");
             return null;
         }
-        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-        const domain = isLocal ? "https://mobile.dbasesolutions.in" : (window.location.origin || "https://mobile.dbasesolutions.in");
-        const acceptUrl = `${domain}/onduty-action?did=${dutyId}&action=Approved&by=${raEmpCode}`;
-        const rejectUrl = `${domain}/onduty-action?did=${dutyId}&action=Rejected&by=${raEmpCode}`;
 
         console.group("🚀 [WhatsApp API] Sending RA Approval Notification");
         console.log("📲 To RA Mobile:", raMobile);
         console.log("👤 RA Name:", raName, `(${raEmpCode})`);
         console.log("🆔 Duty ID:", dutyId);
-        console.log("✅ Accept URL:", acceptUrl);
-        console.log("❌ Reject URL:", rejectUrl);
         console.groupEnd();
 
-        // Attempt sending registered Meta template first
-        let templateRes = null;
+        // 1. Try dedicated backend endpoint first (handles Meta Cloud API template + quick-reply buttons + logging)
         try {
-            templateRes = await apiService.sendWhatsAppTemplate(raMobile, "onduty_approval_request", [
-                raName || "Manager",
-                String(dutyId),
-                details.empNames || "Employee",
-                details.dateFrom,
-                details.dateTo,
-                details.location || "Field Duty",
-                details.onDutyType || "Field Duty",
-                details.description || "N/A"
-            ]);
-            console.log("✅ [WhatsApp Template] Delivered template onduty_approval_request:", templateRes);
-        } catch (e) {
-            console.warn("⚠️ [WhatsApp Template] Template fallback to text message:", e);
+            const onDutyRes = await apiService.post("/Leave/SendOnDutyWhatsApp", {
+                DutyId: String(dutyId),
+                RaMobile: raMobile,
+                RaEmpCode: raEmpCode,
+                RaName: raName || "Manager",
+                EmpNames: details.empNames || "Employee",
+                DateFrom: details.dateFrom,
+                DateTo: details.dateTo,
+                Location: details.location || "Field Duty",
+                OnDutyType: details.onDutyType || "Field Duty",
+                Description: details.description || "N/A"
+            });
+            console.log("✅ [Backend SendOnDutyWhatsApp] Delivered successfully:", onDutyRes);
+            return onDutyRes;
+        } catch (backendErr) {
+            console.warn("⚠️ [Backend SendOnDutyWhatsApp] Fallback to direct SendWhatsAppTemplate:", backendErr);
         }
 
-        const msg =
-            `📋 *NEW ON-DUTY APPROVAL REQUEST*\n\n` +
-            `Hi ${raName || "Manager"},\n` +
-            `An On-Duty request requires your approval:\n\n` +
-            `🆔 Duty ID  : #${dutyId}\n` +
-            `👤 Employee : ${details.empNames}\n` +
-            `📅 Dates    : ${details.dateFrom} to ${details.dateTo}\n` +
-            `📍 Location : ${details.location}\n` +
-            `📝 Type     : ${details.onDutyType || "Field Duty"}\n` +
-            `💬 Purpose  : ${details.description || "N/A"}\n` +
-            (details.vehicle ? `🚗 Vehicle  : ${details.vehicle}\n\n` : `\n`) +
-            `Please review and choose an action:\n\n` +
-            `✅ *ACCEPT ON-DUTY*:\n${acceptUrl}\n\n` +
-            `❌ *REJECT ON-DUTY*:\n${rejectUrl}`;
-
-        const textRes = await apiService.sendMessage(raMobile, msg);
-        console.log("✅ [WhatsApp Text+Links] Message response:", textRes);
-        return templateRes || textRes;
+        // 2. Direct SendWhatsAppTemplate with button payloads and en_US
+        try {
+            const templateRes = await apiService.post("/Tickets/SendWhatsAppTemplate", {
+                Phone: raMobile,
+                TemplateName: "onduty_approval_request",
+                Language: "en_US",
+                Parameters: [
+                    raName || "Manager",
+                    String(dutyId),
+                    details.empNames || "Employee",
+                    details.dateFrom,
+                    details.dateTo,
+                    details.location || "Field Duty",
+                    details.onDutyType || "Field Duty",
+                    details.description || "N/A"
+                ],
+                ButtonPayloads: [
+                    `ONDUTY_APPROVE_${dutyId}_${raEmpCode}`,
+                    `ONDUTY_REJECT_${dutyId}_${raEmpCode}`
+                ]
+            });
+            console.log("✅ [WhatsApp Template] Delivered template onduty_approval_request:", templateRes);
+            return templateRes;
+        } catch (e) {
+            console.error("❌ [WhatsApp Template] Error sending onduty_approval_request:", e);
+            return null;
+        }
     },
 
     sendOnDutyEmployeeStatusNotification: async (
@@ -242,37 +248,28 @@ export const apiService = {
         }
     ) => {
         if (!empMobile || empMobile.trim() === "") return null;
-        const emoji = action === "Approved" ? "✅" : "❌";
-        const verb = action === "Approved" ? "APPROVED" : "REJECTED";
         const dates = `${details.dateFrom} to ${details.dateTo}`;
-        const instruction = action === "Approved"
-            ? "All approvals received! You can now start your ride in the app with vehicle reading photo."
-            : "Your request was rejected. Please contact your manager for details.";
 
-        // Attempt sending registered Meta template first
         try {
-            await apiService.sendWhatsAppTemplate(empMobile, "onduty_status_notify", [
-                empName || "Employee",
-                String(dutyId),
-                verb,
-                raName || "Reporting Authority",
-                dates,
-                details.location || "Field Duty",
-            ]);
+            const statusRes = await apiService.post("/Tickets/SendWhatsAppTemplate", {
+                Phone: empMobile,
+                TemplateName: "onduty_status_notify",
+                Language: "en_US",
+                Parameters: [
+                    empName || "Employee",
+                    String(dutyId),
+                    action.toUpperCase(),
+                    raName || "Manager",
+                    dates,
+                    details.location || "Field Duty"
+                ]
+            });
+            console.log("✅ [WhatsApp Status Notification] Delivered onduty_status_notify:", statusRes);
+            return statusRes;
         } catch (e) {
-            console.warn("[WhatsApp Template] Fallback to raw text message:", e);
+            console.warn("⚠️ [WhatsApp Status Notification] Failed to send onduty_status_notify:", e);
+            return null;
         }
-
-        // Send raw text message with emoji styling
-        const msg =
-            `${emoji} *ON-DUTY ${verb}*\n\n` +
-            `Hi ${empName},\n\n` +
-            `Your On-Duty request (#${dutyId}) has been *${verb}* by ${raName}.\n\n` +
-            `📅 Dates    : ${dates}\n` +
-            `📍 Location : ${details.location}\n\n` +
-            `${instruction}`;
-
-        return apiService.sendMessage(empMobile, msg);
     },
 
     resolveRAMobileAndName: async (raIdentifier: string): Promise<{ mobile: string; name: string; empCode: string } | null> => {
@@ -284,19 +281,24 @@ export const apiService = {
 
         const parseRow = (e: any) => {
             if (!e) return { empCode: "", empName: "", designation: "", mobile: "" };
-            if (Array.isArray(e)) {
+            let rowObj = e;
+            if (typeof rowObj === "string") {
+                try { rowObj = JSON.parse(rowObj); } catch { /* ignore */ }
+            }
+            if (Array.isArray(rowObj)) {
+                const first = Array.isArray(rowObj[0]) ? rowObj[0] : rowObj;
                 return {
-                    empCode: String(e[1] ?? e[0] ?? "").trim(),
-                    empName: String(e[2] ?? "").trim(),
-                    designation: String(e[3] ?? "").trim(),
-                    mobile: String(e[6] ?? e[5] ?? e[4] ?? "").trim(),
+                    empCode: String(first[1] ?? first[0] ?? "").trim(),
+                    empName: String(first[2] ?? "").trim(),
+                    designation: String(first[3] ?? "").trim(),
+                    mobile: String(first[6] ?? first[5] ?? first[4] ?? "").trim(),
                 };
             }
             return {
-                empCode: String(e.EmpCode || e.empCode || "").trim(),
-                empName: String(e.EmpName || e.empName || "").trim(),
-                designation: String(e.Designation || e.designation || "").trim(),
-                mobile: String(e.Mobile || e.mobile || e.MobileNo || e.mobileNo || "").trim(),
+                empCode: String(rowObj.EmpCode || rowObj.empCode || rowObj._Ecode || "").trim(),
+                empName: String(rowObj.EmpName || rowObj.empName || rowObj._Ename || "").trim(),
+                designation: String(rowObj.Designation || rowObj.designation || rowObj._Desig || "").trim(),
+                mobile: String(rowObj.Mobile || rowObj.mobile || rowObj._Mobile || rowObj.MobileNo || rowObj.mobileNo || "").trim(),
             };
         };
 
@@ -304,35 +306,55 @@ export const apiService = {
         if (/^\d+$/.test(cleanId)) {
             try {
                 const empRes = await apiService.getEmployee(cleanId);
-                const row = Array.isArray(empRes) ? empRes[0] : empRes;
-                if (row) {
-                    const parsed = parseRow(row);
-                    if (parsed.mobile) {
-                        console.log(`✅ [resolveRAMobileAndName] Found via Direct EmpCode: ${parsed.empName} (${cleanId}) -> ${parsed.mobile}`);
-                        return { mobile: parsed.mobile, name: parsed.empName, empCode: cleanId };
-                    }
+                const parsed = parseRow(empRes);
+                if (parsed.mobile && parsed.mobile.replace(/\D/g, "").length >= 10) {
+                    console.log(`✅ [resolveRAMobileAndName] Found via Direct EmpCode: ${parsed.empName} (${cleanId}) -> ${parsed.mobile}`);
+                    return { mobile: parsed.mobile, name: parsed.empName, empCode: cleanId };
                 }
             } catch (e) {
                 console.warn(`⚠️ [resolveRAMobileAndName] EmpCode query failed for ${cleanId}:`, e);
             }
         }
 
-        // 2. Query all employees to match by Designation or Name or EmpCode
+        // 2. Query all employees to match by Designation or Name or EmpCode (with punctuation/space normalization)
         try {
             const allEmps = await apiService.loadEmployees("");
-            const list: any[] = Array.isArray(allEmps) ? allEmps : [];
-            const normId = cleanId.toLowerCase();
+            let list: any[] = [];
+            if (typeof allEmps === "string") {
+                try { list = JSON.parse(allEmps); } catch { list = []; }
+            } else if (Array.isArray(allEmps)) {
+                list = allEmps;
+            }
 
-            // Search for matching designation or name or empCode
+            const normalize = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const normClean = normalize(cleanId);
+
+            // Pass 1: Exact normalized match (e.g. "Team. Manager" -> "teammanager" matches "Team Manager" -> "teammanager")
             for (const item of list) {
                 const parsed = parseRow(item);
-                const desigNorm = parsed.designation.toLowerCase();
-                const nameNorm = parsed.empName.toLowerCase();
-                const codeNorm = parsed.empCode.toLowerCase();
+                if (!parsed.mobile || parsed.mobile.trim() === "") continue;
 
-                if ((desigNorm === normId || nameNorm === normId || codeNorm === normId) && parsed.mobile !== "") {
-                    console.log(`✅ [resolveRAMobileAndName] Found via Designation/Name Match: ${parsed.empName} (${parsed.empCode}, Desig: "${parsed.designation}") -> ${parsed.mobile}`);
+                const desigNorm = normalize(parsed.designation);
+                const nameNorm = normalize(parsed.empName);
+                const codeNorm = normalize(parsed.empCode);
+
+                if (desigNorm === normClean || nameNorm === normClean || codeNorm === normClean) {
+                    console.log(`✅ [resolveRAMobileAndName] Found via Normalized Match: ${parsed.empName} (${parsed.empCode}, Desig: "${parsed.designation}") -> ${parsed.mobile}`);
                     return { mobile: parsed.mobile, name: parsed.empName, empCode: parsed.empCode };
+                }
+            }
+
+            // Pass 2: Substring / Fuzzy match (e.g. "manager" in "teammanager" or "networkadmin" in "networkadministrator")
+            if (normClean.length >= 4) {
+                for (const item of list) {
+                    const parsed = parseRow(item);
+                    if (!parsed.mobile || parsed.mobile.trim() === "") continue;
+
+                    const desigNorm = normalize(parsed.designation);
+                    if (desigNorm.includes(normClean) || normClean.includes(desigNorm)) {
+                        console.log(`✅ [resolveRAMobileAndName] Found via Fuzzy Match: ${parsed.empName} (${parsed.empCode}, Desig: "${parsed.designation}") -> ${parsed.mobile}`);
+                        return { mobile: parsed.mobile, name: parsed.empName, empCode: parsed.empCode };
+                    }
                 }
             }
         } catch (e) {
@@ -401,7 +423,15 @@ export const apiService = {
 
     getEmployee: async (ecode: string) => {
         console.log("API: Get Employee Details", ecode);
-        return apiService.get(`/Employee/Get_Employee?_Ecode=${ecode}`);
+        const res = await apiService.get(`/Employee/Get_Employee?_Ecode=${ecode}`);
+        if (typeof res === "string") {
+            try {
+                return JSON.parse(res);
+            } catch {
+                return res;
+            }
+        }
+        return res;
     },
 
     registerEmployee: async (data: any) => {

@@ -33,6 +33,7 @@ import { useLocationBroadcaster } from "./hooks/useLocationBroadcaster";
 import { LocationPermissionModal } from "./components/LocationPermissionModal";
 import DaTaSettlement from "./pages/DaTaSettlement";
 import SpeedDialComponent from "./components/SpeedDialComponent";
+import FloatingTabBar from "./components/FloatingTabBar";
 import CameraPage from "./pages/CameraPage";
 import EmpProfile from "./pages/EmpProfile";
 import Timings from "./pages/Timings";
@@ -274,6 +275,7 @@ const App: React.FC = () => {
             </IonRouterOutlet>
           </IonSplitPane>
         )}
+        {user && <FloatingTabBar />}
         {user && <SpeedDialComponent />}
         {user && <TaskNotificationPopup />}
         {user && <WorkReportReminderModal />}

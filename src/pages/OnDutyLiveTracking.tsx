@@ -378,6 +378,23 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
         }
       });
 
+      // Also include any active telemetry session with a valid DutyId
+      activeSessionsList.forEach((s) => {
+        const empCodeRaw = String(s.EmpCode || "").trim();
+        if (!empCodeRaw) return;
+        const empCodeKey = empCodeRaw.toLowerCase();
+        if (processedEmpCodes.has(empCodeKey)) return;
+
+        if (s.DutyId && s.DutyId !== "0" && s.DutyId !== "") {
+          processedEmpCodes.add(empCodeKey);
+          mergedSessions.push({
+            ...s,
+            EmpCode: empCodeRaw,
+            LiveLocation: true,
+          });
+        }
+      });
+
       if (isComponentMounted.current) {
         setSessions(mergedSessions);
       }

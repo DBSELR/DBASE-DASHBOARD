@@ -1,4 +1,5 @@
-import { IonIcon, IonMenu } from "@ionic/react";
+import { IonIcon } from "@ionic/react";
+import { menuController } from "@ionic/core";
 import {
   home,
   calendar,
@@ -24,13 +25,11 @@ const FloatingTabBar: React.FC = () => {
   const handleTabClick = (path: string) => {
     history.push(path);
 
-    // Close menu after navigation
-    const menu = document.querySelector(
-      "ion-menu"
-    ) as HTMLIonMenuElement | null;
-    if (menu) {
-      menu.close();
-    }
+    // Close menu if open
+    menuController.close("main-menu").catch(() => {
+      const menu = document.querySelector("ion-menu") as HTMLIonMenuElement | null;
+      if (menu) menu.close();
+    });
   };
 
   const [isSmallScreen, setIsSmallScreen] = useState<boolean>(() => window.innerWidth <= 768);
@@ -51,64 +50,101 @@ const FloatingTabBar: React.FC = () => {
     location.pathname.includes("onduty tracking") ||
     location.pathname.includes("ondutytracking");
 
-  if (["/ai-attendance-scanner", "/security-attendance"].includes(location.pathname)) {
+  // Hide on full-screen scanner or auth pages
+  const hiddenPaths = [
+    "/login",
+    "/terms",
+    "/privacy",
+    "/account-deletion",
+    "/leave-action",
+    "/onduty-action",
+    "/ai-attendance-scanner",
+    "/security-attendance",
+    "/camera",
+  ];
+
+  if (hiddenPaths.includes(location.pathname)) {
     return null;
   }
 
-  // Hide floating tab bar ONLY on small screens (mobile view) for OnDutyLiveTracking page!
+  // Hide floating tab bar on small screens only for live tracking map
   if (isTrackingPage && isSmallScreen) {
     return null;
   }
 
+  const isHomeActive = activeTab === "/home" || activeTab === "/";
+  const isRequestsActive =
+    activeTab === "/requests" ||
+    activeTab === "/leaverequest" ||
+    activeTab === "/pending-requests" ||
+    activeTab === "/adminrequests";
+  const isProfileActive = activeTab === "/eprofile";
+  const isWorkReportActive =
+    activeTab === "/workreport" ||
+    activeTab === "/adminworkreport" ||
+    activeTab === "/workreport-dashboard";
+
+  const handleMenuClick = async () => {
+    try {
+      await menuController.toggle("main-menu");
+    } catch {
+      const menu = document.querySelector("ion-menu") as HTMLIonMenuElement | null;
+      if (menu) {
+        const isOpen = await menu.isOpen();
+        if (isOpen) {
+          await menu.close();
+        } else {
+          await menu.open();
+        }
+      }
+    }
+  };
+
   return (
-    <div className="floating-tab-bar">
+    <div className="floating-tab-bar" role="navigation" aria-label="Bottom Navigation">
       <div className="tab-container">
         <button
-          className={`tab-item ${activeTab === "/home" ? "active" : ""}`}
+          type="button"
+          aria-label="Home"
+          className={`tab-item ${isHomeActive ? "active" : ""}`}
           onClick={() => handleTabClick("/home")}
         >
           <IonIcon icon={home} />
         </button>
 
         <button
-          className={`tab-item ${activeTab === "/requests" ? "active" : ""
-            }`}
+          type="button"
+          aria-label="Requests"
+          className={`tab-item ${isRequestsActive ? "active" : ""}`}
           onClick={() => handleTabClick("/requests")}
         >
           <IonIcon icon={calendar} />
         </button>
 
         <button
-          className={`tab-item ${activeTab === "/eprofile" ? "active" : ""}`}
+          type="button"
+          aria-label="Profile"
+          className={`tab-item ${isProfileActive ? "active" : ""}`}
           onClick={() => handleTabClick("/eprofile")}
         >
           <IonIcon icon={person} />
         </button>
 
         <button
-          className={`tab-item ${activeTab === "/workreport" ? "active" : ""}`}
+          type="button"
+          aria-label="Work Report"
+          className={`tab-item ${isWorkReportActive ? "active" : ""}`}
           onClick={() => handleTabClick("/workreport")}
         >
           <IonIcon icon={documentText} />
         </button>
 
-        {/* Menu Button */}
+        {/* Menu Toggle Button */}
         <button
+          type="button"
+          aria-label="Toggle Menu"
           className="tab-item"
-          onClick={() => {
-            const menu = document.querySelector(
-              "ion-menu"
-            ) as HTMLIonMenuElement | null;
-            if (menu) {
-              menu.isOpen().then((isOpen) => {
-                if (isOpen) {
-                  menu.close(); // Close if open
-                } else {
-                  menu.open(); // Open if closed
-                }
-              });
-            }
-          }}
+          onClick={handleMenuClick}
         >
           <IonIcon icon={menuOutline} />
         </button>

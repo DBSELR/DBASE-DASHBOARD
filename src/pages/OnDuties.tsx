@@ -3479,15 +3479,26 @@ useEffect(() => {
 
             if (!dutyId || dutyId === "NEW") {
               try {
-                const logsRes: any = await apiService.get(`/Employee/GetOnDutyLogs?empCode=${empCode}`);
-                const logs = Array.isArray(logsRes) ? logsRes : (logsRes?.data || []);
-                if (logs && logs.length > 0) {
-                  const topDuty = logs[0];
-                  dutyId = String(topDuty.id || topDuty.ID || topDuty.dutyId || topDuty.lid || topDuty.LID || "").trim();
+                const logsRes: any = await apiService.get(`/OnDuty/load_my_duties?empCode=${empCode}`);
+                let list: any[] = [];
+                if (typeof logsRes === "string") {
+                  try { list = JSON.parse(logsRes); } catch { list = []; }
+                } else if (Array.isArray(logsRes)) {
+                  list = logsRes;
+                } else if (logsRes?.data) {
+                  list = Array.isArray(logsRes.data) ? logsRes.data : [];
+                }
+                if (list && list.length > 0) {
+                  const topDuty = list[0];
+                  if (Array.isArray(topDuty)) {
+                    dutyId = String(topDuty[0] || "").trim();
+                  } else {
+                    dutyId = String(topDuty.id || topDuty.ID || topDuty.Id || topDuty.lid || topDuty.LID || "").trim();
+                  }
                   console.log("🎯 Resolved latest Duty ID from On-Duty Logs:", dutyId);
                 }
               } catch (e) {
-                console.warn("⚠️ Could not fetch latest duty ID from logs:", e);
+                console.warn("⚠️ Could not fetch latest duty ID from load_my_duties:", e);
               }
             }
             if (!dutyId) dutyId = "NEW";

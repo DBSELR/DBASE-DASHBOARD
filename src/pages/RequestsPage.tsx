@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { IonPage, IonContent, IonIcon } from "@ionic/react";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import {
   calendarOutline,
@@ -26,9 +26,36 @@ const TYPES = [
 
 const RequestsPage: React.FC = () => {
   const history = useHistory();
-  const [type, setType] = useState("leave");
+  const location = useLocation<any>();
+
+  const getInitialType = () => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const urlType = params.get("type");
+      const stateType = location.state?.type;
+      const target = (urlType || stateType || "").toLowerCase();
+      if (TYPES.some((t) => t.value === target)) {
+        return target;
+      }
+    } catch {}
+    return "leave";
+  };
+
+  const [type, setType] = useState<string>(getInitialType);
   const [view, setView] = useState<"my" | "raised">("my");
   const [rasList, setRasList] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const urlType = params.get("type");
+      const stateType = location.state?.type;
+      const target = (urlType || stateType || "").toLowerCase();
+      if (target && TYPES.some((t) => t.value === target)) {
+        setType(target);
+      }
+    } catch {}
+  }, [location.search, location.state]);
 
   const userData = JSON.parse(localStorage.getItem("user") || "{}");
 

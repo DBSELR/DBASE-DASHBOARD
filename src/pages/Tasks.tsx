@@ -210,14 +210,25 @@ const Tasks: React.FC = () => {
   const fetchEmployeeMobile = async (empCode: string): Promise<string> => {
     try {
       if (!empCode) return "";
-      const data = await apiService.getEmployee(empCode);
-      // API may return array-of-arrays or array-of-objects
-      const row = Array.isArray(data) ? data[0] : data;
+      const cleanCode = String(empCode).split("-")[0].trim();
+      const data = await apiService.getEmployee(cleanCode);
+      let parsed = data;
+      if (typeof parsed === "string") {
+        try { parsed = JSON.parse(parsed); } catch { /* ignore */ }
+      }
+      const row = Array.isArray(parsed) ? (Array.isArray(parsed[0]) ? parsed[0] : parsed) : parsed;
       if (!row) return "";
-      // Try named property first (object response), then index 6 (array response)
-      const mobile = String(row.Mobile ?? row.mobile ?? row[6] ?? "").trim();
-      console.log(`📞 [fetchEmployeeMobile] EmpCode=${empCode} → Mobile=${mobile}`);
-      return mobile;
+      
+      let mobile = "";
+      if (Array.isArray(row)) {
+        mobile = String(row[6] ?? row[5] ?? row[4] ?? "").trim();
+      } else if (typeof row === "object") {
+        mobile = String(row.Mobile ?? row.mobile ?? row._Mobile ?? row.MobileNo ?? row.mobileNo ?? "").trim();
+      }
+      const digits = mobile.replace(/\D/g, "");
+      const cleanMobile = digits.length >= 10 ? digits.slice(-10) : digits;
+      console.log(`📞 [fetchEmployeeMobile] EmpCode=${cleanCode} → Raw=${mobile} → Clean=${cleanMobile}`);
+      return cleanMobile;
     } catch (err) {
       console.warn(`⚠️ [fetchEmployeeMobile] Failed for EmpCode=${empCode}:`, err);
       return "";
@@ -674,7 +685,7 @@ const Tasks: React.FC = () => {
             let newTaskId = "";
             if (saveResult) {
               if (typeof saveResult === "object") {
-                newTaskId = String(saveResult.TID || saveResult.taskId || saveResult.id || "");
+                newTaskId = String(saveResult.TaskId || saveResult.taskId || saveResult.TID || saveResult.id || "");
               } else {
                 newTaskId = String(saveResult);
               }

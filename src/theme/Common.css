@@ -334,34 +334,39 @@ ion-item:nth-child(25) {
 /* ========== FLOATING TAB BAR start ========== */
 .floating-tab-bar {
   position: fixed;
-  bottom: 20px;
+  bottom: max(16px, env(safe-area-inset-bottom, 16px));
   left: 50%;
   transform: translateX(-50%);
-  background: var(--ion-color-primary, #0077b6);
+  background: var(--ion-color-primary, #ff9505);
   border-radius: 30px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   padding: 0 16px;
-  height: 48px;
+  height: 52px;
   display: none;
-  z-index: 1000;
+  z-index: 9999;
   width: 90%;
   max-width: 380px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-sizing: border-box;
 }
 
-.tab-container {
+.floating-tab-bar .tab-container {
   display: flex;
   justify-content: space-around;
   align-items: center;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Tab Item */
-.tab-item {
+.floating-tab-bar .tab-item {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
   cursor: pointer !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -371,57 +376,63 @@ ion-item:nth-child(25) {
   align-items: center !important;
   justify-content: center !important;
   flex: 1 !important;
-  transition: all 0.3s ease !important;
+  transition: all 0.25s ease !important;
   outline: none !important;
   box-sizing: border-box !important;
   -webkit-appearance: none !important;
   line-height: 1 !important;
+  position: relative;
 }
 
-.tab-item ion-icon {
-  font-size: 22px !important;
-  color: rgba(255, 255, 255, 0.6) !important;
-  transition: all 0.3s ease !important;
+.floating-tab-bar .tab-item ion-icon {
+  font-size: 24px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  transition: all 0.25s ease !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   pointer-events: none !important;
 }
 
-.tab-item.active {
+.floating-tab-bar .tab-item.active {
   color: #ffffff !important;
 }
 
-.tab-item.active ion-icon {
-  font-size: 24px !important;
+.floating-tab-bar .tab-item.active ion-icon {
+  font-size: 26px !important;
   color: #ffffff !important;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35)) !important;
+  transform: scale(1.1);
 }
 
-.tab-item:hover:not(.active) ion-icon {
-  color: rgba(255, 255, 255, 0.9) !important;
+.floating-tab-bar .tab-item:active ion-icon {
+  transform: scale(0.92);
+}
+
+.floating-tab-bar .tab-item:hover:not(.active) ion-icon {
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 @media (max-width: 768px) {
   .floating-tab-bar {
-    display: flex;
+    display: flex !important;
     align-items: center;
   }
 }
 
 body.dark .floating-tab-bar {
   background: var(--ion-color-primary, #1e1e1e);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-body.dark .tab-item,
-body.dark .tab-item ion-icon {
-  color: rgba(255, 255, 255, 0.5);
+body.dark .floating-tab-bar .tab-item,
+body.dark .floating-tab-bar .tab-item ion-icon {
+  color: rgba(255, 255, 255, 0.55);
 }
 
-body.dark .tab-item.active,
-body.dark .tab-item.active ion-icon {
+body.dark .floating-tab-bar .tab-item.active,
+body.dark .floating-tab-bar .tab-item.active ion-icon {
   color: #ffffff;
 }
 

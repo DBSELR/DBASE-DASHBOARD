@@ -1635,8 +1635,7 @@
     display: none; /* Hide button text labels on mobile for clean icon look */
   }
 
-  /* 5. Hide orange floating tab bar on mobile for live tracking map */
-  .floating-tab-bar,
+  /* 5. Hide speed dial on mobile for live tracking map */
   .custom-speed-dial {
     display: none !important;
   }

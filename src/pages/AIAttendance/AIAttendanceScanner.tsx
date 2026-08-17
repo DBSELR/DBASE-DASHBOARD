@@ -1964,9 +1964,9 @@ const AIAttendanceScanner: React.FC = () => {
                   <div className="rule-section">
                     <h4 className="rule-sec-title">⚠️ 5. Excess Permission &amp; Double LOP Matrix</h4>
                     <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Approved Excess (Up to {getPolVal('ApprovedExcessPermissionMinutes', '180')} min):</strong> Allowed beyond allotted P_Time subject to available permission balance (procured via overtime or carryover).</li>
-                      <li><strong>Excess Up to {getPolVal('SingleLopExcessMinutes', '120')} min Without Balance:</strong> Attracts <strong>Single Loss of Pay (1x LOP)</strong>.</li>
-                      <li><strong>Excess &gt; {getPolVal('DoubleLopExcessMinutes', '120')} min Without Balance:</strong> Attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in total deduction).</li>
+                      <li><strong>Approved Excess (Up to {getPolVal('ApprovedExcessPermissionLimitMinutes', '180')} min):</strong> Allowed beyond allotted P_Time subject to available permission balance (procured via overtime or carryover).</li>
+                      <li><strong>Excess Up to {getPolVal('SingleLopExcessPermissionLimitMinutes', '120')} min Without Balance:</strong> Attracts <strong>Single Loss of Pay (1x LOP)</strong>.</li>
+                      <li><strong>Excess &gt; {getPolVal('DoubleLopThresholdMinutes', '120')} min Without Balance:</strong> Attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in total deduction).</li>
                       <li><strong>Carry Forward:</strong> Surplus permission time carries forward monthly and can be encashed yearly with management approval.</li>
                     </ul>
                   </div>
@@ -1975,7 +1975,7 @@ const AIAttendanceScanner: React.FC = () => {
                     <h4 className="rule-sec-title">🟨 6. Yellow Slip Issuance Triggers</h4>
                     <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
                       <li><strong>+1 Yellow Slip:</strong> Issued automatically when exceeding {getPolVal('TotalAllowedLateOccasions', '10')} total late occasions in a month.</li>
-                      <li><strong>+1 Yellow Slip:</strong> Issued for every <strong>{getPolVal('YellowSlipExcessFrequency', '3')} excess permission sessions</strong> without available balance.</li>
+                      <li><strong>+1 Yellow Slip:</strong> Issued for every <strong>{getPolVal('YellowSlipExcessPermissionInterval', '3')} excess permission sessions</strong> without available balance.</li>
                     </ul>
                   </div>
                 </div>
