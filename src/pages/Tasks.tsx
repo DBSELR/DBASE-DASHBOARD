@@ -211,24 +211,49 @@ const Tasks: React.FC = () => {
     try {
       if (!empCode) return "";
       const cleanCode = String(empCode).split("-")[0].trim();
-      const data = await apiService.getEmployee(cleanCode);
-      let parsed = data;
-      if (typeof parsed === "string") {
-        try { parsed = JSON.parse(parsed); } catch { /* ignore */ }
+
+      // 1. Direct Employee Profile
+      try {
+        const data = await apiService.getEmployee(cleanCode);
+        let parsed = data;
+        if (typeof parsed === "string") {
+          try { parsed = JSON.parse(parsed); } catch { /* ignore */ }
+        }
+        const row = Array.isArray(parsed) ? (Array.isArray(parsed[0]) ? parsed[0] : parsed) : parsed;
+        if (row) {
+          let mobile = "";
+          if (Array.isArray(row)) {
+            mobile = String(row[6] ?? row[5] ?? row[4] ?? "").trim();
+          } else if (typeof row === "object") {
+            mobile = String(row.Mobile ?? row.mobile ?? row._Mobile ?? row.MobileNo ?? row.mobileNo ?? "").trim();
+          }
+          const digits = mobile.replace(/\D/g, "");
+          if (digits.length >= 10) {
+            const cleanMobile = digits.slice(-10);
+            console.log(`📞 [fetchEmployeeMobile] EmpCode=${cleanCode} → ${cleanMobile}`);
+            return cleanMobile;
+          }
+        }
+      } catch (e) {
+        console.warn(`⚠️ [fetchEmployeeMobile] Direct getEmployee query error for ${cleanCode}:`, e);
       }
-      const row = Array.isArray(parsed) ? (Array.isArray(parsed[0]) ? parsed[0] : parsed) : parsed;
-      if (!row) return "";
-      
-      let mobile = "";
-      if (Array.isArray(row)) {
-        mobile = String(row[6] ?? row[5] ?? row[4] ?? "").trim();
-      } else if (typeof row === "object") {
-        mobile = String(row.Mobile ?? row.mobile ?? row._Mobile ?? row.MobileNo ?? row.mobileNo ?? "").trim();
+
+      // 2. Fallback via resolveRAMobileAndName
+      try {
+        const resolved = await apiService.resolveRAMobileAndName(cleanCode);
+        if (resolved?.mobile) {
+          const digits = resolved.mobile.replace(/\D/g, "");
+          if (digits.length >= 10) {
+            const cleanMobile = digits.slice(-10);
+            console.log(`📞 [fetchEmployeeMobile] EmpCode=${cleanCode} resolved via Matrix/Directory → ${cleanMobile}`);
+            return cleanMobile;
+          }
+        }
+      } catch (e) {
+        console.warn(`⚠️ [fetchEmployeeMobile] resolveRAMobileAndName error for ${cleanCode}:`, e);
       }
-      const digits = mobile.replace(/\D/g, "");
-      const cleanMobile = digits.length >= 10 ? digits.slice(-10) : digits;
-      console.log(`📞 [fetchEmployeeMobile] EmpCode=${cleanCode} → Raw=${mobile} → Clean=${cleanMobile}`);
-      return cleanMobile;
+
+      return "";
     } catch (err) {
       console.warn(`⚠️ [fetchEmployeeMobile] Failed for EmpCode=${empCode}:`, err);
       return "";
@@ -404,9 +429,11 @@ const Tasks: React.FC = () => {
     }
 
     if (templateName) {
-      console.log(`[WhatsApp] Sending template ${templateName} to ${mobile}`);
+      console.log(`[WhatsApp] Sending template ${templateName} to ${mobile}`, params);
       try {
-        await apiService.sendWhatsAppTemplate(cleanedMobile, templateName, params);
+        const sanitized = params.map(p => (p && String(p).trim().length > 0 ? String(p).trim() : "-"));
+        const res = await apiService.sendWhatsAppTemplate(cleanedMobile, templateName, sanitized, "en");
+        console.log(`✅ [WhatsApp Task] Delivered ${templateName} to ${cleanedMobile}:`, res);
       } catch (err) {
         console.error("[WhatsApp] sendWhatsAppTemplate failed:", err);
       }
@@ -649,9 +676,9 @@ const Tasks: React.FC = () => {
       //console.log("WhatsApp Debug:", saveResult.debug);
 
       console.log("Save Task API Response:", saveResult);
-      console.log("WhatsApp Debug:", saveResult.debug);
-      console.log("WhatsApp Payload:", saveResult.debug.payload);
-      console.log("Meta Response:", saveResult.debug.metaResponse);
+      console.log("WhatsApp Debug:", saveResult?.debug);
+      console.log("WhatsApp Payload:", saveResult?.debug?.payload);
+      console.log("Meta Response:", saveResult?.debug?.metaResponse);
 
       const waStatus = saveResult?.whatsAppStatus || saveResult?.WhatsAppStatus;
       const waError = saveResult?.whatsAppError || saveResult?.WhatsAppError;

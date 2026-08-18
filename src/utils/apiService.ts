@@ -206,7 +206,7 @@ export const apiService = {
             console.warn("⚠️ [Backend SendOnDutyWhatsApp] Fallback to direct SendWhatsAppTemplate:", backendErr);
         }
 
-        // 2. Direct SendWhatsAppTemplate with button payloads and en_US
+        // 2. Direct SendWhatsAppTemplate with en_US
         try {
             const templateRes = await apiService.post("/Tickets/SendWhatsAppTemplate", {
                 Phone: raMobile,
@@ -221,10 +221,6 @@ export const apiService = {
                     details.location || "Field Duty",
                     details.onDutyType || "Field Duty",
                     details.description || "N/A"
-                ],
-                ButtonPayloads: [
-                    `ONDUTY_APPROVE_${dutyId}_${raEmpCode}`,
-                    `ONDUTY_REJECT_${dutyId}_${raEmpCode}`
                 ]
             });
             console.log("✅ [WhatsApp Template] Delivered template onduty_approval_request:", templateRes);

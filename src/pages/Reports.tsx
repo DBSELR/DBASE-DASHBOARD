@@ -1,15 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Search, X, Check } from "lucide-react";
 import { IonPage, IonContent, IonIcon } from "@ionic/react";
-import { documentTextOutline, downloadOutline, refreshOutline, printOutline } from "ionicons/icons";
+import {
+  documentTextOutline,
+  downloadOutline,
+  refreshOutline,
+  printOutline,
+  calendarOutline,
+  timeOutline,
+  checkmarkCircleOutline,
+  personOutline
+} from "ionicons/icons";
+import { createPortal } from "react-dom";
+
 import "./Stock.css";
+import "./Meetings/MeetingMaster.css";
+import "../components/requests/RequestList.css";
 
 const LOG = (...args: any[]) => console.log("[Reports]", ...args);
 const GROUP = (title: string) => console.group("[Reports]", title);
 const GROUP_END = () => console.groupEnd();
+
+const monthsList = [
+  "January", "February", "March", "April",
+  "May", "June", "July", "August",
+  "September", "October", "November", "December"
+];
 
 const Reports: React.FC = () => {
   const history = useHistory();
@@ -22,6 +41,93 @@ const Reports: React.FC = () => {
 
   const [pdfUrl, setPdfUrl] = useState<string>("");
   const [showPdf, setShowPdf] = useState<boolean>(false);
+
+  // ── Dropdown States ──────────────────────────────────────────────
+  const [isReportDropdownOpen, setIsReportDropdownOpen] = useState(false);
+  const [reportSearchTerm, setReportSearchTerm] = useState("");
+  const [reportDropdownPos, setReportDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const reportTriggerRef = useRef<HTMLDivElement>(null);
+
+  const [isFromDateOpen, setIsFromDateOpen] = useState(false);
+  const [fromDateDropdownPos, setFromDateDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const fromDateTriggerRef = useRef<HTMLDivElement>(null);
+  const [fromCalViewDate, setFromCalViewDate] = useState<Date>(new Date());
+
+  const [isToDateOpen, setIsToDateOpen] = useState(false);
+  const [toDateDropdownPos, setToDateDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const toDateTriggerRef = useRef<HTMLDivElement>(null);
+  const [toCalViewDate, setToCalViewDate] = useState<Date>(new Date());
+
+  const [isMonthYearOpen, setIsMonthYearOpen] = useState(false);
+  const [monthYearDropdownPos, setMonthYearDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const monthYearTriggerRef = useRef<HTMLDivElement>(null);
+  const [monthYearViewYear, setMonthYearViewYear] = useState<number>(new Date().getFullYear());
+
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [statusDropdownPos, setStatusDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const statusTriggerRef = useRef<HTMLDivElement>(null);
+
+  const openDropdown = (type: 'report' | 'fromDate' | 'toDate' | 'monthYear' | 'status') => {
+    setIsReportDropdownOpen(type === 'report' ? !isReportDropdownOpen : false);
+    setIsFromDateOpen(type === 'fromDate' ? !isFromDateOpen : false);
+    setIsToDateOpen(type === 'toDate' ? !isToDateOpen : false);
+    setIsMonthYearOpen(type === 'monthYear' ? !isMonthYearOpen : false);
+    setIsStatusOpen(type === 'status' ? !isStatusOpen : false);
+  };
+
+  // Sync calendar views on open
+  useEffect(() => {
+    if (isFromDateOpen && fromDate) {
+      setFromCalViewDate(new Date(fromDate));
+    }
+  }, [isFromDateOpen]);
+
+  useEffect(() => {
+    if (isToDateOpen && toDate) {
+      setToCalViewDate(new Date(toDate));
+    }
+  }, [isToDateOpen]);
+
+  useEffect(() => {
+    if (isMonthYearOpen && monthYear) {
+      const parts = monthYear.split("-");
+      if (parts[0]) setMonthYearViewYear(parseInt(parts[0]) || new Date().getFullYear());
+    }
+  }, [isMonthYearOpen]);
+
+  // Position calculation
+  useEffect(() => {
+    const calcPos = (ref: React.RefObject<HTMLDivElement>, minWidth = 280, height = 390) => {
+      if (!ref.current) return { top: 0, left: 0, width: 0 };
+      const rect = ref.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      let top = rect.bottom + 6;
+      if (spaceBelow < 260 && rect.top > height) {
+        top = Math.max(10, rect.top - height - 6);
+      }
+      return {
+        top,
+        left: Math.max(10, Math.min(rect.left, window.innerWidth - Math.max(rect.width, minWidth) - 10)),
+        width: Math.max(rect.width, minWidth)
+      };
+    };
+
+    const updatePositions = () => {
+      if (isReportDropdownOpen) setReportDropdownPos(calcPos(reportTriggerRef, 280, 320));
+      if (isFromDateOpen) setFromDateDropdownPos(calcPos(fromDateTriggerRef, 310, 390));
+      if (isToDateOpen) setToDateDropdownPos(calcPos(toDateTriggerRef, 310, 390));
+      if (isMonthYearOpen) setMonthYearDropdownPos(calcPos(monthYearTriggerRef, 300, 300));
+      if (isStatusOpen) setStatusDropdownPos(calcPos(statusTriggerRef, 280, 200));
+    };
+
+    updatePositions();
+    window.addEventListener('resize', updatePositions);
+    window.addEventListener('scroll', updatePositions, true);
+    return () => {
+      window.removeEventListener('resize', updatePositions);
+      window.removeEventListener('scroll', updatePositions, true);
+    };
+  }, [isReportDropdownOpen, isFromDateOpen, isToDateOpen, isMonthYearOpen, isStatusOpen]);
 
   /* ---------------- init ---------------- */
   useEffect(() => {
@@ -46,7 +152,6 @@ const Reports: React.FC = () => {
       console.warn("[Reports] No user found in localStorage");
     }
     GROUP_END();
-    
   }, []);
 
   /* ------------- cleanup ------------- */
@@ -55,6 +160,19 @@ const Reports: React.FC = () => {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     };
   }, [pdfUrl]);
+
+  // Calendar Helpers
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const getReportAbbr = (name: string) => {
+    if (!name) return "RP";
+    const words = name.split(" ").filter(Boolean);
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
   const getApiUrl = () => {
     const empCode = userData?.empCode || "";
@@ -294,65 +412,80 @@ const Reports: React.FC = () => {
               {/* Report Selection */}
               <div className="stock-field">
                 <label>Select Report</label>
-                <div className="stock-select-wrapper">
-                  <select
-                    className="stock-select"
-                    value={reportType || ""}
-                    onChange={(e) => setReportType(e.target.value)}
-                  >
-                    <option value="" disabled>--- Choose Report ---</option>
-                    {reportOptions.map((report) => (
-                      <option key={report} value={report}>{report}</option>
-                    ))}
-                  </select>
+                <div
+                  ref={reportTriggerRef}
+                  className={`dbase-inline-select searchable-trigger ${isReportDropdownOpen ? 'active' : ''}`}
+                  onClick={() => openDropdown('report')}
+                  style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)', cursor: 'pointer' }}
+                >
+                  <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: reportType ? '700' : '600', color: reportType ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {reportType || "--- Choose Report ---"}
+                  </span>
+                  <IonIcon icon={documentTextOutline} className="select-chevron" />
                 </div>
               </div>
 
               {/* From Date */}
               <div className="stock-field">
                 <label>From Date</label>
-                <input
-                  type="date"
-                  className="stock-input"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+                <div
+                  ref={fromDateTriggerRef}
+                  className={`dbase-inline-select searchable-trigger ${isFromDateOpen ? 'active' : ''}`}
+                  onClick={() => openDropdown('fromDate')}
+                  style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)', cursor: 'pointer' }}
+                >
+                  <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: fromDate ? '700' : '600', color: fromDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {fromDate ? moment(fromDate).format("DD-MM-YYYY (ddd)") : "Pick From Date"}
+                  </span>
+                  <IonIcon icon={calendarOutline} className="select-chevron" />
+                </div>
               </div>
 
               {/* To Date */}
               <div className="stock-field">
                 <label>To Date</label>
-                <input
-                  type="date"
-                  className="stock-input"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
+                <div
+                  ref={toDateTriggerRef}
+                  className={`dbase-inline-select searchable-trigger ${isToDateOpen ? 'active' : ''}`}
+                  onClick={() => openDropdown('toDate')}
+                  style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)', cursor: 'pointer' }}
+                >
+                  <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: toDate ? '700' : '600', color: toDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {toDate ? moment(toDate).format("DD-MM-YYYY (ddd)") : "Pick To Date"}
+                  </span>
+                  <IonIcon icon={calendarOutline} className="select-chevron" />
+                </div>
               </div>
 
               {/* Month & Year */}
               <div className="stock-field">
                 <label>Month & Year</label>
-                <input
-                  type="month"
-                  className="stock-input"
-                  value={monthYear}
-                  onChange={(e) => setMonthYear(e.target.value)}
-                />
+                <div
+                  ref={monthYearTriggerRef}
+                  className={`dbase-inline-select searchable-trigger ${isMonthYearOpen ? 'active' : ''}`}
+                  onClick={() => openDropdown('monthYear')}
+                  style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)', cursor: 'pointer' }}
+                >
+                  <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: monthYear ? '700' : '600', color: monthYear ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {monthYear ? moment(monthYear, "YYYY-MM").format("MMMM YYYY") : "Select Month & Year"}
+                  </span>
+                  <IonIcon icon={calendarOutline} className="select-chevron" />
+                </div>
               </div>
 
               {/* Status */}
               <div className="stock-field">
                 <label>Status</label>
-                <div className="stock-select-wrapper">
-                  <select
-                    className="stock-select"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="Regular">Regular</option>
-                    <option value="Irregular">Irregular</option>
-                  </select>
+                <div
+                  ref={statusTriggerRef}
+                  className={`dbase-inline-select searchable-trigger ${isStatusOpen ? 'active' : ''}`}
+                  onClick={() => openDropdown('status')}
+                  style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)', cursor: 'pointer' }}
+                >
+                  <span className="dbase-select-text" style={{ fontSize: '13px', fontWeight: status ? '700' : '600', color: status ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
+                    {status || "Select Status"}
+                  </span>
+                  <IonIcon icon={checkmarkCircleOutline} className="select-chevron" />
                 </div>
               </div>
               
@@ -409,6 +542,571 @@ const Reports: React.FC = () => {
           )}
         </div>
       </IonContent>
+
+      {/* ── Report Type Dropdown Portal ── */}
+      {isReportDropdownOpen && createPortal(
+        <>
+          <div
+            className="dropdown-outside-click-layer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsReportDropdownOpen(false);
+            }}
+          />
+          <div
+            className="custom-inline-dropdown"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${reportDropdownPos.top}px`,
+              left: `${reportDropdownPos.left}px`,
+              width: `${reportDropdownPos.width}px`,
+              zIndex: 99999
+            }}
+          >
+            <div className="dropdown-search-sec">
+              <Search size={16} className="dropdown-search-icon" />
+              <input
+                type="text"
+                placeholder="Search report..."
+                value={reportSearchTerm}
+                onChange={(e) => setReportSearchTerm(e.target.value)}
+                autoFocus
+                className="dropdown-pure-input"
+              />
+              {reportSearchTerm && (
+                <button
+                  type="button"
+                  className="dropdown-clear-btn"
+                  onClick={() => setReportSearchTerm("")}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <div className="dropdown-body">
+              {reportOptions
+                .filter((r) => r.toLowerCase().includes(reportSearchTerm.toLowerCase()))
+                .map((r, index) => {
+                  const isSelected = reportType === r;
+                  return (
+                    <div
+                      key={index}
+                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => {
+                        setReportType(r);
+                        setIsReportDropdownOpen(false);
+                        setReportSearchTerm("");
+                      }}
+                    >
+                      <div className={`dr-avatar grad-${index % 5}`}>
+                        {getReportAbbr(r)}
+                      </div>
+                      <div className="dr-info">
+                        <span className="dr-name">{r}</span>
+                      </div>
+                      {isSelected && <Check size={18} className="dr-check" />}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* ── From Date Dropdown Portal ── */}
+      {isFromDateOpen && createPortal(
+        <>
+          <div
+            className="dropdown-outside-click-layer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsFromDateOpen(false);
+            }}
+          />
+          <div
+            className="custom-inline-dropdown"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${fromDateDropdownPos.top}px`,
+              left: `${fromDateDropdownPos.left}px`,
+              width: `${fromDateDropdownPos.width}px`,
+              zIndex: 99999
+            }}
+          >
+            <div className="dropdown-calendar-container">
+              {/* Quick Presets */}
+              <div className="dropdown-quick-presets">
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setFromDate(moment().format("YYYY-MM-DD"));
+                    setIsFromDateOpen(false);
+                  }}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setFromDate(moment().subtract(1, 'day').format("YYYY-MM-DD"));
+                    setIsFromDateOpen(false);
+                  }}
+                >
+                  Yesterday
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setFromDate(moment().subtract(7, 'days').format("YYYY-MM-DD"));
+                    setIsFromDateOpen(false);
+                  }}
+                >
+                  7 Days Ago
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setFromDate(moment().startOf('month').format("YYYY-MM-DD"));
+                    setIsFromDateOpen(false);
+                  }}
+                >
+                  Month Start
+                </button>
+              </div>
+
+              {/* Month Header */}
+              <div className="dropdown-calendar-header">
+                <button
+                  type="button"
+                  className="dropdown-cal-nav-btn"
+                  onClick={() => {
+                    setFromCalViewDate(prev => {
+                      const next = new Date(prev);
+                      next.setMonth(next.getMonth() - 1);
+                      return next;
+                    });
+                  }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="dropdown-cal-month-title">
+                  {moment(fromCalViewDate).format("MMMM YYYY")}
+                </span>
+                <button
+                  type="button"
+                  className="dropdown-cal-nav-btn"
+                  onClick={() => {
+                    setFromCalViewDate(prev => {
+                      const next = new Date(prev);
+                      next.setMonth(next.getMonth() + 1);
+                      return next;
+                    });
+                  }}
+                >
+                  <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+              </div>
+
+              {/* Days Grid */}
+              <div className="dropdown-cal-grid">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(day => (
+                  <div key={day} className="dropdown-cal-day-name">{day}</div>
+                ))}
+
+                {Array.from({ length: getFirstDayOfMonth(fromCalViewDate.getFullYear(), fromCalViewDate.getMonth()) }).map((_, i) => (
+                  <div key={`empty-${i}`} className="dropdown-cal-day-cell empty" />
+                ))}
+
+                {Array.from({ length: getDaysInMonth(fromCalViewDate.getFullYear(), fromCalViewDate.getMonth()) }).map((_, i) => {
+                  const dayNum = i + 1;
+                  const currentMonthYearStr = `${fromCalViewDate.getFullYear()}-${String(fromCalViewDate.getMonth() + 1).padStart(2, '0')}`;
+                  const dayDateStr = `${currentMonthYearStr}-${String(dayNum).padStart(2, '0')}`;
+                  const isSelected = fromDate === dayDateStr;
+                  const isToday = moment().format("YYYY-MM-DD") === dayDateStr;
+
+                  return (
+                    <div
+                      key={dayNum}
+                      className={`dropdown-cal-day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                      onClick={() => {
+                        setFromDate(dayDateStr);
+                        setIsFromDateOpen(false);
+                      }}
+                    >
+                      {dayNum}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="dropdown-cal-footer">
+              <button
+                type="button"
+                className="dropdown-action-btn"
+                onClick={() => {
+                  setFromDate("");
+                  setIsFromDateOpen(false);
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="dropdown-done-btn"
+                style={{ width: 'auto', padding: '6px 16px' }}
+                onClick={() => setIsFromDateOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* ── To Date Dropdown Portal ── */}
+      {isToDateOpen && createPortal(
+        <>
+          <div
+            className="dropdown-outside-click-layer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsToDateOpen(false);
+            }}
+          />
+          <div
+            className="custom-inline-dropdown"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${toDateDropdownPos.top}px`,
+              left: `${toDateDropdownPos.left}px`,
+              width: `${toDateDropdownPos.width}px`,
+              zIndex: 99999
+            }}
+          >
+            <div className="dropdown-calendar-container">
+              {/* Quick Presets */}
+              <div className="dropdown-quick-presets">
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setToDate(moment().format("YYYY-MM-DD"));
+                    setIsToDateOpen(false);
+                  }}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setToDate(moment().add(1, 'day').format("YYYY-MM-DD"));
+                    setIsToDateOpen(false);
+                  }}
+                >
+                  Tomorrow
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setToDate(moment().endOf('month').format("YYYY-MM-DD"));
+                    setIsToDateOpen(false);
+                  }}
+                >
+                  Month End
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setToDate(moment().add(7, 'days').format("YYYY-MM-DD"));
+                    setIsToDateOpen(false);
+                  }}
+                >
+                  +7 Days
+                </button>
+              </div>
+
+              {/* Month Header */}
+              <div className="dropdown-calendar-header">
+                <button
+                  type="button"
+                  className="dropdown-cal-nav-btn"
+                  onClick={() => {
+                    setToCalViewDate(prev => {
+                      const next = new Date(prev);
+                      next.setMonth(next.getMonth() - 1);
+                      return next;
+                    });
+                  }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="dropdown-cal-month-title">
+                  {moment(toCalViewDate).format("MMMM YYYY")}
+                </span>
+                <button
+                  type="button"
+                  className="dropdown-cal-nav-btn"
+                  onClick={() => {
+                    setToCalViewDate(prev => {
+                      const next = new Date(prev);
+                      next.setMonth(next.getMonth() + 1);
+                      return next;
+                    });
+                  }}
+                >
+                  <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+              </div>
+
+              {/* Days Grid */}
+              <div className="dropdown-cal-grid">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(day => (
+                  <div key={day} className="dropdown-cal-day-name">{day}</div>
+                ))}
+
+                {Array.from({ length: getFirstDayOfMonth(toCalViewDate.getFullYear(), toCalViewDate.getMonth()) }).map((_, i) => (
+                  <div key={`empty-${i}`} className="dropdown-cal-day-cell empty" />
+                ))}
+
+                {Array.from({ length: getDaysInMonth(toCalViewDate.getFullYear(), toCalViewDate.getMonth()) }).map((_, i) => {
+                  const dayNum = i + 1;
+                  const currentMonthYearStr = `${toCalViewDate.getFullYear()}-${String(toCalViewDate.getMonth() + 1).padStart(2, '0')}`;
+                  const dayDateStr = `${currentMonthYearStr}-${String(dayNum).padStart(2, '0')}`;
+                  const isSelected = toDate === dayDateStr;
+                  const isToday = moment().format("YYYY-MM-DD") === dayDateStr;
+
+                  return (
+                    <div
+                      key={dayNum}
+                      className={`dropdown-cal-day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                      onClick={() => {
+                        setToDate(dayDateStr);
+                        setIsToDateOpen(false);
+                      }}
+                    >
+                      {dayNum}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="dropdown-cal-footer">
+              <button
+                type="button"
+                className="dropdown-action-btn"
+                onClick={() => {
+                  setToDate("");
+                  setIsToDateOpen(false);
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="dropdown-done-btn"
+                style={{ width: 'auto', padding: '6px 16px' }}
+                onClick={() => setIsToDateOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* ── Month & Year Dropdown Portal ── */}
+      {isMonthYearOpen && createPortal(
+        <>
+          <div
+            className="dropdown-outside-click-layer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMonthYearOpen(false);
+            }}
+          />
+          <div
+            className="custom-inline-dropdown"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${monthYearDropdownPos.top}px`,
+              left: `${monthYearDropdownPos.left}px`,
+              width: `${monthYearDropdownPos.width}px`,
+              zIndex: 99999
+            }}
+          >
+            <div className="dropdown-monthyear-container">
+              {/* Quick Presets */}
+              <div className="dropdown-quick-presets" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setMonthYear(moment().format("YYYY-MM"));
+                    setIsMonthYearOpen(false);
+                  }}
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setMonthYear(moment().subtract(1, 'month').format("YYYY-MM"));
+                    setIsMonthYearOpen(false);
+                  }}
+                >
+                  Last Month
+                </button>
+                <button
+                  type="button"
+                  className="dropdown-preset-pill"
+                  onClick={() => {
+                    setMonthYear(moment().add(1, 'month').format("YYYY-MM"));
+                    setIsMonthYearOpen(false);
+                  }}
+                >
+                  Next Month
+                </button>
+              </div>
+
+              {/* Year Navigator */}
+              <div className="dropdown-calendar-header" style={{ marginBottom: '8px' }}>
+                <button
+                  type="button"
+                  className="dropdown-cal-nav-btn"
+                  onClick={() => setMonthYearViewYear(prev => prev - 1)}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="dropdown-cal-month-title">
+                  Year {monthYearViewYear}
+                </span>
+                <button
+                  type="button"
+                  className="dropdown-cal-nav-btn"
+                  onClick={() => setMonthYearViewYear(prev => prev + 1)}
+                >
+                  <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+              </div>
+
+              {/* Months Grid (12 Months) */}
+              <div className="dropdown-months-grid">
+                {monthsList.map((m, index) => {
+                  const mVal = `${monthYearViewYear}-${String(index + 1).padStart(2, '0')}`;
+                  const isSelected = monthYear === mVal;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`dropdown-month-btn ${isSelected ? 'selected' : ''}`}
+                      onClick={() => {
+                        setMonthYear(mVal);
+                        setIsMonthYearOpen(false);
+                      }}
+                    >
+                      {m.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="dropdown-cal-footer">
+              <button
+                type="button"
+                className="dropdown-action-btn"
+                onClick={() => {
+                  setMonthYear("");
+                  setIsMonthYearOpen(false);
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="dropdown-done-btn"
+                style={{ width: 'auto', padding: '6px 16px' }}
+                onClick={() => setIsMonthYearOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* ── Status Dropdown Portal ── */}
+      {isStatusOpen && createPortal(
+        <>
+          <div
+            className="dropdown-outside-click-layer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsStatusOpen(false);
+            }}
+          />
+          <div
+            className="custom-inline-dropdown"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${statusDropdownPos.top}px`,
+              left: `${statusDropdownPos.left}px`,
+              width: `${statusDropdownPos.width}px`,
+              zIndex: 99999
+            }}
+          >
+            <div className="dropdown-body">
+              {["Regular", "Irregular"].map((s, index) => {
+                const isSelected = status === s;
+                return (
+                  <div
+                    key={s}
+                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setStatus(s);
+                      setIsStatusOpen(false);
+                    }}
+                  >
+                    <div className={`dr-avatar grad-${index % 5}`}>
+                      {s.charAt(0)}
+                    </div>
+                    <div className="dr-info">
+                      <span className="dr-name">{s}</span>
+                    </div>
+                    {isSelected && <Check size={18} className="dr-check" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </IonPage>
   );
 };
