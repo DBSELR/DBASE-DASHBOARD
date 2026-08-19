@@ -84,11 +84,15 @@
   backdrop-filter: blur(18px);
   border: 1px solid var(--glass-border);
   border-radius: var(--card-radius);
-  padding: 28px;
+  padding: 16px 20px;
   box-shadow: var(--premium-shadow);
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   position: relative;
   z-index: 2;
+}
+
+.overtime-form-container .lr-field-box {
+  padding: 8px 12px !important;
 }
 
 .overtime-form-title {

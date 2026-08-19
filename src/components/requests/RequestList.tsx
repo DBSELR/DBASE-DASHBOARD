@@ -2045,10 +2045,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       <div className="lr-card-title">
                         {type === "equipment"
                           ? item.Remarks
-                          : type === "overtime"
-                            ? item.Empname
-                            : type === "onduty"
-                              ? item.College : (
+                          : type === "onduty"
+                            ? item.College : (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                                   <span style={{
                                     background: '#fff7ed',
@@ -2066,7 +2064,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                               )}
                       </div>
                       <div className="lr-card-subtitle">
-                        {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'overtime' ? item.Remarks : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
+                        {type === 'equipment' ? 'Raised by : ' + (item.Empname + ' (' + item.empcode + ')') : type === 'onduty' ? item.Description : 'Purpose : ' + item.Remarks}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "10px" }}>
@@ -2251,7 +2249,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                   )}
 
                   {getRejectionInfo(item) && <p style={{ color: 'red', fontWeight: 'bold', fontSize: '12px', marginTop: '8px' }}>{getRejectionInfo(item)}</p>}
-                  {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'overtime' && type !== 'onduty' && (
+                  {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'onduty' && (
                     <div className="lr-approved-stepper-box">
                       <span className="lr-stepper-check-badge">✓</span>
                       <span><b>Approved By:</b> <span style={{ color: '#0f172a', fontWeight: 700 }}>{getApprovedBy(item)}</span></span>

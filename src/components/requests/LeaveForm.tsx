@@ -988,7 +988,11 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           cancelText="Cancel"
           value={startDate || undefined}
           min={unlockRange.approved ? unlockRange.fromDate : new Date().toISOString().split("T")[0]}
-          max={`${new Date().getFullYear() + 1}-12-31`}
+          max={
+            (leaveMode === "Leave" && leaveCategory === "Casual") || leaveMode === "Forenoon" || leaveMode === "Afternoon"
+              ? moment().add(1, "month").endOf("month").format("YYYY-MM-DD")
+              : `${new Date().getFullYear() + 1}-12-31`
+          }
           isDateEnabled={(dateString) => {
             const date = dateString.split("T")[0];
             const today = new Date().toISOString().split("T")[0];
@@ -1028,7 +1032,9 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             max={
               startDate === unlockRange.fromDate
                 ? unlockRange.toDate
-                : `${new Date().getFullYear() + 1}-12-31`
+                : ((leaveMode === "Leave" && leaveCategory === "Casual") || leaveMode === "Forenoon" || leaveMode === "Afternoon")
+                  ? moment().add(1, "month").endOf("month").format("YYYY-MM-DD")
+                  : `${new Date().getFullYear() + 1}-12-31`
             }
             isDateEnabled={(dateString) => {
               const date = dateString.split("T")[0];

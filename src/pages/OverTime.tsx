@@ -110,7 +110,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
   const [otList, setOTList] = useState<OTrow[]>([]);
   const [otEditingId, setOTEditingId] = useState<string>("");
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
-  
+
   // Custom Dropdown State
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
@@ -443,6 +443,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
     }
   };
   const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [timeModalOpen, setTimeModalOpen] = useState<"from" | "to" | null>(null);
   return (
     <div className="onduties-page">
       <div className="onduties-content">
@@ -494,7 +495,41 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               </IonContent>
             </IonModal>
 
-            <div className="lr-bento-grid" style={{ alignItems: "start", marginBottom: "20px" }}>
+            <IonModal
+              isOpen={!!timeModalOpen}
+              onDidDismiss={() => setTimeModalOpen(null)}
+              className="native-date-modal"
+            >
+              <IonContent>
+                <IonDatetime
+                  presentation="time"
+                  preferWheel={true}
+                  hourCycle="h12"
+                  showDefaultButtons={true}
+                  doneText="Done"
+                  cancelText="Cancel"
+                  value={
+                    timeModalOpen === "from" && otFrom
+                      ? `2024-01-01T${otFrom}:00`
+                      : timeModalOpen === "to" && otTo
+                      ? `2024-01-01T${otTo}:00`
+                      : undefined
+                  }
+                  onIonChange={(e) => {
+                    const value = e.detail.value as string;
+                    if (value) {
+                      // value might be "2024-01-01T14:30:00" or just "14:30:00"
+                      const timeStr = value.includes("T") ? value.split("T")[1].substring(0, 5) : value.substring(0, 5);
+                      if (timeModalOpen === "from") setOTFrom(timeStr);
+                      if (timeModalOpen === "to") setOTTo(timeStr);
+                      setTimeModalOpen(null);
+                    }
+                  }}
+                />
+              </IonContent>
+            </IonModal>
+
+            <div className="lr-bento-grid" style={{ alignItems: "stretch", marginBottom: "10px", gridTemplateColumns: "max-content minmax(0, 1fr) max-content max-content max-content" }}>
               {/* OT Date */}
               <div
                 className="lr-field-box"
@@ -504,7 +539,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                 <label className="lr-field-label">OT Date</label>
                 <div className="lr-field-content">
                   <IonIcon icon={calendarOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: otDate ? "#1e293b" : "#94a3b8" }}>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: otDate ? "#1e293b" : "#94a3b8", whiteSpace: "nowrap" }}>
                     {otDate ? moment(otDate).format("DD-MM-YYYY") : "Pick OT Date"}
                   </span>
                 </div>
@@ -515,7 +550,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                 <label className="lr-field-label">Client / College</label>
                 <div className="lr-field-content" ref={clientTriggerRef}>
                   <IonIcon icon={personCircleOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: otClient ? "#1e293b" : "#94a3b8" }}>
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: otClient ? "#1e293b" : "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {otClient || "Select Client"}
                   </span>
                   <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
@@ -566,6 +601,12 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               <div className="lr-field-box">
                 <label className="lr-field-label">From</label>
                 <div className="lr-field-content">
+                  <IonIcon 
+                    icon={timeOutline} 
+                    className="lr-field-icon" 
+                    onClick={() => setTimeModalOpen("from")}
+                    style={{ cursor: "pointer", color: "var(--ion-color-primary)", paddingRight: "4px" }}
+                  />
                   <input
                     type="time"
                     value={otFrom}
@@ -579,6 +620,12 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               <div className="lr-field-box">
                 <label className="lr-field-label">To</label>
                 <div className="lr-field-content">
+                  <IonIcon 
+                    icon={timeOutline} 
+                    className="lr-field-icon" 
+                    onClick={() => setTimeModalOpen("to")}
+                    style={{ cursor: "pointer", color: "var(--ion-color-primary)", paddingRight: "4px" }}
+                  />
                   <input
                     type="time"
                     value={otTo}
@@ -592,7 +639,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               <div className="lr-field-box">
                 <label className="lr-field-label">Actual</label>
                 <div className="lr-field-content" style={{ justifyContent: "center" }}>
-                  <span style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>{otActualMin} Min</span>
+                  <span style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", whiteSpace: "nowrap" }}>{otActualMin} Min</span>
                 </div>
               </div>
 
@@ -610,9 +657,9 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               </div>
 
               {/* Work Summary */}
-              <div className="lr-field-box">
-                <label className="lr-field-label">Work Summary</label>
-                <div className="lr-field-content" style={{ alignItems: "flex-start", padding: "12px 16px" }}>
+              <div className="lr-field-box" style={{ gridColumn: "span 4", padding: "8px 14px" }}>
+                <label className="lr-field-label" style={{ marginBottom: "2px" }}>Work Summary</label>
+                <div className="lr-field-content" style={{ alignItems: "flex-start" }}>
                   <textarea
                     placeholder="Describe OT work done..."
                     value={otDesc}
@@ -620,8 +667,9 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                     rows={2}
                     style={{
                       flex: 1, border: "none", background: "transparent",
-                      fontSize: 14, fontWeight: 500, outline: "none",
+                      fontSize: 13, fontWeight: 500, outline: "none",
                       resize: "none", color: "#1e293b", fontFamily: "inherit", width: "100%",
+                      lineHeight: "1.2"
                     }}
                   />
                 </div>
@@ -631,7 +679,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
             <div style={{ display: "flex", gap: "12px" }}>
               <button
                 className="lr-gradient-btn"
-                style={{ flex: 1, padding: "14px", borderRadius: "14px", fontSize: "15px", fontWeight: "700" }}
+                style={{ flex: 1, padding: "12px", borderRadius: "14px", fontSize: "15px", fontWeight: "700" }}
                 onClick={saveOT}
               >
                 {otEditingId ? "Update OT" : "Save OT"}
@@ -639,14 +687,14 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               {canApprove && otEditingId && (
                 <button
                   className="lr-gradient-btn"
-                  style={{ flex: 1, padding: "14px", borderRadius: "14px", fontSize: "15px", fontWeight: "700", background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
+                  style={{ flex: 1, padding: "12px", borderRadius: "14px", fontSize: "15px", fontWeight: "700", background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
                   onClick={approveOT}
                 >
                   Approve
                 </button>
               )}
             </div>
-            </div>
+          </div>
           {/* <div className="history-section-title">Over-Time Logs</div>
           {otList.map((row, idx) => (
             <div key={`${row.id}-${idx}`} className="premium-card">
