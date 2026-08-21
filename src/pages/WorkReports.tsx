@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import {
   IonPage,
   IonHeader,
@@ -408,8 +409,15 @@ const WorkReports: React.FC = () => {
         await fetchMonths(empCode);
         await fetchReports(empCode, currentMonth);
 
+        // Fun haptic feedback!
+        try {
+          Haptics.impact({ style: ImpactStyle.Heavy });
+          setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }), 150);
+          setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }), 300);
+        } catch (e) { console.log('Haptics not available'); }
+
         setShowSuccessModal(true);
-        setTimeout(() => setShowSuccessModal(false), 2000);
+        setTimeout(() => setShowSuccessModal(false), 3500);
       } else {
         console.warn("Unexpected response format or content:", response.data);
         // Fallback for different responses
@@ -419,8 +427,15 @@ const WorkReports: React.FC = () => {
           setToastType("success");
           setToastMessage("Work report submitted successfully!");
           handleClear();
+
+          try {
+            Haptics.impact({ style: ImpactStyle.Heavy });
+            setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }), 150);
+            setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }), 300);
+          } catch (e) { console.log('Haptics not available'); }
+
           setShowSuccessModal(true);
-          setTimeout(() => setShowSuccessModal(false), 2000);
+          setTimeout(() => setShowSuccessModal(false), 3500);
         } else {
           setToastType("danger");
           setToastMessage(typeof response.data === 'string' ? response.data : "Submission failed.");
@@ -1156,12 +1171,28 @@ const WorkReports: React.FC = () => {
           </div>
         </IonModal>
 
-        {/* Success Tick Modal */}
-        <IonModal isOpen={showSuccessModal} className="success-tick-modal">
-          <div className="wr-success-content" style={{ backgroundColor: "var(--ion-background-color)" }}>
-            <img src="./images/check.gif" alt="Success" style={{ width: "120px", height: "120px" }} />
-            <div className="wr-success-text">
-              Work Report Submitted!
+        {/* Simple & Ultra-Premium Success Message Modal */}
+        <IonModal 
+          isOpen={showSuccessModal} 
+          className="premium-success-modal" 
+          backdropDismiss={true}
+          onDidDismiss={() => setShowSuccessModal(false)}
+        >
+          <div className="us-content" onClick={() => setShowSuccessModal(false)}>
+            {/* Glossy Right-Tick Ball with Soft Pulse */}
+            <div className="us-ball-wrapper">
+              <div className="us-pulse-ring us-pulse-1"></div>
+              <div className="us-pulse-ring us-pulse-2"></div>
+
+              <div className="us-tick-ball">
+                <svg className="us-checkmark-svg" viewBox="0 0 52 52">
+                  <path className="us-checkmark-check" fill="none" d="M14.5 27.2l7.6 7.6 15.4-15.6" />
+                </svg>
+              </div>
+            </div>
+
+            <div className="us-text-wrapper">
+              <h2 className="us-success-title">Work Report Submitted Successfully</h2>
             </div>
           </div>
         </IonModal>
