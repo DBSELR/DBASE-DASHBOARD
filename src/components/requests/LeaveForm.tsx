@@ -438,7 +438,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     if (loading) return;
 
     const available = Number(balance?.balance ?? 0);
-    if (available <= 0 || !startDate || !endDate || singleDateMode) {
+    const effEndDate = (!singleDateMode && endDate) ? endDate : startDate;
+    if (available <= 0 || !startDate || !effEndDate) {
       submitToServer("LOP");
       return;
     }
@@ -448,47 +449,52 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       originalCategory = "Casual";
     }
 
-    const requestedDays = moment(endDate).diff(moment(startDate), "days") + 1;
+    const requestedDays = moment(effEndDate).diff(moment(startDate), "days") + 1;
 
-    let requests: any[] = [];
-    let currentDate = moment(startDate);
-    let remainingCasual = available;
-
-    for (let i = 0; i < requestedDays; i++) {
-      let dateStr = currentDate.format("YYYY-MM-DD");
-      if (remainingCasual >= 1) {
-        requests.push({ date: dateStr, mode: "Leave", cat: originalCategory });
-        remainingCasual -= 1;
-      } else if (remainingCasual === 0.5) {
-        requests.push({ date: dateStr, mode: "Forenoon", cat: originalCategory });
-        requests.push({ date: dateStr, mode: "Afternoon", cat: "LOP" });
-        remainingCasual -= 0.5;
-      } else {
-        requests.push({ date: dateStr, mode: "Leave", cat: "LOP" });
-      }
-      currentDate.add(1, 'days');
+    // If available balance covers all requested days, submit as single request
+    if (available >= requestedDays) {
+      submitToServer(originalCategory);
+      return;
     }
 
-    let groups: any[] = [];
-    let currentGroup: any = null;
+    const remainingLOP = requestedDays - available;
 
-    for (let req of requests) {
-      if (!currentGroup || currentGroup.cat !== req.cat) {
-        if (currentGroup) groups.push(currentGroup);
-        currentGroup = {
-          start: req.date,
-          end: req.date,
-          mode: "Leave",
-          cat: req.cat,
-          count: req.mode === "Leave" ? 1 : 0.5
-        };
-      } else {
-        currentGroup.end = req.date;
-        currentGroup.count += req.mode === "Leave" ? 1 : 0.5;
-        currentGroup.mode = "Leave";
-      }
-    }
-    if (currentGroup) groups.push(currentGroup);
+    // Consolidate into EXACTLY 2 records:
+    // 1. Available leave balance (Casual / Sick)
+    // 2. Remaining LOP balance
+    const groups: {
+      cat: string;
+      start: string;
+      end: string;
+      mode: string;
+      count: number;
+    }[] = [];
+
+    // --- Record 1: Available Leave ---
+    const casualEndDayOffset = Math.ceil(available) - 1;
+    const casualEndDate = moment(startDate).add(casualEndDayOffset, "days").format("YYYY-MM-DD");
+    const casualMode = available === 0.5 ? "Forenoon" : (leaveMode || "Leave");
+
+    groups.push({
+      cat: originalCategory,
+      start: startDate,
+      end: casualEndDate,
+      mode: casualMode,
+      count: available
+    });
+
+    // --- Record 2: Remaining LOP Leave ---
+    const lopStartDayOffset = Math.floor(available);
+    const lopStartDate = moment(startDate).add(lopStartDayOffset, "days").format("YYYY-MM-DD");
+    const lopMode = remainingLOP === 0.5 ? "Afternoon" : "Leave";
+
+    groups.push({
+      cat: "LOP",
+      start: lopStartDate,
+      end: effEndDate,
+      mode: lopMode,
+      count: remainingLOP
+    });
 
     setLoading(true);
 
@@ -496,11 +502,24 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       for (let i = 0; i < groups.length; i++) {
         const group = groups[i];
         const isLast = i === groups.length - 1;
-        const remarkText = group.cat === "LOP" ? `(${group.count} Days Converted to LOP)` : `(${group.count} Days ${group.cat})`;
-        await submitToServer(group.cat, group.start, group.end, remarks + " " + remarkText, !isLast, group.mode, group.count);
+        const remarkText =
+          group.cat === "LOP"
+            ? `(${group.count} Days Converted to LOP)`
+            : `(${group.count} Days ${group.cat})`;
+        await submitToServer(
+          group.cat,
+          group.start,
+          group.end,
+          remarks + " " + remarkText,
+          !isLast,
+          group.mode,
+          group.count
+        );
       }
     } catch (error) {
-      console.error(error);
+      console.error("Split leave submission failed:", error);
+      showToast("Error submitting split leave request");
+    } finally {
       setLoading(false);
     }
   };
