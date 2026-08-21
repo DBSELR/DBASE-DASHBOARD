@@ -1,17 +1,11 @@
 import {
   IonContent,
   IonItem,
-  IonLabel,
   IonList,
   IonMenu,
   IonMenuToggle,
-  IonAvatar,
   IonIcon,
   IonSpinner,
-  IonButtons,
-  IonTitle,
-  IonMenuButton,
-  IonToolbar,
 } from "@ionic/react";
 import axios from "axios";
 import { API_BASE } from "../config";
@@ -45,94 +39,74 @@ import {
 import "../theme/Common.css";
 import "./Menu.css";
 
-const BouncingBall: React.FC = () => {
-  const ballRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let x = Math.random() * 150;
-    let y = Math.random() * 300;
-    let dx = 1.2;
-    let dy = 1.5;
-    let animationFrameId: number;
-
-    const animate = () => {
-      if (ballRef.current) {
-        // Typical Ionic menu width is 304px, height is 100vh
-        const parentWidth = 304; 
-        const parentHeight = window.innerHeight;
-        
-        const ballSize = 80; // hard ball size
-
-        x += dx;
-        y += dy;
-
-        if (x + ballSize > parentWidth || x < 0) {
-          dx = -dx;
-        }
-        if (y + ballSize > parentHeight || y < 0) {
-          dy = -dy;
-        }
-
-        ballRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-      }
-      animationFrameId = requestAnimationFrame(animate);
-    };
-    
-    animate();
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, []);
-
-  return (
-    <div
-      ref={ballRef}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle at 30% 30%, #ffffff 0%, var(--ion-color-primary, #f15a24) 60%, var(--ion-color-primary-shade, #9c2807) 100%)',
-        boxShadow: '0 8px 24px rgba(var(--ion-color-primary-rgb, 241, 90, 36), 0.3), inset -5px -5px 15px rgba(0,0,0,0.2)',
-        opacity: 0.5,
-        pointerEvents: 'none',
-        zIndex: 0, // Behind the menu content
-        willChange: 'transform'
-      }}
-    />
-  );
-};
-
 const Menu: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
-  const [userData, setUserData] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [menuItems, setMenuItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Initialize userData synchronously from localStorage to avoid initial render flashes
+  const [userData, setUserData] = useState<any>(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Cached profile and menu items for instant rendering
+  const [userProfile, setUserProfile] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem("cached_user_profile");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [menuItems, setMenuItems] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("cached_menu_items");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem("cached_menu_items");
+      return !cached || JSON.parse(cached).length === 0;
+    } catch {
+      return true;
+    }
+  });
+
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("sidebarCollapsed") === "true";
   });
+
   const menuListRef = useRef<HTMLIonListElement | null>(null);
 
   const toggleSidebar = () => {
-    setIsCollapsed(prev => {
+    setIsCollapsed((prev) => {
       const newState = !prev;
       localStorage.setItem("sidebarCollapsed", String(newState));
       return newState;
     });
   };
 
-  const dummyProfilePic = "/images/avatar.png"; // Use absolute path for better reliability
-
-  // Fetch user data from localStorage
+  // Listen for desktop toggle event from bottom tab bar or shortcuts
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUserData(JSON.parse(storedUser));
-    }
+    const handleToggleEvent = () => {
+      toggleSidebar();
+    };
+    window.addEventListener("app:toggle-sidebar", handleToggleEvent);
+    return () => {
+      window.removeEventListener("app:toggle-sidebar", handleToggleEvent);
+    };
   }, []);
+
+  const dummyProfilePic = "/images/avatar.png";
 
   const fetchMenuData = async (empCode: string) => {
     try {
@@ -143,13 +117,13 @@ const Menu: React.FC = () => {
         return;
       }
 
-      const API_URL = `${API_BASE}Login/Load_Menu?Empcode=${empCode}`;
-      // console.log("Fetching menu from:", API_URL);
+      const cleanBase = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
+      const API_URL = `${cleanBase}Login/Load_Menu?Empcode=${empCode}`;
 
       const response = await fetch(API_URL, {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`, // Using token for authentication
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -158,8 +132,10 @@ const Menu: React.FC = () => {
       }
 
       const data = await response.json();
-      setMenuItems(data);
-      // console.log("Fetched Menu:", data);
+      if (Array.isArray(data)) {
+        setMenuItems(data);
+        localStorage.setItem("cached_menu_items", JSON.stringify(data));
+      }
     } catch (error) {
       console.error("Error fetching menu:", error);
     } finally {
@@ -167,41 +143,46 @@ const Menu: React.FC = () => {
     }
   };
 
-  // Load menu and profile when user data is available
-  useEffect(() => {
-    if (userData?.empCode) {
-      fetchMenuData(userData.empCode);
-      fetchUserProfile(userData.empCode);
-    }
-  }, [userData]);
-
   const fetchUserProfile = async (empCode: string) => {
     try {
       const token = localStorage.getItem("token");
-      const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+      if (!token) return;
+      const cleanBase = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
       const url = `${cleanBase}/Profile/UserProfile?employeeCode=${empCode}`;
 
-      console.log("[Menu] Fetching user profile from:", url);
-
       const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.data) {
         const profile = Array.isArray(res.data) ? res.data[0] : res.data;
-        if (profile && (profile.EmpCode || profile.Empcode || profile[1])) {
-          console.log("[Menu] Profile parsed successfully:", profile);
+        if (profile && (profile.EmpCode || profile.empCode || profile.EmpName || profile.empName || profile[1])) {
           setUserProfile(profile);
-        } else {
-          console.warn("[Menu] Profile data empty or invalid structure", res.data);
+          localStorage.setItem("cached_user_profile", JSON.stringify(profile));
         }
-      } else {
-        console.warn("[Menu] No profile data found in response");
       }
     } catch (e) {
       console.error("[Menu] Error fetching profile details:", e);
     }
   };
+
+  // Load menu and profile whenever userData is available or updated
+  useEffect(() => {
+    const code =
+      userData?.EmpCode ||
+      userData?.empCode ||
+      userData?.emp_code ||
+      userData?.Empcode ||
+      userData?.userName ||
+      userData?.username;
+
+    if (code) {
+      fetchMenuData(String(code));
+      fetchUserProfile(String(code));
+    } else {
+      setLoading(false);
+    }
+  }, [userData]);
 
   const handleLogout = () => {
     setLoading(true);
@@ -210,10 +191,10 @@ const Menu: React.FC = () => {
 
   const scrollToActiveOption = () => {
     setTimeout(() => {
-      const listEl = document.querySelector('.scrollable-list') as HTMLElement;
-      const activeEl = document.querySelector('.scrollable-list .item-active') as HTMLElement;
+      const listEl = document.querySelector(".scrollable-list") as HTMLElement;
+      const activeEl = document.querySelector(".scrollable-list .item-active") as HTMLElement;
       if (listEl && activeEl) {
-        const topPos = activeEl.offsetTop - (listEl.clientHeight / 2) + (activeEl.clientHeight / 2);
+        const topPos = activeEl.offsetTop - listEl.clientHeight / 2 + activeEl.clientHeight / 2;
         listEl.scrollTop = Math.max(0, topPos);
       } else if (listEl) {
         listEl.scrollTop = 0;
@@ -227,7 +208,7 @@ const Menu: React.FC = () => {
       document.activeElement.blur();
     }
     history.push(path);
-    const menu = document.querySelector("ion-menu") as HTMLIonMenuElement | null;
+    const menu = (document.getElementById("main-menu") || document.querySelector("ion-menu")) as HTMLIonMenuElement | null;
     if (menu) {
       menu.close();
     }
@@ -238,142 +219,154 @@ const Menu: React.FC = () => {
     scrollToActiveOption();
   }, [menuItems, location.pathname]);
 
-  if (loading) {
-    return (
-      <IonContent className="ion-padding">
-        <IonSpinner name="crescent" />
-      </IonContent>
-    );
-  }
+  const empName =
+    userProfile?.EmpName ||
+    userProfile?.empName ||
+    userData?.EmpName ||
+    userData?.empName ||
+    userData?.displayName ||
+    userData?.name ||
+    "User";
 
-  if (!userData) return null;
+  const designation =
+    userProfile?.Designation ||
+    userProfile?.designation ||
+    userData?.Designation ||
+    userData?.designation ||
+    "Employee";
+
+  const userType =
+    userData?.UserType ||
+    userData?.userType ||
+    userData?.role ||
+    "User";
+
+  const empCodeDisplay =
+    userData?.EmpCode ||
+    userData?.empCode ||
+    userData?.emp_code ||
+    userData?.Empcode ||
+    userData?.userName ||
+    userData?.username ||
+    "";
+
+  const picSrc =
+    userProfile?.ProfileImage ||
+    userProfile?.profileImage ||
+    userProfile?.Img ||
+    userProfile?.img ||
+    userData?.profilePic ||
+    userData?.ProfilePic ||
+    userData?.profileImage ||
+    dummyProfilePic;
 
   return (
     <IonMenu
+      id="main-menu"
+      menuId="main-menu"
       contentId="main"
-        menuId="main-menu"
-        type="overlay"
-        onIonWillOpen={() => {
-          scrollToActiveOption();
-        }}
-        onIonWillClose={() => {
-          if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-          }
-        }}
-        className={`menu-background modern-glass-menu ${isCollapsed ? 'collapsed' : ''}`}
+      side="start"
+      type="overlay"
+      onIonWillOpen={() => {
+        scrollToActiveOption();
+      }}
+      onIonWillClose={() => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }}
+      className={`menu-background modern-glass-menu ${isCollapsed ? "collapsed" : ""}`}
+    >
+      {/* Toggle button straddling the border (visible on desktop) */}
+      <button
+        className={`sidebar-toggle-btn ${isCollapsed ? "is-collapsed" : ""}`}
+        onClick={toggleSidebar}
+        type="button"
+        aria-label="Toggle Sidebar"
       >
-        {/* Toggle button straddling the border */}
-        <button
-          className={`sidebar-toggle-btn ${isCollapsed ? 'is-collapsed' : ''}`}
-          onClick={toggleSidebar}
-        >
-          <IonIcon icon={isCollapsed ? chevronForwardOutline : chevronBackOutline} />
-        </button>
+        <IonIcon icon={isCollapsed ? chevronForwardOutline : chevronBackOutline} />
+      </button>
 
-        <IonContent className={`menu-background modern-glass-content ${isCollapsed ? 'collapsed' : ''}`} scrollY={false} style={{ '--background': 'transparent' }}>
-          
-          {/* ── Bouncing Floater Ball ── hidden on request.
-              The component below is left defined, not deleted, so this is a
-              one-line change to put back. */}
-          {/* <BouncingBall /> */}
-
-          <div className="menu-inner-wrapper" style={{ position: 'relative', zIndex: 1, height: '100%', overflow: 'hidden' }}>
-            {/* ── Profile Card (static, never scrolls) ── */}
-            <div className="modern-menu-header premium-trendy-bg">
-              <div className="profile-photo-wrapper">
-                {(() => {
-                  const picSrc = userProfile?.ProfileImage || userProfile?.Img || userData.profilePic || dummyProfilePic;
-                  return (
-                    <img
-                      className="profile-photo"
-                      src={picSrc}
-                      alt="Profile"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (!target.src.includes(dummyProfilePic)) {
-                          target.src = dummyProfilePic;
-                        }
-                      }}
-                    />
-                  );
-                })()}
-              </div>
-
-              <div className="user-info-container">
-                <h2 className="user-welcome">{userProfile?.EmpName || userData.empName || "User"}</h2>
-                <p className="user-designation">{userProfile?.Designation || userData.designation || "Employee"}</p>
-                <div className="user-badge">{userData.userType} • {userData.empCode}</div>
-              </div>
+      <IonContent
+        className={`menu-background modern-glass-content ${isCollapsed ? "collapsed" : ""}`}
+        scrollY={false}
+        style={{ "--background": "transparent" }}
+      >
+        <div className="menu-inner-wrapper" style={{ position: "relative", zIndex: 1, height: "100%", overflow: "hidden" }}>
+          {/* Profile Card (static, never scrolls) */}
+          <div className="modern-menu-header premium-trendy-bg">
+            <div className="profile-photo-wrapper">
+              <img
+                className="profile-photo"
+                src={picSrc}
+                alt="Profile"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes(dummyProfilePic)) {
+                    target.src = dummyProfilePic;
+                  }
+                }}
+              />
             </div>
 
-            {/* ── Scrollable Menu List ── */}
-            <IonList ref={menuListRef} className="scrollable-list">
-              <IonMenuToggle autoHide={false}>
-                {menuItems.length > 0 ? (
-                  menuItems.map((menuItem, index) => (
-                    <IonItem
-                      key={index}
-                      button
-                      lines="none"
-                      onClick={() => handleTabClick(menuItem[4])}
-                      className={location.pathname === menuItem[4] ? "item-active" : ""}
-                      style={{ "--item-index": index + 1 } as React.CSSProperties}
-                    >
-                      <div className="menu-item-row" title={menuItem[1]}>
-                        <div className="menu-icon-chip">
-                          <IonIcon icon={getIcon(menuItem[2])} />
-                        </div>
-                        <span className="menu-item-label">{menuItem[1]}</span>
-                      </div>
-                    </IonItem>
-                  ))
-                ) : (
-                  <p className="ion-padding">No menu items found.</p>
-                )}
-
-                {/* Office Clint Docs Static Item */}
-                {/* <IonItem
-                  button
-                  lines="none"
-                  onClick={() => history.push("/office-client-docs")}
-                  className={location.pathname === "/office-client-docs" ? "item-active" : ""}
-                  style={{ "--item-index": menuItems.length + 1 } as React.CSSProperties}
-                >
-                  <div className="menu-item-row">
-                    <div className="menu-icon-chip">
-                      <IonIcon icon={documentText} />
-                    </div>
-                    <span className="menu-item-label">Office Clint Docs</span>
-                  </div>
-                </IonItem> */}
-
-               
-                 
-
-                
-
-                {/* Logout Button */}
-                <IonItem
-                  button
-                  lines="none"
-                  onClick={handleLogout}
-                  className="logout-item"
-                  style={{ "--item-index": menuItems.length + 2 } as React.CSSProperties}
-                >
-                  <div className="menu-item-row" title="Logout">
-                    <div className="menu-icon-chip">
-                      <IonIcon icon={logOut} />
-                    </div>
-                    <span className="menu-item-label">Logout</span>
-                  </div>
-                </IonItem>
-              </IonMenuToggle>
-            </IonList>
-
+            <div className="user-info-container">
+              <h2 className="user-welcome">{empName}</h2>
+              <p className="user-designation">{designation}</p>
+              <div className="user-badge">{userType}{empCodeDisplay ? ` • ${empCodeDisplay}` : ""}</div>
+            </div>
           </div>
-        </IonContent>
-      </IonMenu>
+
+          {/* Scrollable Menu List */}
+          <IonList ref={menuListRef} className="scrollable-list">
+            <IonMenuToggle autoHide={false}>
+              {loading && menuItems.length === 0 ? (
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px 0" }}>
+                  <IonSpinner name="crescent" color="primary" />
+                </div>
+              ) : menuItems.length > 0 ? (
+                menuItems.map((menuItem, index) => (
+                  <IonItem
+                    key={index}
+                    button
+                    lines="none"
+                    onClick={() => handleTabClick(menuItem[4])}
+                    className={location.pathname === menuItem[4] ? "item-active" : ""}
+                    style={{ "--item-index": index + 1 } as React.CSSProperties}
+                  >
+                    <div className="menu-item-row" title={menuItem[1]}>
+                      <div className="menu-icon-chip">
+                        <IonIcon icon={getIcon(menuItem[2])} />
+                      </div>
+                      <span className="menu-item-label">{menuItem[1]}</span>
+                    </div>
+                  </IonItem>
+                ))
+              ) : (
+                <p className="ion-padding" style={{ textAlign: "center", color: "#64748b", fontSize: "13px" }}>
+                  No menu items found.
+                </p>
+              )}
+
+              {/* Logout Button */}
+              <IonItem
+                button
+                lines="none"
+                onClick={handleLogout}
+                className="logout-item"
+                style={{ "--item-index": (menuItems.length || 0) + 2 } as React.CSSProperties}
+              >
+                <div className="menu-item-row" title="Logout">
+                  <div className="menu-icon-chip">
+                    <IonIcon icon={logOut} />
+                  </div>
+                  <span className="menu-item-label">Logout</span>
+                </div>
+              </IonItem>
+            </IonMenuToggle>
+          </IonList>
+        </div>
+      </IonContent>
+    </IonMenu>
   );
 };
 
@@ -398,7 +391,6 @@ const getIcon = (iconName: string | null) => {
     "Emp Profile": person,
     "employee-outline": person,
     "subway-outline": calendar,
-
   };
   return iconName && icons[iconName] ? icons[iconName] : documentText;
 };

@@ -1,4 +1,4 @@
-import { IonIcon } from "@ionic/react";
+import { IonIcon, IonMenuToggle } from "@ionic/react";
 import { menuController } from "@ionic/core";
 import {
   home,
@@ -27,7 +27,7 @@ const FloatingTabBar: React.FC = () => {
 
     // Close menu if open
     menuController.close("main-menu").catch(() => {
-      const menu = document.querySelector("ion-menu") as HTMLIonMenuElement | null;
+      const menu = (document.getElementById("main-menu") || document.querySelector("ion-menu")) as HTMLIonMenuElement | null;
       if (menu) menu.close();
     });
   };
@@ -84,11 +84,24 @@ const FloatingTabBar: React.FC = () => {
     activeTab === "/adminworkreport" ||
     activeTab === "/workreport-dashboard";
 
-  const handleMenuClick = async () => {
+  const handleMenuClick = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // On wide desktop screens where IonSplitPane is active, toggle sidebar collapsed width
+    if (window.innerWidth > 992) {
+      window.dispatchEvent(new CustomEvent("app:toggle-sidebar"));
+      return;
+    }
+
     try {
-      await menuController.toggle("main-menu");
-    } catch {
-      const menu = document.querySelector("ion-menu") as HTMLIonMenuElement | null;
+      // 1. Ensure menu is enabled
+      await menuController.enable(true, "main-menu").catch(() => {});
+
+      // 2. Direct DOM method check for instantaneous response
+      const menu = (document.getElementById("main-menu") || document.querySelector("ion-menu")) as HTMLIonMenuElement | null;
       if (menu) {
         const isOpen = await menu.isOpen();
         if (isOpen) {
@@ -96,6 +109,23 @@ const FloatingTabBar: React.FC = () => {
         } else {
           await menu.open();
         }
+        return;
+      }
+
+      // 3. Fallback to menuController
+      const toggled = await menuController.toggle("main-menu");
+      if (!toggled) {
+        await menuController.toggle();
+      }
+    } catch (err) {
+      console.error("Error toggling menu:", err);
+      try {
+        const menu = (document.getElementById("main-menu") || document.querySelector("ion-menu")) as HTMLIonMenuElement | null;
+        if (menu) {
+          menu.toggle();
+        }
+      } catch (domErr) {
+        console.error("DOM menu toggle error:", domErr);
       }
     }
   };
@@ -140,14 +170,16 @@ const FloatingTabBar: React.FC = () => {
         </button>
 
         {/* Menu Toggle Button */}
-        <button
-          type="button"
-          aria-label="Toggle Menu"
-          className="tab-item"
-          onClick={handleMenuClick}
-        >
-          <IonIcon icon={menuOutline} />
-        </button>
+        <IonMenuToggle menu="main-menu" autoHide={false}>
+          <button
+            type="button"
+            aria-label="Toggle Menu"
+            className="tab-item"
+            onClick={handleMenuClick}
+          >
+            <IonIcon icon={menuOutline} />
+          </button>
+        </IonMenuToggle>
       </div>
     </div>
   );
