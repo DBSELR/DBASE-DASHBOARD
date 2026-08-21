@@ -1,9 +1,9 @@
 import { IonContent, IonPage, IonIcon, IonSpinner } from "@ionic/react";
-import { 
-  arrowBackOutline, 
-  cameraReverseOutline, 
-  pinOutline, 
-  bluetoothOutline, 
+import {
+  arrowBackOutline,
+  cameraReverseOutline,
+  pinOutline,
+  bluetoothOutline,
   calendarOutline,
   informationCircleOutline,
   closeOutline,
@@ -50,6 +50,43 @@ const getAutoStatus = (): string => {
   }
 };
 
+const formatTime12H = (val?: any): string => {
+  if (!val || val === '-' || val === '--:--') return '--:--';
+  if (typeof val === 'string') {
+    const clean = val.trim();
+    if (clean.includes('1900-01-01')) {
+      const p = clean.split(/[ T]/);
+      if (p.length > 1) return formatTime12H(p[1]);
+    }
+    // Match already 12-hour format e.g. "01:32 PM", "13:32 PM", "1:32:00 PM"
+    const ampmMatch = clean.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+    if (ampmMatch) {
+      const h = parseInt(ampmMatch[1], 10);
+      const m = ampmMatch[2];
+      const ap = ampmMatch[3].toUpperCase();
+      const normH = h === 0 ? 12 : (h > 12 ? h % 12 || 12 : h);
+      return `${normH.toString().padStart(2, '0')}:${m} ${ap}`;
+    }
+    // Match 24-hour format e.g. "13:32" or "13:32:15" or "13.32"
+    const match = clean.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?/);
+    if (match) {
+      const h = parseInt(match[1], 10);
+      const m = match[2];
+      const ap = h >= 12 ? 'PM' : 'AM';
+      const normH = h % 12 || 12;
+      return `${normH.toString().padStart(2, '0')}:${m} ${ap}`;
+    }
+  }
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const h = val.getHours();
+    const m = val.getMinutes().toString().padStart(2, '0');
+    const ap = h >= 12 ? 'PM' : 'AM';
+    const normH = (h % 12 || 12).toString().padStart(2, '0');
+    return `${normH}:${m} ${ap}`;
+  }
+  return String(val);
+};
+
 const getSlotColorConfig = (slot?: string) => {
   switch (slot) {
     case 'Morning In':
@@ -73,35 +110,35 @@ const SecurityAttendanceScanner: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const history = useHistory();
 
-  const [processing,   setProcessing]   = useState(false);
-  const [cameraReady,  setCameraReady]  = useState(false);
-  const [scanSuccess,  setScanSuccess]  = useState(false);
-  const [cameraMode,   setCameraMode]   = useState<"user" | "environment">("user");
-  const [latitude,     setLatitude]     = useState<number>(0);
-  const [longitude,    setLongitude]    = useState<number>(0);
-  const [locationReady,setLocationReady]= useState(false);
-  const [bleVerified,  setBleVerified]  = useState(false);
-  const [bleDeviceId,  setBleDeviceId]  = useState("");
-  const [bleDeviceName,setBleDeviceName]= useState("");
-  const [isBleScanning,setIsBleScanning]= useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
+  const [cameraMode, setCameraMode] = useState<"user" | "environment">("user");
+  const [latitude, setLatitude] = useState<number>(0);
+  const [longitude, setLongitude] = useState<number>(0);
+  const [locationReady, setLocationReady] = useState(false);
+  const [bleVerified, setBleVerified] = useState(false);
+  const [bleDeviceId, setBleDeviceId] = useState("");
+  const [bleDeviceName, setBleDeviceName] = useState("");
+  const [isBleScanning, setIsBleScanning] = useState(false);
   const [bleSignalStrength, setBleSignalStrength] = useState<number | null>(null);
-  const [allowedBeacons, setAllowedBeacons] = useState<{name: string, mac: string}[]>([]);
-  const [message,      setMessage]      = useState("Initializing camera...");
-  const [statusColor,  setStatusColor]  = useState("#8b5cf6");
-  const [matchCount,   setMatchCount]   = useState(0);
-  const [verifyingName,setVerifyingName]= useState("");
+  const [allowedBeacons, setAllowedBeacons] = useState<{ name: string, mac: string }[]>([]);
+  const [message, setMessage] = useState("Initializing camera...");
+  const [statusColor, setStatusColor] = useState("#8b5cf6");
+  const [matchCount, setMatchCount] = useState(0);
+  const [verifyingName, setVerifyingName] = useState("");
   const [activeFaceCount, setActiveFaceCount] = useState<number>(0);
 
-  const [userData,     setUserData]     = useState<any>(null);
-  const [userProfile,  setUserProfile]  = useState<any>(null);
-  const [isMobile,     setIsMobile]     = useState(window.innerWidth <= 768);
-  const [capturedImg,  setCapturedImg]  = useState<string | null>(null);
-  const [debugLogs,     setDebugLogs]     = useState<string[]>([]);
-  
+  const [userData, setUserData] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [capturedImg, setCapturedImg] = useState<string | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
   // Status Selector
   const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
   const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
-  
+
   // Rules popup
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isScannerPaused, setIsScannerPaused] = useState<boolean>(false);
@@ -118,7 +155,7 @@ const SecurityAttendanceScanner: React.FC = () => {
           setPolicyMap(map);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Cooldown countdown state
@@ -160,7 +197,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     if (typeof window !== "undefined" && "FaceDetector" in window) {
       try {
         detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 6 });
-      } catch {}
+      } catch { }
     }
 
     let isMounted = true;
@@ -226,7 +263,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               return;
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // Fast Client-Side Canvas Dynamic 4-Column Multi-Face Region Locator Fallback
@@ -313,7 +350,7 @@ const SecurityAttendanceScanner: React.FC = () => {
             lastDetectedFacesTimestampRef.current = timeNow;
           }
         }
-      } catch {}
+      } catch { }
     };
 
     const intervalId = setInterval(runFastLocalDetector, 35); // 30 FPS client-side detector loop
@@ -574,39 +611,39 @@ const SecurityAttendanceScanner: React.FC = () => {
     isDuplicate?: boolean; customMessage?: string; confidence?: number;
   } | null>(null);
 
-  const latitudeRef     = useRef(0);
-  const longitudeRef    = useRef(0);
-  const locationReadyRef= useRef(false);
-  const bleVerifiedRef  = useRef(false);
-  const bleDeviceNameRef= useRef("");
-  const bleDeviceIdRef  = useRef("");
-  const allowedBeaconsRef = useRef<{name: string, mac: string}[]>([]);
-  const cameraReadyRef  = useRef(false);
-  const scanSuccessRef  = useRef(false);
-  const processingRef   = useRef(false);
-  const loopTimeoutRef  = useRef<any>(null);
-  const bleTimeoutRef   = useRef<any>(null);
-  const matchCountRef   = useRef(0);
+  const latitudeRef = useRef(0);
+  const longitudeRef = useRef(0);
+  const locationReadyRef = useRef(false);
+  const bleVerifiedRef = useRef(false);
+  const bleDeviceNameRef = useRef("");
+  const bleDeviceIdRef = useRef("");
+  const allowedBeaconsRef = useRef<{ name: string, mac: string }[]>([]);
+  const cameraReadyRef = useRef(false);
+  const scanSuccessRef = useRef(false);
+  const processingRef = useRef(false);
+  const loopTimeoutRef = useRef<any>(null);
+  const bleTimeoutRef = useRef<any>(null);
+  const matchCountRef = useRef(0);
   const lastMatchedEmpIdRef = useRef("");
   const lastScanTimeRef = useRef<number>(0);
   const verifyingNameRef = useRef("");
   const alreadyMarkedSuppressedRef = useRef<string | null>(null);
-  
+
   const selectedStatusRef = useRef(getAutoStatus());
 
-  useEffect(() => { latitudeRef.current      = latitude;      }, [latitude]);
-  useEffect(() => { longitudeRef.current     = longitude;     }, [longitude]);
+  useEffect(() => { latitudeRef.current = latitude; }, [latitude]);
+  useEffect(() => { longitudeRef.current = longitude; }, [longitude]);
   useEffect(() => { locationReadyRef.current = locationReady; }, [locationReady]);
-  useEffect(() => { bleVerifiedRef.current   = bleVerified;   }, [bleVerified]);
+  useEffect(() => { bleVerifiedRef.current = bleVerified; }, [bleVerified]);
   useEffect(() => { bleDeviceNameRef.current = bleDeviceName; }, [bleDeviceName]);
-  useEffect(() => { bleDeviceIdRef.current   = bleDeviceId;   }, [bleDeviceId]);
+  useEffect(() => { bleDeviceIdRef.current = bleDeviceId; }, [bleDeviceId]);
   useEffect(() => { allowedBeaconsRef.current = allowedBeacons; }, [allowedBeacons]);
-  useEffect(() => { cameraReadyRef.current   = cameraReady;   }, [cameraReady]);
-  useEffect(() => { scanSuccessRef.current   = scanSuccess;   }, [scanSuccess]);
-  useEffect(() => { processingRef.current    = processing;    }, [processing]);
-  useEffect(() => { matchCountRef.current    = matchCount;    }, [matchCount]);
+  useEffect(() => { cameraReadyRef.current = cameraReady; }, [cameraReady]);
+  useEffect(() => { scanSuccessRef.current = scanSuccess; }, [scanSuccess]);
+  useEffect(() => { processingRef.current = processing; }, [processing]);
+  useEffect(() => { matchCountRef.current = matchCount; }, [matchCount]);
   useEffect(() => { verifyingNameRef.current = verifyingName; }, [verifyingName]);
-  
+
   useEffect(() => {
     selectedStatusRef.current = selectedStatus;
     alreadyMarkedSuppressedRef.current = null;
@@ -714,7 +751,7 @@ const SecurityAttendanceScanner: React.FC = () => {
         await BleClient.initialize();
         const enabled = await BleClient.isEnabled();
         logDebug("Bluetooth enabled: " + enabled);
-        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => {}); await BleClient.stopLEScan(); } catch (err: any) { logDebug("BLE Perm Request Err: " + err.message); }
+        try { await BleClient.requestLEScan({ allowDuplicates: false }, () => { }); await BleClient.stopLEScan(); } catch (err: any) { logDebug("BLE Perm Request Err: " + err.message); }
         await verifyEasyReach();
       } catch (e: any) {
         logDebug("BLE Init Error: " + e.message);
@@ -742,7 +779,7 @@ const SecurityAttendanceScanner: React.FC = () => {
         try {
           const perm = await Geolocation.requestPermissions();
           if (perm.location !== "granted") return;
-        } catch {}
+        } catch { }
       }
 
       if ("geolocation" in navigator) {
@@ -757,7 +794,7 @@ const SecurityAttendanceScanner: React.FC = () => {
             setLongitude(pos.coords.longitude);
             setLocationReady(true);
           },
-          () => {},
+          () => { },
           { enableHighAccuracy: false, timeout: 3000, maximumAge: Infinity }
         );
 
@@ -772,7 +809,7 @@ const SecurityAttendanceScanner: React.FC = () => {
             setLongitude(p.coords.longitude);
             setLocationReady(true);
           },
-          () => {},
+          () => { },
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
       }
@@ -839,7 +876,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               speakText(`Permission approved for ${permData.approvedMinutes} minutes.`);
             }
           }
-        } catch {}
+        } catch { }
       }
     }
   };
@@ -888,7 +925,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
       const image = canvas.toDataURL("image/jpeg", 0.85);
       setCapturedImg(image);
-      
+
       logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
 
       const response = await fetch(`${API_BASE}Checkin/AISecurityAttendance`, {
@@ -910,7 +947,7 @@ const SecurityAttendanceScanner: React.FC = () => {
         try {
           const eb = await response.json();
           errMsg = eb.message || errMsg;
-        } catch {}
+        } catch { }
         throw new Error(errMsg);
       }
       const data = await response.json();
@@ -954,21 +991,9 @@ const SecurityAttendanceScanner: React.FC = () => {
         if (validSaved.length > 0) {
           setStatusColor("#10b981");
           const firstSaved = validSaved[0] || {};
-          let origTime = firstSaved.time || data.time;
-          let displayTime = origTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          if (origTime && origTime.includes(":")) {
-            try {
-              const parts = origTime.split(":");
-              const hr = parseInt(parts[0], 10);
-              const min = parts[1];
-              const sec = parts[2] ? `:${parts[2]}` : "";
-              const ampm = hr >= 12 ? "PM" : "AM";
-              const displayHr = hr % 12 || 12;
-              displayTime = `${displayHr.toString().padStart(2, '0')}:${min}${sec} ${ampm}`;
-            } catch {}
-          }
-
+          const displayTime = formatTime12H(firstSaved.time12 || firstSaved.time || data.time12 || data.time || new Date());
           const slotName = firstSaved.status || selectedStatusRef.current || "Morning In";
+
           setScannedEmployee({
             empName: savedNames,
             empId: validSaved.map((e: any) => e.empId).join(", "),
@@ -995,43 +1020,47 @@ const SecurityAttendanceScanner: React.FC = () => {
             return;
           }
 
-          setStatusColor("#f59e0b");
-          let origTime = firstMatched.time || data.time;
-          let displayTime = origTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          if (origTime && origTime.includes(":")) {
-            try {
-              const parts = origTime.split(":");
-              const hr = parseInt(parts[0], 10);
-              const min = parts[1];
-              const sec = parts[2] ? `:${parts[2]}` : "";
-              const ampm = hr >= 12 ? "PM" : "AM";
-              const displayHr = hr % 12 || 12;
-              displayTime = `${displayHr.toString().padStart(2, '0')}:${min}${sec} ${ampm}`;
-            } catch {}
-          }
-
+          const isNoPerm = firstMatched.hasPermission === false || (firstMatched.success === false && firstMatched.message && (firstMatched.message.includes("Permission") || firstMatched.message.includes("Lunch Out is permitted") || firstMatched.message.includes("Evening Out is permitted")));
+          const displayTime = formatTime12H(firstMatched.time12 || firstMatched.time || data.time12 || data.time || new Date());
           const slotName = firstMatched.status || selectedStatusRef.current || "Permission";
-          const isNoPerm = firstMatched.hasPermission === false || (firstMatched.success === false && firstMatched.message && firstMatched.message.includes("No Approved Permission"));
-          const alertTitle = isNoPerm ? "No Approved Permission Found" : `${slotName} Already Marked`;
-          const alertMsg = firstMatched.message || `${slotName} already marked at ${displayTime}`;
 
-          setScannedEmployee({
-            empName: allNames,
-            empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
-            status: alertTitle,
-            time: displayTime,
-            customMessage: alertMsg,
-            isDuplicate: true,
-            confidence: firstMatched.confidence || 90
-          });
-          setMessage(`⚠️ ${alertTitle}: ${allNames}`);
-          speakText(isNoPerm ? `No approved permission request found for today for ${allNames}` : `${allNames} ${slotName} already marked`);
+          if (isNoPerm) {
+            setStatusColor("#ef4444");
+            const alertTitle = "Permission Required";
+            const alertMsg = firstMatched.message || "No approved permission found for today to exit.";
+            setScannedEmployee({
+              empName: allNames,
+              empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
+              status: alertTitle,
+              time: displayTime,
+              customMessage: alertMsg,
+              isDuplicate: true,
+              confidence: firstMatched.confidence || 90
+            });
+            setMessage(`⛔ ${alertTitle}: ${allNames}`);
+            speakText(alertMsg);
+          } else {
+            setStatusColor("#f59e0b");
+            const alertTitle = `${slotName} Already Marked`;
+            const alertMsg = firstMatched.message || `${slotName} already marked at ${displayTime}`;
+            setScannedEmployee({
+              empName: allNames,
+              empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
+              status: alertTitle,
+              time: displayTime,
+              customMessage: alertMsg,
+              isDuplicate: true,
+              confidence: firstMatched.confidence || 90
+            });
+            setMessage(`⚠️ ${alertTitle}: ${allNames}`);
+            speakText(`${allNames} ${slotName} already marked`);
+          }
         }
 
         setVerifyingName(""); lastMatchedEmpIdRef.current = "";
         setTimeout(() => {
           resetScannerAndResume();
-        }, 1500);
+        }, 2000);
         return;
       }
 
@@ -1052,29 +1081,18 @@ const SecurityAttendanceScanner: React.FC = () => {
       if (data.alreadyMarked) {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
         setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
+        const displayTime = formatTime12H(data.time12 || data.time || new Date());
 
-        let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (data.time && data.time.includes(":")) {
-          try {
-            const parts = data.time.split(":");
-            const hr = parseInt(parts[0], 10);
-            const min = parts[1];
-            const ampm = hr >= 12 ? "PM" : "AM";
-            const displayHr = hr % 12 || 12;
-            displayTime = `${displayHr.toString().padStart(2, '0')}:${min} ${ampm}`;
-          } catch {}
-        }
-
-        setScannedEmployee({ 
-          empName: data.empName || "Employee", 
-          empId: data.empId || "", 
-          isDuplicate: true, 
-          customMessage: data.message || "Attendance already marked.", 
+        setScannedEmployee({
+          empName: data.empName || "Employee",
+          empId: data.empId || "",
+          isDuplicate: true,
+          customMessage: data.message || "Attendance already marked.",
           confidence: data.confidence,
           time: displayTime
         });
         setMessage(`⚠️ Cooldown: ${data.empName}`); speakText(`${data.empName} attendance already marked`);
-        
+
         setTimeout(() => {
           resetScannerAndResume();
         }, 4000);
@@ -1103,10 +1121,10 @@ const SecurityAttendanceScanner: React.FC = () => {
         } else {
           setMatchCount(3);
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
-          setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isDuplicate: false, confidence: data.confidence });
+          setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: formatTime12H(data.time12 || data.time || new Date()), isDuplicate: false, confidence: data.confidence });
           setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
           setVerifyingName(""); lastMatchedEmpIdRef.current = "";
-          
+
           setTimeout(() => {
             resetScannerAndResume();
           }, 4000);
@@ -1154,7 +1172,7 @@ const SecurityAttendanceScanner: React.FC = () => {
       await BleClient.requestLEScan({}, async (result: ScanResult) => {
         try {
           const name = (result.device.name || "").trim().toUpperCase();
-          const mac  = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
+          const mac = (result.device.deviceId || "").replace(/[:-]/g, "").trim().toUpperCase();
           const isUuid = mac.length > 12;
           const rssi = result.rssi ?? -100;
 
@@ -1162,10 +1180,10 @@ const SecurityAttendanceScanner: React.FC = () => {
 
           const matched = allowedBeaconsRef.current.length > 0
             ? allowedBeaconsRef.current.some(b => {
-                const dbName = b.name.trim().toUpperCase();
-                const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
-                return name === dbName && (mac === dbMac || isUuid);
-              })
+              const dbName = b.name.trim().toUpperCase();
+              const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
+              return name === dbName && (mac === dbMac || isUuid);
+            })
             : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
 
           if (matched) {
@@ -1181,11 +1199,11 @@ const SecurityAttendanceScanner: React.FC = () => {
               logDebug(`Beacon found but too far: ${name} (${rssi} dBm)`);
             }
           }
-        } catch {}
+        } catch { }
       });
       if (bleTimeoutRef.current) clearTimeout(bleTimeoutRef.current);
       bleTimeoutRef.current = setTimeout(async () => {
-        try { await BleClient.stopLEScan(); } catch {}
+        try { await BleClient.stopLEScan(); } catch { }
         setIsBleScanning(false);
         logDebug(`BLE cycle done. Found=${found}`);
         if (!found && !bleVerifiedRef.current) bleTimeoutRef.current = setTimeout(verifyEasyReach, 5000);
@@ -1202,7 +1220,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   return (
     <IonPage>
       <IonContent fullscreen scrollY={true} className="scanner-pg">
-        
+
         {/* Style block overrides for clean white dashboard styling */}
         <style>{`
           .scanner-pg {
@@ -1419,7 +1437,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               </div>
             </div>
             <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button 
+              <button
                 onClick={() => setShowRulesModal(true)}
                 style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
               >
@@ -1480,7 +1498,7 @@ const SecurityAttendanceScanner: React.FC = () => {
                     <IonIcon icon={pinOutline} />
                     <span>{locationReady ? 'GPS Verified' : 'GPS Fix…'}</span>
                   </div>
-                  <div 
+                  <div
                     className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
                     style={
                       !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
@@ -1489,8 +1507,8 @@ const SecurityAttendanceScanner: React.FC = () => {
                     }
                   >
                     <IonIcon icon={bluetoothOutline} />
-                    <span>{bleVerified 
-                      ? 'Beacon OK' 
+                    <span>{bleVerified
+                      ? 'Beacon OK'
                       : bleSignalStrength !== null && bleSignalStrength < -80
                         ? 'BLE Weak'
                         : 'Beacon…'}</span>
@@ -1519,9 +1537,9 @@ const SecurityAttendanceScanner: React.FC = () => {
 
                 {cameraReady && (
                   <>
-                    <button 
-                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`} 
-                      onClick={toggleScannerPause} 
+                    <button
+                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`}
+                      onClick={toggleScannerPause}
                       title={isScannerPaused ? "Start Scanner" : "Pause Scanner"}
                     >
                       <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
@@ -1558,19 +1576,19 @@ const SecurityAttendanceScanner: React.FC = () => {
             </div>
 
             {/* RIGHT: PANEL */}
-            <div 
+            <div
               className="sc-panel-area"
               style={
-                isMobile 
+                isMobile
                   ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
                   : {}
               }
             >
-              <div 
-                className="sc-drag-zone" 
-                onClick={toggleSheet} 
-                onTouchStart={handleTouchStart} 
-                onTouchMove={handleTouchMove} 
+              <div
+                className="sc-drag-zone"
+                onClick={toggleSheet}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
               >
                 <div className="sc-drag-handle" />
@@ -1631,7 +1649,7 @@ const SecurityAttendanceScanner: React.FC = () => {
                     </div>
                   )}
 
-                  <button 
+                  <button
                     className="stock-button stock-button--primary"
                     onClick={resetScannerAndResume}
                     style={{
@@ -1649,15 +1667,15 @@ const SecurityAttendanceScanner: React.FC = () => {
                 <div className="stock-panel">
                   <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
                     <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
-                    {cooldownCountdown > 0 
-                      ? `RESUMING IN ${cooldownCountdown}S...` 
-                      : processing 
-                        ? 'ANALYZING FACE...' 
+                    {cooldownCountdown > 0
+                      ? `RESUMING IN ${cooldownCountdown}S...`
+                      : processing
+                        ? 'ANALYZING FACE...'
                         : 'AWAITING SCAN'}
                   </div>
                   <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : statusColor }}>
-                    {cooldownCountdown > 0 
-                      ? 'Please step away from the camera' 
+                    {cooldownCountdown > 0
+                      ? 'Please step away from the camera'
                       : message}
                   </div>
                   {/* Status Selection Buttons Widget */}
@@ -1679,16 +1697,16 @@ const SecurityAttendanceScanner: React.FC = () => {
                         const isActive = selectedStatus === slot;
                         const shortLabel =
                           slot === "Morning In" ? "Morning" :
-                          slot === "Lunch Out" ? "Lunch Out" :
-                          slot === "Lunch In" ? "Lunch In" :
-                          slot === "Evening Out" ? "Evening" :
-                          slot === "Permission Out" ? "Perm Out" : "Perm In";
+                            slot === "Lunch Out" ? "Lunch Out" :
+                              slot === "Lunch In" ? "Lunch In" :
+                                slot === "Evening Out" ? "Evening" :
+                                  slot === "Permission Out" ? "Perm Out" : "Perm In";
                         const slotClass =
                           slot === "Morning In" ? "slot-morning" :
-                          slot === "Lunch Out" ? "slot-lunch-out" :
-                          slot === "Lunch In" ? "slot-lunch-in" :
-                          slot === "Evening Out" ? "slot-evening" :
-                          slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
+                            slot === "Lunch Out" ? "slot-lunch-out" :
+                              slot === "Lunch In" ? "slot-lunch-in" :
+                                slot === "Evening Out" ? "slot-evening" :
+                                  slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
                         return (
                           <button
                             key={slot}
@@ -1718,9 +1736,9 @@ const SecurityAttendanceScanner: React.FC = () => {
                       <h3 className="checklist-header">
                         Security Telemetry Checklist
                       </h3>
-                      
+
                       <div className="checklist-widget">
-                        
+
                         <div className="check-item">
                           <div className="check-label-wrap">
                             <span style={{ fontSize: '18px' }}>📷</span>
@@ -1757,8 +1775,8 @@ const SecurityAttendanceScanner: React.FC = () => {
                             <div style={{ textAlign: 'left' }} className="hide-web">
                               <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
                               <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {bleVerified 
-                                  ? `Found: ${bleDeviceName} (${bleSignalStrength} dBm)` 
+                                {bleVerified
+                                  ? `Found: ${bleDeviceName} (${bleSignalStrength} dBm)`
                                   : bleSignalStrength !== null && bleSignalStrength < -80
                                     ? `Too far: ${bleSignalStrength} dBm`
                                     : 'Scanning BLE signals...'}
@@ -1772,10 +1790,10 @@ const SecurityAttendanceScanner: React.FC = () => {
                                 : {}
                             }
                           >
-                            {bleVerified 
-                              ? 'CONNECTED' 
+                            {bleVerified
+                              ? 'CONNECTED'
                               : bleSignalStrength !== null && bleSignalStrength < -80
-                                ? 'TOO FAR' 
+                                ? 'TOO FAR'
                                 : 'SCANNING'}
                           </span>
                         </div>
@@ -1810,7 +1828,7 @@ const SecurityAttendanceScanner: React.FC = () => {
               <div className="rules-modal-card">
                 <div className="rules-modal-header">
                   <h3 className="rules-modal-title">Attendance Policy & Rules</h3>
-                  <button 
+                  <button
                     onClick={() => setShowRulesModal(false)}
                     style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                   >
@@ -1874,7 +1892,7 @@ const SecurityAttendanceScanner: React.FC = () => {
                   </div>
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
-                  <button 
+                  <button
                     onClick={() => setShowRulesModal(false)}
                     style={{ padding: '8px 20px', background: '#8b5cf6', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
                   >

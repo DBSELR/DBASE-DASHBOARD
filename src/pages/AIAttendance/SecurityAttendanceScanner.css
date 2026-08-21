@@ -341,7 +341,8 @@
 }
 
 /* Action Buttons */
-.sc-cam-pause-btn, .sc-cam-flip-btn {
+.sc-cam-pause-btn,
+.sc-cam-flip-btn {
   position: absolute;
   bottom: 18px;
   width: 44px;
@@ -362,10 +363,16 @@
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sc-cam-pause-btn { right: 70px; }
-.sc-cam-flip-btn { right: 18px; }
+.sc-cam-pause-btn {
+  right: 70px;
+}
 
-.sc-cam-pause-btn:hover, .sc-cam-flip-btn:hover {
+.sc-cam-flip-btn {
+  right: 18px;
+}
+
+.sc-cam-pause-btn:hover,
+.sc-cam-flip-btn:hover {
   background: rgba(15, 23, 42, 0.92);
   transform: scale(1.08);
 }
@@ -388,8 +395,14 @@
   scrollbar-color: #cbd5e1 transparent;
 }
 
-.sc-panel-area::-webkit-scrollbar { width: 5px; }
-.sc-panel-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.sc-panel-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sc-panel-area::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
 
 .scanner-dashboard-card {
   background: #ffffff;
@@ -432,8 +445,17 @@
 }
 
 @keyframes dotPulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.85); }
-  50%      { opacity: 1;   transform: scale(1.2); }
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 .sc-msg {
@@ -478,8 +500,17 @@
   border-radius: 14px;
 }
 
-.badge-verified { background: #dcfce7; color: #15803d; border: 1px solid rgba(22, 163, 74, 0.2); }
-.badge-pending  { background: #fef3c7; color: #b45309; border: 1px solid rgba(217, 119, 6, 0.2); }
+.badge-verified {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}
+
+.badge-pending {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
 
 /* ── RESULT CARD ── */
 .sc-res-top {
@@ -506,10 +537,18 @@
   overflow: hidden;
 }
 
-.av-ok { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
-.av-warn { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); }
+.av-ok {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
 
-.sc-res-info { flex: 1; min-width: 0; }
+.av-warn {
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+}
+
+.sc-res-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .sc-res-name {
   font-size: 1.2rem;
@@ -534,7 +573,9 @@
   gap: 12px;
 }
 
-.chip-full { grid-column: span 2; }
+.chip-full {
+  grid-column: span 2;
+}
 
 .sc-chip {
   display: flex;
@@ -560,7 +601,8 @@
 }
 
 /* ── MODALS & POPUPS ──────────────────────────────────────────────────────── */
-.rules-modal-overlay, .sc-success-popup-overlay {
+.rules-modal-overlay,
+.sc-success-popup-overlay {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
@@ -573,7 +615,8 @@
   padding: 20px;
 }
 
-.rules-modal-card, .sc-success-popup-card {
+.rules-modal-card,
+.sc-success-popup-card {
   width: 100%;
   max-width: 480px;
   background: #ffffff;
@@ -587,8 +630,15 @@
 }
 
 @keyframes modalZoom {
-  from { opacity: 0; transform: scale(0.92) translateY(10px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 /* ── RESPONSIVE MEDIA QUERIES (WEB / TAB vs NATIVE MOBILE) ───────────────── */
@@ -694,7 +744,7 @@
     border-radius: 3px;
   }
 
-  .sc-panel-area > div:not(.sc-drag-zone) {
+  .sc-panel-area>div:not(.sc-drag-zone) {
     overflow-y: auto !important;
     flex: 1 !important;
     min-height: 0 !important;
@@ -713,6 +763,19 @@
     align-items: center !important;
   }
 
-  .sc-cam-pause-btn { bottom: 12px !important; right: 56px !important; width: 36px !important; height: 36px !important; font-size: 16px !important; }
-  .sc-cam-flip-btn  { bottom: 12px !important; right: 12px !important; width: 36px !important; height: 36px !important; font-size: 16px !important; }
+  .sc-cam-pause-btn {
+    bottom: 12px !important;
+    right: 56px !important;
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+  }
+
+  .sc-cam-flip-btn {
+    bottom: 12px !important;
+    right: 12px !important;
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+  }
 }

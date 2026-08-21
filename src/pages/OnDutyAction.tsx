@@ -48,24 +48,22 @@ const OnDutyAction: React.FC = () => {
       // 1. Update Duty Status API call
       let res: any;
       try {
-        res = await axios.post(
-          `${API_BASE}OnDuty/onduty_decide_change`,
-          { id: did, status: action, raEmpCode: by },
-          { headers, timeout: 10000 }
-        );
+        res = await axios.get(`${API_BASE}Leave/UpdateDutyStatus`, {
+          params: { did: Number(did), status: action, raEmpCode: by },
+          headers,
+          timeout: 10000
+        });
       } catch (err1) {
-        // Fallback endpoint if standard route is Workreport or OnDuty/UpdateStatus
         try {
-          res = await axios.get(`${API_BASE}Workreport/UpdateDutyStatus`, {
-            params: { did: Number(did), status: action, raEmpCode: by },
-            headers,
-            timeout: 10000
-          });
-        } catch (err2) {
-          // Direct fallback post
           res = await axios.post(
-            `${API_BASE}OnDuty/UpdateStatus`,
+            `${API_BASE}Leave/UpdateDutyStatus`,
             { did: Number(did), status: action, raEmpCode: by },
+            { headers, timeout: 10000 }
+          );
+        } catch (err2) {
+          res = await axios.post(
+            `${API_BASE}OnDuty/approve_onduty`,
+            { _id: String(did), Status: action === "Approved" ? "APPROVE" : "REJECT", _empcode: by || "ADMIN" },
             { headers, timeout: 10000 }
           );
         }

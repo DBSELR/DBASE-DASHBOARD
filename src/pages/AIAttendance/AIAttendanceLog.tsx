@@ -4,7 +4,7 @@ import {
   personOutline, timeOutline, checkmarkCircleOutline,
   closeCircleOutline, refreshOutline, chevronBackOutline,
   chevronForwardOutline, documentTextOutline, locationOutline,
-  gridOutline, listOutline
+  gridOutline, listOutline, appsOutline
 } from "ionicons/icons";
 import { useEffect, useState, useRef } from "react";
 import { useHistory, useParams } from "react-router";
@@ -601,12 +601,29 @@ const AIAttendanceLog: React.FC = () => {
 
   /* ── Helpers ── */
   function cleanTime(t?: string) {
-    if (!t || t === '-') return '--:--';
-    if (t.includes('1900-01-01')) {
-      const p = t.split(/[ T]/);
-      return p.length > 1 ? p[1].substring(0, 5) : '--:--';
+    if (!t || t === '-' || t === '--:--') return '--:--';
+    const clean = t.trim();
+    if (clean.includes('1900-01-01')) {
+      const p = clean.split(/[ T]/);
+      if (p.length > 1) return cleanTime(p[1]);
     }
-    return t.substring(0, 5);
+    const ampmMatch = clean.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+    if (ampmMatch) {
+      const h = parseInt(ampmMatch[1], 10);
+      const m = ampmMatch[2];
+      const ap = ampmMatch[3].toUpperCase();
+      const normH = h === 0 ? 12 : (h > 12 ? h % 12 || 12 : h);
+      return `${normH.toString().padStart(2, '0')}:${m} ${ap}`;
+    }
+    const match = clean.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?/);
+    if (match) {
+      const h = parseInt(match[1], 10);
+      const m = match[2];
+      const ap = h >= 12 ? 'PM' : 'AM';
+      const normH = h % 12 || 12;
+      return `${normH.toString().padStart(2, '0')}:${m} ${ap}`;
+    }
+    return clean;
   }
 
   function getInitials(name: string) {
@@ -730,51 +747,56 @@ const AIAttendanceLog: React.FC = () => {
                 </button>
               </div>
 
-              {effectiveMode === "security" && viewTab === 'daily' ? (
+              {effectiveMode === "security" ? (
                 <>
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      id="branch-btn"
-                      className="branch-btn"
-                      onClick={() => setShowBranchDropdown(true)}
-                      style={{ background: 'var(--ion-color-primary, #0d9488)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
-                    >
-                      {selectedBranch}
-                      <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
-                    </button>
-                    <IonPopover
-                      trigger="branch-btn"
-                      isOpen={showBranchDropdown}
-                      onDidDismiss={() => setShowBranchDropdown(false)}
-                      alignment="end"
-                      side="bottom"
-                      arrow={false}
-                      style={{ '--background': 'transparent', '--box-shadow': 'none' }}
-                    >
-                      <div className="branch-dropdown" style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', padding: '6px', minWidth: '140px', border: '1px solid #e2e8f0' }}>
-                        {branches.map((branch) => (
-                          <div
-                            key={branch}
-                            className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
-                            onClick={() => {
-                              setSelectedBranch(branch);
-                              setShowBranchDropdown(false);
-                            }}
-                            style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
-                          >
-                            {branch}
-                          </div>
-                        ))}
-                      </div>
-                    </IonPopover>
-                  </div>
+                  {viewTab === 'daily' && (
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        id="branch-btn"
+                        className="branch-btn"
+
+                        onClick={() => setShowBranchDropdown(true)}
+                        style={{ background: '#ffffff',
+                      color: 'var(--ion-color-primary, #0d9488)',
+                      border: '1px solid #cbd5e1', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
+                      >
+                        {selectedBranch}
+                        <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
+                      </button>
+                      <IonPopover
+                        trigger="branch-btn"
+                        isOpen={showBranchDropdown}
+                        onDidDismiss={() => setShowBranchDropdown(false)}
+                        alignment="end"
+                        side="bottom"
+                        arrow={false}
+                        style={{ '--background': 'transparent', '--box-shadow': 'none' }}
+                      >
+                        <div className="branch-dropdown" style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', padding: '6px', minWidth: '140px', border: '1px solid #e2e8f0' }}>
+                          {branches.map((branch) => (
+                            <div
+                              key={branch}
+                              className={`branch-item ${selectedBranch === branch ? "active" : ""}`}
+                              onClick={() => {
+                                setSelectedBranch(branch);
+                                setShowBranchDropdown(false);
+                              }}
+                              style={{ padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', background: selectedBranch === branch ? '#f1f5f9' : 'transparent', color: selectedBranch === branch ? 'var(--ion-color-primary, #0d9488)' : '#475569', fontWeight: selectedBranch === branch ? 700 : 600, fontSize: '13px', transition: 'all 0.2s' }}
+                            >
+                              {branch}
+                            </div>
+                          ))}
+                        </div>
+                      </IonPopover>
+                    </div>
+                  )}
 
                   <button
                     onClick={() => history.push('/leave-report')}
                     style={{
-                      background: 'var(--ion-color-primary, #0d9488)',
-                      color: '#fff',
-                      border: 'none',
+                      background: '#ffffff',
+                      color: 'var(--ion-color-primary, #0d9488)',
+                      border: '1px solid #cbd5e1',
                       padding: '6px 14px',
                       borderRadius: '24px',
                       fontWeight: 700,
@@ -791,13 +813,37 @@ const AIAttendanceLog: React.FC = () => {
                     Absents Report
                   </button>
 
-                  <div className="live-sync-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.15)', padding: '6px 12px', borderRadius: '16px' }}>
-                    <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
-                    <span className="sync-text" style={{ fontSize: '11px', fontWeight: 800, color: 'white' }}>{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
-                    <button className="sync-now-btn" onClick={() => fetchLogs(true)} style={{ background: 'transparent', border: 'none', color: 'white', display: 'flex', cursor: 'pointer' }}>
-                      <IonIcon icon={refreshOutline} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => history.push('/hr-attendance-matrix')}
+                    style={{
+                      background: '#ffffff',
+                      color: 'var(--ion-color-primary, #0d9488)',
+                      border: '1px solid #cbd5e1',
+                      padding: '6px 14px',
+                      borderRadius: '24px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <IonIcon icon={appsOutline} style={{ fontSize: '14px' }} />
+                    HR Attendance Matrix
+                  </button>
+
+                  {viewTab === 'daily' && (
+                    <div className="live-sync-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.15)', padding: '6px 12px', borderRadius: '16px' }}>
+                      <span className={`sync-dot ${isSyncing ? "syncing" : ""}`} />
+                      <span className="sync-text" style={{ fontSize: '11px', fontWeight: 800, color: 'white' }}>{isToday ? (isSyncing ? "SYNC…" : "LIVE") : "HISTORY"}</span>
+                      <button className="sync-now-btn" onClick={() => fetchLogs(true)} style={{ background: 'transparent', border: 'none', color: 'white', display: 'flex', cursor: 'pointer' }}>
+                        <IonIcon icon={refreshOutline} />
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : null}
             </div>

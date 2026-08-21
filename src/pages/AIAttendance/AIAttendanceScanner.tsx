@@ -56,6 +56,41 @@ const getAutoStatus = (): string => {
   }
 };
 
+const formatTime12H = (val?: any): string => {
+  if (!val || val === '-' || val === '--:--') return '--:--';
+  if (typeof val === 'string') {
+    const clean = val.trim();
+    if (clean.includes('1900-01-01')) {
+      const p = clean.split(/[ T]/);
+      if (p.length > 1) return formatTime12H(p[1]);
+    }
+    const ampmMatch = clean.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+    if (ampmMatch) {
+      const h = parseInt(ampmMatch[1], 10);
+      const m = ampmMatch[2];
+      const ap = ampmMatch[3].toUpperCase();
+      const normH = h === 0 ? 12 : (h > 12 ? h % 12 || 12 : h);
+      return `${normH.toString().padStart(2, '0')}:${m} ${ap}`;
+    }
+    const match = clean.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?/);
+    if (match) {
+      const h = parseInt(match[1], 10);
+      const m = match[2];
+      const ap = h >= 12 ? 'PM' : 'AM';
+      const normH = h % 12 || 12;
+      return `${normH.toString().padStart(2, '0')}:${m} ${ap}`;
+    }
+  }
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const h = val.getHours();
+    const m = val.getMinutes().toString().padStart(2, '0');
+    const ap = h >= 12 ? 'PM' : 'AM';
+    const normH = (h % 12 || 12).toString().padStart(2, '0');
+    return `${normH}:${m} ${ap}`;
+  }
+  return String(val);
+};
+
 const getSlotColorConfig = (slot?: string) => {
   switch (slot) {
     case 'Morning In':
@@ -614,24 +649,25 @@ const AIAttendanceScanner: React.FC = () => {
         }
         if (data.invalidTime) { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
 
-        if (data.hasPermission === false || (data.success === false && data.message && data.message.includes("No Approved Permission"))) {
+        if (data.hasPermission === false || (data.success === false && data.message && (data.message.includes("Permission") || data.message.includes("Lunch Out is permitted") || data.message.includes("Evening Out is permitted")))) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId = data.empId || userDataRef.current?.empCode || "";
-          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
+          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#ef4444");
+          const alertMsg = data.message || "Approved permission required for this exit.";
 
           setAttendanceDetails({
             empName, empId,
-            status: "No Approved Permission Found",
+            status: "Permission Required",
             isDuplicate: true,
-            customMessage: data.message || "No Approved Permission Found for Today. Please submit a permission request in Leave/Permission Form and obtain manager approval before scanning Perm Out.",
+            customMessage: alertMsg,
             confidence: data.confidence,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: formatTime12H(data.time12 || data.time || new Date())
           });
-          setResultMessage(`⚠️ ${empName}`); speakText(`No approved permission found for today for ${empName}`);
+          setResultMessage(`⛔ ${empName}`); speakText(alertMsg);
 
           setTimeout(() => {
             resetScannerAndResume();
-          }, 4000);
+          }, 3500);
           return;
         }
 
@@ -640,19 +676,7 @@ const AIAttendanceScanner: React.FC = () => {
           const empId = data.empId || userDataRef.current?.empCode || "";
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
 
-          let displayTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          if (data.time && data.time.includes(":")) {
-            try {
-              const parts = data.time.split(":");
-              const hr = parseInt(parts[0], 10);
-              const min = parts[1];
-              const sec = parts[2] ? `:${parts[2]}` : "";
-              const ampm = hr >= 12 ? "PM" : "AM";
-              const displayHr = hr % 12 || 12;
-              displayTime = `${displayHr.toString().padStart(2, '0')}:${min}${sec} ${ampm}`;
-            } catch { }
-          }
-
+          const displayTime = formatTime12H(data.time12 || data.time || new Date());
           const slotName = data.status || "Morning In";
           const alertMsg = data.message || `${slotName} already marked at ${displayTime}`;
 
@@ -681,7 +705,7 @@ const AIAttendanceScanner: React.FC = () => {
           setAttendanceDetails({
             empName, empId,
             status: `${slotName} Marked Successfully`,
-            time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: formatTime12H(data.time12 || data.time || new Date()),
             officeName: data.officeName || "",
             presenceMethod: data.presenceMethod || "Face Only",
             graceType: data.graceType || "",
