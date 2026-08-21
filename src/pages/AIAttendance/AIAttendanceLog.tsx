@@ -706,7 +706,7 @@ const AIAttendanceLog: React.FC = () => {
     <IonPage>
       <IonContent fullscreen scrollY className="log-page-content">
         <div className="wr-container stock-container" style={{ padding: '0', minHeight: 'auto', backgroundColor: 'transparent' }}>
-          
+
           {/* ── Header ── */}
           <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px', position: 'sticky', top: '16px', zIndex: 999 }}>
             <div className="page-wr-header-left">
@@ -756,9 +756,11 @@ const AIAttendanceLog: React.FC = () => {
                         className="branch-btn"
 
                         onClick={() => setShowBranchDropdown(true)}
-                        style={{ background: '#ffffff',
-                      color: 'var(--ion-color-primary, #0d9488)',
-                      border: '1px solid #cbd5e1', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)' }}
+                        style={{
+                          background: '#ffffff',
+                          color: 'var(--ion-color-primary, #0d9488)',
+                          border: '1px solid #cbd5e1', padding: '6px 16px', borderRadius: '24px', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)'
+                        }}
                       >
                         {selectedBranch}
                         <IonIcon icon={chevronForwardOutline} style={{ transform: showBranchDropdown ? 'rotate(-90deg)' : 'rotate(90deg)', fontSize: '12px', transition: 'transform 0.2s' }} />
@@ -859,7 +861,7 @@ const AIAttendanceLog: React.FC = () => {
 
               {/* Monthly Controls Card (Clean 2-Row Layout) */}
               <div className="monthly-controls-card">
-                
+
                 {/* Row 1: EMPLOYEE DROPDOWN */}
                 <div className="emp-select-row">
                   <label className="emp-select-label">
@@ -1000,7 +1002,7 @@ const AIAttendanceLog: React.FC = () => {
                   <p>Loading monthly attendance matrix…</p>
                 </div>
               ) : monthlySubView === 'calendar' ? (
-                
+
                 /* CALENDAR GRID VIEW */
                 <div className="monthly-calendar-container card-panel">
                   {/* Day Names Header */}
@@ -1449,28 +1451,26 @@ const AIAttendanceLog: React.FC = () => {
                             <span>No logs recorded</span>
                           </div>
                         ) : (
-                          <div className="timeline-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                          <div className="timeline-grid">
                             {SLOTS.map(({ key, short, color }) => {
                               const val = log[key];
                               const filled = val && val !== '-';
                               const location = getLocationName(key, log);
 
                               return (
-                                <div key={key} style={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  padding: '6px',
-                                  borderRadius: '10px',
-                                  background: filled ? '#f8fafc' : '#f1f5f9',
-                                  border: '1px solid #e2e8f0'
-                                }}>
-                                  <span style={{ fontSize: '8px', fontWeight: 800, color: '#94a3b8' }}>{short}</span>
-                                  <span style={{ fontSize: '11px', fontWeight: 800, color: filled ? color : '#cbd5e1', marginTop: '2px' }}>
+                                <div
+                                  key={key}
+                                  className={`timeline-slot-card ${filled ? 'filled' : 'empty'}`}
+                                >
+                                  <span className="timeline-slot-label">{short}</span>
+                                  <span
+                                    className="timeline-slot-time"
+                                    style={{ color: filled ? color : '#94a3b8' }}
+                                  >
                                     {filled ? cleanTime(val) : '--:--'}
                                   </span>
                                   {filled && location && (
-                                    <span style={{ fontSize: '8px', fontWeight: 600, color: '#64748b', marginTop: '2px', textAlign: 'center', wordBreak: 'break-all' }} title={location}>
+                                    <span className="timeline-slot-loc" title={location}>
                                       📍 {location}
                                     </span>
                                   )}
@@ -1756,7 +1756,7 @@ const AIAttendanceLog: React.FC = () => {
               {selectedDayDetail.log ? (
                 <div>
                   <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px' }}>Scan Locations & Timing</h4>
-                  
+
                   {SLOTS.map((s) => {
                     const val = selectedDayDetail.log![s.key];
                     const filled = val && val !== '-';

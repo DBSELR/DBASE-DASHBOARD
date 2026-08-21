@@ -541,7 +541,7 @@ const AIAttendanceScanner: React.FC = () => {
     setResultMessage("Align your face in the frame");
     setStatusColor("#6366f1");
     setCooldownCountdown(0);
-    scheduleNextScan(1000);
+    scheduleNextScan(150);
   };
 
   const handleSlotSelect = async (slot: string) => {
@@ -586,7 +586,7 @@ const AIAttendanceScanner: React.FC = () => {
     setResultMessage("Scanning face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 640;
+      const maxDim = 480;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
       let targetWidth = videoWidth;
@@ -612,7 +612,7 @@ const AIAttendanceScanner: React.FC = () => {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         context.restore();
 
-        const imageData = canvas.toDataURL("image/jpeg", 0.85);
+        const imageData = canvas.toDataURL("image/jpeg", 0.70);
         setCapturedImg(imageData);
 
         const finalEmpId = userDataRef.current?.empCode || userDataRef.current?.EmpCode || "";
@@ -644,10 +644,10 @@ const AIAttendanceScanner: React.FC = () => {
         if (data.invalidLocation) {
           const isGpsNotReady = latitudeRef.current === 0 && longitudeRef.current === 0;
           if (isGpsNotReady) { setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b"); scheduleNextScan(2000); }
-          else { setResultMessage(`⛔ ${data.message || "Outside Office Location"}`); setStatusColor("#ef4444"); speakText(data.message || "You are not in office location"); scheduleNextScan(4000); }
+          else { setResultMessage(`⛔ ${data.message || "Outside Office Location"}`); setStatusColor("#ef4444"); speakText(data.message || "You are not in office location"); scheduleNextScan(2000); }
           return;
         }
-        if (data.invalidTime) { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(4000); return; }
+        if (data.invalidTime) { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(2000); return; }
 
         if (data.hasPermission === false || (data.success === false && data.message && (data.message.includes("Permission") || data.message.includes("Lunch Out is permitted") || data.message.includes("Evening Out is permitted")))) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
@@ -667,7 +667,7 @@ const AIAttendanceScanner: React.FC = () => {
 
           setTimeout(() => {
             resetScannerAndResume();
-          }, 3500);
+          }, 1500);
           return;
         }
 
@@ -690,10 +690,10 @@ const AIAttendanceScanner: React.FC = () => {
           });
           setResultMessage(`⚠️ ${empName}`); speakText(`${empName} ${slotName} already marked`);
 
-          // Auto-resume scanner after 1.5 seconds
+          // Auto-resume scanner after 800ms
           setTimeout(() => {
             resetScannerAndResume();
-          }, 1500);
+          }, 800);
           return;
         }
 
@@ -722,17 +722,17 @@ const AIAttendanceScanner: React.FC = () => {
             fetchGraceSummary(empId);
           }
 
-          // Auto-resume scanner after 1.5 seconds
+          // Auto-resume scanner after 800ms
           setTimeout(() => {
             resetScannerAndResume();
-          }, 1500);
+          }, 800);
         } else {
           setAttendanceDetails(null);
           setResultMessage("Align face to scan");
           setStatusColor("#8b5cf6");
-          scheduleNextScan(600);
+          scheduleNextScan(300);
         }
-      } else { scheduleNextScan(1000); }
+      } else { scheduleNextScan(500); }
     } catch (err: any) {
       logDebug("Err: " + err.message);
       let userFriendlyMsg = "Connection Error";

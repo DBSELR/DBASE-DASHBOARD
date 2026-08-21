@@ -187,6 +187,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   const detectedFacesRef = useRef<any[]>([]);
   const lastDetectedFacesTimestampRef = useRef<number>(0);
   const latestServerIdentitiesRef = useRef<any[]>([]);
+  const recentlyMarkedEmpIdsRef = useRef<Map<string, number>>(new Map());
 
   // Smooth 60 FPS motion lerp tracker cache
   const smoothTrackedFacesRef = useRef<Map<string, any>>(new Map());
@@ -848,7 +849,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     setCooldownCountdown(0);
     detectedFacesRef.current = [];
     setActiveFaceCount(0);
-    scheduleNextScan(1000);
+    scheduleNextScan(150);
   };
 
   const handleSlotSelect = async (slot: string) => {
@@ -893,7 +894,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 640;
+      const maxDim = 480;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
       let targetWidth = videoWidth;
@@ -913,7 +914,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
       const ctx = canvas.getContext("2d");
       if (!ctx || !videoRef.current) {
-        scheduleNextScan(400);
+        scheduleNextScan(200);
         return;
       }
 
@@ -923,7 +924,7 @@ const SecurityAttendanceScanner: React.FC = () => {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      const image = canvas.toDataURL("image/jpeg", 0.85);
+      const image = canvas.toDataURL("image/jpeg", 0.70);
       setCapturedImg(image);
 
       logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
@@ -969,6 +970,12 @@ const SecurityAttendanceScanner: React.FC = () => {
         }
       }
 
+      // Clean expired entries from recent cooldown (older than 20 seconds)
+      const nowTs = Date.now();
+      recentlyMarkedEmpIdsRef.current.forEach((ts, id) => {
+        if (nowTs - ts > 20000) recentlyMarkedEmpIdsRef.current.delete(id);
+      });
+
       if (data.matchedEmployees && Array.isArray(data.matchedEmployees) && data.matchedEmployees.length > 0) {
         const firstEmp = data.matchedEmployees[0];
         const primaryEmpId = firstEmp?.empId || "";
@@ -979,16 +986,30 @@ const SecurityAttendanceScanner: React.FC = () => {
           alreadyMarkedSuppressedRef.current = null;
         }
 
-        const validSaved = data.matchedEmployees.filter((e: any) => e.alreadyMarked !== true && e.invalidLocation !== true && e.invalidTime !== true && e.hasPermission !== false && e.success !== false);
+        // Filter valid saved (excluding recently marked within 20s from duplicate popups)
+        const validSaved = data.matchedEmployees.filter((e: any) => 
+          e.alreadyMarked !== true && 
+          e.invalidLocation !== true && 
+          e.invalidTime !== true && 
+          e.hasPermission !== false && 
+          e.success !== false &&
+          !recentlyMarkedEmpIdsRef.current.has(e.empId)
+        );
+
         const allNames = data.matchedEmployees.map((e: any) => e.empName || e.empId).join(", ");
         const savedNames = validSaved.map((e: any) => e.empName || e.empId).join(", ");
 
-        setMatchCount(2);
-        setScanSuccess(true); scanSuccessRef.current = true;
-        lastScanTimeRef.current = Date.now();
-        alreadyMarkedSuppressedRef.current = currentSlotKey;
-
         if (validSaved.length > 0) {
+          // Register newly saved in recent map
+          validSaved.forEach((e: any) => {
+            if (e.empId) recentlyMarkedEmpIdsRef.current.set(e.empId, nowTs);
+          });
+
+          setMatchCount(2);
+          setScanSuccess(true); scanSuccessRef.current = true;
+          lastScanTimeRef.current = nowTs;
+          alreadyMarkedSuppressedRef.current = currentSlotKey;
+
           setStatusColor("#10b981");
           const firstSaved = validSaved[0] || {};
           const displayTime = formatTime12H(firstSaved.time12 || firstSaved.time || data.time12 || data.time || new Date());
@@ -1004,82 +1025,105 @@ const SecurityAttendanceScanner: React.FC = () => {
           });
           setMessage(`✅ Verified (${validSaved.length}): ${savedNames}`);
           speakText(`Attendance marked for ${savedNames}`);
-        } else {
-          const firstMatched = data.matchedEmployees[0] || {};
-          const isInvalidLoc = firstMatched.invalidLocation === true || (firstMatched.message && (firstMatched.message.includes("Location") || firstMatched.message.includes("Bluetooth") || firstMatched.message.includes("Geofence")));
 
-          if (isInvalidLoc) {
-            setMatchCount(0);
-            lastMatchedEmpIdRef.current = "";
-            setVerifyingName("");
-            setStatusColor("#ef4444");
-            const errMsg = firstMatched.message || "Location / Bluetooth verification failed.";
-            setMessage(`⛔ ${errMsg}`);
-            speakText(errMsg);
-            scheduleNextScan(3500);
-            return;
-          }
-
-          const isNoPerm = firstMatched.hasPermission === false || (firstMatched.success === false && firstMatched.message && (firstMatched.message.includes("Permission") || firstMatched.message.includes("Lunch Out is permitted") || firstMatched.message.includes("Evening Out is permitted")));
-          const displayTime = formatTime12H(firstMatched.time12 || firstMatched.time || data.time12 || data.time || new Date());
-          const slotName = firstMatched.status || selectedStatusRef.current || "Permission";
-
-          if (isNoPerm) {
-            setStatusColor("#ef4444");
-            const alertTitle = "Permission Required";
-            const alertMsg = firstMatched.message || "No approved permission found for today to exit.";
-            setScannedEmployee({
-              empName: allNames,
-              empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
-              status: alertTitle,
-              time: displayTime,
-              customMessage: alertMsg,
-              isDuplicate: true,
-              confidence: firstMatched.confidence || 90
-            });
-            setMessage(`⛔ ${alertTitle}: ${allNames}`);
-            speakText(alertMsg);
-          } else {
-            setStatusColor("#f59e0b");
-            const alertTitle = `${slotName} Already Marked`;
-            const alertMsg = firstMatched.message || `${slotName} already marked at ${displayTime}`;
-            setScannedEmployee({
-              empName: allNames,
-              empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
-              status: alertTitle,
-              time: displayTime,
-              customMessage: alertMsg,
-              isDuplicate: true,
-              confidence: firstMatched.confidence || 90
-            });
-            setMessage(`⚠️ ${alertTitle}: ${allNames}`);
-            speakText(`${allNames} ${slotName} already marked`);
-          }
+          // Fast 800ms auto-transition for continuous crowd scanning
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 800);
+          return;
         }
 
-        setVerifyingName(""); lastMatchedEmpIdRef.current = "";
-        setTimeout(() => {
-          resetScannerAndResume();
-        }, 2000);
-        return;
+        // If person was already marked recently in this session (e.g. still in camera view)
+        const allAreRecentlyMarked = data.matchedEmployees.every((e: any) => 
+          recentlyMarkedEmpIdsRef.current.has(e.empId) || (e.alreadyMarked === true && alreadyMarkedSuppressedRef.current === `${e.empId}_${selectedStatusRef.current}`)
+        );
+
+        if (allAreRecentlyMarked) {
+          // Keep scanning continuously for next person in crowd without blocking
+          scheduleNextScan(200);
+          return;
+        }
+
+        const firstMatched = data.matchedEmployees[0] || {};
+        const isInvalidLoc = firstMatched.invalidLocation === true || (firstMatched.message && (firstMatched.message.includes("Location") || firstMatched.message.includes("Bluetooth") || firstMatched.message.includes("Geofence")));
+
+        if (isInvalidLoc) {
+          setMatchCount(0);
+          lastMatchedEmpIdRef.current = "";
+          setVerifyingName("");
+          setStatusColor("#ef4444");
+          const errMsg = firstMatched.message || "Location / Bluetooth verification failed.";
+          setMessage(`⛔ ${errMsg}`);
+          speakText(errMsg);
+          scheduleNextScan(2000);
+          return;
+        }
+
+        const isNoPerm = firstMatched.hasPermission === false || (firstMatched.success === false && firstMatched.message && (firstMatched.message.includes("Permission") || firstMatched.message.includes("Lunch Out is permitted") || firstMatched.message.includes("Evening Out is permitted")));
+        const displayTime = formatTime12H(firstMatched.time12 || firstMatched.time || data.time12 || data.time || new Date());
+        const slotName = firstMatched.status || selectedStatusRef.current || "Permission";
+
+        if (isNoPerm) {
+          setStatusColor("#ef4444");
+          const alertTitle = "Permission Required";
+          const alertMsg = firstMatched.message || "No approved permission found for today to exit.";
+          setScannedEmployee({
+            empName: allNames,
+            empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
+            status: alertTitle,
+            time: displayTime,
+            customMessage: alertMsg,
+            isDuplicate: true,
+            confidence: firstMatched.confidence || 90
+          });
+          setMessage(`⛔ ${alertTitle}: ${allNames}`);
+          speakText(alertMsg);
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 1500);
+          return;
+        } else {
+          setStatusColor("#f59e0b");
+          const alertTitle = `${slotName} Already Marked`;
+          const alertMsg = firstMatched.message || `${slotName} already marked at ${displayTime}`;
+          setScannedEmployee({
+            empName: allNames,
+            empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
+            status: alertTitle,
+            time: displayTime,
+            customMessage: alertMsg,
+            isDuplicate: true,
+            confidence: firstMatched.confidence || 90
+          });
+          setMessage(`⚠️ ${alertTitle}: ${allNames}`);
+          speakText(`${allNames} ${slotName} already marked`);
+          setTimeout(() => {
+            resetScannerAndResume();
+          }, 1000);
+          return;
+        }
       }
 
       if (data.invalidLocation) {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
         setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`);
         speakText(data.message || "You are not in office location");
-        scheduleNextScan(4000);
+        scheduleNextScan(2000);
         return;
       }
       if (data.invalidTime) {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
         setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);
         speakText(data.message);
-        scheduleNextScan(4000);
+        scheduleNextScan(2000);
         return;
       }
       if (data.alreadyMarked) {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
+        if (data.empId && recentlyMarkedEmpIdsRef.current.has(data.empId)) {
+          scheduleNextScan(200);
+          return;
+        }
         setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
         const displayTime = formatTime12H(data.time12 || data.time || new Date());
 
@@ -1095,7 +1139,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
         setTimeout(() => {
           resetScannerAndResume();
-        }, 4000);
+        }, 1000);
         return;
       }
 
@@ -1117,8 +1161,9 @@ const SecurityAttendanceScanner: React.FC = () => {
             setMessage(`Analyzing: ${empName}...`);
             setStatusColor("#3b82f6");
           }
-          scheduleNextScan(150);
+          scheduleNextScan(100);
         } else {
+          if (empId) recentlyMarkedEmpIdsRef.current.set(empId, Date.now());
           setMatchCount(3);
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
           setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: formatTime12H(data.time12 || data.time || new Date()), isDuplicate: false, confidence: data.confidence });
@@ -1127,7 +1172,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
           setTimeout(() => {
             resetScannerAndResume();
-          }, 4000);
+          }, 800);
         }
       } else {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
@@ -1138,7 +1183,7 @@ const SecurityAttendanceScanner: React.FC = () => {
         } else {
           setStatusColor("#ef4444"); setMessage("❌ " + (data.message || "Face Not Recognized"));
         }
-        scheduleNextScan(600);
+        scheduleNextScan(400);
       }
     } catch (err: any) {
       logDebug("Err: " + err.message);

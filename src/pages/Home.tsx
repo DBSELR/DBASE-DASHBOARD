@@ -243,9 +243,9 @@ const Home: React.FC = () => {
       colorClass: "home-card-requests"
     }] : []),
 
-    
 
-     ...(PAYMENT_REMINDERS.includes(currentEmpCode) ? [{
+
+    ...(PAYMENT_REMINDERS.includes(currentEmpCode) ? [{
       id: "payment-reminders",
       label: "Payment Reminders",
       icon: "https://cdn.lordicon.com/lupuorrc.json",
@@ -253,7 +253,7 @@ const Home: React.FC = () => {
       colorClass: "home-card-payment-reminders"
     }] : []),
 
-     ...(Live_Tracking_Engine.includes(currentEmpCode) ? [{
+    ...(Live_Tracking_Engine.includes(currentEmpCode) ? [{
       id: "live-tracking-engine",
       label: "Live Tracking Engine",
       icon: "https://cdn.lordicon.com/zzcwywzv.json",
