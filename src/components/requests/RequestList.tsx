@@ -1262,6 +1262,27 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     return list.length > 0 ? list.join(" → ") : "Not Approved Yet";
   };
 
+  function getPermissionApprovedBy(item: any) {
+  const ra1Status = normalizeText(item?.RA1_Status);
+  const ra2Status = normalizeText(item?.RA2_Status);
+
+  if (
+    ra1Status === "accepted" ||
+    ra1Status === "approved"
+  ) {
+    return item?.RA1 || "RA1";
+  }
+
+  if (
+    ra2Status === "accepted" ||
+    ra2Status === "approved"
+  ) {
+    return item?.RA2 || "RA2";
+  }
+
+  return "-";
+}
+
   // Hoisted function declarations (not `const`) on purpose: filterByStatus /
   // finalData - defined earlier in this component - call these during
   // render, and a `const` here would leave them in the temporal dead zone
@@ -1294,23 +1315,57 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     const user = normalizeText(getUser()?.designation);
 
     if (normalizeText(item.ltype) === "permission") {
-      const ra1Status = normalizeText(item.RA1_Status);
-      const ra1Approved = ra1Status === "accepted" || ra1Status === "approved";
+    const ra1 = normalizeText(item.RA1);
+    const ra2 = normalizeText(item.RA2);
 
-      if (user === normalizeText(item.RA1) && !ra1Approved) {
-        return true;
-      }
-      if (user === normalizeText(item.RA2) && ra1Approved) {
-        return true;
-      }
-      
-      // Fallback for old requests missing RA1
-      if (!item.RA1 || normalizeText(item.RA1) === "") {
-        return normalizeText(item.CurrentRA) === user;
-      }
+    const ra1Status = normalizeText(item.RA1_Status);
+    const ra2Status = normalizeText(item.RA2_Status);
 
-      return false;
+    const user = normalizeText(getUser()?.designation);
+
+    const ra1Responded =
+        ra1Status === "accepted" ||
+        ra1Status === "approved" ||
+        ra1Status === "rejected";
+
+    const ra2Responded =
+        ra2Status === "accepted" ||
+        ra2Status === "approved" ||
+        ra2Status === "rejected";
+
+    /*
+       If either RA has already responded,
+       nobody else can act.
+    */
+    if (ra1Responded || ra2Responded) {
+        return false;
     }
+
+    /*
+       Both RA1 and RA2 can act while
+       the permission is still pending.
+    */
+    return user === ra1 || user === ra2;
+}
+
+    // if (normalizeText(item.ltype) === "permission") {
+    //   const ra1Status = normalizeText(item.RA1_Status);
+    //   const ra1Approved = ra1Status === "accepted" || ra1Status === "approved";
+
+    //   if (user === normalizeText(item.RA1) && !ra1Approved) {
+    //     return true;
+    //   }
+    //   if (user === normalizeText(item.RA2) && ra1Approved) {
+    //     return true;
+    //   }
+      
+    //   // Fallback for old requests missing RA1
+    //   if (!item.RA1 || normalizeText(item.RA1) === "") {
+    //     return normalizeText(item.CurrentRA) === user;
+    //   }
+
+    //   return false;
+    // }
 
     // Existing flow for leave/permission
     const current = normalizeText(item?.CurrentRA);
@@ -2249,12 +2304,34 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                   )}
 
                   {getRejectionInfo(item) && <p style={{ color: 'red', fontWeight: 'bold', fontSize: '12px', marginTop: '8px' }}>{getRejectionInfo(item)}</p>}
-                  {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'onduty' && (
+                  {/* {!item?.L_status?.toLowerCase().includes('rejected') && type !== 'equipment' && type !== 'onduty' && (
                     <div className="lr-approved-stepper-box">
                       <span className="lr-stepper-check-badge">✓</span>
                       <span><b>Approved By:</b> <span style={{ color: '#0f172a', fontWeight: 700 }}>{getApprovedBy(item)}</span></span>
                     </div>
-                  )}
+                  )} */}
+
+                  {!item?.L_status?.toLowerCase().includes('rejected') &&
+  type !== 'equipment' &&
+  type !== 'onduty' && (
+    <div className="lr-approved-stepper-box">
+      <span className="lr-stepper-check-badge">✓</span>
+
+      <span>
+        <b>Approved By:</b>{" "}
+        <span
+          style={{
+            color: "#0f172a",
+            fontWeight: 700
+          }}
+        >
+          {item?.ltype?.toLowerCase() === "permission"
+            ? getPermissionApprovedBy(item)
+            : getApprovedBy(item)}
+        </span>
+      </span>
+    </div>
+  )}
 
                   {/* ── OnDuty team-view: always show status-driven action buttons ── */}
                   {type === 'onduty' && view !== 'my' && (() => {
