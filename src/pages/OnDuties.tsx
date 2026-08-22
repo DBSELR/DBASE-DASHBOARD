@@ -2038,6 +2038,19 @@ useEffect(() => {
       }
       await loadDuties();
 
+      // Refresh this duty's local trip/visit state from the server before
+      // closing. save_daytrip assigns a real Visit_ID to every visit it
+      // just inserted, but that ID never made it back into tripDaysByDuty -
+      // only loadDuties() (the duties list) ran above, not loadDayTrips()
+      // (the day-trip/visit rows). Reopening Edit for this same day without
+      // this refresh reused the stale in-memory visits, still carrying
+      // visit_Id: 0 for anything just saved, and the next save resent them
+      // with no ID - app_Save_OnDuty_Visit treats that as a brand new visit
+      // and inserts a duplicate row instead of updating the existing one.
+      if (selectedDutyId) {
+        await loadDayTrips(selectedDutyId);
+      }
+
       closeDayTripModal();
 
     } catch (error: any) {

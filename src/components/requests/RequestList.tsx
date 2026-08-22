@@ -81,6 +81,19 @@ const pick = (d: any, ...keys: string[]) => {
   return undefined;
 };
 
+// Visit slip / reading photos come back from the API as a bare relative path (e.g.
+// "/Uploads/Visits/xyz.jpg"), same as every other uploaded-image field in
+// this app. Resolve it against the API's origin (not API_BASE itself, which
+// already ends in "/api") so it opens as a real image URL in a new tab.
+const getUploadedImageUrl = (path: any) => {
+  if (!path || typeof path !== "string") return "";
+  const p = path.trim();
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  const base = API_BASE.replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  return `${base}${p.startsWith("/") ? p : `/${p}`}`;
+};
+
 
 // The overall verdict worked out from the approval chain, for a record that
 // carries no usable status of its own. tbl_On_Duties keeps TWO status columns
@@ -197,6 +210,19 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
   const [tripDaysByDuty, setTripDaysByDuty] = useState<{ [key: number]: any[] }>({});
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedDuty, setSelectedDuty] = useState<any>(null);
+  // Which day-cards are expanded in the "On Duty Details" popup. A duty that
+  // runs several days (and each day several visits) makes for a very long
+  // scroll, so only the first day opens by default and the rest start
+  // collapsed - reset to that every time a fresh duty is opened below.
+  const [expandedTripDays, setExpandedTripDays] = useState<Set<number>>(new Set([0]));
+  const toggleTripDay = (index: number) => {
+    setExpandedTripDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
 
   const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
   const [selectedEmpCode, setSelectedEmpCode] = useState<string>("0");
@@ -2066,7 +2092,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       <a
                         href="#"
                         className="dm-view-link"
-                        onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }}
+                        onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setExpandedTripDays(new Set([0])); setViewModalOpen(true); }}
                       >
                         View
                       </a>
@@ -2248,7 +2274,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                         <div className="lr-grid-item"><span className="lr-grid-label">Location</span><span className="lr-grid-value">{item.Location}</span></div>
                         <div className="lr-grid-item">
                           <span className="lr-grid-label">Details</span>
-                          <a href="#" onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setViewModalOpen(true); }} style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>View</a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); setSelectedDuty(item); setExpandedTripDays(new Set([0])); setViewModalOpen(true); }} style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px' }}>View</a>
                         </div>
                       </>
                     )}
@@ -2595,40 +2621,92 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                 <p>No trip data available</p>
               )}
 
-              {(selectedDuty.dayTrips || []).map((trip: any, index: number) => (
+              {(selectedDuty.dayTrips || []).map((trip: any, index: number) => {
+                const isDayExpanded = expandedTripDays.has(index);
+                return (
                 <div key={trip.dayTrip_Id || index} className="trip-card">
 
-                  <div className="trip-header">
+                  <div
+                    className="trip-header"
+                    onClick={() => toggleTripDay(index)}
+                    style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  >
                     <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      {(trip.visits || []).length} visit{(trip.visits || []).length === 1 ? "" : "s"}{" "}
+                      {isDayExpanded ? "▲" : "▼"}
+                    </span>
                   </div>
 
+                  {isDayExpanded && (
                   <div className="trip-body">
                     <p>
-                      <b>Reading:</b> {trip.readingFrom} → {trip.readingTo} ({trip.distance} Km)
+                      <b>Reading:</b>{" "}
+                      {trip.readingFromImagePath ? (
+                        <span
+                          style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() =>
+                            window.open(getUploadedImageUrl(trip.readingFromImagePath), "_blank")
+                          }
+                        >
+                          {trip.readingFrom}
+                        </span>
+                      ) : (
+                        trip.readingFrom
+                      )}
+                      {" → "}
+                      {trip.readingToImagePath ? (
+                        <span
+                          style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() =>
+                            window.open(getUploadedImageUrl(trip.readingToImagePath), "_blank")
+                          }
+                        >
+                          {trip.readingTo}
+                        </span>
+                      ) : (
+                        trip.readingTo
+                      )}
+                      {" "}({trip.distance} Km)
                     </p>
 
-                    {trip.fuelAmount && (
+                    {trip.fuelAmount ? (
                       <p><b>Fuel:</b> ₹{trip.fuelAmount}</p>
-                    )}
+                    ) : null}
                   </div>
+                  )}
 
-                  {(trip.visits || []).map((visit: any, vIndex: number) => (
+                  {isDayExpanded && (trip.visits || []).map((visit: any, vIndex: number) => (
                     <div key={vIndex} className="visit-card">
 
-                      <p><b>Client:</b> {visit.client_Name}</p>
+                      <p>
+                        <b>Client:</b>{" "}
+                        {visit.visit_ImagePath ? (
+                          <span
+                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
+                            onClick={() =>
+                              window.open(getUploadedImageUrl(visit.visit_ImagePath), "_blank")
+                            }
+                          >
+                            {visit.client_Name}
+                          </span>
+                        ) : (
+                          visit.client_Name
+                        )}
+                      </p>
 
                       <p>
                         <b>Location:</b>{" "}
                         {visit.latitude && visit.longitude ? (
                           <span
-                            style={{ color: "blue", cursor: "pointer" }}
+                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
                             onClick={() =>
                               window.open(
                                 `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
                               )
                             }
                           >
-                            View Map
+                            {visit.location || "View Map"}
                           </span>
                         ) : (
                           visit.location
@@ -2639,9 +2717,12 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                         <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
                       </p>
 
-                      <p>
-                        <b>Contact:</b> {visit.contact_Person} ({visit.mobile_Number})
-                      </p>
+                      {(visit.contact_Person || visit.mobile_Number) && (
+                        <p>
+                          <b>Contact:</b> {visit.contact_Person}
+                          {visit.mobile_Number ? ` (${visit.mobile_Number})` : ""}
+                        </p>
+                      )}
 
                       <p>
                         <b>Remarks:</b> {visit.remarks}
@@ -2650,7 +2731,8 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                     </div>
                   ))}
                 </div>
-              ))}
+                );
+              })}
 
             </div>
           </div>

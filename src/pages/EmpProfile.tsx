@@ -158,7 +158,15 @@ const EmpProfile: React.FC = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [branchDepts, setBranchDepts] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState("Active");
-  const [searchQuery, setSearchQuery] = useState("");
+  // Four independent boxes - each filters only its own field (see
+  // filteredEmployees) so what matched is never ambiguous. Code and name
+  // share one box (an employee is found by either), department/
+  // designation/branch each get their own since they're separate,
+  // distinct facts about the employee.
+  const [codeOrNameSearch, setCodeOrNameSearch] = useState("");
+  const [deptSearch, setDeptSearch] = useState("");
+  const [desigSearch, setDesigSearch] = useState("");
+  const [branchSearch, setBranchSearch] = useState("");
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isManagementView, setIsManagementView] = useState(false);
@@ -340,12 +348,28 @@ const EmpProfile: React.FC = () => {
     try {
       const data = await apiService.loadEmployees(status);
       console.log("Raw Employees List:", data);
+      // APP_Load_Employee's Active/InActive branches return EmpCode,
+      // EmpName, UserType, Designation, Mobile, department, Location1
+      // (department and Location1/Branch both appended at the end - see
+      // the ALTER PROC change) - this used to be labeled
+      // ["code","name","dept","desig","mobile"], which quietly read the
+      // UserType column as "dept". There was never a real department
+      // value coming back at all, which is why department search always
+      // found nothing no matter how the filter was written. "userType"
+      // keeps that column around under its real name in case anything
+      // needs it later; "dept" and "branch" now point at the actual
+      // appended columns. Location1 is Tbl_Employee's actual column name
+      // for what the edit form (and everywhere else on this page) calls
+      // Branch - see the _Location1 field on the Professional Details
+      // form.
       const decoded = decodeArrayResponse(data, [
         "code",
         "name",
-        "dept",
+        "userType",
         "desig",
         "mobile",
+        "dept",
+        "branch",
       ]);
       console.log("Decoded Employees List:", decoded);
       setEmployees(decoded);
@@ -1432,12 +1456,26 @@ const EmpProfile: React.FC = () => {
     }
   };
 
-  const filteredEmployees = employees.filter(
-    (emp) =>
-      (emp.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-      (emp.code?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-      (emp.desig?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
-  );
+  // Each box filters only its own field, independently (AND across boxes,
+  // empty box = no constraint from that field) - no more one merged text
+  // match where a department hit and a designation hit looked identical.
+  // Code/name is the one exception: an employee is found by either, so
+  // that single box matches against both (OR between the two, still AND
+  // with the other three boxes).
+  const filteredEmployees = employees.filter((emp) => {
+    const codeOrName = codeOrNameSearch.toLowerCase();
+    const matchesCodeOrName =
+      !codeOrName ||
+      (emp.name?.toLowerCase() || "").includes(codeOrName) ||
+      (emp.code?.toLowerCase() || "").includes(codeOrName);
+
+    return (
+      matchesCodeOrName &&
+      (emp.dept?.toLowerCase() || "").includes(deptSearch.toLowerCase()) &&
+      (emp.desig?.toLowerCase() || "").includes(desigSearch.toLowerCase()) &&
+      (emp.branch?.toLowerCase() || "").includes(branchSearch.toLowerCase())
+    );
+  });
 
   if (loading) {
     return (
@@ -1936,13 +1974,36 @@ const EmpProfile: React.FC = () => {
             </div>
 
             <div className="ep-search-controls">
-              <input
-                type="text"
-                placeholder="Search by name, code or designation..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="ep-search-input"
-              />
+              <div className="ep-search-row">
+                <input
+                  type="text"
+                  placeholder="Search by code or name..."
+                  value={codeOrNameSearch}
+                  onChange={(e) => setCodeOrNameSearch(e.target.value)}
+                  className="ep-search-input ep-search-input-compact"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by department..."
+                  value={deptSearch}
+                  onChange={(e) => setDeptSearch(e.target.value)}
+                  className="ep-search-input ep-search-input-compact"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by designation..."
+                  value={desigSearch}
+                  onChange={(e) => setDesigSearch(e.target.value)}
+                  className="ep-search-input ep-search-input-compact"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by branch..."
+                  value={branchSearch}
+                  onChange={(e) => setBranchSearch(e.target.value)}
+                  className="ep-search-input ep-search-input-compact"
+                />
+              </div>
               <div className="ep-status-toggle">
                 <button
                   className={statusFilter === "Active" ? "active" : ""}
@@ -1971,7 +2032,7 @@ const EmpProfile: React.FC = () => {
                     <div className="ep-emp-info">
                       <span className="ep-emp-name">{emp.name}</span>
                       <span className="ep-emp-meta">
-                        {emp.code} • {emp.desig}
+                        {emp.code} • {emp.dept || "(no dept)"} • {emp.desig} • {emp.branch || "(no branch)"}
                       </span>
                     </div>
                     <ChevronRight color="var(--ion-color-primary)" size={18} />

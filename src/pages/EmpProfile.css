@@ -656,6 +656,24 @@ input:checked+.ep-slider:before {
   outline: none;
 }
 
+/* Name / Code / Department in one row. Each shrinks together (flex: 1,
+   min-width: 0) rather than overflowing - on a narrow phone screen they
+   get tight, but stay on one line and stay usable, which is what was
+   asked for over the earlier stacked layout. */
+.ep-search-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ep-search-input-compact {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 12px 10px;
+  font-size: 0.85rem;
+}
+
 .ep-status-toggle {
   display: flex;
   background: rgba(142, 142, 147, 0.08);
