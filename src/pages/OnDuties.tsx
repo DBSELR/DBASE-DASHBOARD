@@ -5615,18 +5615,14 @@ useEffect(() => {
                   ))}
                 </div>
               )}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    window.innerWidth <= 768
-                      ? "1fr"
-                      : "repeat(4, minmax(0, 1fr))",
-                  gap: "10px",
-                  alignItems: "start",
-                  marginTop: "10px",
-                }}
-              >
+              {/* Was choosing its column count from a one-off
+                  window.innerWidth read at render time - not a media
+                  query, so it never adjusted again after that render,
+                  regardless of how the actual container width changed
+                  afterward (a resize, the app's side panel opening/
+                  closing, rotating a device). A real CSS breakpoint
+                  reacts to the current width every time, not just once. */}
+              <div className="duty-info-grid">
                 <div className="duty-info-box full-width">
                   {/* Once a duty is approved the pencil is the wrong tool -
                       re-opening the whole request to move one person would

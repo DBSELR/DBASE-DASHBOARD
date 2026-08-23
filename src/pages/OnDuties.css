@@ -90,6 +90,25 @@
   position: relative;
   overflow: hidden;
 }
+
+/* Transport / Timeline / Location(-or-Reporting-Dates) / Details row below
+   a duty card's Employees box. A real breakpoint (not a one-time JS
+   window.innerWidth read - see the .tsx comment at its usage) so the
+   4-across layout actually reflows to a single column if the available
+   width narrows after the page has already rendered. */
+.duty-info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .duty-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .location-col,
 .vehicle-col {
   width: 100%;
