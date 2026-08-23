@@ -203,6 +203,11 @@ type VisitItem = {
   latitude?: string;
   longitude?: string;
   demoProjects: string[];
+  // EmpCodes of whichever of the duty's assigned team members were
+  // actually present at this visit - a team can split up across visits on
+  // the same day, so this is tracked per visit rather than assumed to be
+  // the whole duty team every time.
+  empCodes: string[];
   contactPerson: string;
   mobile: string;
   visitFromTime: string;
@@ -311,12 +316,16 @@ const fmtDateWithTime = (dateVal?: string, timeVal?: string) => {
 // Timeline start (Start_Time, fetched from the db) so a new visit already
 // shows the right time instead of opening the picker at 00:00 and forcing
 // the user to roll the wheel all the way up to find it.
-const emptyVisit = (defaultFromTime: string = ""): VisitItem => ({
+const emptyVisit = (defaultFromTime: string = "", defaultEmpCodes: string[] = []): VisitItem => ({
   partyName: "",
   location: "",
   latitude: "",
   longitude: "",
   demoProjects: [],
+  // Every team member starts checked - the common case is the whole team
+  // traveling together, so unchecking who wasn't at THIS particular visit
+  // is less friction than having to check everyone in every time.
+  empCodes: [...defaultEmpCodes],
   contactPerson: "",
   mobile: "",
   visitFromTime: defaultFromTime,
@@ -328,7 +337,11 @@ const emptyVisit = (defaultFromTime: string = ""): VisitItem => ({
   visitSlipImage: null,
   remarks: "",
 });
-const emptyTripDay = (date: string, defaultVisitFromTime: string = ""): TripDayItem => ({
+const emptyTripDay = (
+  date: string,
+  defaultVisitFromTime: string = "",
+  defaultEmpCodes: string[] = []
+): TripDayItem => ({
   dutyDate: date,
   readingFrom: "",
   readingTo: "",
@@ -337,7 +350,7 @@ const emptyTripDay = (date: string, defaultVisitFromTime: string = ""): TripDayI
   distance: "",
   fuelAmount: "",
   fuelImage: null,
-  visits: [emptyVisit(defaultVisitFromTime)],
+  visits: [emptyVisit(defaultVisitFromTime, defaultEmpCodes)],
 });
 
 type OnDutiesProps = {
@@ -1365,7 +1378,11 @@ useEffect(() => {
   // blocked on future dates (see + Add Party / addTripVisit / edit-mode save
   // guards).
   const defaultVisitFromTime = row.Start_Time ? String(row.Start_Time).slice(0, 5) : "";
-  const newTrip = emptyTripDay(normalize(nextDate), defaultVisitFromTime);
+  const defaultEmpCodes = formatEmployeeNames(row.empNames)
+    .map((e: any) => e.code)
+    .filter(Boolean);
+  if (empCode && !defaultEmpCodes.includes(empCode)) defaultEmpCodes.push(empCode);
+  const newTrip = emptyTripDay(normalize(nextDate), defaultVisitFromTime, defaultEmpCodes);
 
   const newIndex = currentTrips.length;
 
@@ -1477,6 +1494,11 @@ useEffect(() => {
         LocalTransportAmount: r[21],
         LocalTransportImagePath: r[22],
         Visit_ImagePath: r[23],
+        // Comma-separated EmpCodes of who attended this visit. Appended at
+        // the end of App_Get_DayTrips's SELECT list per the append-only
+        // convention (see APP_Load_Employee) - r[24] stays undefined,
+        // harmlessly, until that proc is altered to include it.
+        Emp_Codes: r[24],
       };
     }
 
@@ -1516,6 +1538,9 @@ useEffect(() => {
           latitude: r.Latitude || "",
           longitude: r.Longitude || "",
           demoProjects: r.Projects ? String(r.Projects).split(",") : [],
+          empCodes: r.Emp_Codes
+            ? String(r.Emp_Codes).split(",").map((c: string) => c.trim()).filter(Boolean)
+            : [],
           contactPerson: r.Contact_Person || "",
           mobile: r.Mobile_Number || "",
           visitFromTime: r.Visit_FromTime || "",
@@ -1581,9 +1606,26 @@ useEffect(() => {
         }
       }
 
+      // Default to whoever was picked on the last visit already added to
+      // this day, rather than the full team every time - a lot of the time
+      // that split (e.g. "just me and 1509 today") holds for the next visit
+      // too, so this saves re-unchecking the same people over and over.
+      // Only when this is the day's very FIRST visit (nothing to copy
+      // forward from yet) does it fall back to the whole team pre-selected.
+      const lastVisitWithEmployees = [...targetTrip.visits]
+        .reverse()
+        .find((v) => v.empCodes && v.empCodes.length > 0);
+
+      const defaultEmpCodes = lastVisitWithEmployees
+        ? [...lastVisitWithEmployees.empCodes]
+        : formatEmployeeNames(selectedDutyRow?.empNames)
+            .map((e: any) => e.code)
+            .filter(Boolean);
+      if (empCode && !defaultEmpCodes.includes(empCode)) defaultEmpCodes.push(empCode);
+
       currentTrips[tripIndex] = {
         ...targetTrip,
-        visits: [...targetTrip.visits, emptyVisit(defaultVisitFromTime)],
+        visits: [...targetTrip.visits, emptyVisit(defaultVisitFromTime, defaultEmpCodes)],
       };
 
       return {
@@ -1808,6 +1850,22 @@ useEffect(() => {
         isSavingTrip.current = false;
         return;
       }
+
+      // Every visit must say who was actually there - the team can split
+      // across visits on the same day, so this can't be assumed from the
+      // duty's overall team list. The logged-in employee is always counted
+      // (see the emp_Codes formData append below), so in practice this
+      // only trips if empCode itself hasn't loaded yet.
+      const visitWithNoEmployees = trip.visits.find((v) => {
+        const codes = new Set(v.empCodes || []);
+        if (empCode) codes.add(empCode);
+        return codes.size === 0;
+      });
+      if (visitWithNoEmployees) {
+        notify("Select at least one employee for every visit", "warning");
+        isSavingTrip.current = false;
+        return;
+      }
     }
 
     // Daily Shuttle never shows a manual Start/End Camp button on an
@@ -1972,6 +2030,9 @@ useEffect(() => {
         formData.append(`visits[${i}].visit_FromTime`, v.visitFromTime);
         formData.append(`visits[${i}].visit_ToTime`, v.visitToTime);
         formData.append(`visits[${i}].projects`, (v.demoProjects || []).join(","));
+        const savedEmpCodes = new Set(v.empCodes || []);
+        if (empCode) savedEmpCodes.add(empCode);
+        formData.append(`visits[${i}].emp_Codes`, Array.from(savedEmpCodes).join(","));
         formData.append(`visits[${i}].contact_Person`, v.contactPerson);
         formData.append(`visits[${i}].mobile_Number`, v.mobile);
         formData.append(`visits[${i}].remarks`, v.remarks);
@@ -6197,6 +6258,17 @@ useEffect(() => {
                                   : "-"}
                               </div>
 
+                              {/* Employees */}
+                              <div>
+                                <strong>Employees :</strong>{" "}
+                                {visit.empCodes && visit.empCodes.length > 0
+                                  ? formatEmployeeNames(selectedDutyRow?.empNames)
+                                      .filter((e: any) => visit.empCodes.includes(e.code))
+                                      .map((e: any) => e.name)
+                                      .join(", ") || visit.empCodes.join(", ")
+                                  : "-"}
+                              </div>
+
                               {/* Contact */}
                               <div>
                                 <strong>Contact :</strong>{" "}
@@ -7839,6 +7911,68 @@ updateTripDay(
                                   <IonSelectOption value="UNICODE  Serv.">UNICODE Serv.</IonSelectOption>
 
                                 </IonSelect>
+                              </div>
+
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    color: "#334155",
+                                    marginBottom: "8px",
+                                  }}
+                                >
+                                  Employees at this Visit (including you)
+                                </div>
+
+                                {/* The team can split across visits on the same
+                                    day (2 at one client, 2 at another), so this
+                                    is a per-visit selection, not a fixed copy of
+                                    the whole duty team. Every member starts
+                                    checked (see emptyVisit's defaultEmpCodes) -
+                                    uncheck whoever wasn't at this one. Plain
+                                    toggle buttons rather than IonSelect/checkbox
+                                    list so it stays a single tap per person on
+                                    a phone screen. */}
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                  {formatEmployeeNames(selectedDutyRow?.empNames)
+                                    .filter((emp: any) => emp.code !== empCode)
+                                    .map((emp: any) => {
+                                    const isSelected = (visit.empCodes || []).includes(emp.code);
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={emp.code || emp.name}
+                                        onClick={() => {
+                                          const current = visit.empCodes || [];
+                                          const next = isSelected
+                                            ? current.filter((c: string) => c !== emp.code)
+                                            : [...current, emp.code];
+                                          updateTripVisit(editingTripIndex, visitIndex, "empCodes", next);
+                                        }}
+                                        style={{
+                                          padding: "8px 14px",
+                                          borderRadius: "999px",
+                                          border: isSelected ? "1px solid #16a34a" : "1px solid #cbd5e1",
+                                          background: isSelected ? "#ecfdf5" : "#fff",
+                                          color: isSelected ? "#065f46" : "#334155",
+                                          fontSize: "13px",
+                                          fontWeight: 600,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        {emp.name}
+                                        {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* You're always counted as present on your own trip (see
+                                    empCode in the emp_Codes save above) even though your own
+                                    pill isn't shown - this only warns about the REST of the
+                                    team having nobody picked, which is fine on its own, so
+                                    there is nothing to warn about here. */}
                               </div>
 
                               <div

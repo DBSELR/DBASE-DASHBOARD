@@ -81,6 +81,24 @@ const pick = (d: any, ...keys: string[]) => {
   return undefined;
 };
 
+// The duty's own team roster ("1501-PAMARTHI SIVA PRASAD,1509-...") into
+// [{code, name}] pairs - same parsing convention OnDuties.tsx's
+// formatEmployeeNames uses - so a visit's Emp_Codes can be resolved to
+// readable names without a second API round trip.
+const parseEmpNames = (value: any) => {
+  if (!value) return [];
+  return String(value)
+    .split(",")
+    .map((x) => {
+      const parts = x.split("-");
+      if (parts.length >= 2) {
+        return { code: parts[0]?.trim(), name: parts.slice(1).join("-").trim() };
+      }
+      return { code: "", name: x.trim() };
+    })
+    .filter((x) => x.name);
+};
+
 // Visit slip / reading photos come back from the API as a bare relative path (e.g.
 // "/Uploads/Visits/xyz.jpg"), same as every other uploaded-image field in
 // this app. Resolve it against the API's origin (not API_BASE itself, which
@@ -307,6 +325,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
         DateFrom: x.dateFrom,
         DateTo: x.dateTo,
+        StartTime: pick(x, "startTime", "StartTime"),
+        EndTime: pick(x, "endTime", "EndTime"),
 
         // load_duties_full/load_my_duties often leave Status blank while a
         // request is still pending (it only gets set once a decision is made)
@@ -2023,7 +2043,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
                     <div className="dm-info-box">
                       <span className="dm-item-label">Timeline</span>
-                      <span className="dm-item-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span>
+                      <span className="dm-item-value">{fmtDate(item.DateFrom)}{item.StartTime ? ` ${String(item.StartTime).slice(0, 5)}` : ""} → {fmtDate(item.DateTo)}{item.EndTime ? ` ${String(item.EndTime).slice(0, 5)}` : ""}</span>
                     </div>
 
                     {/* Branch visits carry no location by design, so this
@@ -2270,7 +2290,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                           </div>
                         </div>
                         <div className="lr-grid-item"><span className="lr-grid-label">Transport</span><span className="lr-grid-value">{item.Mode_of_Trans} {item.Vehicle_No && `• ${item.Vehicle_No}`}</span></div>
-                        <div className="lr-grid-item"><span className="lr-grid-label">Timeline</span><span className="lr-grid-value">{fmtDate(item.DateFrom)} → {fmtDate(item.DateTo)}</span></div>
+                        <div className="lr-grid-item"><span className="lr-grid-label">Timeline</span><span className="lr-grid-value">{fmtDate(item.DateFrom)}{item.StartTime ? ` ${String(item.StartTime).slice(0, 5)}` : ""} → {fmtDate(item.DateTo)}{item.EndTime ? ` ${String(item.EndTime).slice(0, 5)}` : ""}</span></div>
                         <div className="lr-grid-item"><span className="lr-grid-label">Location</span><span className="lr-grid-value">{item.Location}</span></div>
                         <div className="lr-grid-item">
                           <span className="lr-grid-label">Details</span>
@@ -2671,7 +2691,21 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                     </p>
 
                     {trip.fuelAmount ? (
-                      <p><b>Fuel:</b> ₹{trip.fuelAmount}</p>
+                      <p>
+                        <b>Fuel:</b>{" "}
+                        {trip.fuelImagePath ? (
+                          <span
+                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
+                            onClick={() =>
+                              window.open(getUploadedImageUrl(trip.fuelImagePath), "_blank")
+                            }
+                          >
+                            ₹{trip.fuelAmount}
+                          </span>
+                        ) : (
+                          `₹${trip.fuelAmount}`
+                        )}
+                      </p>
                     ) : null}
                   </div>
                   )}
@@ -2679,6 +2713,7 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                   {isDayExpanded && (trip.visits || []).map((visit: any, vIndex: number) => (
                     <div key={vIndex} className="visit-card">
 
+                      <div className="visit-card-grid">
                       <p>
                         <b>Client:</b>{" "}
                         {visit.visit_ImagePath ? (
@@ -2717,6 +2752,34 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                         <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
                       </p>
 
+                      {visit.projects && (
+                        <p>
+                          <b>Demo Project:</b>{" "}
+                          {String(visit.projects)
+                            .split(",")
+                            .map((p: string) => p.trim())
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      )}
+
+                      {visit.empCodes && (
+                        <p>
+                          <b>Employees:</b>{" "}
+                          {(() => {
+                            const codes = String(visit.empCodes)
+                              .split(",")
+                              .map((c: string) => c.trim())
+                              .filter(Boolean);
+                            if (codes.length === 0) return "-";
+                            const names = parseEmpNames(selectedDuty?.empNames)
+                              .filter((e: any) => codes.includes(e.code))
+                              .map((e: any) => e.name);
+                            return names.length > 0 ? names.join(", ") : codes.join(", ");
+                          })()}
+                        </p>
+                      )}
+
                       {(visit.contact_Person || visit.mobile_Number) && (
                         <p>
                           <b>Contact:</b> {visit.contact_Person}
@@ -2727,6 +2790,7 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                       <p>
                         <b>Remarks:</b> {visit.remarks}
                       </p>
+                      </div>
 
                     </div>
                   ))}

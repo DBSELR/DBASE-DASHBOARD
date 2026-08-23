@@ -935,6 +935,27 @@
   background: #ffffff;
 }
 
+/* Client / Location / Time / Demo Project / Contact / Remarks laid out as a
+   2-column grid (3 rows for the usual 6 fields) instead of one long stack,
+   so a visit card reads left-to-right instead of forcing a long scroll. */
+.visit-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 20px;
+}
+
+.visit-card-grid p {
+  margin: 6px 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 480px) {
+  .visit-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    PERMISSION DASHBOARD MODAL & CARDS
 ═══════════════════════════════════════════════════ */
