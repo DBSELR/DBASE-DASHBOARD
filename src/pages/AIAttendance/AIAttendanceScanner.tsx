@@ -16,6 +16,7 @@ import {
   helpCircleOutline
 } from "ionicons/icons";
 import { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
 import { Geolocation } from "@capacitor/geolocation";
@@ -25,12 +26,68 @@ import { BleClient, ScanResult } from "@capacitor-community/bluetooth-le";
 import axios from "axios";
 import "./AIAttendanceScanner.css";
 
+const playSuccessChime = () => {
+  if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now); // D5
+      osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.12); // A5
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(880.00, now + 0.12); // A5
+      osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.28); // D6
+      gain2.gain.setValueAtTime(0.14, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.45);
+    } catch { }
+  }
+};
+
+const playAlertChime = () => {
+  if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(392.00, now); // G4
+      osc.frequency.setValueAtTime(329.63, now + 0.15); // E4
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+    } catch { }
+  }
+};
+
 const speakText = (text: string) => {
   if (typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window) {
     try {
       const SpeechUtterance = (window as any).SpeechSynthesisUtterance;
       const utterance = new SpeechUtterance(text);
-      utterance.rate = 1;
+      utterance.rate = 1.05;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     } catch (error) {
@@ -199,7 +256,24 @@ const AIAttendanceScanner: React.FC = () => {
     isDuplicate?: boolean; customMessage?: string;
     presenceMethod?: string; graceType?: string;
     lateMinutes?: number; date?: string; attendanceStatus?: string; confidence?: number;
+    gpsDetails?: {
+      actualOfficeName?: string;
+      actualGps?: string;
+      presentGps?: string;
+      distance?: string;
+      allowedRadius?: string;
+      bluetoothMatched?: boolean;
+      bluetoothRequired?: boolean;
+      gpsMatched?: boolean;
+      gpsRequired?: boolean;
+    };
   } | null>(null);
+
+  // Auto-dismiss countdown & progress bar state
+  const [countdownTimer, setCountdownTimer] = useState<number>(0);
+  const [progressPercent, setProgressPercent] = useState<number>(100);
+  const countdownIntervalRef = useRef<any>(null);
+  const recentlyMarkedMapRef = useRef<Map<string, number>>(new Map());
 
   const latitudeRef = useRef(0);
   const longitudeRef = useRef(0);
@@ -533,7 +607,37 @@ const AIAttendanceScanner: React.FC = () => {
     }, delay);
   };
 
+  const startAutoDismissCountdown = (totalSeconds = 3) => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    setCountdownTimer(totalSeconds);
+    setProgressPercent(100);
+    const startTime = Date.now();
+    const totalDuration = totalSeconds * 1000;
+
+    countdownIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, totalDuration - elapsed);
+      const remainingSec = Math.ceil(remaining / 1000);
+      const percent = Math.max(0, (remaining / totalDuration) * 100);
+
+      setCountdownTimer(remainingSec);
+      setProgressPercent(percent);
+
+      if (remaining <= 0) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        resetScannerAndResume();
+      }
+    }, 50);
+  };
+
   const resetScannerAndResume = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdownTimer(0);
+    setProgressPercent(100);
     setScanSuccess(false);
     scanSuccessRef.current = false;
     setCapturedImg(null);
@@ -577,32 +681,28 @@ const AIAttendanceScanner: React.FC = () => {
   const captureAndScan = async () => {
     if (isScannerPausedRef.current) { scheduleNextScan(1000); return; }
     if (isProcessingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
-    if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
+    if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(500); return; }
     if (latitudeRef.current === 0 && longitudeRef.current === 0) {
       setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b");
-      scheduleNextScan(2000); return;
+      scheduleNextScan(1500); return;
     }
+
+    // Clean expired cooldowns (older than 15 seconds)
+    const nowTs = Date.now();
+    recentlyMarkedMapRef.current.forEach((ts, id) => {
+      if (nowTs - ts > 15000) recentlyMarkedMapRef.current.delete(id);
+    });
+
     setIsProcessing(true); isProcessingRef.current = true;
     setResultMessage("Scanning face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 480;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
-      let targetWidth = videoWidth;
-      let targetHeight = videoHeight;
-      if (videoWidth > maxDim || videoHeight > maxDim) {
-        if (videoWidth > videoHeight) {
-          targetWidth = maxDim;
-          targetHeight = Math.round((videoHeight / videoWidth) * maxDim);
-        } else {
-          targetHeight = maxDim;
-          targetWidth = Math.round((videoWidth / videoHeight) * maxDim);
-        }
-      }
 
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      // Crisp 640x480 resolution for distant face detection (1.5m - 2.5m)
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
 
       const context = canvas.getContext("2d");
       if (context && videoRef.current) {
@@ -612,7 +712,7 @@ const AIAttendanceScanner: React.FC = () => {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         context.restore();
 
-        const imageData = canvas.toDataURL("image/jpeg", 0.70);
+        const imageData = canvas.toDataURL("image/jpeg", 0.80);
         setCapturedImg(imageData);
 
         const finalEmpId = userDataRef.current?.empCode || userDataRef.current?.EmpCode || "";
@@ -643,96 +743,180 @@ const AIAttendanceScanner: React.FC = () => {
         logDebug(`API Res: success=${data.success}, msg=${data.message || ""}`);
         if (data.invalidLocation) {
           const isGpsNotReady = latitudeRef.current === 0 && longitudeRef.current === 0;
-          if (isGpsNotReady) { setResultMessage("Getting GPS fix…"); setStatusColor("#f59e0b"); scheduleNextScan(2000); }
-          else { setResultMessage(`⛔ ${data.message || "Outside Office Location"}`); setStatusColor("#ef4444"); speakText(data.message || "You are not in office location"); scheduleNextScan(2000); }
+          if (isGpsNotReady) {
+            setResultMessage("Getting GPS fix…");
+            setStatusColor("#f59e0b");
+            scheduleNextScan(1500);
+          } else {
+            const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
+            const empId = data.empId || userDataRef.current?.empCode || "";
+            const alertMsg = data.message || "Outside allowed Office Location / Geofence";
+            playAlertChime();
+            setScanSuccess(true);
+            scanSuccessRef.current = true;
+            setStatusColor("#ef4444");
+
+            const actLat = data.actualLatitude;
+            const actLng = data.actualLongitude;
+            const presLat = data.presentLatitude || latitudeRef.current;
+            const presLng = data.presentLongitude || longitudeRef.current;
+            const offName = data.actualOfficeName || "Assigned Office";
+            const distM = data.distanceMeters;
+            const radM = data.allowedRadiusMeters || 100;
+
+            const gpsDetails = (actLat && actLng) || (presLat && presLng) ? {
+              actualOfficeName: offName,
+              actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
+              presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
+              distance: distM ? `${Math.round(distM)}m away` : undefined,
+              allowedRadius: `${radM}m radius`,
+              bluetoothMatched: data.bluetoothMatched,
+              bluetoothRequired: data.btRequired,
+              gpsMatched: data.locationMatched,
+              gpsRequired: data.gpsRequired
+            } : undefined;
+
+            setAttendanceDetails({
+              empName,
+              empId,
+              status: "Location Restricted",
+              isDuplicate: true,
+              customMessage: alertMsg,
+              confidence: data.confidence || 95,
+              time: formatTime12H(data.time12 || data.time || new Date()),
+              gpsDetails
+            });
+            setResultMessage(`⛔ Outside Office Location: ${empName}`);
+            speakText(data.message || "You are not in office location");
+            startAutoDismissCountdown(4);
+          }
           return;
         }
-        if (data.invalidTime) { setResultMessage(`⛔ ${data.message}`); setStatusColor("#ef4444"); speakText(data.message); scheduleNextScan(2000); return; }
+
+        if (data.invalidTime) {
+          const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
+          const empId = data.empId || userDataRef.current?.empCode || "";
+          const alertMsg = data.message || "Attendance slot timing is invalid or closed.";
+          playAlertChime();
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
+          setStatusColor("#ef4444");
+
+          setAttendanceDetails({
+            empName,
+            empId,
+            status: "Time Window Closed",
+            isDuplicate: true,
+            customMessage: alertMsg,
+            confidence: data.confidence || 95,
+            time: formatTime12H(data.time12 || data.time || new Date())
+          });
+          setResultMessage(`⛔ ${data.message}`);
+          speakText(data.message);
+          startAutoDismissCountdown(4);
+          return;
+        }
 
         if (data.hasPermission === false || (data.success === false && data.message && (data.message.includes("Permission") || data.message.includes("Lunch Out is permitted") || data.message.includes("Evening Out is permitted")))) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId = data.empId || userDataRef.current?.empCode || "";
-          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#ef4444");
           const alertMsg = data.message || "Approved permission required for this exit.";
+          playAlertChime();
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
+          setStatusColor("#ef4444");
 
           setAttendanceDetails({
-            empName, empId,
+            empName,
+            empId,
             status: "Permission Required",
             isDuplicate: true,
             customMessage: alertMsg,
-            confidence: data.confidence,
+            confidence: data.confidence || 90,
             time: formatTime12H(data.time12 || data.time || new Date())
           });
-          setResultMessage(`⛔ ${empName}`); speakText(alertMsg);
+          setResultMessage(`⛔ Permission Required: ${empName}`);
+          speakText(alertMsg);
 
-          setTimeout(() => {
-            resetScannerAndResume();
-          }, 1500);
+          startAutoDismissCountdown(4);
           return;
         }
 
         if (data.alreadyMarked) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId = data.empId || userDataRef.current?.empCode || "";
-          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
-
           const displayTime = formatTime12H(data.time12 || data.time || new Date());
-          const slotName = data.status || "Morning In";
-          const alertMsg = data.message || `${slotName} already marked at ${displayTime}`;
+          const slotName = data.status || selectedStatusRef.current || "Morning In";
+          const alertMsg = data.message || `${slotName} was already marked at ${displayTime}`;
+
+          playAlertChime();
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
+          setStatusColor("#f59e0b");
 
           setAttendanceDetails({
-            empName, empId,
-            status: `${slotName} Already Marked`,
+            empName,
+            empId,
+            status: slotName,
             isDuplicate: true,
-            customMessage: alertMsg,
-            confidence: data.confidence,
-            time: displayTime
+            customMessage: `⚠️ ${slotName} was already recorded at ${displayTime}. You cannot punch again for this session.`,
+            confidence: data.confidence || 98,
+            time: displayTime,
+            officeName: data.officeName || "",
+            presenceMethod: data.presenceMethod || "Face Only"
           });
-          setResultMessage(`⚠️ ${empName}`); speakText(`${empName} ${slotName} already marked`);
+          setResultMessage(`⚠️ ${slotName} Already Marked: ${empName}`);
+          speakText(`${slotName} already marked for ${empName}`);
 
-          // Auto-resume scanner after 800ms
-          setTimeout(() => {
-            resetScannerAndResume();
-          }, 800);
+          if (empId) recentlyMarkedMapRef.current.set(empId, nowTs);
+          startAutoDismissCountdown(3);
           return;
         }
 
         if (data.success) {
           const empName = data.empName || userProfileRef.current?.EmpName || userDataRef.current?.empName || "Employee";
           const empId = data.empId || userDataRef.current?.empCode || "";
-          setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
+          const displayTime = formatTime12H(data.time12 || data.time || new Date());
           const slotName = data.status || selectedStatusRef.current || "Morning In";
+
+          playSuccessChime();
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
+          setStatusColor("#10b981");
+
           setAttendanceDetails({
-            empName, empId,
-            status: `${slotName} Marked Successfully`,
-            time: formatTime12H(data.time12 || data.time || new Date()),
+            empName,
+            empId,
+            status: slotName,
+            isDuplicate: false,
+            customMessage: `✅ ${slotName} recorded successfully at ${displayTime}.`,
+            time: displayTime,
             officeName: data.officeName || "",
             presenceMethod: data.presenceMethod || "Face Only",
             graceType: data.graceType || "",
             lateMinutes: data.lateMinutes ?? 0,
             date: data.date || new Date().toLocaleDateString('en-GB'),
             attendanceStatus: data.attendanceStatus || "",
-            confidence: data.confidence
+            confidence: data.confidence || 98
           });
           setResultMessage(`✅ Welcome, ${empName}`);
           speakText(`${empName} attendance marked successfully`);
 
           // Re-fetch monthly grace totals to update counters instantly
           if (empId) {
+            recentlyMarkedMapRef.current.set(empId, nowTs);
             fetchGraceSummary(empId);
           }
 
-          // Auto-resume scanner after 800ms
-          setTimeout(() => {
-            resetScannerAndResume();
-          }, 800);
+          // Full 3-second visual confirmation popup with animated progress bar
+          startAutoDismissCountdown(3);
         } else {
           setAttendanceDetails(null);
           setResultMessage("Align face to scan");
           setStatusColor("#8b5cf6");
-          scheduleNextScan(300);
+          scheduleNextScan(150);
         }
-      } else { scheduleNextScan(500); }
+      } else { scheduleNextScan(200); }
     } catch (err: any) {
       logDebug("Err: " + err.message);
       let userFriendlyMsg = "Connection Error";
@@ -770,25 +954,38 @@ const AIAttendanceScanner: React.FC = () => {
 
           logDebug(`Scanned: ${name} (${rssi} dBm)`);
 
-          const matched = allowedBeaconsRef.current.length > 0
-            ? allowedBeaconsRef.current.some(b => {
+          let matchedBeacon: { name: string, mac: string } | null = null;
+
+          if (allowedBeaconsRef.current.length > 0) {
+            for (const b of allowedBeaconsRef.current) {
               const dbName = b.name.trim().toUpperCase();
               const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
-              return name === dbName && (mac === dbMac || isUuid);
-            })
-            : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
+              const macMatch = dbMac.length > 0 && mac === dbMac;
+              const nameMatch = dbName.length > 0 && name === dbName;
+              if (macMatch || (isUuid && nameMatch) || (nameMatch && !dbMac)) {
+                matchedBeacon = b;
+                break;
+              }
+            }
+          } else {
+            if (name === "ER2650001F" || mac === "EA2658F0001F" || mac === "DD8800003DAB" || name.startsWith("BCPRO")) {
+              matchedBeacon = { name: name || "BCPro_22733", mac: mac || "DD8800003DAB" };
+            }
+          }
 
-          if (matched) {
+          if (matchedBeacon) {
             setBleSignalStrength(rssi);
             const isCloseEnough = rssi >= -140;
 
             if (isCloseEnough) {
               found = true; setBleVerified(true); bleVerifiedRef.current = true;
-              setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
-              logDebug(`Beacon verified: ${name} (${rssi} dBm)`);
+              const finalName = name || matchedBeacon.name || "Bluetooth Beacon";
+              setBleDeviceName(finalName);
+              setBleDeviceId(result.device.deviceId);
+              logDebug(`Beacon verified: ${finalName} (${mac || result.device.deviceId}) at ${rssi} dBm`);
               await BleClient.stopLEScan();
             } else {
-              logDebug(`Beacon found but too far: ${name} (${rssi} dBm)`);
+              logDebug(`Beacon found but too far: ${name || matchedBeacon.name} (${rssi} dBm)`);
             }
           }
         } catch { }
@@ -2015,45 +2212,265 @@ const AIAttendanceScanner: React.FC = () => {
             </div>
           )}
 
-          {/* SUCCESS POPUP OVERLAY */}
-          {scanSuccess && attendanceDetails && (
-            <div className="sc-success-popup-overlay">
+          {/* BIOMETRIC ATTENDANCE VERIFIED MODAL OVERLAY */}
+          {scanSuccess && attendanceDetails && createPortal(
+            <div
+              className="sc-success-popup-overlay"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) resetScannerAndResume();
+              }}
+            >
               <div className="sc-success-popup-card animate__animated animate__zoomIn">
-                <div className={`sc-success-popup-icon ${attendanceDetails.isDuplicate ? 'icon-warn' : 'icon-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
-                  {capturedImg ? (
-                    <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    attendanceDetails.isDuplicate ? '⚠️' : '✓'
-                  )}
+                {/* 1. Top Status Badge Pill */}
+                <div
+                  className="sc-modal-header-badge"
+                  style={{
+                    background: !attendanceDetails.isDuplicate
+                      ? '#ecfdf5'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? '#fee2e2'
+                        : '#fef3c7'),
+                    color: !attendanceDetails.isDuplicate
+                      ? '#047857'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? '#b91c1c'
+                        : '#b45309'),
+                    border: `1px solid ${!attendanceDetails.isDuplicate
+                      ? '#a7f3d0'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? '#fecdd3'
+                        : '#fde68a')}`
+                  }}
+                >
+                  <IonIcon
+                    icon={!attendanceDetails.isDuplicate ? checkmarkCircleOutline : alertCircleOutline}
+                    style={{ fontSize: '15px' }}
+                  />
+                  <span>
+                    {!attendanceDetails.isDuplicate
+                      ? 'VERIFIED ATTENDANCE'
+                      : (attendanceDetails.customMessage?.includes('already recorded')
+                        ? 'ALREADY RECORDED TODAY'
+                        : 'ATTENDANCE ALERT')}
+                  </span>
                 </div>
-                <h2 className="sc-success-popup-title" style={{ color: attendanceDetails.isDuplicate ? '#d97706' : '#059669' }}>
-                  {attendanceDetails.isDuplicate ? '⚠️ Already Marked' : '✅ Verified'}
-                </h2>
-                <div className="sc-success-popup-name">
-                  {attendanceDetails.empName}
+
+                {/* 2. Photo with Glowing Ring */}
+                <div className="sc-modal-photo-wrap">
+                  <div
+                    className={`sc-modal-photo-ring ${
+                      !attendanceDetails.isDuplicate
+                        ? 'ring-ok'
+                        : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                          ? 'ring-error'
+                          : 'ring-warn')
+                    }`}
+                  >
+                    {capturedImg ? (
+                      <img src={capturedImg} alt="Face Snapshot" className="sc-modal-photo-img" />
+                    ) : (
+                      <div className="sc-modal-photo-img sc-modal-photo-fallback">
+                        {(attendanceDetails.empName || 'E').charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className="sc-modal-photo-badge"
+                    style={{
+                      background: !attendanceDetails.isDuplicate
+                        ? '#10b981'
+                        : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                          ? '#ef4444'
+                          : '#f59e0b')
+                    }}
+                  >
+                    <IonIcon icon={!attendanceDetails.isDuplicate ? checkmarkCircleOutline : alertCircleOutline} />
+                  </div>
                 </div>
-                <div className="sc-success-popup-id">
-                  ID #{attendanceDetails.empId}
+
+                {/* 3. Employee Name & ID (Rendered ONLY ONCE, Bold & Clean) */}
+                <h2 className="sc-modal-emp-name">{attendanceDetails.empName}</h2>
+                <div className="sc-modal-emp-id-wrap">
+                  <span className="sc-modal-emp-id">ID: #{attendanceDetails.empId}</span>
                 </div>
-                <div className="sc-success-popup-time" style={{ fontWeight: 850, color: attendanceDetails.isDuplicate ? '#d97706' : '#059669', fontSize: '0.95rem' }}>
-                  {attendanceDetails.status || 'Attendance Logged'}
+
+                {/* 4. Primary Highlight Status Banner */}
+                <div
+                  className="sc-modal-status-banner"
+                  style={{
+                    background: !attendanceDetails.isDuplicate
+                      ? '#f0fdf4'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? '#fef2f2'
+                        : '#fffbeb'),
+                    color: !attendanceDetails.isDuplicate
+                      ? '#166534'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? '#991b1b'
+                        : '#92400e'),
+                    border: `1px solid ${!attendanceDetails.isDuplicate
+                      ? '#bbf7d0'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? '#fecdd3'
+                        : '#fde68a')}`
+                  }}
+                >
+                  <div className="sc-modal-status-banner-text">
+                    {attendanceDetails.customMessage || (
+                      !attendanceDetails.isDuplicate
+                        ? `✅ ${attendanceDetails.status} marked successfully.`
+                        : `⚠️ ${attendanceDetails.status} was already marked.`
+                    )}
+                  </div>
                 </div>
-                <div className="sc-success-popup-time" style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                  Time: {attendanceDetails.time}
+
+                {/* 5. Metrics Tiles (Slot, Punch Time, Face Match) */}
+                <div className="sc-modal-metrics-row">
+                  <div className="sc-modal-metric-card">
+                    <span className="sc-modal-metric-label">Slot</span>
+                    <span className="sc-modal-metric-value" style={{ color: getSlotColorConfig(attendanceDetails.status).color }}>
+                      {getSlotColorConfig(attendanceDetails.status).label}
+                    </span>
+                  </div>
+
+                  <div className="sc-modal-metric-card">
+                    <span className="sc-modal-metric-label">Time</span>
+                    <span className="sc-modal-metric-value" style={{ color: '#0f172a' }}>
+                      {attendanceDetails.time}
+                    </span>
+                  </div>
+
+                  <div className="sc-modal-metric-card">
+                    <span className="sc-modal-metric-label">Face Match</span>
+                    <span className="sc-modal-metric-value" style={{ color: '#4f46e5' }}>
+                      {attendanceDetails.confidence || 98}%
+                    </span>
+                  </div>
                 </div>
-                <div className="sc-success-popup-time" style={{ color: '#4f46e5', fontWeight: 800 }}>
-                  Face Match: {attendanceDetails.confidence || 98}%
-                </div>
-                {attendanceDetails.customMessage && (
-                  <div className="sc-success-popup-msg" style={{ background: attendanceDetails.isDuplicate ? '#fffbeb' : '#f0fdf4', color: attendanceDetails.isDuplicate ? '#b45309' : '#15803d', border: `1px solid ${attendanceDetails.isDuplicate ? '#fde68a' : '#bbf7d0'}` }}>
-                    {attendanceDetails.customMessage}
+
+                {/* 5b. GPS & Telemetry Comparison Card (Actual GPS vs Present GPS) */}
+                {attendanceDetails.gpsDetails && (
+                  <div className="sc-modal-gps-card">
+                    <div className="sc-modal-gps-header">
+                      <span className="sc-modal-gps-title">📍 Location &amp; Telemetry</span>
+                      {attendanceDetails.gpsDetails.distance && (
+                        <span className="sc-modal-gps-badge-distance">
+                          {attendanceDetails.gpsDetails.distance}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="sc-modal-gps-grid">
+                      {/* Office Target */}
+                      <div className="sc-modal-gps-col">
+                        <span className="sc-modal-gps-label">🏢 Target Office</span>
+                        <span className="sc-modal-gps-value-bold">
+                          {attendanceDetails.gpsDetails.actualOfficeName || "Office Geofence"}
+                        </span>
+                        <span className="sc-modal-gps-coords">
+                          {attendanceDetails.gpsDetails.actualGps || "Lat/Lng"}
+                        </span>
+                        {attendanceDetails.gpsDetails.allowedRadius && (
+                          <span className="sc-modal-gps-subtag">
+                            {attendanceDetails.gpsDetails.allowedRadius}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Device Present GPS */}
+                      <div className="sc-modal-gps-col">
+                        <span className="sc-modal-gps-label">📱 Present GPS</span>
+                        <span className="sc-modal-gps-value-bold" style={{ color: '#dc2626' }}>
+                          Device Location
+                        </span>
+                        <span className="sc-modal-gps-coords">
+                          {attendanceDetails.gpsDetails.presentGps || "Lat/Lng"}
+                        </span>
+                        <span className="sc-modal-gps-subtag" style={{ color: '#b91c1c', background: '#fee2e2', borderColor: '#fca5a5' }}>
+                          Outside Geofence
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Telemetry Status: GPS & Bluetooth */}
+                    <div className="sc-modal-gps-telemetry-row">
+                      <div className="sc-modal-gps-telem-item">
+                        <span className="sc-modal-gps-telem-name">GPS Geofence:</span>
+                        <span className={`sc-modal-gps-telem-status ${attendanceDetails.gpsDetails.gpsMatched ? 'status-pass' : 'status-fail'}`}>
+                          {attendanceDetails.gpsDetails.gpsMatched ? '✅ IN RADIUS' : '❌ OUTSIDE RADIUS'}
+                        </span>
+                      </div>
+
+                      {attendanceDetails.gpsDetails.bluetoothRequired && (
+                        <div className="sc-modal-gps-telem-item">
+                          <span className="sc-modal-gps-telem-name">Bluetooth:</span>
+                          <span className={`sc-modal-gps-telem-status ${attendanceDetails.gpsDetails.bluetoothMatched ? 'status-pass' : 'status-fail'}`}>
+                            {attendanceDetails.gpsDetails.bluetoothMatched ? '✅ DETECTED' : '❌ NOT FOUND'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Google Maps Distance Link */}
+                    {attendanceDetails.gpsDetails.actualGps && attendanceDetails.gpsDetails.presentGps && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(attendanceDetails.gpsDetails.presentGps.replace(/\s+/g, ''))}&destination=${encodeURIComponent(attendanceDetails.gpsDetails.actualGps.replace(/\s+/g, ''))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="sc-modal-gps-map-link"
+                      >
+                        <span>🗺️ View Distance on Google Maps</span>
+                        <IonIcon icon={arrowBackOutline} style={{ transform: 'rotate(180deg)', fontSize: '13px' }} />
+                      </a>
+                    )}
                   </div>
                 )}
-                <button className="sc-success-popup-btn" style={{ background: attendanceDetails.isDuplicate ? '#f59e0b' : '#10b981' }} onClick={resetScannerAndResume}>
-                  Close
+
+                {/* Optional Late / Office Tag */}
+                {((attendanceDetails.lateMinutes ?? 0) > 0 || attendanceDetails.officeName) && (
+                  <div className="sc-modal-sub-details">
+                    {(attendanceDetails.lateMinutes ?? 0) > 0 && (
+                      <span className="sc-modal-sub-pill pill-late">
+                        ⚠️ {attendanceDetails.graceType || 'Late Arrival'} ({attendanceDetails.lateMinutes}m)
+                      </span>
+                    )}
+                    {attendanceDetails.officeName && (
+                      <span className="sc-modal-sub-pill pill-office">
+                        📍 {attendanceDetails.officeName}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* 6. Auto-Dismiss Progress Bar */}
+                <div className="sc-modal-countdown-box">
+                  <div className="sc-modal-countdown-label">
+                    <span>Next scan starting in</span>
+                    <span className="sc-modal-countdown-num">{countdownTimer}s</span>
+                  </div>
+                  <div className="sc-modal-progress-bar">
+                    <div className="sc-modal-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                </div>
+
+                {/* 7. Primary Action Button */}
+                <button
+                  className="sc-modal-btn-action"
+                  style={{
+                    background: !attendanceDetails.isDuplicate
+                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                      : (attendanceDetails.customMessage?.includes('Location') || attendanceDetails.customMessage?.includes('Approval') || attendanceDetails.customMessage?.includes('Timing')
+                        ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                        : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)')
+                  }}
+                  onClick={resetScannerAndResume}
+                >
+                  <span>Scan Next Employee</span>
+                  <IonIcon icon={arrowBackOutline} style={{ transform: 'rotate(180deg)', fontSize: '18px' }} />
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
         </div>

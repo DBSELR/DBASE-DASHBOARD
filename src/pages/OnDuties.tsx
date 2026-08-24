@@ -1197,7 +1197,7 @@ useEffect(() => {
         headers: { "Content-Type": contentType },
       });
     } catch (e: any) {
-      if (e.response?.status === 400 || e.response?.status === 415) {
+      if (e.response?.status === 415) {
         if (contentType === "application/json") {
           return await postWithFallback(
             endpoint,
@@ -4083,29 +4083,61 @@ useEffect(() => {
   // (caught below) on failure, so reaching past the await means it worked.
   const approveDutyRow = async (row: DutyRow) => {
     try {
-      await postWithFallback("OnDuty/approve_onduty", {
-        _id: row.id,
-        Status: "Approve",
-        _empcode: empCode,
+      const currentLevel = row.CurrentLevel ? parseInt(String(row.CurrentLevel), 10) : 1;
+      const raSlots = [row.RA1, row.RA2, row.RA3, row.RA4];
+      const slotRA = currentLevel >= 1 && currentLevel <= 4 ? raSlots[currentLevel - 1] : "";
+      const actionBy = (row.CurrentRA || slotRA || userDesig || empCode || "").trim();
+
+      const res = await api.post("OnDuty/approve_onduty", {
+        _id: String(row.id),
+        Status: "APPROVE",
+        _empcode: actionBy || empCode,
+        _desig: userDesig,
       });
-      notify("Approved successfully", "success");
+
+      let displayMsg = "Approved successfully";
+      try {
+        const rows = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
+          displayMsg = String(rows[0][1]);
+        }
+      } catch {}
+
+      notify(displayMsg, "success");
       loadDuties();
-    } catch {
-      notify("Approval failed", "danger");
+    } catch (e: any) {
+      const errMsg = e?.response?.data?.message || e?.response?.data || "Approval failed";
+      notify(typeof errMsg === "string" ? errMsg : "Approval failed", "danger");
     }
   };
 
   const rejectDutyRow = async (row: DutyRow) => {
     try {
-      await postWithFallback("OnDuty/approve_onduty", {
-        _id: row.id,
-        Status: "Reject",
-        _empcode: empCode,
+      const currentLevel = row.CurrentLevel ? parseInt(String(row.CurrentLevel), 10) : 1;
+      const raSlots = [row.RA1, row.RA2, row.RA3, row.RA4];
+      const slotRA = currentLevel >= 1 && currentLevel <= 4 ? raSlots[currentLevel - 1] : "";
+      const actionBy = (row.CurrentRA || slotRA || userDesig || empCode || "").trim();
+
+      const res = await api.post("OnDuty/approve_onduty", {
+        _id: String(row.id),
+        Status: "REJECT",
+        _empcode: actionBy || empCode,
+        _desig: userDesig,
       });
-      notify("Request rejected", "warning");
+
+      let displayMsg = "Request rejected";
+      try {
+        const rows = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
+          displayMsg = String(rows[0][1]);
+        }
+      } catch {}
+
+      notify(displayMsg, "warning");
       loadDuties();
-    } catch {
-      notify("Rejection failed", "danger");
+    } catch (e: any) {
+      const errMsg = e?.response?.data?.message || e?.response?.data || "Rejection failed";
+      notify(typeof errMsg === "string" ? errMsg : "Rejection failed", "danger");
     }
   };
 

@@ -8,9 +8,12 @@ import {
   informationCircleOutline,
   closeOutline,
   playOutline,
-  pauseOutline
+  pauseOutline,
+  checkmarkCircleOutline,
+  alertCircleOutline
 } from "ionicons/icons";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useHistory } from "react-router";
 import { API_BASE } from "../../config";
 import { Geolocation } from "@capacitor/geolocation";
@@ -19,12 +22,56 @@ import { Camera } from "@capacitor/camera";
 import { BleClient, ScanResult } from "@capacitor-community/bluetooth-le";
 import "./SecurityAttendanceScanner.css";
 
+const playSuccessChime = () => {
+  if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now);
+      osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.12);
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+    } catch { }
+  }
+};
+
+const playAlertChime = () => {
+  if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(392.00, now);
+      osc.frequency.setValueAtTime(329.63, now + 0.15);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+    } catch { }
+  }
+};
+
 const speakText = (text: string) => {
   if (typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window) {
     try {
       const SpeechUtterance = (window as any).SpeechSynthesisUtterance;
       const utterance = new SpeechUtterance(text);
-      utterance.rate = 1;
+      utterance.rate = 1.05;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     } catch (error) {
@@ -134,6 +181,26 @@ const SecurityAttendanceScanner: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [capturedImg, setCapturedImg] = useState<string | null>(null);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [scannedEmployee, setScannedEmployee] = useState<{
+    empName?: string;
+    empId?: string;
+    status?: string;
+    time?: string;
+    customMessage?: string;
+    isDuplicate?: boolean;
+    confidence?: number;
+    gpsDetails?: {
+      actualOfficeName?: string;
+      actualGps?: string;
+      presentGps?: string;
+      distance?: string;
+      allowedRadius?: string;
+      bluetoothMatched?: boolean;
+      bluetoothRequired?: boolean;
+      gpsMatched?: boolean;
+      gpsRequired?: boolean;
+    };
+  } | null>(null);
 
   // Status Selector
   const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
@@ -161,6 +228,56 @@ const SecurityAttendanceScanner: React.FC = () => {
   // Cooldown countdown state
   const [cooldownCountdown, setCooldownCountdown] = useState<number>(0);
   const cooldownCountdownRef = useRef(0);
+
+  // Auto-dismiss countdown for biometric modal
+  const [countdownTimer, setCountdownTimer] = useState<number>(3);
+  const [progressPercent, setProgressPercent] = useState<number>(100);
+  const autoDismissIntervalRef = useRef<any>(null);
+
+  const startAutoDismissCountdown = (totalSeconds: number = 3) => {
+    if (autoDismissIntervalRef.current) clearInterval(autoDismissIntervalRef.current);
+    setCountdownTimer(totalSeconds);
+    setProgressPercent(100);
+
+    const startTime = Date.now();
+    const totalMs = totalSeconds * 1000;
+
+    autoDismissIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remainingMs = Math.max(0, totalMs - elapsed);
+      const remainingSec = Math.ceil(remainingMs / 1000);
+      const pct = Math.max(0, (remainingMs / totalMs) * 100);
+
+      setCountdownTimer(remainingSec);
+      setProgressPercent(pct);
+
+      if (remainingMs <= 0) {
+        clearInterval(autoDismissIntervalRef.current);
+        autoDismissIntervalRef.current = null;
+        resetScannerAndResume();
+      }
+    }, 50);
+  };
+
+  const getSlotColorConfig = (slot?: string) => {
+    const s = (slot || '').toLowerCase();
+    if (s.includes('morning') || s.includes('in') || s.includes('09:') || s.includes('10:')) {
+      return { label: '🌅 Morning In', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' };
+    }
+    if (s.includes('lunch') && s.includes('out')) {
+      return { label: '🍱 Lunch Out', color: '#f59e0b', bg: '#fef3c7', border: '#fde68a' };
+    }
+    if (s.includes('lunch') && s.includes('in')) {
+      return { label: '🍱 Lunch In', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0' };
+    }
+    if (s.includes('evening') || s.includes('out')) {
+      return { label: '🌆 Evening Out', color: '#dc2626', bg: '#fee2e2', border: '#fecdd3' };
+    }
+    if (s.includes('night') || s.includes('permission')) {
+      return { label: '🌙 ' + (slot || 'Session'), color: '#8b5cf6', bg: '#f5f3ff', border: '#ddd6fe' };
+    }
+    return { label: slot || 'Attendance Slot', color: '#475569', bg: '#f8fafc', border: '#e2e8f0' };
+  };
 
   useEffect(() => {
     cooldownCountdownRef.current = cooldownCountdown;
@@ -607,11 +724,6 @@ const SecurityAttendanceScanner: React.FC = () => {
     setDebugLogs(prev => [msg, ...prev.slice(0, 4)]);
   };
 
-  const [scannedEmployee, setScannedEmployee] = useState<{
-    empName?: string; empId?: string; status?: string; time?: string;
-    isDuplicate?: boolean; customMessage?: string; confidence?: number;
-  } | null>(null);
-
   const latitudeRef = useRef(0);
   const longitudeRef = useRef(0);
   const locationReadyRef = useRef(false);
@@ -894,27 +1006,15 @@ const SecurityAttendanceScanner: React.FC = () => {
     setMessage("Analyzing face..."); setStatusColor("#3b82f6");
     try {
       const canvas = document.createElement("canvas");
-      const maxDim = 480;
       const videoWidth = videoRef.current.videoWidth || 640;
       const videoHeight = videoRef.current.videoHeight || 480;
-      let targetWidth = videoWidth;
-      let targetHeight = videoHeight;
-      if (videoWidth > maxDim || videoHeight > maxDim) {
-        if (videoWidth > videoHeight) {
-          targetWidth = maxDim;
-          targetHeight = Math.round((videoHeight / videoWidth) * maxDim);
-        } else {
-          targetHeight = maxDim;
-          targetWidth = Math.round((videoWidth / videoHeight) * maxDim);
-        }
-      }
 
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
 
       const ctx = canvas.getContext("2d");
       if (!ctx || !videoRef.current) {
-        scheduleNextScan(200);
+        scheduleNextScan(150);
         return;
       }
 
@@ -924,7 +1024,7 @@ const SecurityAttendanceScanner: React.FC = () => {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      const image = canvas.toDataURL("image/jpeg", 0.70);
+      const image = canvas.toDataURL("image/jpeg", 0.80);
       setCapturedImg(image);
 
       logDebug(`API POST: AISecurityAttendance Slot: ${selectedStatusRef.current}`);
@@ -1018,18 +1118,17 @@ const SecurityAttendanceScanner: React.FC = () => {
           setScannedEmployee({
             empName: savedNames,
             empId: validSaved.map((e: any) => e.empId).join(", "),
-            status: `${slotName} Marked Successfully`,
+            status: slotName,
             time: displayTime,
             isDuplicate: false,
+            customMessage: `✅ ${slotName} recorded successfully at ${displayTime}.`,
             confidence: firstSaved.confidence || 95
           });
           setMessage(`✅ Verified (${validSaved.length}): ${savedNames}`);
+          playSuccessChime();
           speakText(`Attendance marked for ${savedNames}`);
 
-          // Fast 800ms auto-transition for continuous crowd scanning
-          setTimeout(() => {
-            resetScannerAndResume();
-          }, 800);
+          startAutoDismissCountdown(3);
           return;
         }
 
@@ -1046,22 +1145,55 @@ const SecurityAttendanceScanner: React.FC = () => {
 
         const firstMatched = data.matchedEmployees[0] || {};
         const isInvalidLoc = firstMatched.invalidLocation === true || (firstMatched.message && (firstMatched.message.includes("Location") || firstMatched.message.includes("Bluetooth") || firstMatched.message.includes("Geofence")));
+        const displayTime = formatTime12H(firstMatched.time12 || firstMatched.time || data.time12 || data.time || new Date());
+        const slotName = firstMatched.status || selectedStatusRef.current || "Morning In";
 
         if (isInvalidLoc) {
           setMatchCount(0);
           lastMatchedEmpIdRef.current = "";
           setVerifyingName("");
           setStatusColor("#ef4444");
-          const errMsg = firstMatched.message || "Location / Bluetooth verification failed.";
-          setMessage(`⛔ ${errMsg}`);
+          const errMsg = firstMatched.message || "Location / Bluetooth presence verification failed.";
+
+          const actLat = firstMatched.actualLatitude || data.actualLatitude;
+          const actLng = firstMatched.actualLongitude || data.actualLongitude;
+          const presLat = firstMatched.presentLatitude || data.presentLatitude || latitudeRef.current;
+          const presLng = firstMatched.presentLongitude || data.presentLongitude || longitudeRef.current;
+          const offName = firstMatched.actualOfficeName || data.actualOfficeName || "Assigned Office";
+          const distM = firstMatched.distanceMeters || data.distanceMeters;
+          const radM = firstMatched.allowedRadiusMeters || data.allowedRadiusMeters || 100;
+
+          const gpsDetails = (actLat && actLng) || (presLat && presLng) ? {
+            actualOfficeName: offName,
+            actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
+            presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
+            distance: distM ? `${Math.round(distM)}m away` : undefined,
+            allowedRadius: `${radM}m radius`,
+            bluetoothMatched: firstMatched.bluetoothMatched ?? data.bluetoothMatched,
+            bluetoothRequired: firstMatched.btRequired ?? data.btRequired,
+            gpsMatched: firstMatched.locationMatched ?? data.locationMatched,
+            gpsRequired: firstMatched.gpsRequired ?? data.gpsRequired
+          } : undefined;
+
+          setScannedEmployee({
+            empName: allNames,
+            empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
+            status: slotName,
+            time: displayTime,
+            customMessage: `⛔ Location Restriction: ${errMsg}`,
+            isDuplicate: true,
+            confidence: firstMatched.confidence || 90,
+            gpsDetails
+          });
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
+          setMessage(`⛔ Location Restricted: ${allNames}`);
           speakText(errMsg);
-          scheduleNextScan(2000);
+          startAutoDismissCountdown(4);
           return;
         }
 
         const isNoPerm = firstMatched.hasPermission === false || (firstMatched.success === false && firstMatched.message && (firstMatched.message.includes("Permission") || firstMatched.message.includes("Lunch Out is permitted") || firstMatched.message.includes("Evening Out is permitted")));
-        const displayTime = formatTime12H(firstMatched.time12 || firstMatched.time || data.time12 || data.time || new Date());
-        const slotName = firstMatched.status || selectedStatusRef.current || "Permission";
 
         if (isNoPerm) {
           setStatusColor("#ef4444");
@@ -1070,52 +1202,99 @@ const SecurityAttendanceScanner: React.FC = () => {
           setScannedEmployee({
             empName: allNames,
             empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
-            status: alertTitle,
+            status: "Permission Required",
             time: displayTime,
-            customMessage: alertMsg,
+            customMessage: `⛔ Approval Required: ${alertMsg}`,
             isDuplicate: true,
             confidence: firstMatched.confidence || 90
           });
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
           setMessage(`⛔ ${alertTitle}: ${allNames}`);
           speakText(alertMsg);
-          setTimeout(() => {
-            resetScannerAndResume();
-          }, 1500);
+          startAutoDismissCountdown(3);
           return;
         } else {
           setStatusColor("#f59e0b");
-          const alertTitle = `${slotName} Already Marked`;
-          const alertMsg = firstMatched.message || `${slotName} already marked at ${displayTime}`;
+          const alertMsg = firstMatched.message || `${slotName} was already marked at ${displayTime}`;
           setScannedEmployee({
             empName: allNames,
             empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
-            status: alertTitle,
+            status: slotName,
             time: displayTime,
-            customMessage: alertMsg,
+            customMessage: `⚠️ ${slotName} was already recorded at ${displayTime}. You cannot punch again for this session.`,
             isDuplicate: true,
             confidence: firstMatched.confidence || 90
           });
-          setMessage(`⚠️ ${alertTitle}: ${allNames}`);
+          setScanSuccess(true);
+          scanSuccessRef.current = true;
+          setMessage(`⚠️ ${slotName} Already Marked: ${allNames}`);
           speakText(`${allNames} ${slotName} already marked`);
-          setTimeout(() => {
-            resetScannerAndResume();
-          }, 1000);
+          startAutoDismissCountdown(3);
           return;
         }
       }
 
       if (data.invalidLocation) {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-        setStatusColor("#ef4444"); setMessage(`⛔ ${data.message || "Outside Office Location"}`);
-        speakText(data.message || "You are not in office location");
-        scheduleNextScan(2000);
+        setStatusColor("#ef4444");
+        const errMsg = data.message || "Outside Office Location";
+
+        const actLat = data.actualLatitude;
+        const actLng = data.actualLongitude;
+        const presLat = data.presentLatitude || latitudeRef.current;
+        const presLng = data.presentLongitude || longitudeRef.current;
+        const offName = data.actualOfficeName || "Assigned Office";
+        const distM = data.distanceMeters;
+        const radM = data.allowedRadiusMeters || 100;
+
+        const gpsDetails = (actLat && actLng) || (presLat && presLng) ? {
+          actualOfficeName: offName,
+          actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
+          presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
+          distance: distM ? `${Math.round(distM)}m away` : undefined,
+          allowedRadius: `${radM}m radius`,
+          bluetoothMatched: data.bluetoothMatched,
+          bluetoothRequired: data.btRequired,
+          gpsMatched: data.locationMatched,
+          gpsRequired: data.gpsRequired
+        } : undefined;
+
+        setScannedEmployee({
+          empName: "Employee",
+          empId: "",
+          status: selectedStatusRef.current,
+          time: formatTime12H(new Date()),
+          customMessage: `⛔ Location Restriction: ${errMsg}`,
+          isDuplicate: true,
+          confidence: 90,
+          gpsDetails
+        });
+        setScanSuccess(true);
+        scanSuccessRef.current = true;
+        setMessage(`⛔ ${errMsg}`);
+        speakText(errMsg);
+        startAutoDismissCountdown(4);
         return;
       }
       if (data.invalidTime) {
         setMatchCount(0); lastMatchedEmpIdRef.current = ""; setVerifyingName("");
-        setStatusColor("#ef4444"); setMessage(`⛔ ${data.message}`);
-        speakText(data.message);
-        scheduleNextScan(2000);
+        setStatusColor("#ef4444");
+        const errMsg = data.message || "Invalid Slot Time";
+        setScannedEmployee({
+          empName: "Employee",
+          empId: "",
+          status: selectedStatusRef.current,
+          time: formatTime12H(new Date()),
+          customMessage: `⛔ Timing Restriction: ${errMsg}`,
+          isDuplicate: true,
+          confidence: 90
+        });
+        setScanSuccess(true);
+        scanSuccessRef.current = true;
+        setMessage(`⛔ ${errMsg}`);
+        speakText(errMsg);
+        startAutoDismissCountdown(3);
         return;
       }
       if (data.alreadyMarked) {
@@ -1126,20 +1305,22 @@ const SecurityAttendanceScanner: React.FC = () => {
         }
         setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#f59e0b");
         const displayTime = formatTime12H(data.time12 || data.time || new Date());
+        const slotName = data.status || selectedStatusRef.current || "Morning In";
+        const empName = data.empName || "Employee";
 
         setScannedEmployee({
-          empName: data.empName || "Employee",
+          empName: empName,
           empId: data.empId || "",
+          status: slotName,
           isDuplicate: true,
-          customMessage: data.message || "Attendance already marked.",
-          confidence: data.confidence,
+          customMessage: `⚠️ ${slotName} was already recorded at ${displayTime}. You cannot punch again for this session.`,
+          confidence: data.confidence || 95,
           time: displayTime
         });
-        setMessage(`⚠️ Cooldown: ${data.empName}`); speakText(`${data.empName} attendance already marked`);
+        setMessage(`⚠️ ${slotName} Already Marked: ${empName}`);
+        speakText(`${empName} ${slotName} already marked`);
 
-        setTimeout(() => {
-          resetScannerAndResume();
-        }, 1000);
+        startAutoDismissCountdown(3);
         return;
       }
 
@@ -1163,10 +1344,20 @@ const SecurityAttendanceScanner: React.FC = () => {
           }
           scheduleNextScan(100);
         } else {
+          const displayTime = formatTime12H(data.time12 || data.time || new Date());
+          const slotName = data.status || selectedStatusRef.current || "Morning In";
           if (empId) recentlyMarkedEmpIdsRef.current.set(empId, Date.now());
           setMatchCount(3);
           setScanSuccess(true); scanSuccessRef.current = true; setStatusColor("#10b981");
-          setScannedEmployee({ empName, empId, status: data.status || "Attendance Logged", time: formatTime12H(data.time12 || data.time || new Date()), isDuplicate: false, confidence: data.confidence });
+          setScannedEmployee({
+            empName,
+            empId,
+            status: slotName,
+            time: displayTime,
+            isDuplicate: false,
+            customMessage: `✅ ${slotName} recorded successfully at ${displayTime}.`,
+            confidence: data.confidence || 98
+          });
           setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
           setVerifyingName(""); lastMatchedEmpIdRef.current = "";
 
@@ -1223,25 +1414,38 @@ const SecurityAttendanceScanner: React.FC = () => {
 
           logDebug(`Scanned: ${name} (${rssi} dBm)`);
 
-          const matched = allowedBeaconsRef.current.length > 0
-            ? allowedBeaconsRef.current.some(b => {
+          let matchedBeacon: { name: string, mac: string } | null = null;
+
+          if (allowedBeaconsRef.current.length > 0) {
+            for (const b of allowedBeaconsRef.current) {
               const dbName = b.name.trim().toUpperCase();
               const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
-              return name === dbName && (mac === dbMac || isUuid);
-            })
-            : (name === "ER2650001F" && (mac === "EA2658F0001F" || isUuid));
+              const macMatch = dbMac.length > 0 && mac === dbMac;
+              const nameMatch = dbName.length > 0 && name === dbName;
+              if (macMatch || (isUuid && nameMatch) || (nameMatch && !dbMac)) {
+                matchedBeacon = b;
+                break;
+              }
+            }
+          } else {
+            if (name === "ER2650001F" || mac === "EA2658F0001F" || mac === "DD8800003DAB" || name.startsWith("BCPRO")) {
+              matchedBeacon = { name: name || "BCPro_22733", mac: mac || "DD8800003DAB" };
+            }
+          }
 
-          if (matched) {
+          if (matchedBeacon) {
             setBleSignalStrength(rssi);
             const isCloseEnough = rssi >= -140;
 
             if (isCloseEnough) {
               found = true; setBleVerified(true); bleVerifiedRef.current = true;
-              setBleDeviceName(name); setBleDeviceId(result.device.deviceId);
-              logDebug(`Beacon verified: ${name} (${rssi} dBm)`);
+              const finalName = name || matchedBeacon.name || "Bluetooth Beacon";
+              setBleDeviceName(finalName);
+              setBleDeviceId(result.device.deviceId);
+              logDebug(`Beacon verified: ${finalName} (${mac || result.device.deviceId}) at ${rssi} dBm`);
               await BleClient.stopLEScan();
             } else {
-              logDebug(`Beacon found but too far: ${name} (${rssi} dBm)`);
+              logDebug(`Beacon found but too far: ${name || matchedBeacon.name} (${rssi} dBm)`);
             }
           }
         } catch { }
@@ -1948,45 +2152,249 @@ const SecurityAttendanceScanner: React.FC = () => {
             </div>
           )}
 
-          {/* SUCCESS POPUP OVERLAY */}
-          {scanSuccess && scannedEmployee && (
-            <div className="sc-success-popup-overlay">
+          {/* BIOMETRIC ATTENDANCE POPUP OVERLAY */}
+          {scanSuccess && scannedEmployee && createPortal(
+            <div
+              className="sc-success-popup-overlay"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) resetScannerAndResume();
+              }}
+            >
               <div className="sc-success-popup-card animate__animated animate__zoomIn">
-                <div className={`sc-success-popup-icon ${scannedEmployee.isDuplicate ? 'icon-warn' : 'icon-ok'}`} style={{ borderColor: scannedEmployee.isDuplicate ? '#f59e0b' : '#10b981', color: scannedEmployee.isDuplicate ? '#f59e0b' : '#10b981', overflow: 'hidden', padding: 0 }}>
-                  {capturedImg ? (
-                    <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    scannedEmployee.isDuplicate ? '⚠️' : '✓'
-                  )}
+                {/* 1. Top Status Badge Pill */}
+                <div
+                  className="sc-modal-header-badge"
+                  style={{
+                    background: !scannedEmployee.isDuplicate
+                      ? '#ecfdf5'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? '#fee2e2'
+                        : '#fef3c7'),
+                    color: !scannedEmployee.isDuplicate
+                      ? '#047857'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? '#b91c1c'
+                        : '#b45309'),
+                    border: `1px solid ${!scannedEmployee.isDuplicate
+                      ? '#a7f3d0'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? '#fecdd3'
+                        : '#fde68a')}`
+                  }}
+                >
+                  <IonIcon
+                    icon={!scannedEmployee.isDuplicate ? checkmarkCircleOutline : alertCircleOutline}
+                    style={{ fontSize: '15px' }}
+                  />
+                  <span>
+                    {!scannedEmployee.isDuplicate
+                      ? 'VERIFIED ATTENDANCE'
+                      : (scannedEmployee.customMessage?.includes('already recorded')
+                        ? 'ALREADY RECORDED TODAY'
+                        : 'ATTENDANCE ALERT')}
+                  </span>
                 </div>
-                <h2 className="sc-success-popup-title" style={{ color: scannedEmployee.isDuplicate ? '#d97706' : '#059669' }}>
-                  {scannedEmployee.isDuplicate ? '⚠️ Already Marked' : '✅ Verified'}
-                </h2>
-                <div className="sc-success-popup-name">
-                  {scannedEmployee.empName}
+
+                {/* 2. Photo with Glowing Ring */}
+                <div className="sc-modal-photo-wrap">
+                  <div
+                    className={`sc-modal-photo-ring ${
+                      !scannedEmployee.isDuplicate
+                        ? 'ring-ok'
+                        : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                          ? 'ring-error'
+                          : 'ring-warn')
+                    }`}
+                  >
+                    {capturedImg ? (
+                      <img src={capturedImg} alt="Face Snapshot" className="sc-modal-photo-img" />
+                    ) : (
+                      <div className="sc-modal-photo-img sc-modal-photo-fallback">
+                        {(scannedEmployee.empName || 'E').charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className="sc-modal-photo-badge"
+                    style={{
+                      background: !scannedEmployee.isDuplicate
+                        ? '#10b981'
+                        : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                          ? '#ef4444'
+                          : '#f59e0b')
+                    }}
+                  >
+                    <IonIcon icon={!scannedEmployee.isDuplicate ? checkmarkCircleOutline : alertCircleOutline} />
+                  </div>
                 </div>
-                <div className="sc-success-popup-id">
-                  ID #{scannedEmployee.empId}
+
+                {/* 3. Employee Name & ID (Rendered ONLY ONCE, Bold & Clean) */}
+                <h2 className="sc-modal-emp-name">{scannedEmployee.empName}</h2>
+                <div className="sc-modal-emp-id-wrap">
+                  <span className="sc-modal-emp-id">ID: #{scannedEmployee.empId}</span>
                 </div>
-                <div className="sc-success-popup-time" style={{ fontWeight: 850, color: scannedEmployee.isDuplicate ? '#d97706' : '#059669', fontSize: '0.95rem' }}>
-                  {scannedEmployee.status || 'Attendance Logged'}
+
+                {/* 4. Primary Highlight Status Banner */}
+                <div
+                  className="sc-modal-status-banner"
+                  style={{
+                    background: !scannedEmployee.isDuplicate
+                      ? '#f0fdf4'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? '#fef2f2'
+                        : '#fffbeb'),
+                    color: !scannedEmployee.isDuplicate
+                      ? '#166534'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? '#991b1b'
+                        : '#92400e'),
+                    border: `1px solid ${!scannedEmployee.isDuplicate
+                      ? '#bbf7d0'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? '#fecdd3'
+                        : '#fde68a')}`
+                  }}
+                >
+                  <div className="sc-modal-status-banner-text">
+                    {scannedEmployee.customMessage || (
+                      !scannedEmployee.isDuplicate
+                        ? `✅ ${scannedEmployee.status} marked successfully.`
+                        : `⚠️ ${scannedEmployee.status} was already marked.`
+                    )}
+                  </div>
                 </div>
-                <div className="sc-success-popup-time" style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                  Time: {scannedEmployee.time}
+
+                {/* 5. Metrics Tiles (Slot, Punch Time, Face Match) */}
+                <div className="sc-modal-metrics-row">
+                  <div className="sc-modal-metric-card">
+                    <span className="sc-modal-metric-label">Slot</span>
+                    <span className="sc-modal-metric-value" style={{ color: getSlotColorConfig(scannedEmployee.status).color }}>
+                      {getSlotColorConfig(scannedEmployee.status).label}
+                    </span>
+                  </div>
+
+                  <div className="sc-modal-metric-card">
+                    <span className="sc-modal-metric-label">Time</span>
+                    <span className="sc-modal-metric-value" style={{ color: '#0f172a' }}>
+                      {scannedEmployee.time}
+                    </span>
+                  </div>
+
+                  <div className="sc-modal-metric-card">
+                    <span className="sc-modal-metric-label">Face Match</span>
+                    <span className="sc-modal-metric-value" style={{ color: '#4f46e5' }}>
+                      {scannedEmployee.confidence || 98}%
+                    </span>
+                  </div>
                 </div>
-                <div className="sc-success-popup-time" style={{ color: '#8b5cf6', fontWeight: 800 }}>
-                  Face Match: {scannedEmployee.confidence || 98}%
-                </div>
-                {scannedEmployee.customMessage && (
-                  <div className="sc-success-popup-msg" style={{ background: scannedEmployee.isDuplicate ? '#fffbeb' : '#f0fdf4', color: scannedEmployee.isDuplicate ? '#b45309' : '#15803d', border: `1px solid ${scannedEmployee.isDuplicate ? '#fde68a' : '#bbf7d0'}` }}>
-                    {scannedEmployee.customMessage}
+
+                {/* 5b. GPS & Telemetry Comparison Card (Actual GPS vs Present GPS) */}
+                {scannedEmployee.gpsDetails && (
+                  <div className="sc-modal-gps-card">
+                    <div className="sc-modal-gps-header">
+                      <span className="sc-modal-gps-title">📍 Location &amp; Telemetry</span>
+                      {scannedEmployee.gpsDetails.distance && (
+                        <span className="sc-modal-gps-badge-distance">
+                          {scannedEmployee.gpsDetails.distance}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="sc-modal-gps-grid">
+                      {/* Office Target */}
+                      <div className="sc-modal-gps-col">
+                        <span className="sc-modal-gps-label">🏢 Target Office</span>
+                        <span className="sc-modal-gps-value-bold">
+                          {scannedEmployee.gpsDetails.actualOfficeName || "Office Geofence"}
+                        </span>
+                        <span className="sc-modal-gps-coords">
+                          {scannedEmployee.gpsDetails.actualGps || "Lat/Lng"}
+                        </span>
+                        {scannedEmployee.gpsDetails.allowedRadius && (
+                          <span className="sc-modal-gps-subtag">
+                            {scannedEmployee.gpsDetails.allowedRadius}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Device Present GPS */}
+                      <div className="sc-modal-gps-col">
+                        <span className="sc-modal-gps-label">📱 Present GPS</span>
+                        <span className="sc-modal-gps-value-bold" style={{ color: '#dc2626' }}>
+                          Device Location
+                        </span>
+                        <span className="sc-modal-gps-coords">
+                          {scannedEmployee.gpsDetails.presentGps || "Lat/Lng"}
+                        </span>
+                        <span className="sc-modal-gps-subtag" style={{ color: '#b91c1c', background: '#fee2e2', borderColor: '#fca5a5' }}>
+                          Outside Geofence
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Telemetry Status: GPS & Bluetooth */}
+                    <div className="sc-modal-gps-telemetry-row">
+                      <div className="sc-modal-gps-telem-item">
+                        <span className="sc-modal-gps-telem-name">GPS Geofence:</span>
+                        <span className={`sc-modal-gps-telem-status ${scannedEmployee.gpsDetails.gpsMatched ? 'status-pass' : 'status-fail'}`}>
+                          {scannedEmployee.gpsDetails.gpsMatched ? '✅ IN RADIUS' : '❌ OUTSIDE RADIUS'}
+                        </span>
+                      </div>
+
+                      {scannedEmployee.gpsDetails.bluetoothRequired && (
+                        <div className="sc-modal-gps-telem-item">
+                          <span className="sc-modal-gps-telem-name">Bluetooth:</span>
+                          <span className={`sc-modal-gps-telem-status ${scannedEmployee.gpsDetails.bluetoothMatched ? 'status-pass' : 'status-fail'}`}>
+                            {scannedEmployee.gpsDetails.bluetoothMatched ? '✅ DETECTED' : '❌ NOT FOUND'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Google Maps Distance Link */}
+                    {scannedEmployee.gpsDetails.actualGps && scannedEmployee.gpsDetails.presentGps && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(scannedEmployee.gpsDetails.presentGps.replace(/\s+/g, ''))}&destination=${encodeURIComponent(scannedEmployee.gpsDetails.actualGps.replace(/\s+/g, ''))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="sc-modal-gps-map-link"
+                      >
+                        <span>🗺️ View Distance on Google Maps</span>
+                        <IonIcon icon={arrowBackOutline} style={{ transform: 'rotate(180deg)', fontSize: '13px' }} />
+                      </a>
+                    )}
                   </div>
                 )}
-                <button className="sc-success-popup-btn" style={{ background: scannedEmployee.isDuplicate ? '#f59e0b' : '#10b981' }} onClick={resetScannerAndResume}>
-                  Close
+
+                {/* 6. Auto-Dismiss Progress Bar */}
+                <div className="sc-modal-countdown-box">
+                  <div className="sc-modal-countdown-label">
+                    <span>Next scan starting in</span>
+                    <span className="sc-modal-countdown-num">{countdownTimer}s</span>
+                  </div>
+                  <div className="sc-modal-progress-bar">
+                    <div className="sc-modal-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                </div>
+
+                {/* 7. Primary Action Button */}
+                <button
+                  className="sc-modal-btn-action"
+                  style={{
+                    background: !scannedEmployee.isDuplicate
+                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                      : (scannedEmployee.customMessage?.includes('Location') || scannedEmployee.customMessage?.includes('Approval') || scannedEmployee.customMessage?.includes('Timing')
+                        ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                        : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)')
+                  }}
+                  onClick={resetScannerAndResume}
+                >
+                  <span>Scan Next Employee</span>
+                  <IonIcon icon={arrowBackOutline} style={{ transform: 'rotate(180deg)', fontSize: '18px' }} />
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
         </div>
