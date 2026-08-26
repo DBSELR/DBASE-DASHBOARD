@@ -33,6 +33,8 @@ import { createPortal } from "react-dom";
 import { useHistory } from "react-router-dom";
 import { ChevronLeft, Wallet } from "lucide-react";
 import { arrowForward, close, calendar, person, documentText, eyeOutline, checkmarkCircle, search, chevronDown } from "ionicons/icons";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Capacitor } from "@capacitor/core";
 import axios from "axios";
 import moment from "moment";
 import type { RefresherEventDetail } from "@ionic/core";
@@ -359,25 +361,26 @@ const normalizeVouchers = (rows: any[]): Voucher[] => {
   const out = rows.map((r) => {
     if (!Array.isArray(r)) {
       const o = r as any;
-      let date = str(o.Date);
-      let emp = str(o.EmpID);
+      let date = str(o.Date || o.Invoice_Date || o.InvoiceDate || o.date);
+      let emp = str(o.EmpID || o.EmpCode || o.EmpName || o.empId || o.empCode);
       if (/^\d{2}-\d{2}-\d{4}$/.test(emp) && /-/.test(date)) {
         const tmp = date;
         date = emp;
         emp = tmp;
       }
       return {
-        VID: str(o.VID),
+        VID: str(o.VID || o.vid || o.Id || o.ID),
         Date: date,
         EmpID: emp,
-        VDescription: str(o.VDescription),
-        amount: Number(o.amount ?? 0),
-        isVerified: (o.isVerified ?? "N") as Voucher["isVerified"],
-        fname: str(o.fname),
-        fpath: str(o.fpath),
+        VDescription: str(o.VDescription || o.Description || o.Invoice_Heads || o.vdescription || o.VoucherDesc),
+        amount: Number(o.amount ?? o.Amount ?? o.VoucherAmount ?? 0),
+        isVerified: (o.isVerified ?? o.IsVerified ?? o.isverified ?? o.Status ?? "N") as Voucher["isVerified"],
+        Remarks: str(o.Remarks ?? o.remarks ?? o.Remark ?? o.remark ?? ""),
+        fname: str(o.fname || o.Fname || o.FNAME || o.fileName || o.FileName || o.Img || o.img || o.image || o.VoucherImg || o.voucherImg || o.voucher_img),
+        fpath: str(o.fpath || o.Fpath || o.FPATH || o.filePath || o.FilePath || o.Img2 || o.img2 || o.image2 || o.BillImg || o.billImg || o.bill_img),
       };
     }
-    // [VID, EmpID("1509 - Name"), Date("dd-MM-YYYY"), VDescription, amount, fname, fpath, isVerified]
+    // [VID, EmpID("1509 - Name"), Date("dd-MM-YYYY"), VDescription, amount, fname, fpath, isVerified, Remarks]
     const a = r as any[];
     return {
       VID: str(a[0]),
@@ -388,6 +391,7 @@ const normalizeVouchers = (rows: any[]): Voucher[] => {
       fname: str(a[5]),
       fpath: str(a[6]),
       isVerified: (str(a[7]) || "N") as Voucher["isVerified"],
+      Remarks: str(a[8] || ""),
     };
   });
   console.log("[normalize] vouchers:", out);
@@ -506,7 +510,6 @@ const Transactions: React.FC = () => {
   const [disableRequist, setDisableRequist] = useState<boolean>(false);
 
   // Modals
-  const [openVoucherEmpModal_placeholder] = useState(false); // keep other modals untouched
   const [openVoucherEmpModal, setOpenVoucherEmpModal] = useState(false);
   const [openDA_TA_Modal, setOpenDA_TA_Modal] = useState(false);
 
@@ -514,6 +517,82 @@ const Transactions: React.FC = () => {
   const [openVoucherModal, setOpenVoucherModal] = useState(false);
   const [currentVoucher, setCurrentVoucher] = useState<Voucher | null>(null);
   const [verifyAmount, setVerifyAmount] = useState<string>("");
+  const [imgLoadErrors, setImgLoadErrors] = useState<{ [key: string]: boolean }>({});
+
+  const resolveVoucherUrl = (rawPath: string | null | undefined): string => {
+    if (!rawPath) return "";
+    let clean = String(rawPath).trim().replace(/\\/g, "/");
+    if (
+      !clean ||
+      clean === "/" ||
+      clean === "//" ||
+      clean === "0" ||
+      clean.toLowerCase() === "null" ||
+      clean.toLowerCase() === "undefined" ||
+      clean.toLowerCase() === "n/a" ||
+      clean.toLowerCase() === "none"
+    ) {
+      return "";
+    }
+    if (/^https?:\/\//i.test(clean) || clean.startsWith("data:")) {
+      return clean;
+    }
+    const relative = clean.replace(/^\/+/, "");
+    if (!relative) return "";
+
+    const prodBase = "https://api.dbasesolutions.in/";
+    const base = import.meta.env.DEV ? prodBase : (baseUrl.replace(/\/api\/?$/, "") + "/");
+
+    if (relative.toLowerCase().startsWith("img/")) {
+      return `${base}${relative}`;
+    }
+    if (relative.toLowerCase().startsWith("voucher/")) {
+      return `${base}img/${relative}`;
+    }
+    if (relative.toLowerCase().startsWith("vouchers/")) {
+      return `${base}img/${relative}`;
+    }
+    return `${base}img/Voucher/${relative}`;
+  };
+
+  const handleImageError = (
+    e: React.SyntheticEvent<HTMLImageElement, Event>,
+    type: "voucher" | "bill",
+    rawPath: string
+  ) => {
+    const target = e.currentTarget;
+    const currentSrc = target.src;
+    let clean = String(rawPath || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!clean || clean === "0" || clean.toLowerCase() === "null") {
+      setImgLoadErrors((prev) => ({ ...prev, [type]: true }));
+      return;
+    }
+
+    const prodBase = "https://api.dbasesolutions.in/";
+    const stripped = clean.replace(/^img\/Voucher\//i, "").replace(/^img\//i, "").replace(/^Voucher\//i, "");
+    const candidates = [
+      `${prodBase}img/Voucher/${stripped}`,
+      `${prodBase}${clean}`,
+      `${prodBase}img/${clean}`,
+      `${prodBase}img/voucher/${stripped}`,
+      `${prodBase}images/${stripped}`,
+    ];
+
+    const tried = (target.dataset.tried || "").split("|");
+    const nextCandidate = candidates.find(
+      (c) => c !== currentSrc && !tried.includes(c)
+    );
+
+    if (nextCandidate) {
+      target.dataset.tried = `${target.dataset.tried || ""}|${currentSrc}|${nextCandidate}`;
+      console.log(`[Transactions] Retrying ${type} image: ${nextCandidate}`);
+      target.src = nextCandidate;
+      return;
+    }
+
+    console.warn(`[Transactions] All retry strategies failed for ${type}: ${rawPath}`);
+    setImgLoadErrors((prev) => ({ ...prev, [type]: true }));
+  };
 
   const voucherFileInputRef = useRef<HTMLInputElement>(null);
   const billFileInputRef = useRef<HTMLInputElement>(null);
@@ -532,18 +611,25 @@ const Transactions: React.FC = () => {
   const [transferEmpSearchTerm, setTransferEmpSearchTerm] = useState<string>("");
   const transferEmpTriggerRef = useRef<HTMLDivElement>(null);
 
-  const [menuOpen, setMenuOpen] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
-
-  // ✅ Upload file input
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraType, setCameraType] = useState<"user" | "environment">(
     "environment"
   );
-
   const [captureFor, setCaptureFor] = useState<"voucher" | "bill">("voucher");
+
+  // Keep active stream attached to video element across state/render cycles
+  useEffect(() => {
+    if (cameraOpen && cameraStream && videoRef.current) {
+      const vid = videoRef.current;
+      if (vid.srcObject !== cameraStream) {
+        vid.srcObject = cameraStream;
+      }
+      vid.play().catch((err) => console.log("[Camera] video play catch:", err));
+    }
+  }, [cameraOpen, cameraStream]);
 
   const triggerUpload = () => {
     fileInputRef.current?.click();
@@ -554,88 +640,173 @@ const Transactions: React.FC = () => {
     if (!file) return;
 
     const reader = new FileReader();
-
     reader.onload = () => {
       const base64 = String(reader.result);
-
       if (captureFor === "voucher") {
         setPhotoVoucher(base64);
       } else {
         setPhotoBill(base64);
       }
+      closeCamera();
     };
-
     reader.readAsDataURL(file);
     e.target.value = "";
   };
-
-
 
   const openCamera = async (
     type: "voucher" | "bill",
     facing: "user" | "environment" = "environment"
   ) => {
-    try {
-      setCaptureFor(type);
-      setCameraType(facing);
-      setCameraOpen(true);
+    setCaptureFor(type);
+    setCameraType(facing);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facing,
-        },
-      });
+    // 1. If running in native Capacitor (Android/iOS app), use native Camera plugin
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Base64,
+          source: CameraSource.Prompt,
+        });
 
-      streamRef.current = stream;
-
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (image && image.base64String) {
+          const base64Data = `data:image/jpeg;base64,${image.base64String}`;
+          if (type === "voucher") {
+            setPhotoVoucher(base64Data);
+          } else {
+            setPhotoBill(base64Data);
+          }
+          presentToast(`${type === "voucher" ? "Voucher" : "Bill"} photo selected.`);
+          return;
         }
-      }, 100);
-    } catch (err) {
-      console.error(err);
-      presentToast("Unable to access camera", false);
+      } catch (capErr: any) {
+        console.log("[Camera] Native Capacitor getPhoto error:", capErr);
+      }
+    }
+
+    // 2. On Web / Browser, directly start WebRTC live camera modal
+    if (navigator?.mediaDevices?.getUserMedia) {
+      try {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: facing ? { ideal: facing } : "environment",
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              frameRate: { ideal: 30, max: 60 },
+            },
+            audio: false,
+          });
+        } catch (err1) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            },
+            audio: false,
+          });
+        }
+
+        streamRef.current = stream;
+        setCameraStream(stream);
+        setCameraOpen(true);
+
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch((e) => console.log("[Camera] Play error:", e));
+          }
+        }, 30);
+        return;
+      } catch (mediaErr) {
+        console.warn("[Camera] WebRTC getUserMedia failed:", mediaErr);
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          setCameraStream(null);
+        }
+        setCameraOpen(false);
+      }
+    }
+
+    // 3. Fallback: Automatically trigger device file/camera input
+    presentToast("Opening file browser / camera...", true);
+    if (type === "voucher") {
+      voucherFileInputRef.current?.click();
+    } else {
+      billFileInputRef.current?.click();
     }
   };
+
   const switchCamera = async () => {
     try {
       const newType =
         cameraType === "environment" ? "user" : "environment";
 
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: newType,
-        },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: newType },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30, max: 60 },
+          },
+          audio: false,
+        });
+      } catch (err1) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+          audio: false,
+        });
+      }
 
       streamRef.current = stream;
+      setCameraStream(stream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch((e) => console.log("[Camera] Switch play:", e));
       }
 
       setCameraType(newType);
     } catch (err) {
-      console.error(err);
+      console.error("[Camera] Error switching camera:", err);
     }
   };
+
   const capturePhoto = () => {
     if (!videoRef.current) return;
-
+    const video = videoRef.current;
     const canvas = document.createElement("canvas");
-
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
 
     const ctx = canvas.getContext("2d");
-
     if (!ctx) return;
 
     ctx.drawImage(
-      videoRef.current,
+      video,
       0,
       0,
       canvas.width,
@@ -652,11 +823,19 @@ const Transactions: React.FC = () => {
 
     closeCamera();
   };
+
   const closeCamera = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-
-    streamRef.current = null;
-
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraStream(null);
     setCameraOpen(false);
   };
   const triggerVoucherUpload = () => {
@@ -1022,24 +1201,6 @@ const Transactions: React.FC = () => {
   };
 
   /* -------- Voucher logic -------- */
-  // const takePhoto = async (which: "voucher" | "bill") => {
-  //   try {
-  //     const image = await Camera.getPhoto({
-  //       quality: 100,
-  //       allowEditing: false,
-  //       resultType: CameraResultType.Base64,
-  //       source: CameraSource.Camera,
-  //     });
-  //     const base64Image = `data:image/jpeg;base64,${image.base64String}`;
-  //     if (which === "voucher") setPhotoVoucher(base64Image);
-  //     else setPhotoBill(base64Image);
-  //     console.log("[camera] captured:", which);
-  //   } catch (e) {
-  //     console.error("Camera error:", e);
-  //     presentToast("Failed to take photo.", false);
-  //   }
-  // };
-
   const fileToBase64Url = (file: File) =>
     new Promise<string>((resolve, reject) => {
       const r = new FileReader();
@@ -1302,8 +1463,6 @@ const Transactions: React.FC = () => {
   /* -------- UI -------- */
   return (
     <IonPage>
-
-
       <IonContent className="stock-container" style={{ padding: 0 }}>
         <IonRefresher slot="fixed" onIonRefresh={onRefresh}>
           <IonRefresherContent />
@@ -1539,11 +1698,11 @@ const Transactions: React.FC = () => {
                             setTransferEmpSearchTerm("");
                             setIsTransferEmpDropdownOpen(!isTransferEmpDropdownOpen);
                           }}
-                          style={{ 
-                            width: '100%', 
-                            minHeight: '38px', 
-                            background: 'var(--stock-panel-bg)', 
-                            border: '1px solid var(--stock-border)', 
+                          style={{
+                            width: '100%',
+                            minHeight: '38px',
+                            background: 'var(--stock-panel-bg)',
+                            border: '1px solid var(--stock-border)',
                             borderRadius: 'var(--stock-radius-md)',
                             display: 'flex',
                             alignItems: 'center',
@@ -1785,7 +1944,36 @@ const Transactions: React.FC = () => {
                   onClick={() => openCamera("voucher", "environment")}
                 >
                   {photoVoucher ? (
-                    <img src={photoVoucher} alt="Voucher" className="picker-preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <img src={photoVoucher} alt="Voucher" className="picker-preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        title="Remove voucher photo"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPhotoVoucher(null);
+                          if (voucherFileInputRef.current) voucherFileInputRef.current.value = "";
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          background: 'rgba(0,0,0,0.65)',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          zIndex: 10
+                        }}
+                      >
+                        <IonIcon icon={close} style={{ fontSize: '16px' }} />
+                      </button>
+                    </div>
                   ) : (
                     <div className="picker-placeholder">
                       <IonIcon icon={arrowForward} style={{ transform: 'rotate(-90deg)' }} />
@@ -1806,7 +1994,36 @@ const Transactions: React.FC = () => {
                   onClick={() => openCamera("bill", "environment")}
                 >
                   {photoBill ? (
-                    <img src={photoBill} alt="Bill" className="picker-preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <img src={photoBill} alt="Bill" className="picker-preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        title="Remove bill photo"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPhotoBill(null);
+                          if (billFileInputRef.current) billFileInputRef.current.value = "";
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          background: 'rgba(0,0,0,0.65)',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          zIndex: 10
+                        }}
+                      >
+                        <IonIcon icon={close} style={{ fontSize: '16px' }} />
+                      </button>
+                    </div>
                   ) : (
                     <div className="picker-placeholder">
                       <IonIcon icon={arrowForward} style={{ transform: 'rotate(-90deg)' }} />
@@ -1848,11 +2065,11 @@ const Transactions: React.FC = () => {
                           setEmpSearchTerm("");
                           setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen);
                         }}
-                        style={{ 
-                          width: '100%', 
-                          minHeight: '38px', 
-                          background: 'var(--stock-panel-bg)', 
-                          border: '1px solid var(--stock-border)', 
+                        style={{
+                          width: '100%',
+                          minHeight: '38px',
+                          background: 'var(--stock-panel-bg)',
+                          border: '1px solid var(--stock-border)',
                           borderRadius: 'var(--stock-radius-md)',
                           display: 'flex',
                           alignItems: 'center',
@@ -1890,6 +2107,7 @@ const Transactions: React.FC = () => {
                 vouchers.map((v) => (
                   <div key={v.VID} className="txn-card" onClick={() => {
                     console.log("[Transactions] Selected voucher for preview:", v);
+                    setImgLoadErrors({});
                     setCurrentVoucher(v);
                     setVerifyAmount(String(v.amount));
                     setOpenVoucherModal(true);
@@ -2012,50 +2230,51 @@ const Transactions: React.FC = () => {
             </IonButton>
           </div>
         </IonModal>
-        <IonModal
-          isOpen={cameraOpen}
-          onDidDismiss={closeCamera}
-          className="camera-modal"
-        >
-          <IonContent fullscreen className="camera-content">
-            <div className="camera-wrapper">
 
-              {/* 3 DOTS BUTTON */}
-              {/* <div
-      className="camera-menu-btn"
-      onClick={() => setMenuOpen(!menuOpen)}
-    >
-      ⋮
-    </div> */}
-
-              {/* MENU */}
-              {/* {menuOpen && (
-      <div className="camera-menu">
-        <button onClick={capturePhoto}>Capture</button>
-        <button onClick={switchCamera}>Switch</button>
-        <button onClick={triggerUpload}>Browse</button>
-        <button className="danger" onClick={closeCamera}>
-          Close
-        </button>
-      </div>
-    )} */}
-              <div className="camera-menus">
-                <button onClick={capturePhoto}>Capture</button>
-                <button onClick={switchCamera}>Switch</button>
-                <button onClick={triggerUpload}>Browse</button>
-                <button className="danger" onClick={closeCamera}>
-                  Close
-                </button>
-              </div>
-
+        {/* Live Camera Overlay Portal */}
+        {cameraOpen && createPortal(
+          <div className="camera-overlay-backdrop" onClick={closeCamera}>
+            <div className="camera-modal-container" onClick={(e) => e.stopPropagation()}>
               {/* VIDEO */}
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className="camera-video"
+                className="camera-video-stream"
               />
+
+              {/* ACTION MENU PILLS */}
+              <div className="camera-floating-menu">
+                <button
+                  type="button"
+                  className="cam-btn cam-btn-capture"
+                  onClick={(e) => { e.stopPropagation(); capturePhoto(); }}
+                >
+                  Capture
+                </button>
+                <button
+                  type="button"
+                  className="cam-btn cam-btn-switch"
+                  onClick={(e) => { e.stopPropagation(); switchCamera(); }}
+                >
+                  Switch
+                </button>
+                <button
+                  type="button"
+                  className="cam-btn cam-btn-browse"
+                  onClick={(e) => { e.stopPropagation(); triggerUpload(); }}
+                >
+                  Browse
+                </button>
+                <button
+                  type="button"
+                  className="cam-btn cam-btn-close"
+                  onClick={(e) => { e.stopPropagation(); closeCamera(); }}
+                >
+                  Close
+                </button>
+              </div>
 
               {/* hidden file input */}
               <input
@@ -2065,10 +2284,11 @@ const Transactions: React.FC = () => {
                 style={{ display: "none" }}
                 onChange={handleFileUpload}
               />
-
             </div>
-          </IonContent>
-        </IonModal>
+          </div>,
+          document.body
+        )}
+
         {/* DA/TA employee selection */}
         <IonModal
           isOpen={openDA_TA_Modal}
@@ -2151,42 +2371,84 @@ const Transactions: React.FC = () => {
                   <div className="preview-gallery">
                     <div className="gallery-item">
                       <span className="gallery-label">Voucher Photo</span>
-                      <div className="image-frame" onClick={() => currentVoucher.fname && window.open(`${imgBase}${currentVoucher.fname}`, '_blank')}>
-                        {currentVoucher.fname ? (
-                          <img
-                            src={`${imgBase}${currentVoucher.fname}`}
-                            alt="Voucher"
-                            className="preview-image"
-                            onError={(e) => (e.currentTarget.src = "/assets/icon/favicon.png")}
-                          />
-                        ) : (
-                          <div className="empty-preview">
-                            <IonIcon icon={documentText} style={{ fontSize: '32px' }} />
-                            <span>No Image Found</span>
+                      {(() => {
+                        const voucherUrl = resolveVoucherUrl(currentVoucher.fname);
+                        const hasError = imgLoadErrors["voucher"];
+                        return (
+                          <div
+                            className="image-frame"
+                            onClick={(e) => {
+                              if (hasError || !voucherUrl) return;
+                              const imgEl = e.currentTarget.querySelector("img");
+                              const targetUrl = imgEl?.currentSrc || imgEl?.src || voucherUrl;
+                              if (targetUrl) {
+                                window.open(targetUrl, '_blank');
+                              }
+                            }}
+                          >
+                            {voucherUrl && !hasError ? (
+                              <img
+                                key={`voucher-${currentVoucher.VID}-${voucherUrl}`}
+                                src={voucherUrl}
+                                alt="Voucher"
+                                className="preview-image"
+                                onError={(e) => handleImageError(e, "voucher", currentVoucher.fname)}
+                              />
+                            ) : (
+                              <div className="empty-preview">
+                                <IonIcon icon={documentText} style={{ fontSize: '32px' }} />
+                                <span>No Image Found</span>
+                              </div>
+                            )}
+                            {voucherUrl && !hasError && (
+                              <div className="image-action-overlay">
+                                <IonIcon icon={eyeOutline} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {currentVoucher.fname && <div className="image-action-overlay"><IonIcon icon={eyeOutline} /></div>}
-                      </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="gallery-item">
                       <span className="gallery-label">Bill / Invoice</span>
-                      <div className="image-frame" onClick={() => currentVoucher.fpath && window.open(`${imgBase}${currentVoucher.fpath}`, '_blank')}>
-                        {currentVoucher.fpath ? (
-                          <img
-                            src={`${imgBase}${currentVoucher.fpath}`}
-                            alt="Bill"
-                            className="preview-image"
-                            onError={(e) => (e.currentTarget.src = "/assets/icon/favicon.png")}
-                          />
-                        ) : (
-                          <div className="empty-preview">
-                            <IonIcon icon={documentText} style={{ fontSize: '32px' }} />
-                            <span>No Image Found</span>
+                      {(() => {
+                        const billUrl = resolveVoucherUrl(currentVoucher.fpath);
+                        const hasError = imgLoadErrors["bill"];
+                        return (
+                          <div
+                            className="image-frame"
+                            onClick={(e) => {
+                              if (hasError || !billUrl) return;
+                              const imgEl = e.currentTarget.querySelector("img");
+                              const targetUrl = imgEl?.currentSrc || imgEl?.src || billUrl;
+                              if (targetUrl) {
+                                window.open(targetUrl, '_blank');
+                              }
+                            }}
+                          >
+                            {billUrl && !hasError ? (
+                              <img
+                                key={`bill-${currentVoucher.VID}-${billUrl}`}
+                                src={billUrl}
+                                alt="Bill"
+                                className="preview-image"
+                                onError={(e) => handleImageError(e, "bill", currentVoucher.fpath)}
+                              />
+                            ) : (
+                              <div className="empty-preview">
+                                <IonIcon icon={documentText} style={{ fontSize: '32px' }} />
+                                <span>No Image Found</span>
+                              </div>
+                            )}
+                            {billUrl && !hasError && (
+                              <div className="image-action-overlay">
+                                <IonIcon icon={eyeOutline} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {currentVoucher.fpath && <div className="image-action-overlay"><IonIcon icon={eyeOutline} /></div>}
-                      </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -2229,6 +2491,7 @@ const Transactions: React.FC = () => {
             </div>
           </IonContent>
         </IonModal>
+
         {/* Employee Dropdown Portal (Voucher Filter) */}
         {isEmployeeDropdownOpen && createPortal(
           <>

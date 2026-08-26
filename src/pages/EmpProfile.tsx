@@ -420,7 +420,18 @@ const EmpProfile: React.FC = () => {
     const decoded = actualData.map((row: any) => {
       if (Array.isArray(row)) {
         const obj: any = {};
-        keys.forEach((key, i) => (obj[key] = row[i]));
+        keys.forEach((key, i) => {
+          const v = row[i];
+          obj[key] = v !== null && v !== undefined && typeof v !== "object" ? String(v).trim() : "";
+        });
+        return obj;
+      }
+      if (row && typeof row === "object") {
+        const obj: any = {};
+        keys.forEach((key) => {
+          const v = row[key];
+          obj[key] = v !== null && v !== undefined && typeof v !== "object" ? String(v).trim() : "";
+        });
         return obj;
       }
       return row;
@@ -431,21 +442,6 @@ const EmpProfile: React.FC = () => {
   const mapGetEmployeeResponse = (row: any) => {
     console.group("[EmpProfile] mapGetEmployeeResponse");
     console.log("Input Row Array:", row);
-    console.log("Row length:", row.length);
-    console.log(
-      "Row[51] (Project):",
-      row[51],
-      "Row[52] (LocationType):",
-      row[52],
-      "Row[53] (Location1):",
-      row[53],
-    );
-
-    if (!Array.isArray(row)) {
-      console.warn("Input is not an array, returning as is");
-      console.groupEnd();
-      return row;
-    }
 
     // Normalizing isActive ('1' or 'Y' or true -> 'Y')
     const getValue = (
@@ -455,13 +451,20 @@ const EmpProfile: React.FC = () => {
     ) => {
       if (Array.isArray(row)) {
         const value = row[index];
-        if (value !== null && value !== undefined) return value;
+        if (value !== null && value !== undefined && typeof value !== "object") return value;
       }
-      for (const key of keys) {
-        const value = (row as any)[key];
-        if (value !== null && value !== undefined) return value;
+      if (row && typeof row === "object") {
+        for (const key of keys) {
+          const value = (row as any)[key];
+          if (value !== null && value !== undefined && typeof value !== "object") return value;
+        }
       }
       return fallback;
+    };
+
+    const safeStrVal = (index: number, keys: string[], fallback = "") => {
+      const v = getValue(index, keys, fallback);
+      return v !== null && v !== undefined && typeof v !== "object" ? String(v).trim() : fallback;
     };
 
     const rawIsActive = getValue(14, ["_IsActive", "IsActive", "isActive"], "N");
@@ -472,134 +475,77 @@ const EmpProfile: React.FC = () => {
         rawIsActive === 1
         ? "Y"
         : "N";
-    const rowAny = row as any;
+    const rowAny = (row && typeof row === "object") ? row as any : {};
+
+    const rawDoj = getValue(4, ["_Doj", "Doj", "doj"], "");
+    const dojStr = rawDoj ? (String(rawDoj).includes("T") ? String(rawDoj).split("T")[0] : String(rawDoj)) : "";
+
+    const rawDob = getValue(45, ["_Dob", "Dob", "dob"], "");
+    const dobStr = rawDob ? (String(rawDob).includes("T") ? String(rawDob).split("T")[0] : String(rawDob)) : "";
+
+    const checkInVal = getValue(44, ["_CheckIn", "checkIn", "CheckIn", "InTime", "intime"], "");
+    const legacyCheckInVal = getValue(43, ["intime1", "InTime1"], "");
+    const resolvedCheckIn =
+      checkInVal && checkInVal !== "NULL"
+        ? normalizeTimeValue(checkInVal)
+        : legacyCheckInVal && legacyCheckInVal !== "NULL"
+          ? normalizeTimeValue(legacyCheckInVal)
+          : "09:30";
+
+    const pTimeVal = getValue(49, ["_P_Time", "p_time", "P_Time", "PTime"], "60");
 
     const mapped = {
-      _Employee_ID:
-        getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
-          null &&
-          getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], "") !==
-          undefined
-          ? String(
-            getValue(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], ""),
-          )
-          : "",
-      _Ecode: row[1] !== null && row[1] !== undefined ? String(row[1]) : "",
-      _Ename: row[2] !== null && row[2] !== undefined ? String(row[2]) : "",
-      _Desig: row[3] !== null && row[3] !== undefined ? String(row[3]) : "",
-      _Doj: row[4]
-        ? String(row[4]).includes("T")
-          ? row[4].split("T")[0]
-          : row[4]
-        : "",
-      _Dob: row[45]
-        ? String(row[45]).includes("T")
-          ? row[45].split("T")[0]
-          : row[45]
-        : "",
-      _Blood: row[5] !== null && row[5] !== undefined ? String(row[5]) : "",
-      _Mobile: row[6] !== null && row[6] !== undefined ? String(row[6]) : "",
-      _Email: row[8] !== null && row[8] !== undefined ? String(row[8]) : "",
-      _Email2: row[62] !== null && row[62] !== undefined ? String(row[62]) : "",
-      //_Email2: rowAny._Email2 ?? rowAny.Email2 ?? rowAny.email2 ?? "",
-      _Dept: row[30] !== null && row[30] !== undefined ? String(row[30]) : "",
-      _user: getValue(9, ["_user", "_User", "user", "User", "userGroup", "UserGroup"], "Employee"),
-      _Allowed_MY:
-        row[13] !== null && row[13] !== undefined ? String(row[13]) : "2",
-      _Allowed_CL:
-        row[11] !== null && row[11] !== undefined ? String(row[11]) : "12",
-      _Allowed_SL:
-        row[21] !== null && row[21] !== undefined ? String(row[21]) : "10",
+      _Employee_ID: safeStrVal(0, ["_Employee_ID", "Employee_ID", "EmployeeId"], ""),
+      _Ecode: safeStrVal(1, ["_Ecode", "Ecode", "EmpCode", "code"], ""),
+      _Ename: safeStrVal(2, ["_Ename", "Ename", "EmpName", "name"], ""),
+      _Desig: safeStrVal(3, ["_Desig", "Desig", "Designation", "desig"], ""),
+      _Doj: dojStr,
+      _Dob: dobStr,
+      _Blood: safeStrVal(5, ["_Blood", "Blood", "bloodGroup"], ""),
+      _Mobile: safeStrVal(6, ["_Mobile", "Mobile", "contactNumber"], ""),
+      _Email: safeStrVal(8, ["_Email", "Email", "email"], ""),
+      _Email2: safeStrVal(62, ["_Email2", "Email2", "email2"], ""),
+      _Dept: safeStrVal(30, ["_Dept", "Dept", "Department", "department", "dept"], ""),
+      _user: safeStrVal(9, ["_user", "_User", "user", "User", "userGroup", "UserGroup"], "Employee"),
+      _UserGroup: safeStrVal(9, ["_UserGroup", "UserGroup", "_user", "_User", "user", "User"], "Employee"),
+      _Allowed_MY: safeStrVal(13, ["_Allowed_MY", "Allowed_MY"], "2"),
+      _Allowed_CL: safeStrVal(11, ["_Allowed_CL", "Allowed_CL", "leave"], "12"),
+      _Allowed_SL: safeStrVal(21, ["_Allowed_SL", "Allowed_SL", "sick"], "10"),
       _IsActive: normalizedIsActive,
-      _HRA: row[23] !== null && row[23] !== undefined ? String(row[23]) : "0",
-      _DA: row[42] !== null && row[42] !== undefined ? String(row[42]) : "0",
-      _BasicSal:
-        row[22] !== null && row[22] !== undefined ? String(row[22]) : "0",
-      _LTA: row[24] !== null && row[24] !== undefined ? String(row[24]) : "0",
-      _ALLOWANCES:
-        row[25] !== null && row[25] !== undefined ? String(row[25]) : "0",
-      _GrossSal:
-        row[26] !== null && row[26] !== undefined ? String(row[26]) : "0",
-      _AccountNo:
-        row[28] !== null && row[28] !== undefined ? String(row[28]) : "",
-      _IFSCCode:
-        row[29] !== null && row[29] !== undefined ? String(row[29]) : "",
-      _PF: row[31] !== null && row[31] !== undefined ? String(row[31]) : "0",
-      _Esi: row[32] !== null && row[32] !== undefined ? String(row[32]) : "0",
-      _Ptax: row[33] !== null && row[33] !== undefined ? String(row[33]) : "0",
-      _Itax: row[34] !== null && row[34] !== undefined ? String(row[34]) : "0",
-      _NetSal:
-        row[35] !== null && row[35] !== undefined ? String(row[35]) : "0",
-      _PanNo: row[39] !== null && row[39] !== undefined ? String(row[39]) : "",
-      _AadharNo:
-        row[40] !== null && row[40] !== undefined ? String(row[40]) : "",
-      _PFNo: row[37] !== null && row[37] !== undefined ? String(row[37]) : "",
-      _ESINo: row[36] !== null && row[36] !== undefined ? String(row[36]) : "",
-      // NOTE: Tbl_Employee has TWO check-in columns:
-      //   row[43] = intime1 (time(7))  -> LEGACY, APP_Save_Empdetails never writes it
-      //   row[44] = InTime  (nvarchar) -> the column the save proc actually updates
-      // Always prefer InTime, otherwise an edit "succeeds" but the screen keeps
-      // showing the stale intime1 value.
-      _CheckIn:
-        row[44] !== null && row[44] !== undefined && row[44] !== "NULL" && String(row[44]).trim() !== ""
-          ? normalizeTimeValue(row[44])
-          : row[43] !== null && row[43] !== undefined && row[43] !== "NULL" && String(row[43]).trim() !== ""
-            ? normalizeTimeValue(row[43])
-            : normalizeTimeValue(
-              rowAny._CheckIn ?? rowAny.checkIn ?? rowAny.CheckIn ?? "09:30"
-            ),
-      _P_Time:
-        row[49] !== null && row[49] !== undefined
-          ? normalizeTimeValue(row[49])
-          : normalizeTimeValue(
-            rowAny._P_Time ?? rowAny.p_time ?? rowAny.P_Time ?? rowAny.PTime ?? "60",
-          ),
-      _dayDA:
-        row[47] !== null && row[47] !== undefined && row[47] !== "NULL"
-          ? String(row[47])
-          : String(
-            rowAny._dayDA ??
-            rowAny.dayDA ??
-            rowAny.DayDA ??
-            rowAny.dayDa ??
-            rowAny.DayDa ??
-            rowAny.day_da ??
-            rowAny.day_DA ??
-            "0",
-          ),
-      _hourDA:
-        row[48] !== null && row[48] !== undefined && row[48] !== "NULL"
-          ? String(row[48])
-          : String(
-            rowAny._hourDA ??
-            rowAny.hourDA ??
-            rowAny.HourDA ??
-            rowAny.hourDa ??
-            rowAny.HourDa ??
-            rowAny.hour_da ??
-            rowAny.hour_DA ??
-            "0",
-          ),
-      _RequestTo: getValue(15, ["_RequestTo", "RequestTo", "requestTo"], ""),
-      _Project: getValue(51, ["_Project", "Project", "project"], ""),
-      _LocationType: getValue(52, ["_LocationType", "LocationType", "locationType"], ""),
-      _Location1: getValue(53, ["_Location1", "Location1", "location1"], ""),
-      _TAperKM: getValue(64, ["_TAperKM", "TAperKM", "taPerKm", "taperkm"], "0"),
-      // Read off the END of the row rather than by ordinal. The API pins it
-      // there deliberately - see EmployeeController.AppendDAperKM, which drops
-      // any copy the stored procedure returned and re-adds it last - because
-      // this whole payload is positional and the end is the only place a new
-      // field can go without shifting the meaning of every index before it.
-      // Blank or zero shows as 1, which is what the calculation pays anyway.
+      _HRA: safeStrVal(23, ["_HRA", "HRA", "hra"], "0"),
+      _DA: safeStrVal(42, ["_DA", "DA", "da"], "0"),
+      _BasicSal: safeStrVal(22, ["_BasicSal", "BasicSal", "basicSalary"], "0"),
+      _LTA: safeStrVal(24, ["_LTA", "LTA", "conveyance"], "0"),
+      _ALLOWANCES: safeStrVal(25, ["_ALLOWANCES", "ALLOWANCES", "others"], "0"),
+      _GrossSal: safeStrVal(26, ["_GrossSal", "GrossSal", "grossSalary"], "0"),
+      _AccountNo: safeStrVal(28, ["_AccountNo", "AccountNo", "salaryAccountNo"], ""),
+      _IFSCCode: safeStrVal(29, ["_IFSCCode", "IFSCCode", "ifscCode"], ""),
+      _PF: safeStrVal(31, ["_PF", "PF", "pf"], "0"),
+      _Esi: safeStrVal(32, ["_Esi", "Esi", "esi"], "0"),
+      _Ptax: safeStrVal(33, ["_Ptax", "Ptax", "profTax"], "0"),
+      _Itax: safeStrVal(34, ["_Itax", "Itax", "incomeTax"], "0"),
+      _NetSal: safeStrVal(35, ["_NetSal", "NetSal", "netSalary"], "0"),
+      _PanNo: safeStrVal(39, ["_PanNo", "PanNo", "pan"], ""),
+      _AadharNo: safeStrVal(40, ["_AadharNo", "AadharNo", "aadhar"], ""),
+      _PFNo: safeStrVal(37, ["_PFNo", "PFNo", "pfNo"], ""),
+      _ESINo: safeStrVal(36, ["_ESINo", "ESINo", "esiNo"], ""),
+      _CheckIn: resolvedCheckIn,
+      _P_Time: normalizeTimeValue(pTimeVal),
+      _dayDA: safeStrVal(47, ["_dayDA", "dayDA", "DayDA", "dayDa", "day_da"], "0"),
+      _hourDA: safeStrVal(48, ["_hourDA", "hourDA", "HourDA", "hourDa", "hour_da"], "0"),
+      _teamAllowance: safeStrVal(-1, ["_teamAllowance", "teamAllowance"], "0"),
+      _RequestTo: safeStrVal(15, ["_RequestTo", "RequestTo", "requestTo", "ReportTO"], ""),
+      _Project: safeStrVal(51, ["_Project", "Project", "project"], ""),
+      _LocationType: safeStrVal(52, ["_LocationType", "LocationType", "locationType"], ""),
+      _Location1: safeStrVal(53, ["_Location1", "Location1", "location1", "branch"], ""),
+      _BranchDept: safeStrVal(-1, ["_BranchDept", "BranchDept", "branchDept"], ""),
+      _TAperKM: safeStrVal(64, ["_TAperKM", "TAperKM", "taPerKm", "taperkm"], "0"),
       _DAperKM:
-        String(
-          (Array.isArray(row)
-            ? row[row.length - 1]
-            : (row as any)._DAperKM ??
-              (row as any).DAperKM ??
-              (row as any).daPerKm ??
-              (row as any).daperkm) ?? "",
-        ).trim() || "1",
+        safeStrVal(
+          Array.isArray(row) ? row.length - 1 : -1,
+          ["_DAperKM", "DAperKM", "daPerKm", "daperkm"],
+          "1",
+        ) || "1",
     };
 
     console.log("Mapped Result:", mapped);
@@ -626,62 +572,62 @@ const EmpProfile: React.FC = () => {
       // Load team allowance for this employee
       fetchTeamAllowance(ecode);
 
+      const safeStr = (v: any, fallback = "") =>
+        v !== null && v !== undefined && typeof v !== "object" ? String(v).trim() : fallback;
+
       // Map back to userData structure for display
       const newUserData = {
-        empCode: details._Ecode,
-        empName: details._Ename,
-        designation: details._Desig,
-        department: details._Dept,
-        joiningDate: details._Doj,
-        bloodGroup: details._Blood,
-        contactNumber: details._Mobile,
-        email: details._Email,
-        email2: details._Email2,
-        salaryAccountNo: details._AccountNo,
-        ifscCode: details._IFSCCode,
-        grossSalary: details._GrossSal,
-        basicSalary: details._BasicSal,
-        hra: details._HRA,
-        da: details._DA,
-        pf: details._PF,
-        esi: details._Esi,
-        profTax: details._Ptax,
-        incomeTax: details._Itax,
-        conveyance: details._LTA || "0",
-        others: details._ALLOWANCES || "0",
-        userType: row[15] || details._RequestTo,
-        doj: details._Doj,
-        pan: details._PanNo,
-        aadhar: details._AadharNo,
-        esiNo: details._ESINo,
-        pfNo: details._PFNo,
-        ReportTO: details._RequestTo,
-        profilePic: row[42] || userData?.profilePic, // Keep current if missing
-        status:
-          details._IsActive === "N" ||
-            details._IsActive === "0" ||
-            details._IsActive === false
-            ? "InActive"
-            : "Active",
-        dayDA: details._dayDA,
-        hourDA: details._hourDA,
-        tAperKM: details._TAperKM,
-        dAperKM: details._DAperKM,
-        leave: details._Allowed_CL,
-        sick: details._Allowed_SL,
-        p_time: details._P_Time,
-        checkIn: details._CheckIn,
-        requestTo: details._RequestTo,
-        userGroup: details._user,
+        empCode: safeStr(details._Ecode),
+        empName: safeStr(details._Ename),
+        designation: safeStr(details._Desig),
+        department: safeStr(details._Dept),
+        joiningDate: safeStr(details._Doj),
+        bloodGroup: safeStr(details._Blood),
+        contactNumber: safeStr(details._Mobile),
+        email: safeStr(details._Email),
+        email2: safeStr(details._Email2),
+        salaryAccountNo: safeStr(details._AccountNo),
+        ifscCode: safeStr(details._IFSCCode),
+        grossSalary: safeStr(details._GrossSal, "0"),
+        basicSalary: safeStr(details._BasicSal, "0"),
+        hra: safeStr(details._HRA, "0"),
+        da: safeStr(details._DA, "0"),
+        pf: safeStr(details._PF, "0"),
+        esi: safeStr(details._Esi, "0"),
+        profTax: safeStr(details._Ptax, "0"),
+        incomeTax: safeStr(details._Itax, "0"),
+        conveyance: safeStr(details._LTA, "0"),
+        others: safeStr(details._ALLOWANCES, "0"),
+        userType: safeStr(Array.isArray(row) ? row[15] : (row as any)?._RequestTo, details._RequestTo || "Employee"),
+        doj: safeStr(details._Doj),
+        pan: safeStr(details._PanNo),
+        aadhar: safeStr(details._AadharNo),
+        esiNo: safeStr(details._ESINo),
+        pfNo: safeStr(details._PFNo),
+        ReportTO: safeStr(details._RequestTo),
+        profilePic: safeStr(Array.isArray(row) ? row[42] : (row as any)?.profilePic, userData?.profilePic || ""),
+        status: details._IsActive === "N" ? "InActive" : "Active",
+        dayDA: safeStr(details._dayDA, "0"),
+        hourDA: safeStr(details._hourDA, "0"),
+        tAperKM: safeStr(details._TAperKM, "0"),
+        dAperKM: safeStr(details._DAperKM, "1"),
+        leave: safeStr(details._Allowed_CL, "12"),
+        sick: safeStr(details._Allowed_SL, "10"),
+        p_time: safeStr(details._P_Time, "60"),
+        checkIn: safeStr(details._CheckIn, "09:30"),
+        requestTo: safeStr(details._RequestTo),
+        userGroup: safeStr(details._user, "Employee"),
       };
       console.log("Setting Final userData for View:", newUserData);
       setUserData(newUserData);
 
       // Update form data for potential editing
       const newFormData = {
+        ...formData,
         ...details,
         _IsActive: details._IsActive || "Y",
         _user: details._user || "Employee",
+        _UserGroup: details._UserGroup || details._user || "Employee",
       };
       console.log("Setting formData for Edit:", newFormData);
       setFormData(newFormData);
@@ -817,12 +763,7 @@ const EmpProfile: React.FC = () => {
             pfNo: details._PFNo,
             ReportTO: details._RequestTo,
             profilePic: userProfile[42] || userData?.profilePic,
-            status:
-              details._IsActive === "N" ||
-              details._IsActive === "0" ||
-              details._IsActive === false
-                ? "InActive"
-                : "Active",
+            status: details._IsActive === "N" ? "InActive" : "Active",
             dayDA: details._dayDA,
             hourDA: details._hourDA,
             tAperKM: details._TAperKM,
@@ -1463,17 +1404,27 @@ const EmpProfile: React.FC = () => {
   // that single box matches against both (OR between the two, still AND
   // with the other three boxes).
   const filteredEmployees = employees.filter((emp) => {
-    const codeOrName = codeOrNameSearch.toLowerCase();
+    const codeOrName = String(codeOrNameSearch ?? "").trim().toLowerCase();
+    const deptFilter = String(deptSearch ?? "").trim().toLowerCase();
+    const desigFilter = String(desigSearch ?? "").trim().toLowerCase();
+    const branchFilter = String(branchSearch ?? "").trim().toLowerCase();
+
+    const empName = String(emp.name ?? "").toLowerCase();
+    const empCode = String(emp.code ?? "").toLowerCase();
+    const empDept = String(emp.dept ?? "").toLowerCase();
+    const empDesig = String(emp.desig ?? "").toLowerCase();
+    const empBranch = String(emp.branch ?? "").toLowerCase();
+
     const matchesCodeOrName =
       !codeOrName ||
-      (emp.name?.toLowerCase() || "").includes(codeOrName) ||
-      (emp.code?.toLowerCase() || "").includes(codeOrName);
+      empName.includes(codeOrName) ||
+      empCode.includes(codeOrName);
 
     return (
       matchesCodeOrName &&
-      (emp.dept?.toLowerCase() || "").includes(deptSearch.toLowerCase()) &&
-      (emp.desig?.toLowerCase() || "").includes(desigSearch.toLowerCase()) &&
-      (emp.branch?.toLowerCase() || "").includes(branchSearch.toLowerCase())
+      empDept.includes(deptFilter) &&
+      empDesig.includes(desigFilter) &&
+      empBranch.includes(branchFilter)
     );
   });
 
@@ -1495,17 +1446,29 @@ const EmpProfile: React.FC = () => {
       </div>
     );
 
-  const InfoItem = ({ icon: Icon, label, value }: any) => (
-    <div className="ep-info-item">
-      <div className="ep-icon-box">
-        <Icon size={18} />
+  const InfoItem = ({ icon: Icon, label, value }: any) => {
+    let displayValue = "--";
+    if (value !== null && value !== undefined) {
+      if (typeof value !== "object") {
+        const s = String(value).trim();
+        if (s !== "" && s !== "null" && s !== "undefined") {
+          displayValue = s;
+        }
+      }
+    }
+
+    return (
+      <div className="ep-info-item">
+        <div className="ep-icon-box">
+          <Icon size={18} />
+        </div>
+        <div className="ep-label-value">
+          <span className="ep-label">{label}</span>
+          <span className="ep-value">{displayValue}</span>
+        </div>
       </div>
-      <div className="ep-label-value">
-        <span className="ep-label">{label}</span>
-        <span className="ep-value">{value || "--"}</span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="ep-container">
@@ -1539,18 +1502,18 @@ const EmpProfile: React.FC = () => {
               )}
             </label>
           </div>
-          <h2 className="ep-user-name">Welcome, {userData.empName}!</h2>
+          <h2 className="ep-user-name">Welcome, {typeof userData.empName === "object" ? "" : (userData.empName || "")}!</h2>
           <p className="ep-user-designation">
-            {userData.designation}
+            {typeof userData.designation === "object" ? "" : (userData.designation || "")}
             {/* ({userData.userType}) */}
           </p>
           <div className="ep-profile-status-row">
             <div className="ep-profile-badges">
-              <span className="ep-user-code">ID: {userData.empCode}</span>
+              <span className="ep-user-code">ID: {typeof userData.empCode === "object" ? "" : (userData.empCode || "")}</span>
               <span
-                className={`ep-status-pill ${userData.status?.toLowerCase()}`}
+                className={`ep-status-pill ${String(userData.status ?? "").toLowerCase()}`}
               >
-                {userData.status}
+                {typeof userData.status === "object" ? "" : (userData.status || "")}
               </span>
             </div>
 
@@ -2022,22 +1985,30 @@ const EmpProfile: React.FC = () => {
 
             <div className="ep-employee-list">
               {filteredEmployees.length > 0 ? (
-                filteredEmployees.map((emp, index) => (
-                  <div
-                    key={emp.code}
-                    className="ep-emp-list-item"
-                    onClick={() => selectEmployee(emp.code)}
-                  >
-                    <div className="ep-emp-initials">{index + 1}</div>
-                    <div className="ep-emp-info">
-                      <span className="ep-emp-name">{emp.name}</span>
-                      <span className="ep-emp-meta">
-                        {emp.code} • {emp.dept || "(no dept)"} • {emp.desig} • {emp.branch || "(no branch)"}
-                      </span>
+                filteredEmployees.map((emp, index) => {
+                  const name = typeof emp.name === "object" ? "" : String(emp.name ?? "");
+                  const code = typeof emp.code === "object" ? "" : String(emp.code ?? "");
+                  const dept = typeof emp.dept === "object" || !emp.dept ? "(no dept)" : String(emp.dept);
+                  const desig = typeof emp.desig === "object" ? "" : String(emp.desig ?? "");
+                  const branch = typeof emp.branch === "object" || !emp.branch ? "(no branch)" : String(emp.branch);
+
+                  return (
+                    <div
+                      key={code || index}
+                      className="ep-emp-list-item"
+                      onClick={() => selectEmployee(code)}
+                    >
+                      <div className="ep-emp-initials">{index + 1}</div>
+                      <div className="ep-emp-info">
+                        <span className="ep-emp-name">{name}</span>
+                        <span className="ep-emp-meta">
+                          {code} • {dept} • {desig} • {branch}
+                        </span>
+                      </div>
+                      <ChevronRight color="var(--ion-color-primary)" size={18} />
                     </div>
-                    <ChevronRight color="var(--ion-color-primary)" size={18} />
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="ep-no-results">No employees found.</div>
               )}

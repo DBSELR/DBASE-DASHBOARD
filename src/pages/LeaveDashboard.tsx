@@ -20,7 +20,11 @@ import {
   layersOutline,
   informationCircleOutline,
   personOutline,
-  closeOutline
+  closeOutline,
+  refreshOutline,
+  medkitOutline,
+  chevronDownOutline,
+  hourglassOutline
 } from "ionicons/icons";
 import axios from "axios";
 import moment from "moment";
@@ -42,8 +46,6 @@ const getAuthHeaders = () => {
   const token = localStorage.getItem("token")?.replace(/"/g, "");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
-
-const ADMIN_EMPCODES = ["1501", "1509", "1601", "1508"];
 
 const checkIsAdmin = (user: any) => {
   if (!user) return false;
@@ -93,12 +95,10 @@ const getCategoryTypeDisplay = (typeDisp: string, leaveCategory: string) => {
 
   if (!cleanCat) return cleanType;
 
-  // If the category detail is already inside typeDisp, don't duplicate
   if (cleanType.toLowerCase().includes(cleanCat.toLowerCase())) {
     return cleanType;
   }
 
-  // Format as Type(Category) - capitalize appropriately
   const capitalizedCat = cleanCat.charAt(0).toUpperCase() + cleanCat.slice(1);
   return `${cleanType}(${capitalizedCat})`;
 };
@@ -106,7 +106,6 @@ const getCategoryTypeDisplay = (typeDisp: string, leaveCategory: string) => {
 const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
   if (!x) return "Pending";
   
-  // 1. Get raw status
   let rawStatus = "";
   if (Array.isArray(x)) {
     rawStatus = safeStr(x[7]);
@@ -119,15 +118,12 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
     statusStr = "Pending";
   }
   
-  // If status is not pending, return it directly (e.g. Approved, Rejected, Cancelled)
   if (!statusStr.toLowerCase().includes("pending")) {
     return statusStr || "Pending";
   }
   
-  // 2. Resolve pending reporting authority designation
   let pendingRA: any = "";
   if (Array.isArray(x)) {
-    // If it's a raw array, check index 23 (CurrentRA) or pending RA fields if available
     pendingRA = x.length > 23 ? x[23] : "";
     if (!pendingRA) {
       const r1 = x.length > 13 ? x[13] : "";
@@ -146,10 +142,8 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
       else if (r4) pendingRA = r4;
     }
   } else {
-    // If it's an object, check standard properties
     pendingRA = x.PendingAt || x.pendingAt || x.PendingRA || x.pendingRA || x.CurrentRA || x.currentRA || x.currentRa || "";
     
-    // Fallback checking individual RA statuses if they are present on the object
     if (!pendingRA) {
       const r1 = x.RA1 || x.ra1 || x.rA1 || "";
       const r2 = x.RA2 || x.ra2 || x.rA2 || "";
@@ -168,7 +162,6 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
     }
   }
   
-  // 3. Normalize designation string
   let raString = "";
   if (pendingRA) {
     if (typeof pendingRA === "object") {
@@ -186,17 +179,13 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
   
   raString = raString.trim();
   
-  // Remove formatting like "[object Object]" or similar
   if (raString.toLowerCase() === "[object object]" || raString === "") {
-    // Fallback: if the raw status already has "Pending at [Designation]" (e.g. "Pending at Team. Manager")
     if (statusStr.toLowerCase().startsWith("pending at ")) {
       return statusStr;
     }
-    // For pending items, fall back to employee's manager designation
     return `Pending at ${fallbackMgr}`;
   }
   
-  // Build and return status e.g. "Pending at Team. Manager"
   return `Pending at ${raString}`;
 };
 
@@ -229,8 +218,11 @@ const LeaveDashboard: React.FC = () => {
     grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
   });
 
-  // UI helpers
+  // UI Helpers & Grid filters
   const [searchTerm, setSearchTerm] = useState("");
+  const [gridSearch, setGridSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "Approved" | "Pending" | "Rejected">("ALL");
+
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState<"success" | "danger">("success");
@@ -287,7 +279,6 @@ const LeaveDashboard: React.FC = () => {
       fetchEmployees();
     }
 
-    // Set initial employee
     const initialCode = loggedInUser?.empCode || loggedInUser?.EmpCode || "";
     const initialName = loggedInUser?.empName || loggedInUser?.EmpName || "Me";
     setSelectedEmpCode(initialCode);
@@ -322,7 +313,6 @@ const LeaveDashboard: React.FC = () => {
     }
     setLoading(true);
     try {
-      // Fetch employee's designation/manager for fallback
       try {
         const empRes = await axios.get(`${API_BASE}Employee/Get_Employee?_Ecode=${empCode}`, {
           headers: getAuthHeaders()
@@ -340,7 +330,6 @@ const LeaveDashboard: React.FC = () => {
         setFallbackManager("Team. Manager");
       }
 
-      // 1. Fetch grid requests (Leaves and Permissions concurrently)
       let rawLeaves: any[] = [];
       let rawPerms: any[] = [];
       const isYearly = month.startsWith("Year-");
@@ -388,7 +377,6 @@ const LeaveDashboard: React.FC = () => {
 
       const rawRows = [...rawLeaves, ...rawPerms];
 
-      // Sort by lid descending to keep it organized (newest requests first)
       rawRows.sort((a, b) => {
         const idA = parseInt(a.lid || (Array.isArray(a) ? a[0] : 0), 10) || 0;
         const idB = parseInt(b.lid || (Array.isArray(b) ? b[0] : 0), 10) || 0;
@@ -397,7 +385,6 @@ const LeaveDashboard: React.FC = () => {
 
       setRows(rawRows);
 
-      // 2. Fetch balances
       let clBalance = 0, clUsed = 0;
       let slBalance = 0, slUsed = 0;
       let permBalance = 0, permUsed = 0, permUsedSessions = 0, permMaxSessions = 0;
@@ -422,7 +409,6 @@ const LeaveDashboard: React.FC = () => {
 
         const balanceResults = await Promise.all(balancePromises);
         
-        // Latest month gives current remaining balances
         const latestResult = balanceResults[0];
         if (latestResult) {
           clBalance = latestResult[0]?.data?.balance ?? 0;
@@ -431,7 +417,6 @@ const LeaveDashboard: React.FC = () => {
           slUsed = latestResult[1]?.data?.used ?? 0;
         }
 
-        // Sum up LOP and Permission used across all months
         balanceResults.forEach((res) => {
           if (res) {
             permUsed += res[2]?.data?.used ?? 0;
@@ -469,7 +454,6 @@ const LeaveDashboard: React.FC = () => {
         lopUsed = lopRes.data?.used ?? 0;
       }
 
-      // Fetch Grace from HR Monthly Attendance Matrix
       try {
         if (!isYearly) {
           const parts = month.split("-");
@@ -500,7 +484,6 @@ const LeaveDashboard: React.FC = () => {
           }
         } else {
           graceMax = 2 * targetMonths.length;
-          // Could implement yearly grace fetching if required, left out for brevity
         }
       } catch (err) {
         console.error("Error fetching grace from matrix", err);
@@ -521,7 +504,6 @@ const LeaveDashboard: React.FC = () => {
     }
   };
 
-  // Normalization logic for Grid Rows
   const normalizeRow = (x: any) => {
     if (!x) return null;
     const from = safeStr(x.lfrom || (Array.isArray(x) ? x[2] : ""));
@@ -543,6 +525,13 @@ const LeaveDashboard: React.FC = () => {
       statusClass = "rejected";
     }
 
+    const catLower = (leaveCategory || typeDisp || "").toLowerCase();
+    let typeClass = "default";
+    if (catLower.includes("casual")) typeClass = "casual";
+    else if (catLower.includes("sick")) typeClass = "sick";
+    else if (catLower.includes("permission") || catLower.includes("perm")) typeClass = "perm";
+    else if (catLower.includes("lop") || catLower.includes("loss")) typeClass = "lop";
+
     return {
       id: x.lid || (Array.isArray(x) ? x[0] : ""),
       from,
@@ -554,11 +543,11 @@ const LeaveDashboard: React.FC = () => {
       remarks,
       days,
       statusClass,
+      typeClass,
       leaveCategory
     };
   };
 
-  // Filter employees suggestions based on search text
   const filteredEmployees = useMemo(() => {
     if (!searchTerm.trim()) return employees;
     const term = searchTerm.toLowerCase();
@@ -569,7 +558,31 @@ const LeaveDashboard: React.FC = () => {
     );
   }, [employees, searchTerm]);
 
-  // Export jsPDF Report
+  const displayedRows = useMemo(() => {
+    return rows.filter((rowItem) => {
+      const r = normalizeRow(rowItem);
+      if (!r) return false;
+
+      if (statusFilter !== "ALL") {
+        const s = r.status.toLowerCase();
+        if (statusFilter === "Approved" && !s.includes("approved") && !s.includes("accepted")) return false;
+        if (statusFilter === "Pending" && !s.includes("pending")) return false;
+        if (statusFilter === "Rejected" && !s.includes("rejected")) return false;
+      }
+
+      if (gridSearch.trim()) {
+        const q = gridSearch.toLowerCase();
+        const fullDate = `${r.from} ${r.to}`.toLowerCase();
+        const fullCat = `${r.typeDisp} ${r.leaveCategory}`.toLowerCase();
+        const fullRemarks = r.remarks.toLowerCase();
+        const fullStatus = r.status.toLowerCase();
+        return fullDate.includes(q) || fullCat.includes(q) || fullRemarks.includes(q) || fullStatus.includes(q);
+      }
+
+      return true;
+    });
+  }, [rows, statusFilter, gridSearch, fallbackManager]);
+
   const exportPDF = () => {
     if (rows.length === 0) {
       showToast("No logs available to export for this month.", "danger");
@@ -578,14 +591,12 @@ const LeaveDashboard: React.FC = () => {
 
     const doc = new jsPDF("portrait", "mm", "a4");
 
-    // Title Section
-    doc.setFontSize(20);
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
     doc.text("MONTH-END LEAVE REPORT", 14, 20);
 
-    // Metadata
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
     doc.text(`Employee Code : ${selectedEmpCode}`, 14, 28);
@@ -593,17 +604,14 @@ const LeaveDashboard: React.FC = () => {
     doc.text(`Report Period : ${selectedMonth}`, 14, 40);
     doc.text(`Generated On  : ${moment().format("DD-MM-YYYY HH:mm:ss")}`, 14, 46);
 
-    // Draw line separator
     doc.setDrawColor(226, 232, 240);
-    doc.line(14, 52, 196, 52);
+    doc.line(14, 50, 196, 50);
 
-    // Summary Header
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
-    doc.text("Leave Balances & Totals Summary", 14, 60);
+    doc.text("Leave Balances & Totals Summary", 14, 58);
 
-    // Balances Table
     const summaryData = [
       ["Casual Leave", `${balances.cl.balance} Days`, `${balances.cl.used} Days Used (Month)`],
       ["Sick Leave", `${balances.sl.balance} Days`, `${balances.sl.used} Days Used (Month)`],
@@ -612,22 +620,20 @@ const LeaveDashboard: React.FC = () => {
     ];
 
     autoTable(doc, {
-      startY: 64,
+      startY: 62,
       head: [["Category", "Available Balance", "Used Metrics"]],
       body: summaryData,
       theme: "striped",
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [241, 90, 36] }
+      styles: { fontSize: 8.5 },
+      headStyles: { fillColor: [15, 23, 42] }
     });
 
-    // Logs Section Header
-    const nextY = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(12);
+    const nextY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
     doc.text("Daily Leaves & Permissions Logs", 14, nextY);
 
-    // Format log entries for pdf
     const logBody = rows.map((r) => {
       const normalized = normalizeRow(r);
       if (!normalized) return [];
@@ -646,29 +652,41 @@ const LeaveDashboard: React.FC = () => {
       startY: nextY + 4,
       head: [["Date(s)", "Category / Type", "Duration", "Status", "Remarks / Reason"]],
       body: logBody,
-      styles: { fontSize: 8.5 },
-      headStyles: { fillColor: [79, 70, 229] }
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 41, 59] }
     });
 
     doc.save(`Leave_Report_${selectedEmpCode}_${selectedMonth}.pdf`);
     showToast("PDF report downloaded successfully.", "success");
   };
 
+  const selectedInitial = (selectedEmpName.replace(/^.*-\s*/, "").charAt(0) || "E").toUpperCase();
+
   return (
     <IonPage>
       <IonContent className="ld-page-container">
-        {/* Sleek Top Header card */}
+        {/* Sleek Dark-Accented Executive Header */}
         <div className="ld-header-card">
           <div className="ld-header-left">
-            <button className="ld-back-btn" onClick={() => history.goBack()}>
+            <button className="ld-back-btn" onClick={() => history.goBack()} title="Go Back">
               <IonIcon icon={arrowBackOutline} />
             </button>
             <div className="ld-title-group">
-              <h1>Leave Dashboard</h1>
-              <p>View month-end leave logs & balances</p>
+              <h1>
+                Leave Dashboard
+                <span className="ld-title-badge">Overview</span>
+              </h1>
+              <p>Real-time leave balance, utilization metrics & approval logs</p>
             </div>
           </div>
           <div className="ld-header-actions">
+            <button
+              className="ld-refresh-btn"
+              onClick={() => selectedEmpCode && selectedMonth && loadEmployeeReport(selectedEmpCode, selectedMonth)}
+              title="Refresh Data"
+            >
+              <IonIcon icon={refreshOutline} />
+            </button>
             <button className="ld-header-action-btn" onClick={exportPDF}>
               <IonIcon icon={downloadOutline} />
               Export PDF
@@ -676,11 +694,13 @@ const LeaveDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters and Search controls */}
+        {/* Compact Filter Command Bar */}
         <div className="ld-controls-panel">
-          {/* Employee search (Admins/Managers only) */}
+          {/* Employee Selector */}
           <div className="ld-control-group">
-            <span className="ld-control-label">Employee</span>
+            <span className="ld-control-label">
+              <IonIcon icon={personOutline} /> Employee
+            </span>
             {isAdmin ? (
               <div
                 className="ld-selector-trigger"
@@ -691,25 +711,35 @@ const LeaveDashboard: React.FC = () => {
                 }}
               >
                 <div className="ld-selector-value">
-                  <IonIcon icon={personOutline} style={{ fontSize: "16px", color: "var(--ld-secondary-text)", marginRight: "8px" }} />
-                  <span>{selectedEmpName || "Select Employee"}</span>
+                  <div className="ld-selector-avatar">{selectedInitial}</div>
+                  <div className="ld-selector-text-box">
+                    <span className="ld-selector-main-text">{selectedEmpName || "Select Employee"}</span>
+                    <span className="ld-selector-sub-text">Code: {selectedEmpCode || "N/A"}</span>
+                  </div>
                 </div>
-                <IonIcon icon={searchOutline} style={{ color: "#aaa" }} />
+                <div className="ld-selector-arrow-box">
+                  <IonIcon icon={chevronDownOutline} />
+                </div>
               </div>
             ) : (
-              <div className="ld-selector-trigger" style={{ cursor: "default", opacity: 0.9 }}>
+              <div className="ld-selector-trigger" style={{ cursor: "default" }}>
                 <div className="ld-selector-value">
-                  <IonIcon icon={personOutline} style={{ fontSize: "16px", color: "var(--ld-secondary-text)", marginRight: "8px" }} />
-                  <span>{selectedEmpName}</span>
+                  <div className="ld-selector-avatar">{selectedInitial}</div>
+                  <div className="ld-selector-text-box">
+                    <span className="ld-selector-main-text">{selectedEmpName}</span>
+                    <span className="ld-selector-sub-text">Code: {selectedEmpCode || "N/A"}</span>
+                  </div>
                 </div>
-                <IonIcon icon={informationCircleOutline} style={{ color: "#aaa" }} />
+                <IonIcon icon={informationCircleOutline} style={{ color: "var(--ld-text-dim)" }} />
               </div>
             )}
           </div>
 
-          {/* Month selector */}
+          {/* Period Selector */}
           <div className="ld-control-group">
-            <span className="ld-control-label">Report Month</span>
+            <span className="ld-control-label">
+              <IonIcon icon={calendarOutline} /> Report Period
+            </span>
             <div
               className="ld-inline-period-card"
               ref={periodTriggerRef}
@@ -723,108 +753,189 @@ const LeaveDashboard: React.FC = () => {
                 <span className="ld-period-value">{selectedMonth}</span>
               </div>
               <div className="ld-period-right-icon-box">
-                <IonIcon icon={layersOutline} />
+                <IonIcon icon={chevronDownOutline} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Dashboard grid displaying KPIs */}
+        {/* Bento Metric KPI Cards (Small & Compact with Darker Side Effect) */}
         <div className="ld-summary-grid">
-          {/* Casual Leave Card */}
+          {/* Casual Leave */}
           <div className="ld-card cl">
             <div className="ld-card-header">
-              <span className="ld-card-title">Casual Leave</span>
-              <IonIcon icon={calendarOutline} className="ld-card-icon" />
+              <div className="ld-card-title-wrap">
+                <span className="ld-card-title">Casual Leave</span>
+              </div>
+              <div className="ld-card-icon-wrap">
+                <IonIcon icon={calendarOutline} />
+              </div>
             </div>
             <div className="ld-card-body">
-              <div className="ld-card-value">{balances.cl.balance} Days</div>
-              <div className="ld-card-subvalue">Available Balance</div>
+              <div className="ld-card-value">
+                {balances.cl.balance} <span className="ld-card-unit">Days</span>
+              </div>
+              <span className="ld-card-subvalue">Available</span>
             </div>
             <div className="ld-card-footer">
-              <span>Monthly Used</span>
-              <span>{balances.cl.used} Day(s)</span>
+              <div className="ld-footer-row">
+                <span>Month Used</span>
+                <span className="ld-footer-highlight">{balances.cl.used} Day(s)</span>
+              </div>
             </div>
           </div>
 
-          {/* Sick Leave Card */}
+          {/* Sick Leave */}
           <div className="ld-card sl">
             <div className="ld-card-header">
-              <span className="ld-card-title">Sick Leave</span>
-              <IonIcon icon={alertCircleOutline} className="ld-card-icon" />
+              <div className="ld-card-title-wrap">
+                <span className="ld-card-title">Sick Leave</span>
+              </div>
+              <div className="ld-card-icon-wrap">
+                <IonIcon icon={medkitOutline} />
+              </div>
             </div>
             <div className="ld-card-body">
-              <div className="ld-card-value">{balances.sl.balance} Days</div>
-              <div className="ld-card-subvalue">Available Balance</div>
+              <div className="ld-card-value">
+                {balances.sl.balance} <span className="ld-card-unit">Days</span>
+              </div>
+              <span className="ld-card-subvalue">Available</span>
             </div>
             <div className="ld-card-footer">
-              <span>Monthly Used</span>
-              <span>{balances.sl.used} Day(s)</span>
+              <div className="ld-footer-row">
+                <span>Month Used</span>
+                <span className="ld-footer-highlight">{balances.sl.used} Day(s)</span>
+              </div>
             </div>
           </div>
 
-          {/* Permissions Card */}
+          {/* Permissions */}
           <div className="ld-card perm">
             <div className="ld-card-header">
-              <span className="ld-card-title">Permissions</span>
-              <IonIcon icon={timeOutline} className="ld-card-icon" />
+              <div className="ld-card-title-wrap">
+                <span className="ld-card-title">Permissions</span>
+              </div>
+              <div className="ld-card-icon-wrap">
+                <IonIcon icon={timeOutline} />
+              </div>
             </div>
             <div className="ld-card-body">
-              <div className="ld-card-value">{balances.perm.balance} Min</div>
-              <div className="ld-card-subvalue">Remaining Minutes</div>
-            </div>
-            <div className="ld-card-footer" style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "stretch" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Sessions</span>
-                <span>{balances.perm.usedSessions} / {balances.perm.maxSessions} Used ({balances.perm.used}m)</span>
+              <div className="ld-card-value">
+                {balances.perm.balance} <span className="ld-card-unit">Min</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span className="ld-card-subvalue">Remaining</span>
+            </div>
+            <div className="ld-card-footer">
+              <div className="ld-footer-row">
+                <span>Sessions</span>
+                <span className="ld-footer-highlight">
+                  {balances.perm.usedSessions}/{balances.perm.maxSessions} ({balances.perm.used}m)
+                </span>
+              </div>
+              <div className="ld-footer-row">
                 <span>Grace</span>
-                <span>{balances.grace.used} / {balances.grace.max} Used ({balances.grace.usedMins}m)</span>
+                <span className="ld-footer-highlight">
+                  {balances.grace.used}/{balances.grace.max} ({balances.grace.usedMins}m)
+                </span>
               </div>
               {balances.grace.todayUsed && (
-                <div style={{ display: "flex", justifyContent: "space-between", color: "#fde047" }}>
-                  <span>Today's Grace</span>
-                  <span>Used ({balances.grace.todayMins}m)</span>
+                <div className="ld-grace-badge">
+                  <IonIcon icon={hourglassOutline} />
+                  <span>Today's Grace ({balances.grace.todayMins}m)</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* LOP Card */}
+          {/* Loss of Pay (LOP) */}
           <div className="ld-card lop">
             <div className="ld-card-header">
-              <span className="ld-card-title">Loss of Pay (LOP)</span>
-              <IonIcon icon={closeCircle} className="ld-card-icon" />
+              <div className="ld-card-title-wrap">
+                <span className="ld-card-title">Loss of Pay</span>
+              </div>
+              <div className="ld-card-icon-wrap">
+                <IonIcon icon={closeCircle} />
+              </div>
             </div>
             <div className="ld-card-body">
-              <div className="ld-card-value">{balances.lop.used} Days</div>
-              <div className="ld-card-subvalue">LOP Deductions (Month)</div>
+              <div className="ld-card-value">
+                {balances.lop.used} <span className="ld-card-unit">Days</span>
+              </div>
+              <span className="ld-card-subvalue">Deductions</span>
             </div>
             <div className="ld-card-footer">
-              <span>Policy Status</span>
-              <span>Unpaid Leave</span>
+              <div className="ld-footer-row">
+                <span>Policy</span>
+                <span className="ld-footer-highlight" style={{ color: "var(--ld-lop-accent)" }}>
+                  Unpaid
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Detailed Grid Table */}
+        {/* Detailed Data Grid Table */}
         <div className="ld-table-card">
           <div className="ld-table-header">
-            <h2 className="ld-table-title">Leaves & Permissions</h2>
-            <div className="ld-table-actions">
-              <span style={{ fontSize: "12px", color: "var(--ld-secondary-text)", fontWeight: 600 }}>
-                Total requests: {rows.length}
-              </span>
+            <div className="ld-table-title-sec">
+              <h2 className="ld-table-title">Leaves & Permissions History</h2>
+              <span className="ld-table-count-chip">{rows.length} Total</span>
+            </div>
+
+            <div className="ld-table-toolbar">
+              {/* Status Filter Pills */}
+              <div className="ld-status-filter-pills">
+                <button
+                  className={`ld-status-tab ${statusFilter === "ALL" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("ALL")}
+                >
+                  All ({rows.length})
+                </button>
+                <button
+                  className={`ld-status-tab ${statusFilter === "Approved" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("Approved")}
+                >
+                  Approved
+                </button>
+                <button
+                  className={`ld-status-tab ${statusFilter === "Pending" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("Pending")}
+                >
+                  Pending
+                </button>
+                <button
+                  className={`ld-status-tab ${statusFilter === "Rejected" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("Rejected")}
+                >
+                  Rejected
+                </button>
+              </div>
+
+              {/* Instant Search Box */}
+              <div className="ld-grid-search-box">
+                <IonIcon icon={searchOutline} className="ld-grid-search-icon" />
+                <input
+                  type="text"
+                  className="ld-grid-search-input"
+                  placeholder="Filter logs..."
+                  value={gridSearch}
+                  onChange={(e) => setGridSearch(e.target.value)}
+                />
+                {gridSearch && (
+                  <button className="ld-grid-search-clear" onClick={() => setGridSearch("")}>
+                    <IonIcon icon={closeOutline} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {loading ? (
             <div className="ld-loader-container">
               <IonSpinner name="crescent" color="primary" />
-              <span>Fetching employee record...</span>
+              <span>Fetching employee records...</span>
             </div>
-          ) : rows.length > 0 ? (
+          ) : displayedRows.length > 0 ? (
             <div className="ld-table-responsive">
               <table className="ld-table">
                 <thead>
@@ -832,32 +943,54 @@ const LeaveDashboard: React.FC = () => {
                     <th>Date(s)</th>
                     <th>Category / Type</th>
                     <th>Duration</th>
-                    <th>Status</th>
+                    <th>Approval Status</th>
                     <th>Remarks / Reason</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((rowItem, idx) => {
+                  {displayedRows.map((rowItem, idx) => {
                     const r = normalizeRow(rowItem);
                     if (!r) return null;
+
+                    const pVal = parseInt(r.ptime, 10);
+                    const durationText = !isNaN(pVal) && pVal > 0 ? `${pVal} Mins` : `${r.days} Day(s)`;
+
                     return (
-                      <tr key={idx}>
-                        <td className="ld-td-date">
-                          {r.isSameDay ? r.from : `${r.from} to ${r.to}`}
-                        </td>
-                        <td className="ld-td-bold">{getCategoryTypeDisplay(r.typeDisp, r.leaveCategory)}</td>
+                      <tr key={r.id || idx}>
+                        {/* Date */}
                         <td>
-                          {(() => {
-                            const pVal = parseInt(r.ptime, 10);
-                            return (!isNaN(pVal) && pVal > 0) ? `${pVal} Mins` : `${r.days} Day(s)`;
-                          })()}
+                          <div className="ld-date-badge">
+                            <IonIcon icon={calendarOutline} />
+                            <span>{r.isSameDay ? r.from : `${r.from} to ${r.to}`}</span>
+                          </div>
                         </td>
+
+                        {/* Category */}
+                        <td>
+                          <span className={`ld-type-chip ${r.typeClass}`}>
+                            {getCategoryTypeDisplay(r.typeDisp, r.leaveCategory) || "Leave"}
+                          </span>
+                        </td>
+
+                        {/* Duration */}
+                        <td>
+                          <span className="ld-duration-pill">{durationText}</span>
+                        </td>
+
+                        {/* Status */}
                         <td>
                           <span className={`ld-pill ${r.statusClass}`}>
+                            <span className="ld-pill-dot" />
                             {r.status}
                           </span>
                         </td>
-                        <td>{r.remarks || "-"}</td>
+
+                        {/* Remarks */}
+                        <td>
+                          <div className="ld-remarks-cell" title={r.remarks}>
+                            {r.remarks || "-"}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -866,134 +999,137 @@ const LeaveDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="ld-empty-state">
-              <div className="ld-empty-icon">📁</div>
-              <p className="ld-empty-text">No leaves or permissions found for this month.</p>
+              <div className="ld-empty-icon-wrap">
+                <IonIcon icon={layersOutline} />
+              </div>
+              <h3 className="ld-empty-title">No matching records found</h3>
+              <p className="ld-empty-text">
+                {gridSearch || statusFilter !== "ALL"
+                  ? "Try resetting your search query or filter tab."
+                  : `No leaves or permissions logged for ${selectedMonth}.`}
+              </p>
             </div>
           )}
         </div>
 
         {/* Employee Dropdown Portal */}
-        {isEmployeeDropdownOpen && createPortal(
-          <>
-            <div
-              className="ld-dropdown-outside-click-layer"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEmployeeDropdownOpen(false);
-              }}
-            />
-            <div
-              className="ld-custom-dropdown"
-              style={{
-                position: "absolute",
-                top: `${employeeDropdownPos.top}px`,
-                left: `${employeeDropdownPos.left}px`,
-                width: `${employeeDropdownPos.width}px`
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ld-dropdown-search-sec">
-                <IonIcon icon={searchOutline} className="ld-dropdown-search-icon" />
-                <input
-                  type="text"
-                  className="ld-dropdown-pure-input"
-                  placeholder="Search name or code..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  autoFocus
-                />
-                {searchTerm && (
-                  <button className="ld-dropdown-clear-btn" onClick={() => setSearchTerm("")}>
-                    <IonIcon icon={closeOutline} />
-                  </button>
-                )}
-              </div>
-              <div className="ld-dropdown-body">
-                {filteredEmployees.map((emp) => {
-                  const isSelected = selectedEmpCode === emp.id;
-                  const cleanName = emp.name.includes("-")
-                    ? emp.name.split("-")[1].trim()
-                    : emp.name;
-                  const initials = (cleanName.charAt(0) || "?").toUpperCase();
-                  const gradIndex = (parseInt(emp.id) % 5) || 0;
+        {isEmployeeDropdownOpen &&
+          createPortal(
+            <>
+              <div
+                className="ld-dropdown-outside-click-layer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEmployeeDropdownOpen(false);
+                }}
+              />
+              <div
+                className="ld-custom-dropdown"
+                style={{
+                  position: "absolute",
+                  top: `${employeeDropdownPos.top}px`,
+                  left: `${employeeDropdownPos.left}px`,
+                  width: `${employeeDropdownPos.width}px`
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="ld-dropdown-search-sec">
+                  <IonIcon icon={searchOutline} className="ld-dropdown-search-icon" />
+                  <input
+                    type="text"
+                    className="ld-dropdown-pure-input"
+                    placeholder="Search name or code..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    autoFocus
+                  />
+                  {searchTerm && (
+                    <button className="ld-dropdown-clear-btn" onClick={() => setSearchTerm("")}>
+                      <IonIcon icon={closeOutline} />
+                    </button>
+                  )}
+                </div>
+                <div className="ld-dropdown-body">
+                  {filteredEmployees.map((emp) => {
+                    const isSelected = selectedEmpCode === emp.id;
+                    const cleanName = emp.name.includes("-") ? emp.name.split("-")[1].trim() : emp.name;
+                    const initials = (cleanName.charAt(0) || "?").toUpperCase();
+                    const gradIndex = parseInt(emp.id, 10) % 5 || 0;
 
-                  return (
-                    <div
-                      key={emp.id}
-                      className={`ld-dropdown-emp-item ${isSelected ? "selected" : ""}`}
-                      onClick={() => {
-                        setSelectedEmpCode(emp.id);
-                        setSelectedEmpName(emp.name);
-                        setIsEmployeeDropdownOpen(false);
-                        setSearchTerm("");
-                      }}
-                    >
-                      <div className={`ld-dr-avatar grad-${gradIndex}`}>
-                        {emp.id === "0" ? <IonIcon icon={layersOutline} style={{ fontSize: "14px" }} /> : initials}
+                    return (
+                      <div
+                        key={emp.id}
+                        className={`ld-dropdown-emp-item ${isSelected ? "selected" : ""}`}
+                        onClick={() => {
+                          setSelectedEmpCode(emp.id);
+                          setSelectedEmpName(emp.name);
+                          setIsEmployeeDropdownOpen(false);
+                          setSearchTerm("");
+                        }}
+                      >
+                        <div className={`ld-dr-avatar grad-${gradIndex}`}>
+                          {emp.id === "0" ? <IonIcon icon={layersOutline} style={{ fontSize: "14px" }} /> : initials}
+                        </div>
+                        <div className="ld-dr-info">
+                          <span className="ld-dr-name">{emp.name}</span>
+                          <span className="ld-dr-code">ID: {emp.id}</span>
+                        </div>
+                        {isSelected && <IonIcon icon={checkmarkCircle} className="ld-dr-check" />}
                       </div>
-                      <div className="ld-dr-info">
-                        <span className="ld-dr-name">{emp.name}</span>
-                        <span className="ld-dr-code">ID: {emp.id}</span>
-                      </div>
-                      {isSelected && (
-                        <IonIcon icon={checkmarkCircle} className="ld-dr-check" />
-                      )}
-                    </div>
-                  );
-                })}
-                {filteredEmployees.length === 0 && (
-                  <div className="ld-dr-no-results">
-                    No matches for "{searchTerm}"
-                  </div>
-                )}
+                    );
+                  })}
+                  {filteredEmployees.length === 0 && (
+                    <div className="ld-dr-no-results">No matches for "{searchTerm}"</div>
+                  )}
+                </div>
               </div>
-            </div>
-          </>,
-          document.body
-        )}
+            </>,
+            document.body
+          )}
 
         {/* Period Dropdown Portal */}
-        {isPeriodDropdownOpen && createPortal(
-          <>
-            <div
-              className="ld-dropdown-outside-click-layer"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsPeriodDropdownOpen(false);
-              }}
-            />
-            <div
-              className="ld-custom-dropdown"
-              style={{
-                position: "absolute",
-                top: `${periodDropdownPos.top}px`,
-                left: `${periodDropdownPos.left}px`,
-                width: `${periodDropdownPos.width}px`
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ld-dropdown-body">
-                {months.map((m, idx) => {
-                  const isSelected = m === selectedMonth;
-                  return (
-                    <div
-                      key={idx}
-                      className={`ld-dropdown-item ${isSelected ? "selected" : ""}`}
-                      onClick={() => {
-                        setSelectedMonth(m);
-                        setIsPeriodDropdownOpen(false);
-                      }}
-                    >
-                      <span>{m}</span>
-                      {isSelected && <IonIcon icon={checkmarkCircle} className="ld-dropdown-check" />}
-                    </div>
-                  );
-                })}
+        {isPeriodDropdownOpen &&
+          createPortal(
+            <>
+              <div
+                className="ld-dropdown-outside-click-layer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPeriodDropdownOpen(false);
+                }}
+              />
+              <div
+                className="ld-custom-dropdown"
+                style={{
+                  position: "absolute",
+                  top: `${periodDropdownPos.top}px`,
+                  left: `${periodDropdownPos.left}px`,
+                  width: `${periodDropdownPos.width}px`
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="ld-dropdown-body">
+                  {months.map((m, idx) => {
+                    const isSelected = m === selectedMonth;
+                    return (
+                      <div
+                        key={idx}
+                        className={`ld-dropdown-item ${isSelected ? "selected" : ""}`}
+                        onClick={() => {
+                          setSelectedMonth(m);
+                          setIsPeriodDropdownOpen(false);
+                        }}
+                      >
+                        <span>{m}</span>
+                        {isSelected && <IonIcon icon={checkmarkCircle} className="ld-dropdown-check" />}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </>,
-          document.body
-        )}
+            </>,
+            document.body
+          )}
 
         <IonToast
           isOpen={toastOpen}
