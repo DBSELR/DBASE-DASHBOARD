@@ -6,7 +6,8 @@ import {
   IonPage,
   IonIcon,
   IonSpinner,
-  IonToast
+  IonToast,
+  IonModal
 } from "@ionic/react";
 import {
   arrowBackOutline,
@@ -24,6 +25,7 @@ import {
   refreshOutline,
   medkitOutline,
   chevronDownOutline,
+  chevronForwardOutline,
   hourglassOutline
 } from "ionicons/icons";
 import axios from "axios";
@@ -105,23 +107,23 @@ const getCategoryTypeDisplay = (typeDisp: string, leaveCategory: string) => {
 
 const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
   if (!x) return "Pending";
-  
+
   let rawStatus = "";
   if (Array.isArray(x)) {
     rawStatus = safeStr(x[7]);
   } else {
     rawStatus = safeStr(x.L_status || x.L_Status || x.status || x.Status || "");
   }
-  
+
   let statusStr = rawStatus.trim();
   if (statusStr.toLowerCase() === "pending at") {
     statusStr = "Pending";
   }
-  
+
   if (!statusStr.toLowerCase().includes("pending")) {
     return statusStr || "Pending";
   }
-  
+
   let pendingRA: any = "";
   if (Array.isArray(x)) {
     pendingRA = x.length > 23 ? x[23] : "";
@@ -133,9 +135,9 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
       const rs1 = safeStr(x.length > 17 ? x[17] : "");
       const rs2 = safeStr(x.length > 18 ? x[18] : "");
       const rs3 = safeStr(x.length > 19 ? x[19] : "");
-      
+
       const isP = (s: string) => !s || (!s.toLowerCase().includes("accepted") && !s.toLowerCase().includes("approved") && !s.toLowerCase().includes("rejected"));
-      
+
       if (r1 && isP(rs1)) pendingRA = r1;
       else if (r2 && isP(rs2)) pendingRA = r2;
       else if (r3 && isP(rs3)) pendingRA = r3;
@@ -143,7 +145,7 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
     }
   } else {
     pendingRA = x.PendingAt || x.pendingAt || x.PendingRA || x.pendingRA || x.CurrentRA || x.currentRA || x.currentRa || "";
-    
+
     if (!pendingRA) {
       const r1 = x.RA1 || x.ra1 || x.rA1 || "";
       const r2 = x.RA2 || x.ra2 || x.rA2 || "";
@@ -152,16 +154,16 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
       const rs1 = safeStr(x.RA1_Status || x.ra1_Status || x.RA1Status || x.ra1Status || "");
       const rs2 = safeStr(x.RA2_Status || x.ra2_Status || x.RA2Status || x.ra2Status || "");
       const rs3 = safeStr(x.RA3_Status || x.ra3_Status || x.RA3Status || x.ra3Status || "");
-      
+
       const isP = (s: string) => !s || (!s.toLowerCase().includes("accepted") && !s.toLowerCase().includes("approved") && !s.toLowerCase().includes("rejected"));
-      
+
       if (r1 && isP(rs1)) pendingRA = r1;
       else if (r2 && isP(rs2)) pendingRA = r2;
       else if (r3 && isP(rs3)) pendingRA = r3;
       else if (r4) pendingRA = r4;
     }
   }
-  
+
   let raString = "";
   if (pendingRA) {
     if (typeof pendingRA === "object") {
@@ -172,20 +174,20 @@ const deduceStatus = (x: any, fallbackMgr: string = "Team. Manager") => {
         try {
           const parsed = JSON.parse(raString);
           raString = parsed.designation || parsed.Designation || parsed.name || parsed.empName || parsed.role || "";
-        } catch {}
+        } catch { }
       }
     }
   }
-  
+
   raString = raString.trim();
-  
+
   if (raString.toLowerCase() === "[object object]" || raString === "") {
     if (statusStr.toLowerCase().startsWith("pending at ")) {
       return statusStr;
     }
     return `Pending at ${fallbackMgr}`;
   }
-  
+
   return `Pending at ${raString}`;
 };
 
@@ -209,7 +211,7 @@ const LeaveDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [rows, setRows] = useState<any[]>([]);
 
-  // Balance states
+  // Balances states
   const [balances, setBalances] = useState({
     cl: { balance: 0, used: 0 },
     sl: { balance: 0, used: 0 },
@@ -218,10 +220,26 @@ const LeaveDashboard: React.FC = () => {
     grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
   });
 
+  // Late-Comings Extra Layer States
+  const [isLateModalOpen, setIsLateModalOpen] = useState(false);
+  const [lateLogs, setLateLogs] = useState<any[]>([]);
+  const [lateFilter, setLateFilter] = useState<"ALL" | "Morning" | "Lunch" | "Grace" | "Permission" | "LOP">("ALL");
+  const [lateSummary, setLateSummary] = useState({
+    totalLateMins: 0,
+    morningLateMins: 0,
+    lunchLateMins: 0,
+    lateOccasions: 0,
+    graceOccasions: 0,
+    permOccasions: 0,
+    lopOccasions: 0,
+    totalPresentDays: 0,
+    onTimeDays: 0
+  });
+
   // UI Helpers & Grid filters
   const [searchTerm, setSearchTerm] = useState("");
   const [gridSearch, setGridSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "Approved" | "Pending" | "Rejected">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "Approved" | "Pending" | "Rejected" | "LateComing">("ALL");
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -301,12 +319,24 @@ const LeaveDashboard: React.FC = () => {
   const loadEmployeeReport = async (empCode: string, month: string) => {
     if (!empCode || empCode === "0") {
       setRows([]);
+      setLateLogs([]);
       setBalances({
         cl: { balance: 0, used: 0 },
         sl: { balance: 0, used: 0 },
         perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 6 },
         lop: { balance: 0, used: 0 },
         grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
+      });
+      setLateSummary({
+        totalLateMins: 0,
+        morningLateMins: 0,
+        lunchLateMins: 0,
+        lateOccasions: 0,
+        graceOccasions: 0,
+        permOccasions: 0,
+        lopOccasions: 0,
+        totalPresentDays: 0,
+        onTimeDays: 0
       });
       setLoading(false);
       return;
@@ -408,7 +438,7 @@ const LeaveDashboard: React.FC = () => {
         });
 
         const balanceResults = await Promise.all(balancePromises);
-        
+
         const latestResult = balanceResults[0];
         if (latestResult) {
           clBalance = latestResult[0]?.data?.balance ?? 0;
@@ -454,6 +484,20 @@ const LeaveDashboard: React.FC = () => {
         lopUsed = lopRes.data?.used ?? 0;
       }
 
+      // ==========================================
+      // Late Comings & Attendance Matrix Processor
+      // ==========================================
+      const extractedLateLogs: any[] = [];
+      let totMins = 0;
+      let mTotMins = 0;
+      let lTotMins = 0;
+      let occCount = 0;
+      let gCount = 0;
+      let pCount = 0;
+      let lopCount = 0;
+      let presentCount = 0;
+      let onTimeCount = 0;
+
       try {
         if (!isYearly) {
           const parts = month.split("-");
@@ -463,31 +507,187 @@ const LeaveDashboard: React.FC = () => {
             const matrixUrl = `${API_BASE}Checkin/GetHRMonthlyAttendanceMatrix?year=${y}&month=${mIndex}`;
             const mRes = await axios.get(matrixUrl, { headers: getAuthHeaders() });
             const matrix = mRes.data?.matrix || {};
-            Object.keys(matrix).forEach((key) => {
-              if (key.startsWith(empCode + "_")) {
-                const att = matrix[key];
-                if (att && att.graceType && att.graceType !== "-" && att.graceType.trim() !== "") {
-                  const gt = att.graceType.toLowerCase();
-                  if (gt.includes("grace")) {
-                    graceUsed++;
-                    const mins = parseInt(String(att.totalLate || "0"), 10) || 0;
-                    graceUsedMins += mins;
-                    
-                    if (key === `${empCode}_${todayStr}`) {
-                      todayGraceUsed = true;
-                      todayGraceMins = mins;
-                    }
+            const daysInMonth = mRes.data?.daysInMonth || 31;
+
+            for (let day = 1; day <= daysInMonth; day++) {
+              const dStr = String(day).padStart(2, "0");
+              const mStr = String(mIndex).padStart(2, "0");
+              const fullDateStr = `${y}-${mStr}-${dStr}`;
+              const key = `${empCode}_${fullDateStr}`;
+              const att = matrix[key];
+
+              if (att) {
+                const mIn = att.morningIn || att.Morning_In || "";
+                const lOut = att.lunchOut || att.Lunch_Out || "";
+                const lIn = att.lunchIn || att.Lunch_In || "";
+                const eOut = att.eveningOut || att.Evening_Out || "";
+
+                const mLate = parseInt(String(att.morningLate || att.MorningLate || 0), 10) || 0;
+                const lLate = parseInt(String(att.lunchLate || att.LunchLate || 0), 10) || 0;
+                const pOverstay = parseInt(String(att.permOverstay || 0), 10) || 0;
+                let tLate = parseInt(String(att.totalLate || att.TotalLate || (mLate + lLate + pOverstay)), 10) || 0;
+                const lopMins = parseInt(String(att.lopMinutes || att.LOPMinutes || 0), 10) || 0;
+                const graceType = att.graceType || att.GraceType || "";
+                const attStatus = att.attendanceStatus || att.AttendanceStatus || "";
+
+                if (mIn || lIn || eOut || tLate > 0) {
+                  presentCount++;
+                  if (tLate === 0) {
+                    onTimeCount++;
                   }
                 }
+
+                const gtLower = graceType.toLowerCase();
+                const stLower = attStatus.toLowerCase();
+
+                if (gtLower.includes("grace") && graceType !== "-") {
+                  graceUsed++;
+                  graceUsedMins += tLate;
+                  if (fullDateStr === todayStr) {
+                    todayGraceUsed = true;
+                    todayGraceMins = tLate;
+                  }
+                }
+
+                if (tLate > 0 || mLate > 0 || lLate > 0 || (graceType && graceType !== "-" && gtLower.includes("grace"))) {
+                  occCount++;
+                  totMins += tLate;
+                  mTotMins += mLate;
+                  lTotMins += lLate;
+
+                  if (gtLower.includes("grace") || stLower.includes("grace")) gCount++;
+                  else if (gtLower.includes("perm") || stLower.includes("perm")) pCount++;
+                  else if (gtLower.includes("lop") || stLower.includes("lop") || lopMins > 0) lopCount++;
+
+                  const dMoment = moment(fullDateStr, "YYYY-MM-DD");
+                  extractedLateLogs.push({
+                    id: `${empCode}_${fullDateStr}`,
+                    date: fullDateStr,
+                    dayName: dMoment.format("ddd"),
+                    formattedDate: dMoment.format("DD-MMM-YYYY (ddd)"),
+                    morningIn: mIn,
+                    lunchOut: lOut,
+                    lunchIn: lIn,
+                    eveningOut: eOut,
+                    morningLate: mLate,
+                    lunchLate: lLate,
+                    permOverstay: pOverstay,
+                    totalLate: tLate,
+                    graceType: graceType || (tLate > 0 ? (tLate <= 15 && gCount <= 4 ? "FREE_GRACE" : "PERMISSION") : "PRESENT"),
+                    attendanceStatus: attStatus || (tLate > 0 ? "Late" : "Present"),
+                    lopMinutes: lopMins
+                  });
+                }
               }
-            });
+            }
           }
         } else {
           graceMax = 2 * targetMonths.length;
+          // Yearly Matrix aggregation
+          const matrixPromises = targetMonths.map(async (mStr) => {
+            const parts = mStr.split("-");
+            if (parts.length === 2) {
+              const mIndex = moment().month(parts[0]).month() + 1;
+              const y = parts[1];
+              const matrixUrl = `${API_BASE}Checkin/GetHRMonthlyAttendanceMatrix?year=${y}&month=${mIndex}`;
+              try {
+                const mRes = await axios.get(matrixUrl, { headers: getAuthHeaders() });
+                return { matrix: mRes.data?.matrix || {}, daysInMonth: mRes.data?.daysInMonth || 31, year: y, monthIndex: mIndex };
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          });
+
+          const matrixResults = await Promise.all(matrixPromises);
+          matrixResults.forEach((resItem) => {
+            if (!resItem) return;
+            const { matrix, daysInMonth, year, monthIndex } = resItem;
+            for (let day = 1; day <= daysInMonth; day++) {
+              const dStr = String(day).padStart(2, "0");
+              const mStr = String(monthIndex).padStart(2, "0");
+              const fullDateStr = `${year}-${mStr}-${dStr}`;
+              const key = `${empCode}_${fullDateStr}`;
+              const att = matrix[key];
+
+              if (att) {
+                const mIn = att.morningIn || att.Morning_In || "";
+                const lOut = att.lunchOut || att.Lunch_Out || "";
+                const lIn = att.lunchIn || att.Lunch_In || "";
+                const eOut = att.eveningOut || att.Evening_Out || "";
+
+                const mLate = parseInt(String(att.morningLate || att.MorningLate || 0), 10) || 0;
+                const lLate = parseInt(String(att.lunchLate || att.LunchLate || 0), 10) || 0;
+                const pOverstay = parseInt(String(att.permOverstay || 0), 10) || 0;
+                let tLate = parseInt(String(att.totalLate || att.TotalLate || (mLate + lLate + pOverstay)), 10) || 0;
+                const lopMins = parseInt(String(att.lopMinutes || att.LOPMinutes || 0), 10) || 0;
+                const graceType = att.graceType || att.GraceType || "";
+                const attStatus = att.attendanceStatus || att.AttendanceStatus || "";
+
+                if (mIn || lIn || eOut || tLate > 0) {
+                  presentCount++;
+                  if (tLate === 0) onTimeCount++;
+                }
+
+                const gtLower = graceType.toLowerCase();
+                const stLower = attStatus.toLowerCase();
+
+                if (gtLower.includes("grace") && graceType !== "-") {
+                  graceUsed++;
+                  graceUsedMins += tLate;
+                }
+
+                if (tLate > 0 || mLate > 0 || lLate > 0 || (graceType && graceType !== "-" && gtLower.includes("grace"))) {
+                  occCount++;
+                  totMins += tLate;
+                  mTotMins += mLate;
+                  lTotMins += lLate;
+
+                  if (gtLower.includes("grace") || stLower.includes("grace")) gCount++;
+                  else if (gtLower.includes("perm") || stLower.includes("perm")) pCount++;
+                  else if (gtLower.includes("lop") || stLower.includes("lop") || lopMins > 0) lopCount++;
+
+                  const dMoment = moment(fullDateStr, "YYYY-MM-DD");
+                  extractedLateLogs.push({
+                    id: `${empCode}_${fullDateStr}`,
+                    date: fullDateStr,
+                    dayName: dMoment.format("ddd"),
+                    formattedDate: dMoment.format("DD-MMM-YYYY (ddd)"),
+                    morningIn: mIn,
+                    lunchOut: lOut,
+                    lunchIn: lIn,
+                    eveningOut: eOut,
+                    morningLate: mLate,
+                    lunchLate: lLate,
+                    permOverstay: pOverstay,
+                    totalLate: tLate,
+                    graceType: graceType || (tLate > 0 ? "Late" : "Present"),
+                    attendanceStatus: attStatus || (tLate > 0 ? "Late" : "Present"),
+                    lopMinutes: lopMins
+                  });
+                }
+              }
+            }
+          });
         }
       } catch (err) {
         console.error("Error fetching grace from matrix", err);
       }
+
+      extractedLateLogs.sort((a, b) => b.date.localeCompare(a.date));
+      setLateLogs(extractedLateLogs);
+      setLateSummary({
+        totalLateMins: totMins,
+        morningLateMins: mTotMins,
+        lunchLateMins: lTotMins,
+        lateOccasions: occCount,
+        graceOccasions: gCount,
+        permOccasions: pCount,
+        lopOccasions: lopCount,
+        totalPresentDays: presentCount,
+        onTimeDays: onTimeCount
+      });
 
       setBalances({
         cl: { balance: clBalance, used: clUsed },
@@ -583,7 +783,109 @@ const LeaveDashboard: React.FC = () => {
     });
   }, [rows, statusFilter, gridSearch, fallbackManager]);
 
+  const displayedLateRows = useMemo(() => {
+    return lateLogs.filter((r) => {
+      if (lateFilter !== "ALL") {
+        const gt = (r.graceType || "").toLowerCase();
+        const st = (r.attendanceStatus || "").toLowerCase();
+        if (lateFilter === "Morning" && r.morningLate <= 0) return false;
+        if (lateFilter === "Lunch" && r.lunchLate <= 0) return false;
+        if (lateFilter === "Grace" && !gt.includes("grace") && !st.includes("grace")) return false;
+        if (lateFilter === "Permission" && !gt.includes("perm") && !st.includes("perm")) return false;
+        if (lateFilter === "LOP" && !gt.includes("lop") && !st.includes("lop") && r.lopMinutes <= 0) return false;
+      }
+
+      if (gridSearch.trim()) {
+        const q = gridSearch.toLowerCase();
+        const fullDate = `${r.formattedDate} ${r.date}`.toLowerCase();
+        const fullTimes = `${r.morningIn || ""} ${r.lunchOut || ""} ${r.lunchIn || ""} ${r.eveningOut || ""}`.toLowerCase();
+        const fullType = `${r.graceType} ${r.attendanceStatus}`.toLowerCase();
+        return fullDate.includes(q) || fullTimes.includes(q) || fullType.includes(q);
+      }
+
+      return true;
+    });
+  }, [lateLogs, lateFilter, gridSearch]);
+
+  const exportLatePDF = () => {
+    if (lateLogs.length === 0) {
+      showToast("No late coming records to export for this period.", "danger");
+      return;
+    }
+
+    const doc = new jsPDF("portrait", "mm", "a4");
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("LATE COMINGS & PUNCTUALITY AUDIT", 14, 20);
+
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Employee Code : ${selectedEmpCode}`, 14, 28);
+    doc.text(`Employee Name : ${selectedEmpName}`, 14, 34);
+    doc.text(`Report Period : ${selectedMonth}`, 14, 40);
+    doc.text(`Generated On  : ${moment().format("DD-MM-YYYY HH:mm:ss")}`, 14, 46);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, 50, 196, 50);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Monthly Punctuality & Late Coming Summary", 14, 58);
+
+    const summaryData = [
+      ["Total Late Time", `${lateSummary.totalLateMins} Mins`, `Morning: ${lateSummary.morningLateMins}m | Lunch: ${lateSummary.lunchLateMins}m`],
+      ["Late Occasions", `${lateSummary.lateOccasions} Occasions`, `Allowed monthly cap: 10 occasions`],
+      ["Free Graces Used", `${balances.grace.used} / ${balances.grace.max}`, `${balances.grace.usedMins} mins forgiven`],
+      ["Permission Sessions", `${balances.perm.usedSessions} / ${balances.perm.maxSessions}`, `${balances.perm.used} mins deducted`],
+      ["LOP Deductions", `${lateSummary.lopOccasions} Occasion(s)`, `Unpaid Loss of Pay`]
+    ];
+
+    autoTable(doc, {
+      startY: 62,
+      head: [["Metric", "Value", "Policy Notes"]],
+      body: summaryData,
+      theme: "striped",
+      styles: { fontSize: 8.5 },
+      headStyles: { fillColor: [245, 158, 11] }
+    });
+
+    const nextY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Daily Late Punch Logs", 14, nextY);
+
+    const logBody = lateLogs.map((r) => [
+      r.formattedDate,
+      r.morningIn || "-",
+      r.morningLate > 0 ? `${r.morningLate}m` : "-",
+      r.lunchLate > 0 ? `${r.lunchLate}m` : "-",
+      `${r.totalLate}m`,
+      r.graceType || r.attendanceStatus || "-"
+    ]);
+
+    autoTable(doc, {
+      startY: nextY + 4,
+      head: [["Date", "Morning In", "Morning Late", "Lunch Late", "Total Late", "Grace / Status"]],
+      body: logBody,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 41, 59] }
+    });
+
+    doc.save(`Late_Comings_Report_${selectedEmpCode}_${selectedMonth}.pdf`);
+    showToast("Late comings PDF downloaded successfully.", "success");
+  };
+
   const exportPDF = () => {
+    if (statusFilter === "LateComing") {
+      exportLatePDF();
+      return;
+    }
+
     if (rows.length === 0) {
       showToast("No logs available to export for this month.", "danger");
       return;
@@ -616,6 +918,7 @@ const LeaveDashboard: React.FC = () => {
       ["Casual Leave", `${balances.cl.balance} Days`, `${balances.cl.used} Days Used (Month)`],
       ["Sick Leave", `${balances.sl.balance} Days`, `${balances.sl.used} Days Used (Month)`],
       ["Permission time", `${balances.perm.balance} Mins`, `${balances.perm.used} Mins Used (${balances.perm.usedSessions}/${balances.perm.maxSessions} sessions)`],
+      ["Late Comings", `${lateSummary.totalLateMins} Mins`, `${lateSummary.lateOccasions} Occasion(s) (${balances.grace.used}/4 Free Graces)`],
       ["Loss of Pay (LOP)", "-", `${balances.lop.used} Days Used (Month)`]
     ];
 
@@ -689,7 +992,7 @@ const LeaveDashboard: React.FC = () => {
             </button>
             <button className="ld-header-action-btn" onClick={exportPDF}>
               <IonIcon icon={downloadOutline} />
-              Export PDF
+              {statusFilter === "LateComing" ? "Export Late PDF" : "Export PDF"}
             </button>
           </div>
         </div>
@@ -759,7 +1062,7 @@ const LeaveDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Bento Metric KPI Cards (Small & Compact with Darker Side Effect) */}
+        {/* Bento Metric KPI Cards (4 Clean Original Cards) */}
         <div className="ld-summary-grid">
           {/* Casual Leave */}
           <div className="ld-card cl">
@@ -878,12 +1181,21 @@ const LeaveDashboard: React.FC = () => {
         <div className="ld-table-card">
           <div className="ld-table-header">
             <div className="ld-table-title-sec">
-              <h2 className="ld-table-title">Leaves & Permissions History</h2>
-              <span className="ld-table-count-chip">{rows.length} Total</span>
+              <h2 className="ld-table-title">
+                {statusFilter === "LateComing" ? "Late Comings & Punch Audit" : "Leaves & Permissions History"}
+              </h2>
+              <span
+                className="ld-table-count-chip"
+                style={statusFilter === "LateComing" ? { background: "var(--ld-late-accent, #f59e0b)" } : {}}
+              >
+                {statusFilter === "LateComing"
+                  ? `${lateLogs.length} Late Occasion${lateLogs.length === 1 ? "" : "s"}`
+                  : `${rows.length} Total`}
+              </span>
             </div>
 
             <div className="ld-table-toolbar">
-              {/* Status Filter Pills */}
+              {/* Status Filter Pills with Late Coming */}
               <div className="ld-status-filter-pills">
                 <button
                   className={`ld-status-tab ${statusFilter === "ALL" ? "active" : ""}`}
@@ -908,6 +1220,14 @@ const LeaveDashboard: React.FC = () => {
                   onClick={() => setStatusFilter("Rejected")}
                 >
                   Rejected
+                </button>
+                <button
+                  className={`ld-status-tab ld-status-tab-late ${statusFilter === "LateComing" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("LateComing")}
+                  title="View Late Comings & Timings"
+                >
+                  <IonIcon icon={hourglassOutline} style={{ marginRight: "3px", fontSize: "11px" }} />
+                  Late Coming ({lateSummary.totalLateMins}m)
                 </button>
               </div>
 
@@ -935,7 +1255,136 @@ const LeaveDashboard: React.FC = () => {
               <IonSpinner name="crescent" color="primary" />
               <span>Fetching employee records...</span>
             </div>
+          ) : statusFilter === "LateComing" ? (
+            /* ── LATE COMINGS DATA VIEW ── */
+            displayedLateRows.length > 0 ? (
+              <div className="ld-table-responsive">
+                <table className="ld-table">
+                  <thead>
+                    <tr>
+                      <th>Date & Day</th>
+                      <th>Punch Details (In / Lunch / Out)</th>
+                      <th>Morning Delay</th>
+                      <th>Lunch Delay</th>
+                      <th>Total Late</th>
+                      <th>Policy Category</th>
+                      <th>Salary / Balance Impact</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedLateRows.map((r, idx) => {
+                      const isGrace = (r.graceType || "").toLowerCase().includes("grace");
+                      const isPerm = (r.graceType || "").toLowerCase().includes("perm");
+                      const isLop = (r.graceType || "").toLowerCase().includes("lop") || r.lopMinutes > 0;
+
+                      let statusClass = "ld-late-pill-default";
+                      let impactText = "Regular punch";
+
+                      if (isGrace) {
+                        statusClass = "ld-late-pill-grace";
+                        impactText = "Covered by Free Grace (0m deduction)";
+                      } else if (isPerm) {
+                        statusClass = "ld-late-pill-perm";
+                        impactText = `Deducted from monthly P_Time balance (${r.totalLate}m)`;
+                      } else if (isLop) {
+                        statusClass = "ld-late-pill-lop";
+                        impactText = `Converted to Loss of Pay (LOP) + Slip`;
+                      }
+
+                      return (
+                        <tr key={r.id || idx}>
+                          {/* Date & Day */}
+                          <td>
+                            <div className="ld-date-badge">
+                              <IonIcon icon={calendarOutline} />
+                              <span>{r.formattedDate}</span>
+                            </div>
+                          </td>
+
+                          {/* Punch Details */}
+                          <td>
+                            <div className="ld-punch-badge-group">
+                              {r.morningIn && (
+                                <span className="ld-punch-chip in" title="Morning In Punch">
+                                  In: {r.morningIn}
+                                </span>
+                              )}
+                              {(r.lunchOut || r.lunchIn) && (
+                                <span className="ld-punch-chip lunch" title="Lunch Break Window">
+                                  Lunch: {r.lunchOut || "?"} → {r.lunchIn || "?"}
+                                </span>
+                              )}
+                              {r.eveningOut && (
+                                <span className="ld-punch-chip out" title="Evening Out Punch">
+                                  Out: {r.eveningOut}
+                                </span>
+                              )}
+                              {!r.morningIn && !r.lunchIn && !r.eveningOut && (
+                                <span className="ld-punch-chip neutral">Logged</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Morning Delay */}
+                          <td>
+                            {r.morningLate > 0 ? (
+                              <span className="ld-delay-tag morning">+{r.morningLate} min</span>
+                            ) : (
+                              <span className="ld-delay-tag on-time">On-time</span>
+                            )}
+                          </td>
+
+                          {/* Lunch Delay */}
+                          <td>
+                            {r.lunchLate > 0 ? (
+                              <span className="ld-delay-tag lunch">+{r.lunchLate} min</span>
+                            ) : (
+                              <span className="ld-delay-tag on-time">-</span>
+                            )}
+                          </td>
+
+                          {/* Total Late */}
+                          <td>
+                            <span className="ld-late-total-pill">
+                              {r.totalLate} Min{r.totalLate === 1 ? "" : "s"}
+                            </span>
+                          </td>
+
+                          {/* Policy Category */}
+                          <td>
+                            <span className={`ld-pill ${statusClass}`}>
+                              <span className="ld-pill-dot" />
+                              {r.graceType || r.attendanceStatus || "Late"}
+                            </span>
+                          </td>
+
+                          {/* Salary / Balance Impact */}
+                          <td>
+                            <div className="ld-impact-cell">
+                              <span className="ld-impact-text">{impactText}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="ld-empty-state">
+                <div className="ld-empty-icon-wrap" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981" }}>
+                  <IonIcon icon={checkmarkCircle} />
+                </div>
+                <h3 className="ld-empty-title">100% Punctual Record!</h3>
+                <p className="ld-empty-text">
+                  {gridSearch
+                    ? "No late comings match your filter."
+                    : `No late arrivals logged for ${selectedEmpName} in ${selectedMonth}.`}
+                </p>
+              </div>
+            )
           ) : displayedRows.length > 0 ? (
+            /* ── STANDARD LEAVES & PERMISSIONS VIEW ── */
             <div className="ld-table-responsive">
               <table className="ld-table">
                 <thead>
@@ -1145,3 +1594,4 @@ const LeaveDashboard: React.FC = () => {
 };
 
 export default LeaveDashboard;
+

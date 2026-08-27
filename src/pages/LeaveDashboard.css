@@ -24,6 +24,7 @@
   --ld-sl-accent: #0f766e;
   --ld-perm-accent: #4f46e5;
   --ld-lop-accent: #e11d48;
+  --ld-late-accent: #d97706;
 }
 
 .dark-theme {
@@ -42,6 +43,7 @@
   --ld-sl-accent: #2dd4bf;
   --ld-perm-accent: #a5b4fc;
   --ld-lop-accent: #fb7185;
+  --ld-late-accent: #fbbf24;
 }
 
 .ld-page-container {
@@ -351,6 +353,18 @@
   margin-bottom: 18px;
 }
 
+@media (max-width: 1024px) {
+  .ld-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .ld-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ld-card {
   position: relative;
   background: var(--ld-card-bg);
@@ -373,6 +387,11 @@
   border-color: #94a3b8;
 }
 
+.ld-card.active-tab-card {
+  border-color: var(--card-accent, #0f172a);
+  box-shadow: 0 0 0 1px var(--card-accent, #0f172a), 0 8px 20px -4px rgba(0, 0, 0, 0.12);
+}
+
 .ld-card.cl {
   --card-accent: var(--ld-cl-accent);
   --card-tint: rgba(249, 115, 22, 0.08);
@@ -388,9 +407,37 @@
   --card-tint: rgba(99, 102, 241, 0.08);
 }
 
+.ld-card.late {
+  --card-accent: var(--ld-late-accent);
+  --card-tint: rgba(245, 158, 11, 0.08);
+}
+
 .ld-card.lop {
   --card-accent: var(--ld-lop-accent);
   --card-tint: rgba(225, 29, 72, 0.08);
+}
+
+.ld-late-cap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  width: fit-content;
+  margin-top: 2px;
+}
+
+.ld-late-cap-badge.ok {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.ld-late-cap-badge.danger {
+  color: #b91c1c;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
 }
 
 .ld-card-header {
@@ -407,30 +454,30 @@
 }
 
 .ld-card-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 750;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
   color: var(--ld-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .ld-card-icon-wrap {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--card-tint, rgba(15, 23, 42, 0.05));
+  color: var(--card-accent, #0f172a);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--card-tint, rgba(15, 23, 42, 0.06));
-  color: var(--card-accent, #0f172a);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .ld-card-body {
+  margin-bottom: 6px;
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
-  margin: 2px 0 6px 0;
+  align-items: baseline;
 }
 
 .ld-card-value {
@@ -490,7 +537,68 @@
 }
 
 /* ==========================================================================
-   4. DATA GRID TABLE (Theme-infused Dark Table Header)
+   4. VIEW SWITCHER (Segmented View Controls)
+   ========================================================================== */
+.ld-view-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: var(--ld-card-bg);
+  padding: 6px;
+  border-radius: var(--ld-radius-md);
+  border: 1px solid var(--ld-border);
+  width: fit-content;
+  box-shadow: var(--ld-shadow-card);
+}
+
+.ld-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--ld-radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--ld-text-muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ld-view-tab:hover {
+  color: var(--ld-text-main);
+  background: rgba(var(--ion-color-primary-rgb, 15, 23, 42), 0.04);
+}
+
+.ld-view-tab.active {
+  background: var(--ion-color-primary, #0f766e);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb, 15, 23, 42), 0.28);
+}
+
+.ld-view-count {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+}
+
+.ld-view-tab.active .ld-view-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.ld-view-count.warn {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   5. DATA GRID TABLE (Theme-infused Dark Table Header)
    ========================================================================== */
 .ld-table-card {
   background: var(--ld-card-bg);
@@ -629,6 +737,28 @@
 .dark-theme .ld-status-tab.active {
   background: #0f172a;
   color: #ffffff;
+}
+
+.ld-status-tab-late {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ld-late-accent, #d97706);
+  font-weight: 750;
+}
+
+.ld-status-tab-late:hover {
+  color: #b45309;
+}
+
+.ld-status-tab-late.active {
+  background: var(--ld-late-accent, #d97706) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.35) !important;
+}
+
+.dark-theme .ld-status-tab-late.active {
+  background: #f59e0b !important;
+  color: #0f172a !important;
 }
 
 /* Table layout with Auto-Adopted Theme Header */
@@ -798,6 +928,165 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ==========================================================================
+   Late Comings Punch & Timing Badges
+   ========================================================================== */
+.ld-punch-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.ld-punch-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ld-punch-chip.in {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.dark-theme .ld-punch-chip.in {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.ld-punch-chip.lunch {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.dark-theme .ld-punch-chip.lunch {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.ld-punch-chip.out {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.dark-theme .ld-punch-chip.out {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.ld-punch-chip.neutral {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Delay Tags */
+.ld-delay-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 750;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ld-delay-tag.morning {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.ld-delay-tag.lunch {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.ld-delay-tag.on-time {
+  color: var(--ld-text-dim);
+  font-weight: 600;
+}
+
+.ld-late-total-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.dark-theme .ld-late-total-pill {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* Late Specific Pills */
+.ld-pill.ld-late-pill-grace {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.ld-pill.ld-late-pill-grace .ld-pill-dot {
+  background-color: #10b981;
+}
+
+.ld-pill.ld-late-pill-perm {
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+.ld-pill.ld-late-pill-perm .ld-pill-dot {
+  background-color: #6366f1;
+}
+
+.ld-pill.ld-late-pill-lop {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.ld-pill.ld-late-pill-lop .ld-pill-dot {
+  background-color: #ef4444;
+}
+
+.ld-pill.ld-late-pill-default {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.ld-pill.ld-late-pill-default .ld-pill-dot {
+  background-color: #94a3b8;
+}
+
+.ld-impact-cell {
+  display: flex;
+  align-items: center;
+}
+
+.ld-impact-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ld-text-muted);
 }
 
 /* Empty state */
@@ -1087,4 +1376,171 @@
     text-align: center;
     padding: 4px 2px;
   }
+}
+
+/* ==========================================================================
+   6. LATE COMINGS POPUP MODAL
+   ========================================================================== */
+.ld-late-modal {
+  --width: 920px;
+  --max-width: 94vw;
+  --height: 84vh;
+  --max-height: 84vh;
+  --border-radius: 16px;
+  --background: var(--ld-bg-main);
+  --box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.4);
+}
+
+.ld-modal-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ld-bg-main);
+  color: var(--ld-text-main);
+  overflow: hidden;
+}
+
+.ld-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--ld-card-bg);
+  border-bottom: 1px solid var(--ld-border);
+}
+
+.ld-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ld-modal-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--ld-late-accent, #d97706);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.ld-modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--ld-text-main);
+}
+
+.ld-modal-subtitle {
+  margin: 2px 0 0 0;
+  font-size: 11.5px;
+  color: var(--ld-text-muted);
+}
+
+.ld-modal-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--ion-color-primary, #0f766e);
+  color: #ffffff;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.ld-modal-action-btn:hover {
+  opacity: 0.9;
+}
+
+.ld-modal-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--ld-border);
+  background: var(--ld-card-bg);
+  color: var(--ld-text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ld-modal-close-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+.ld-modal-metrics-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--ld-card-bg);
+  border-bottom: 1px solid var(--ld-border);
+  flex-wrap: wrap;
+}
+
+.ld-modal-stat-chip {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 10px;
+  background: var(--ld-bg-main);
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  min-width: 95px;
+}
+
+.ld-modal-stat-chip.highlight {
+  border-color: var(--ld-late-accent, #d97706);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ld-mstat-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--ld-text-dim);
+}
+
+.ld-mstat-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ld-text-main);
+  margin-top: 1px;
+}
+
+.ld-modal-stat-chip.highlight .ld-mstat-val {
+  color: var(--ld-late-accent, #d97706);
+}
+
+.ld-modal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--ld-border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dark-theme .ld-modal-toolbar {
+  background: #111827;
+}
+
+.ld-modal-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--ld-card-bg);
 }
