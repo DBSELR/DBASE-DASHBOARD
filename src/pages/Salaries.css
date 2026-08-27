@@ -220,42 +220,48 @@ ion-grid ion-row {
   color: #000;
 }
 
-/* Table Styling */
+/* Modern Adjustment Table Styling */
+.adjustment-list-container {
+  overflow-y: auto;
+  height: calc(100vh - 250px);
+  border: 1px solid #e2e8f0 !important;
+  background-color: #ffffff !important;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
 .ion-grid-heading-row {
-  background-color: #f0f0f0 !important;
-  color: #000;
-  border-bottom: 1px solid #000;
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  font-weight: 800 !important;
 }
 
 .ion-grid-heading-row ion-col {
-  border-right: 1px solid #000;
-  padding: 0px;
+  border-right: 1px solid #e2e8f0;
+  padding: 10px 8px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .ion-grid-heading-row ion-col:last-child {
   border-right: none;
 }
 
-.ion-grid-heading-row input {
-  background: transparent !important;
-  border: none !important;
-  color: #000 !important;
-  font-weight: 800 !important;
-  text-align: center;
-  pointer-events: none;
-  font-size: 14px;
-  width: 100%;
-}
-
-.adjustment-list-container {
-  overflow-y: auto;
-  height: calc(100vh - 230px);
-  border: 1px solid #000;
-  background-color: #fff;
-}
-
 .adjustment-row {
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.15s ease;
+  min-height: 44px;
+}
+
+.adjustment-row:hover {
+  background-color: #f8fafc;
 }
 
 .adjustment-row:last-child {
@@ -263,8 +269,10 @@ ion-grid ion-row {
 }
 
 .adjustment-row ion-col {
-  border-right: 1px solid #000;
-  padding: 0 !important;
+  border-right: 1px solid #f1f5f9;
+  padding: 2px 4px !important;
+  display: flex;
+  align-items: center;
 }
 
 .adjustment-row ion-col:last-child {
@@ -273,18 +281,240 @@ ion-grid ion-row {
 
 .adjustment-input {
   width: 100%;
-  height: 35px;
-  border: none !important;
-  padding: 2px 10px;
-  font-size: 14px;
+  height: 38px;
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13.5px;
   font-weight: 700;
   background-color: transparent;
   text-align: center;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.adjustment-input:focus {
+  border-color: #ff8c00 !important;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.15);
 }
 
 .adjustment-input:read-only {
-  background-color: #e7e9ec;
+  background-color: transparent;
+  color: #0f172a;
+  font-weight: 700;
   text-align: left;
+  padding-left: 10px;
+}
+
+/* Add_Days cell wrapper & +/- styles */
+.add-days-cell-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 2px 4px;
+}
+
+.add-days-cell-wrapper .adjustment-input {
+  padding-right: 32px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.adjustment-val-positive {
+  color: #059669 !important;
+  font-weight: 800 !important;
+  background-color: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.adjustment-val-negative {
+  color: #dc2626 !important;
+  font-weight: 800 !important;
+  background-color: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+}
+
+.calc-trigger-btn {
+  position: absolute;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #ea580c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.12);
+}
+
+.calc-trigger-btn:hover {
+  background: linear-gradient(135deg, #ff8c00, #e65100);
+  color: #ffffff;
+  border-color: transparent;
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(230, 81, 0, 0.25);
+}
+
+/* ── Top Unified Toolbar ── */
+.sal-toolbar-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  flex-wrap: wrap;
+}
+
+.sal-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sal-date-field .MuiOutlinedInput-root {
+  border-radius: 12px !important;
+  background-color: #f8fafc;
+  height: 40px;
+  font-weight: 700;
+  border-color: #cbd5e1;
+}
+
+.sal-date-field .MuiOutlinedInput-root:hover {
+  background-color: #ffffff;
+}
+
+.sal-generate-btn {
+  background: linear-gradient(135deg, #ff8c00, #e65100);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 0 20px;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.sal-generate-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(230, 81, 0, 0.35);
+}
+
+.sal-toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.sal-reset-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.sal-reset-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.sal-reset-pill.active {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+}
+
+/* ── Helper / Legend Banner ── */
+.sal-helper-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: #334155;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sal-helper-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+
+.sal-banner-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #ffedd5;
+  color: #ea580c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sal-helper-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.legend-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-badge.positive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.legend-badge.negative {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .badgeplain {
@@ -295,7 +525,6 @@ ion-grid ion-row {
   top: 1px;
   left: 35px;
 }
-
 
 /* Ionic Overrides */
 ion-content {

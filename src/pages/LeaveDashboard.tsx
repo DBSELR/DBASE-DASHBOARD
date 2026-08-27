@@ -692,8 +692,16 @@ const LeaveDashboard: React.FC = () => {
       setBalances({
         cl: { balance: clBalance, used: clUsed },
         sl: { balance: slBalance, used: slUsed },
-        perm: { balance: permBalance, used: permUsed, usedSessions: permUsedSessions, maxSessions: permMaxSessions },
-        lop: { balance: lopBalance, used: lopUsed },
+        perm: { 
+          balance: permBalance, 
+          used: permUsed, 
+          usedSessions: Math.max(permUsedSessions, pCount), 
+          maxSessions: permMaxSessions > 0 ? permMaxSessions : (isYearly ? 6 * targetMonths.length : 6) 
+        },
+        lop: { 
+          balance: lopBalance, 
+          used: Math.max(lopUsed, lopCount) 
+        },
         grace: { used: graceUsed, max: graceMax, usedMins: graceUsedMins, todayUsed: todayGraceUsed, todayMins: todayGraceMins }
       });
     } catch (err) {

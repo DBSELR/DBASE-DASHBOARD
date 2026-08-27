@@ -19,8 +19,9 @@ import {
 } from "@mui/material";
 
 import { useHistory } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Calculator, Clock, Plus, Minus, Sparkles } from "lucide-react";
 import { documentTextOutline } from "ionicons/icons";
+import { LateAdjustmentModal, LateAdjustmentData } from "../components/salaries/LateAdjustmentModal";
 
 import moment from "moment";
 import axios from "axios";
@@ -113,6 +114,10 @@ const Salaries: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [openHyear, setOpenHyear] = useState(false);
   const [openSalMY, setOpenSalMY] = useState(false);
+
+  // Late Minutes & Days Adjustment Assistant Modal state
+  const [selectedAdjEmp, setSelectedAdjEmp] = useState<LateAdjustmentData | null>(null);
+  const [isAdjModalOpen, setIsAdjModalOpen] = useState(false);
 
   const months = moment.months();
 
@@ -561,6 +566,31 @@ const UpdateAdjustmentField = async (
     console.log(err);
   }
 };
+
+  const handleApplyAdjustment = async (
+    empCode: string,
+    addDays: string,
+    remarks: string
+  ) => {
+    try {
+      const updated = dt_SalAdjust.map((item: any) => {
+        if (item.Empcode === empCode) {
+          return {
+            ...item,
+            Add_Days: addDays,
+            Remarks: remarks,
+          };
+        }
+        return item;
+      });
+      setDt_SalAdjust(updated);
+
+      await UpdateAdjustmentField(empCode, "Add_Days", addDays);
+      await UpdateAdjustmentField(empCode, "Remarks", remarks);
+    } catch (err) {
+      console.log("Error in handleApplyAdjustment", err);
+    }
+  };
   // ==========================
   // Selection Logic
   // ==========================
@@ -806,86 +836,136 @@ const UpdateAdjustmentField = async (
 
             {/* TAB 2: GENERATE SALARIES */}
             {tabValue === 1 && (
-              <div className="stock-panel" style={{ margin: '20px 16px' }}>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '10px' }}>
-                  <DatePicker
-                    views={["month", "year"]}
-                    label="Mon-Year"
-                    format="MMM-YYYY"
-                    value={SalMY}
-                    open={openSalMY}
-                    onOpen={() => setOpenSalMY(true)}
-                    onClose={() => setOpenSalMY(false)}
-                    onChange={(newValue) => setSalMY(newValue)}
-                    slotProps={{
-                      textField: {
-                        size: "small",
-                        className: "date-input-field",
-                        onClick: () => setOpenSalMY(true),
-                        slotProps: {
-                          htmlInput: { readOnly: true }
+              <div className="stock-panel" style={{ margin: '16px', padding: 0, background: 'transparent' }}>
+                
+                {/* ── Top Unified Toolbar ── */}
+                <div className="sal-toolbar-card">
+                  <div className="sal-toolbar-left">
+                    <DatePicker
+                      views={["month", "year"]}
+                      label="Mon-Year"
+                      format="MMM-YYYY"
+                      value={SalMY}
+                      open={openSalMY}
+                      onOpen={() => setOpenSalMY(true)}
+                      onClose={() => setOpenSalMY(false)}
+                      onChange={(newValue) => setSalMY(newValue)}
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          className: "sal-date-field",
+                          onClick: () => setOpenSalMY(true),
+                          slotProps: {
+                            htmlInput: { readOnly: true }
+                          }
+                        },
+                        popper: {
+                          sx: {
+                            zIndex: 99999
+                          }
                         }
-                      },
-                      popper: {
-                        sx: {
-                          zIndex: 99999
-                        }
-                      }
-                    }}
-                  />
-                  <button
-                    className="stock-button"
-                    onClick={Generate_Sal}
-                    style={{ height: '40px' }}
-                  >
-                    Generate
-                  </button>
+                      }}
+                    />
+
+                    <button
+                      className="sal-generate-btn"
+                      onClick={Generate_Sal}
+                    >
+                      <Sparkles size={16} />
+                      <span>Generate Salaries</span>
+                    </button>
+                  </div>
+
+                  <div className="sal-toolbar-right">
+                    <label className={`sal-reset-pill ${SalReset ? "active" : ""}`}>
+                      <Checkbox
+                        checked={SalReset}
+                        onChange={(e: any) => setSalReset(e.target.checked)}
+                        size="small"
+                        sx={{
+                          padding: "2px",
+                          color: SalReset ? "#ea580c !important" : "#64748b !important",
+                          "&.Mui-checked": { color: "#ea580c !important" }
+                        }}
+                      />
+                      <span>Reset Adjustments</span>
+                    </label>
+                  </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", marginBottom: '20px' }}>
-                  <Checkbox
-                    checked={SalReset}
-                    onChange={(e: any) => setSalReset(e.target.checked)}
-                    size="small"
-                  />
-                  <b style={{ fontSize: "14px", color: "var(--stock-text)" }}>Reset Adjustments</b>
+                {/* ── Helper / Legend Bar ── */}
+                <div className="sal-helper-banner">
+                  <div className="sal-helper-banner-left">
+                    <div className="sal-banner-icon">
+                      <Clock size={16} />
+                    </div>
+                    <span>
+                      Click <b>Calculator (⏱️)</b> on any row for <b>Late (-)</b> or <b>Overtime (+)</b> minutes adjustment (8h = 480m).
+                    </span>
+                  </div>
+                  <div className="sal-helper-legend">
+                    <span className="legend-badge positive"><Plus size={12} /> Added Days</span>
+                    <span className="legend-badge negative"><Minus size={12} /> Deductions</span>
+                  </div>
                 </div>
 
-                <div className="adjustment-list-container" style={{ backgroundColor: 'var(--stock-elevated-bg)', borderRadius: '12px', border: '1px solid var(--stock-border)', overflow: 'auto' }}>
+                <div className="adjustment-list-container">
                   <IonGrid className="ion-no-padding" style={{ marginTop: 0 }}>
-                    <IonRow className="ion-grid-heading-row" style={{ position: "sticky", top: 0, zIndex: 10, backgroundColor: 'var(--stock-bg)' }}>
-                      <IonCol size="4"><input value="Employee Name" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
-                      <IonCol size="2"><input value="Add_Days" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
-                      <IonCol size="2"><input value="Remarks" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
-                      <IonCol size="2"><input value="Advance" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
-                      <IonCol size="2"><input value="Adv. Repay" readOnly style={{ backgroundColor: 'transparent', color: 'var(--stock-text)', border: 'none', fontWeight: 600 }} /></IonCol>
+                    <IonRow className="ion-grid-heading-row" style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                      <IonCol size="4"><span>Employee Name</span></IonCol>
+                      <IonCol size="2"><span>Add_Days</span></IonCol>
+                      <IonCol size="2"><span>Remarks</span></IonCol>
+                      <IonCol size="2"><span>Advance</span></IonCol>
+                      <IonCol size="2"><span>Adv. Repay</span></IonCol>
                     </IonRow>
                     {dt_SalAdjust.map((x: any, i: number) => (
-                      <IonRow key={i} className="adjustment-row" style={{ borderBottom: '1px solid var(--stock-border)' }}>
+                      <IonRow key={i} className="adjustment-row">
                         <IonCol size="4">
                           <input
                             type="text"
                             className="adjustment-input stock-input"
                             readOnly
                             value={x.Empname}
-                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
-                          <input
-                            type="number"
-                            className="adjustment-input stock-input"
-                            placeholder="Add Days"
-                            value={x.Add_Days || ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              const updated = [...dt_SalAdjust];
-                              updated[i].Add_Days = value;
-                              setDt_SalAdjust(updated);
-                              UpdateAdjustmentField(x.Empcode, "Add_Days", value);
-                            }}
-                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
-                          />
+                          <div className="add-days-cell-wrapper">
+                            <input
+                              type="text"
+                              className={`adjustment-input stock-input ${
+                                x.Add_Days && parseFloat(x.Add_Days) > 0
+                                  ? "adjustment-val-positive"
+                                  : x.Add_Days && parseFloat(x.Add_Days) < 0
+                                  ? "adjustment-val-negative"
+                                  : ""
+                              }`}
+                              placeholder="Add/Deduct"
+                              value={x.Add_Days || ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const updated = [...dt_SalAdjust];
+                                updated[i].Add_Days = value;
+                                setDt_SalAdjust(updated);
+                                UpdateAdjustmentField(x.Empcode, "Add_Days", value);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="calc-trigger-btn"
+                              title="Late Minutes & Days Calculator"
+                              onClick={() => {
+                                setSelectedAdjEmp({
+                                  empCode: x.Empcode,
+                                  empName: x.Empname,
+                                  currentAddDays: x.Add_Days,
+                                  currentRemarks: x.Remarks,
+                                });
+                                setIsAdjModalOpen(true);
+                              }}
+                            >
+                              <Calculator size={14} />
+                            </button>
+                          </div>
                         </IonCol>
                         <IonCol size="2">
                           <input
@@ -900,7 +980,6 @@ const UpdateAdjustmentField = async (
                               setDt_SalAdjust(updated);
                               UpdateAdjustmentField(x.Empcode, "Remarks", value);
                             }}
-                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
@@ -910,7 +989,6 @@ const UpdateAdjustmentField = async (
                             readOnly
                             placeholder="Advance"
                             value={x.Advance || ""}
-                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                         <IonCol size="2">
@@ -926,7 +1004,6 @@ const UpdateAdjustmentField = async (
                               setDt_SalAdjust(updated);
                               UpdateAdjustmentField(x.Empcode, "Advance_Ded", value);
                             }}
-                            style={{ border: 'none', backgroundColor: 'transparent', height: '100%', padding: '8px' }}
                           />
                         </IonCol>
                       </IonRow>
@@ -935,6 +1012,13 @@ const UpdateAdjustmentField = async (
                 </div>
               </div>
             )}
+
+            <LateAdjustmentModal
+              isOpen={isAdjModalOpen}
+              onClose={() => setIsAdjModalOpen(false)}
+              data={selectedAdjEmp}
+              onApply={handleApplyAdjustment}
+            />
 
             <IonLoading isOpen={loading} message="Processing..." />
             
