@@ -52,7 +52,14 @@ const getAuthHeaders = () => {
 const checkIsAdmin = (user: any) => {
   if (!user) return false;
   const designation = String(user.designation || user.Designation || user.UserDesig || "").trim().toLowerCase();
-  return designation === "hr" || designation === "in-charge f&a";
+  const empCode = String(user.empCode || user.EmpCode || user.empcode || user.Empcode || user.id || "").trim();
+  const adminEmpCodes = ["1501", "1635", "1509", "1601", "1508", "1541"];
+  return (
+    designation === "hr" ||
+    designation === "in-charge f&a" ||
+    designation === "director" ||
+    adminEmpCodes.includes(empCode)
+  );
 };
 
 const generateMonthList = () => {

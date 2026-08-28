@@ -1,5 +1,4 @@
-﻿// src/pages/Sources.tsx
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   IonCheckbox, IonContent, IonDatetime,
   IonInput, IonModal, IonPage, IonPopover,
@@ -622,6 +621,8 @@ const UserAccessSection: React.FC = () => {
 
 const Sources: React.FC = () => {
   const history = useHistory();
+  const hmnthPopoverRef = useRef<HTMLIonPopoverElement>(null);
+  const hdatePopoverRef = useRef<HTMLIonPopoverElement>(null);
   const [toast, setToast] = useState({
     open: false,
     msg: "",
@@ -690,38 +691,38 @@ const Sources: React.FC = () => {
   };
 
   const saveDesignation = async () => {
-  if (!Designation.trim()) {
-    return showToast("Please Enter The Designation Value...!", "danger");
-  }
+    if (!Designation.trim()) {
+      return showToast("Please Enter The Designation Value...!", "danger");
+    }
 
-  try {
-    const payload = {
-      _Designation_ID: tempDisgId,
-      _Designation: Designation.trim()
-    };
+    try {
+      const payload = {
+        _Designation_ID: tempDisgId,
+        _Designation: Designation.trim()
+      };
 
-    const r = await axios.post(
-      `${API_BASE}Sources/Save_Designation`,
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders()
+      const r = await axios.post(
+        `${API_BASE}Sources/Save_Designation`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders()
+          }
         }
-      }
-    );
+      );
 
-    showToast("Record Successfully Submitted...!");
+      showToast("Record Successfully Submitted...!");
 
-    setDesignation("");
-    setTempDisgId(0);
-    loadDesignations();
-  }
-  catch (e:any) {
-    console.log(e.response?.data);
-    showToast("Error While Sending...!", "danger");
-  }
-};
+      setDesignation("");
+      setTempDisgId(0);
+      loadDesignations();
+    }
+    catch (e: any) {
+      console.log(e.response?.data);
+      showToast("Error While Sending...!", "danger");
+    }
+  };
 
   // 2b. Branches (tbl_Branch) - the master list behind the Branch dropdown on
   //     the Employee Profile screen. Each branch also carries a BranchDept,
@@ -1120,7 +1121,7 @@ const Sources: React.FC = () => {
       return cmp(a[secondary].label, b[secondary].label);
     });
   }, [movementPairs, movementFromSearch, movementToSearch,
-      movementSortCol, movementSortDir]);
+    movementSortCol, movementSortDir]);
 
   /** The visible rows folded under their Moving From row. Group order and the
    *  order inside each group both come straight from movementVisible, so the
@@ -1702,7 +1703,7 @@ const Sources: React.FC = () => {
     <IonPage>
       <IonContent className="page-content">
         <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
-          
+
           {/* ── Premium Header ── */}
           <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
             <div className="page-wr-header-left">
@@ -1725,7 +1726,7 @@ const Sources: React.FC = () => {
           </div>
 
           <div className="stock-panel" style={{ margin: '0 16px 20px 16px', padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
-            
+
             {/* Tabs */}
             <div className="stock-tabs" style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px', paddingBottom: '8px' }}>
               {String(user?.EmpCode ?? user?.empCode ?? "") === "1501" && (
@@ -1779,7 +1780,7 @@ const Sources: React.FC = () => {
               <div className="stock-panel">
                 <h3 className="stock-section-heading">Holidays Management</h3>
                 <div className="stock-grid" style={{ marginBottom: '16px' }}>
-                  
+
                   <div className="stock-field">
                     <label>Year</label>
                     <div id="hyear-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: Hyear ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
@@ -1789,17 +1790,28 @@ const Sources: React.FC = () => {
                       <IonDatetime presentation="date" value={Hyear} onIonChange={(e) => setHyear((e.detail.value as string).split('T')[0])} />
                     </IonPopover>
                   </div>
-                  
+
                   <div className="stock-field">
                     <label>Month</label>
                     <div id="hmnth-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: HMnth ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
-                      {HMnth ? HMnth : "Select Month"}
+                      {HMnth && moment(HMnth).format("M") !== "Invalid date" ? moment(HMnth).format("MMM YYYY") : "Select Month"}
                     </div>
-                    <IonPopover trigger="hmnth-trigger" triggerAction="click" alignment="start">
-                      <IonDatetime presentation="month-year" value={HMnth ? HMnth + "-01" : undefined} onIonChange={(e) => setHMnth((e.detail.value as string).substring(0, 7))} />
+                    <IonPopover ref={hmnthPopoverRef} trigger="hmnth-trigger" triggerAction="click" alignment="start">
+                      <IonDatetime
+                        presentation="month-year"
+                        value={HMnth ? HMnth + "-01" : moment().format("YYYY-MM-DD")}
+                        showDefaultButtons={true}
+                        onIonCancel={() => hmnthPopoverRef.current?.dismiss()}
+                        onIonChange={(e) => {
+                          if (e.detail.value) {
+                            setHMnth((e.detail.value as string).substring(0, 7));
+                            hmnthPopoverRef.current?.dismiss();
+                          }
+                        }}
+                      />
                     </IonPopover>
                   </div>
-                  
+
                   <div className="stock-field">
                     <label style={{ visibility: 'hidden' }}>Actions</label>
                     <div style={{ display: 'flex', gap: '8px', height: '100%' }}>
@@ -1822,8 +1834,19 @@ const Sources: React.FC = () => {
                       <div id="hdate-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: HDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
                         {HDate ? new Date(HDate).toLocaleDateString() : "Select Date"}
                       </div>
-                      <IonPopover trigger="hdate-trigger" triggerAction="click" alignment="start">
-                        <IonDatetime presentation="date" value={HDate} onIonChange={(e) => setHDate((e.detail.value as string).split('T')[0])} />
+                      <IonPopover ref={hdatePopoverRef} trigger="hdate-trigger" triggerAction="click" alignment="start">
+                        <IonDatetime
+                          presentation="date"
+                          value={HDate ? HDate : moment().format("YYYY-MM-DD")}
+                          showDefaultButtons={true}
+                          onIonCancel={() => hdatePopoverRef.current?.dismiss()}
+                          onIonChange={(e) => {
+                            if (e.detail.value) {
+                              setHDate((e.detail.value as string).split('T')[0]);
+                              hdatePopoverRef.current?.dismiss();
+                            }
+                          }}
+                        />
                       </IonPopover>
                     </div>
                     <div className="stock-field">
@@ -1953,7 +1976,7 @@ const Sources: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
                   <button className="stock-button" onClick={saveVendor}>Save Vendor</button>
                 </div>
-                
+
                 <div className="src-scroll-list" style={{ maxHeight: "350px" }}>
                   {vendors.map(v => (
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--stock-border)', cursor: 'pointer' }} key={v.VID} onClick={() => { setVID(String(v.VID)); setVendor_Name(v.Vendor_Name); setVendor_Type(v.Vendor_Type); setGST_No(v.GST_No); }}>
@@ -2033,7 +2056,7 @@ const Sources: React.FC = () => {
                   </div>
                 </div>
                 <button className="stock-button" onClick={saveMaint}>Save Maintenance</button>
-                
+
                 <div className="stock-table-wrapper" style={{ marginTop: '20px', maxHeight: '300px' }}>
                   <table className="stock-table">
                     <thead><tr><th>Work</th><th style={{ textAlign: 'right' }}>Days Left</th></tr></thead>
@@ -2077,138 +2100,138 @@ const Sources: React.FC = () => {
                 </h3>
 
                 {branchesOpen && (<>
-                <p style={{ margin: '12px 0 16px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
-                  These entries fill the Branch dropdown on the Employee Profile screen.
-                  Each branch also carries a Branch Dept, and the distinct values across
-                  all branches fill the Branch Dept dropdown beside it.
-                </p>
+                  <p style={{ margin: '12px 0 16px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
+                    These entries fill the Branch dropdown on the Employee Profile screen.
+                    Each branch also carries a Branch Dept, and the distinct values across
+                    all branches fill the Branch Dept dropdown beside it.
+                  </p>
 
-                <div className="stock-field" style={{ marginBottom: '16px' }}>
-                  <label>{tempBranchId ? "Edit Branch" : "New Branch"}</label>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <input
-                      type="text"
-                      className="stock-input"
-                      style={{ flex: '2 1 200px' }}
-                      value={BranchName}
-                      placeholder="Branch name - e.g. Visakhapatnam"
-                      onChange={(e) => setBranchName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") saveBranch(); }}
-                    />
-                    <input
-                      type="text"
-                      className="stock-input"
-                      style={{ flex: '2 1 180px' }}
-                      value={BranchDeptName}
-                      placeholder="Branch dept - e.g. Operations"
-                      list="branch-dept-suggestions"
-                      onChange={(e) => setBranchDeptName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") saveBranch(); }}
-                    />
-                    {/* reuse depts already typed on other branches so the same
+                  <div className="stock-field" style={{ marginBottom: '16px' }}>
+                    <label>{tempBranchId ? "Edit Branch" : "New Branch"}</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <input
+                        type="text"
+                        className="stock-input"
+                        style={{ flex: '2 1 200px' }}
+                        value={BranchName}
+                        placeholder="Branch name - e.g. Visakhapatnam"
+                        onChange={(e) => setBranchName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveBranch(); }}
+                      />
+                      <input
+                        type="text"
+                        className="stock-input"
+                        style={{ flex: '2 1 180px' }}
+                        value={BranchDeptName}
+                        placeholder="Branch dept - e.g. Operations"
+                        list="branch-dept-suggestions"
+                        onChange={(e) => setBranchDeptName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveBranch(); }}
+                      />
+                      {/* reuse depts already typed on other branches so the same
                         name is not re-spelled three different ways */}
-                    <datalist id="branch-dept-suggestions">
-                      {Array.from(
-                        new Set(
-                          branchList
-                            .map((b) => String(b.BranchDept ?? "").trim())
-                            .filter((v) => v !== "")
-                        )
-                      ).map((v) => (
-                        <option key={v} value={v} />
-                      ))}
-                    </datalist>
-                    <button className="stock-button" onClick={saveBranch} disabled={branchSaving}>
-                      {branchSaving ? "Saving..." : tempBranchId ? "Update" : "Save"}
-                    </button>
-                    {tempBranchId > 0 && (
-                      <button
-                        className="stock-button stock-button--secondary"
-                        onClick={() => { setBranchName(""); setBranchDeptName(""); setTempBranchId(0); }}
-                      >
-                        Cancel
+                      <datalist id="branch-dept-suggestions">
+                        {Array.from(
+                          new Set(
+                            branchList
+                              .map((b) => String(b.BranchDept ?? "").trim())
+                              .filter((v) => v !== "")
+                          )
+                        ).map((v) => (
+                          <option key={v} value={v} />
+                        ))}
+                      </datalist>
+                      <button className="stock-button" onClick={saveBranch} disabled={branchSaving}>
+                        {branchSaving ? "Saving..." : tempBranchId ? "Update" : "Save"}
                       </button>
+                      {tempBranchId > 0 && (
+                        <button
+                          className="stock-button stock-button--secondary"
+                          onClick={() => { setBranchName(""); setBranchDeptName(""); setTempBranchId(0); }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                    {tempBranchId > 0 && (
+                      <small style={{ display: 'block', marginTop: '6px', color: 'var(--stock-muted)' }}>
+                        Renaming the branch also updates every employee currently assigned to it.
+                      </small>
                     )}
                   </div>
-                  {tempBranchId > 0 && (
-                    <small style={{ display: 'block', marginTop: '6px', color: 'var(--stock-muted)' }}>
-                      Renaming the branch also updates every employee currently assigned to it.
-                    </small>
-                  )}
-                </div>
 
-                <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
-                  <table className="stock-table">
-                    <thead><tr><th>Branch</th><th>Branch Dept</th><th style={{ width: '150px' }}></th></tr></thead>
-                    <tbody>
-                      {branchList.map((b) => {
-                        const lid = Number(b.LID);
-                        const confirming = branchDeleteId === lid;
-                        const deleting = branchDeletingId === lid;
-                        return (
-                        <tr
-                          key={b.LID}
-                          onClick={() => {
-                            setBranchName(String(b.Branch ?? ""));
-                            setBranchDeptName(String(b.BranchDept ?? ""));
-                            setTempBranchId(lid);
-                          }}
-                          style={{
-                            cursor: 'pointer',
-                            background: confirming
-                              ? 'rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.10)'
-                              : Number(tempBranchId) === lid
-                                ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08)'
-                                : undefined,
-                          }}
-                        >
-                          <td>{b.Branch}</td>
-                          <td>{String(b.BranchDept ?? "").trim() || "-"}</td>
-                          <td onClick={(e) => e.stopPropagation()} style={{ padding: '2px 10px' }}>
-                            {/* stopPropagation on the cell, not just the buttons:
+                  <div className="stock-table-wrapper" style={{ maxHeight: '400px' }}>
+                    <table className="stock-table">
+                      <thead><tr><th>Branch</th><th>Branch Dept</th><th style={{ width: '150px' }}></th></tr></thead>
+                      <tbody>
+                        {branchList.map((b) => {
+                          const lid = Number(b.LID);
+                          const confirming = branchDeleteId === lid;
+                          const deleting = branchDeletingId === lid;
+                          return (
+                            <tr
+                              key={b.LID}
+                              onClick={() => {
+                                setBranchName(String(b.Branch ?? ""));
+                                setBranchDeptName(String(b.BranchDept ?? ""));
+                                setTempBranchId(lid);
+                              }}
+                              style={{
+                                cursor: 'pointer',
+                                background: confirming
+                                  ? 'rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.10)'
+                                  : Number(tempBranchId) === lid
+                                    ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08)'
+                                    : undefined,
+                              }}
+                            >
+                              <td>{b.Branch}</td>
+                              <td>{String(b.BranchDept ?? "").trim() || "-"}</td>
+                              <td onClick={(e) => e.stopPropagation()} style={{ padding: '2px 10px' }}>
+                                {/* stopPropagation on the cell, not just the buttons:
                                 the row click loads this branch into the edit form,
                                 and reaching for Delete should not do that. */}
-                            {confirming ? (
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <button
-                                  className="stock-button"
-                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none', background: 'var(--ion-color-danger, #eb445a)' }}
-                                  disabled={deleting}
-                                  onClick={() => deleteBranch(lid)}
-                                >
-                                  {deleting ? "Deleting..." : "Confirm"}
-                                </button>
-                                <button
-                                  className="stock-button stock-button--secondary"
-                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
-                                  disabled={deleting}
-                                  onClick={() => setBranchDeleteId(0)}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                className="stock-button stock-button--secondary"
-                                style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
-                                title="Delete this branch and dept row"
-                                onClick={() => setBranchDeleteId(lid)}
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {branchList.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
-                      No branches found.
-                    </div>
-                  )}
-                </div>
+                                {confirming ? (
+                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <button
+                                      className="stock-button"
+                                      style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none', background: 'var(--ion-color-danger, #eb445a)' }}
+                                      disabled={deleting}
+                                      onClick={() => deleteBranch(lid)}
+                                    >
+                                      {deleting ? "Deleting..." : "Confirm"}
+                                    </button>
+                                    <button
+                                      className="stock-button stock-button--secondary"
+                                      style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                      disabled={deleting}
+                                      onClick={() => setBranchDeleteId(0)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="stock-button stock-button--secondary"
+                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                    title="Delete this branch and dept row"
+                                    onClick={() => setBranchDeleteId(lid)}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {branchList.length === 0 && (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                        No branches found.
+                      </div>
+                    )}
+                  </div>
                 </>)}
 
                 {/* ---------- On-duty movement check-in times ---------- */}
@@ -2238,334 +2261,334 @@ const Sources: React.FC = () => {
                 </h3>
 
                 {movementOpen && (<>
-                <p style={{ margin: '12px 0 14px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
-                  Every combination of the branch/dept rows above is listed here, in both
-                  directions. Leave a movement blank and the person keeps the actual in-time
-                  from their own profile - that is the normal case, and nothing is stored for
-                  it. Fill a time in only where moving there should change when they are
-                  expected, e.g. Eluru / DBS to Vizag / AU at 11:00. Distance is the length
-                  of that trip in km, and is independent of the time: fill in either, both,
-                  or neither. A movement is stored as soon as one of the two is set, and
-                  goes away again only when both are cleared. A distance typed here also
-                  fills in the return trip, since it is the same road either way - give
-                  the return leg its own figure and it stops following. Mirror distances
-                  does the same for everything entered before.
-                </p>
+                  <p style={{ margin: '12px 0 14px 0', fontSize: '0.8rem', color: 'var(--stock-muted)' }}>
+                    Every combination of the branch/dept rows above is listed here, in both
+                    directions. Leave a movement blank and the person keeps the actual in-time
+                    from their own profile - that is the normal case, and nothing is stored for
+                    it. Fill a time in only where moving there should change when they are
+                    expected, e.g. Eluru / DBS to Vizag / AU at 11:00. Distance is the length
+                    of that trip in km, and is independent of the time: fill in either, both,
+                    or neither. A movement is stored as soon as one of the two is set, and
+                    goes away again only when both are cleared. A distance typed here also
+                    fills in the return trip, since it is the same road either way - give
+                    the return leg its own figure and it stops following. Mirror distances
+                    does the same for everything entered before.
+                  </p>
 
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
-                  <input
-                    type="text"
-                    className="stock-input"
-                    style={{ flex: '1 1 190px' }}
-                    value={movementFromSearch}
-                    placeholder="Moving from - e.g. Vizag SDE"
-                    onChange={(e) => setMovementFromSearch(e.target.value)}
-                  />
-                  <span style={{ color: 'var(--stock-muted)', fontSize: '0.9rem' }}>&#8594;</span>
-                  <input
-                    type="text"
-                    className="stock-input"
-                    style={{ flex: '1 1 190px' }}
-                    value={movementToSearch}
-                    placeholder="Moving to - e.g. Vizag AU"
-                    onChange={(e) => setMovementToSearch(e.target.value)}
-                  />
-                  {(movementFromSearch || movementToSearch) && (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '1 1 190px' }}
+                      value={movementFromSearch}
+                      placeholder="Moving from - e.g. Vizag SDE"
+                      onChange={(e) => setMovementFromSearch(e.target.value)}
+                    />
+                    <span style={{ color: 'var(--stock-muted)', fontSize: '0.9rem' }}>&#8594;</span>
+                    <input
+                      type="text"
+                      className="stock-input"
+                      style={{ flex: '1 1 190px' }}
+                      value={movementToSearch}
+                      placeholder="Moving to - e.g. Vizag AU"
+                      onChange={(e) => setMovementToSearch(e.target.value)}
+                    />
+                    {(movementFromSearch || movementToSearch) && (
+                      <button
+                        className="stock-button stock-button--secondary"
+                        style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                        onClick={() => { setMovementFromSearch(""); setMovementToSearch(""); }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <span style={{ fontSize: '0.78rem', color: 'var(--stock-muted)' }}>
+                      {movementVisible.length} of {movementPairs.length} shown, {movementTimeCount} time{movementTimeCount === 1 ? '' : 's'} and {movementDistCount} distance{movementDistCount === 1 ? '' : 's'} set
+                    </span>
                     <button
                       className="stock-button stock-button--secondary"
                       style={{ padding: '2px 10px', fontSize: '0.75rem' }}
-                      onClick={() => { setMovementFromSearch(""); setMovementToSearch(""); }}
-                    >
-                      Reset
-                    </button>
-                  )}
-                  <span style={{ fontSize: '0.78rem', color: 'var(--stock-muted)' }}>
-                    {movementVisible.length} of {movementPairs.length} shown, {movementTimeCount} time{movementTimeCount === 1 ? '' : 's'} and {movementDistCount} distance{movementDistCount === 1 ? '' : 's'} set
-                  </span>
-                  <button
-                    className="stock-button stock-button--secondary"
-                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
-                    onClick={() => {
-                      const all: Record<string, boolean> = {};
-                      movementGroups.forEach((g: any) => { all[g.key] = true; });
-                      setMovementGroupOpen(all);
-                    }}
-                  >
-                    Expand all
-                  </button>
-                  <button
-                    className="stock-button stock-button--secondary"
-                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
-                    onClick={() => {
-                      // Every group written as false explicitly, not reset to {} -
-                      // an empty map would hand groups back to the filter default,
-                      // which is open, and the click would appear to do nothing.
-                      const all: Record<string, boolean> = {};
-                      movementGroups.forEach((g: any) => { all[g.key] = false; });
-                      setMovementGroupOpen(all);
-                    }}
-                  >
-                    Collapse all
-                  </button>
-                  <button
-                    className="stock-button stock-button--secondary"
-                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
-                    title="Copy every distance onto its return trip, where the return has none. Distances already filled in are left alone."
-                    onClick={mirrorDistances}
-                  >
-                    Mirror distances
-                  </button>
-                  <button
-                    className="stock-button"
-                    onClick={saveBranchMovement}
-                    disabled={movementSaving || movementDirtyKeys.length === 0}
-                  >
-                    {movementSaving
-                      ? "Saving..."
-                      : movementDirtyKeys.length
-                        ? `Save ${movementDirtyKeys.length} change${movementDirtyKeys.length === 1 ? "" : "s"}`
-                        : "Save"}
-                  </button>
-                  {movementDirtyKeys.length > 0 && !movementSaving && (
-                    <button
-                      className="stock-button stock-button--secondary"
                       onClick={() => {
-                        setMovementDraft({});
-                        setMovementDistDraft({});
-                        setMovementDistTouched({});
+                        const all: Record<string, boolean> = {};
+                        movementGroups.forEach((g: any) => { all[g.key] = true; });
+                        setMovementGroupOpen(all);
                       }}
                     >
-                      Discard
+                      Expand all
                     </button>
-                  )}
-                </div>
+                    <button
+                      className="stock-button stock-button--secondary"
+                      style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                      onClick={() => {
+                        // Every group written as false explicitly, not reset to {} -
+                        // an empty map would hand groups back to the filter default,
+                        // which is open, and the click would appear to do nothing.
+                        const all: Record<string, boolean> = {};
+                        movementGroups.forEach((g: any) => { all[g.key] = false; });
+                        setMovementGroupOpen(all);
+                      }}
+                    >
+                      Collapse all
+                    </button>
+                    <button
+                      className="stock-button stock-button--secondary"
+                      style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                      title="Copy every distance onto its return trip, where the return has none. Distances already filled in are left alone."
+                      onClick={mirrorDistances}
+                    >
+                      Mirror distances
+                    </button>
+                    <button
+                      className="stock-button"
+                      onClick={saveBranchMovement}
+                      disabled={movementSaving || movementDirtyKeys.length === 0}
+                    >
+                      {movementSaving
+                        ? "Saving..."
+                        : movementDirtyKeys.length
+                          ? `Save ${movementDirtyKeys.length} change${movementDirtyKeys.length === 1 ? "" : "s"}`
+                          : "Save"}
+                    </button>
+                    {movementDirtyKeys.length > 0 && !movementSaving && (
+                      <button
+                        className="stock-button stock-button--secondary"
+                        onClick={() => {
+                          setMovementDraft({});
+                          setMovementDistDraft({});
+                          setMovementDistTouched({});
+                        }}
+                      >
+                        Discard
+                      </button>
+                    )}
+                  </div>
 
-                <div className="stock-table-wrapper" style={{ maxHeight: '460px' }}>
-                  <table className="stock-table">
-                    <thead>
-                      <tr>
-                        <th
-                          onClick={() => sortMovementBy("from")}
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          title="Sort by Moving From"
-                        >
-                          Moving From
-                          <span style={{ marginLeft: '6px', opacity: movementSortCol === "from" ? 1 : 0.28 }}>
-                            {movementSortCol === "from" && movementSortDir === "desc" ? "\u25BC" : "\u25B2"}
-                          </span>
-                        </th>
-                        <th
-                          onClick={() => sortMovementBy("to")}
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          title="Sort by Moving To"
-                        >
-                          Moving To
-                          <span style={{ marginLeft: '6px', opacity: movementSortCol === "to" ? 1 : 0.28 }}>
-                            {movementSortCol === "to" && movementSortDir === "desc" ? "\u25BC" : "\u25B2"}
-                          </span>
-                        </th>
-                        <th style={{ width: '230px' }}>Check-in Time</th>
-                        <th style={{ width: '140px' }}>Distance (km)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movementGroups.map((g: any) => {
-                        const open = isMovementGroupOpen(g.key);
-                        // Counted off the draft as well as the saved map, so the
-                        // header agrees with the inputs the moment one is typed in,
-                        // and counted per column so a group full of distances still
-                        // says how many of its check-in times are set.
-                        const effTime = (r: any) =>
-                          Object.prototype.hasOwnProperty.call(movementDraft, r.k)
-                            ? movementDraft[r.k]
-                            : (movementRules[r.k] ?? "");
-                        const effDist = (r: any) =>
-                          Object.prototype.hasOwnProperty.call(movementDistDraft, r.k)
-                            ? movementDistDraft[r.k]
-                            : (movementDistRules[r.k] ?? "");
-                        const timeCount = g.rows.filter((r: any) => String(effTime(r)).trim() !== "").length;
-                        // Zero does not add to this, same as the totals above.
-                        const distCount = g.rows.filter((r: any) => distIsSet(effDist(r))).length;
-                        const groupDirty = g.rows.some((r: any) =>
-                          Object.prototype.hasOwnProperty.call(movementDraft, r.k)
-                          || Object.prototype.hasOwnProperty.call(movementDistDraft, r.k));
+                  <div className="stock-table-wrapper" style={{ maxHeight: '460px' }}>
+                    <table className="stock-table">
+                      <thead>
+                        <tr>
+                          <th
+                            onClick={() => sortMovementBy("from")}
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            title="Sort by Moving From"
+                          >
+                            Moving From
+                            <span style={{ marginLeft: '6px', opacity: movementSortCol === "from" ? 1 : 0.28 }}>
+                              {movementSortCol === "from" && movementSortDir === "desc" ? "\u25BC" : "\u25B2"}
+                            </span>
+                          </th>
+                          <th
+                            onClick={() => sortMovementBy("to")}
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            title="Sort by Moving To"
+                          >
+                            Moving To
+                            <span style={{ marginLeft: '6px', opacity: movementSortCol === "to" ? 1 : 0.28 }}>
+                              {movementSortCol === "to" && movementSortDir === "desc" ? "\u25BC" : "\u25B2"}
+                            </span>
+                          </th>
+                          <th style={{ width: '230px' }}>Check-in Time</th>
+                          <th style={{ width: '140px' }}>Distance (km)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {movementGroups.map((g: any) => {
+                          const open = isMovementGroupOpen(g.key);
+                          // Counted off the draft as well as the saved map, so the
+                          // header agrees with the inputs the moment one is typed in,
+                          // and counted per column so a group full of distances still
+                          // says how many of its check-in times are set.
+                          const effTime = (r: any) =>
+                            Object.prototype.hasOwnProperty.call(movementDraft, r.k)
+                              ? movementDraft[r.k]
+                              : (movementRules[r.k] ?? "");
+                          const effDist = (r: any) =>
+                            Object.prototype.hasOwnProperty.call(movementDistDraft, r.k)
+                              ? movementDistDraft[r.k]
+                              : (movementDistRules[r.k] ?? "");
+                          const timeCount = g.rows.filter((r: any) => String(effTime(r)).trim() !== "").length;
+                          // Zero does not add to this, same as the totals above.
+                          const distCount = g.rows.filter((r: any) => distIsSet(effDist(r))).length;
+                          const groupDirty = g.rows.some((r: any) =>
+                            Object.prototype.hasOwnProperty.call(movementDraft, r.k)
+                            || Object.prototype.hasOwnProperty.call(movementDistDraft, r.k));
 
-                        return (
-                          <React.Fragment key={g.key}>
-                            <tr
-                              onClick={() => toggleMovementGroup(g.key)}
-                              style={{
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                                background: groupDirty
-                                  ? 'rgba(255, 196, 0, 0.18)'
-                                  : 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.07)',
-                              }}
-                            >
-                              <td colSpan={4} style={{ fontWeight: 600, padding: '4px 10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <span
-                                    style={{
-                                      display: 'inline-block', fontSize: '0.7em', lineHeight: 1,
-                                      transition: 'transform 0.15s ease',
-                                      transform: open ? 'rotate(90deg)' : 'none',
-                                    }}
-                                  >
-                                    &#9654;
-                                  </span>
-                                  {g.label}
-                                  <span style={{ marginLeft: 'auto', fontWeight: 400, fontSize: '0.75rem', color: 'var(--stock-muted)' }}>
-                                    {g.rows.length} destination{g.rows.length === 1 ? '' : 's'}, {timeCount} time{timeCount === 1 ? '' : 's'}, {distCount} distance{distCount === 1 ? '' : 's'}
-                                    {groupDirty && ', unsaved'}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
+                          return (
+                            <React.Fragment key={g.key}>
+                              <tr
+                                onClick={() => toggleMovementGroup(g.key)}
+                                style={{
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  background: groupDirty
+                                    ? 'rgba(255, 196, 0, 0.18)'
+                                    : 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.07)',
+                                }}
+                              >
+                                <td colSpan={4} style={{ fontWeight: 600, padding: '4px 10px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span
+                                      style={{
+                                        display: 'inline-block', fontSize: '0.7em', lineHeight: 1,
+                                        transition: 'transform 0.15s ease',
+                                        transform: open ? 'rotate(90deg)' : 'none',
+                                      }}
+                                    >
+                                      &#9654;
+                                    </span>
+                                    {g.label}
+                                    <span style={{ marginLeft: 'auto', fontWeight: 400, fontSize: '0.75rem', color: 'var(--stock-muted)' }}>
+                                      {g.rows.length} destination{g.rows.length === 1 ? '' : 's'}, {timeCount} time{timeCount === 1 ? '' : 's'}, {distCount} distance{distCount === 1 ? '' : 's'}
+                                      {groupDirty && ', unsaved'}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
 
-                            {open && g.rows.map((p: any) => {
-                        const saved = movementRules[p.k] ?? "";
-                        const timeDirty = Object.prototype.hasOwnProperty.call(movementDraft, p.k);
-                        const val = timeDirty ? movementDraft[p.k] : saved;
-                        // Typing a value and then putting the original back must stop
-                        // counting as a change, or Save would post rows that say nothing.
-                        const setVal = (v: string) =>
-                          setMovementDraft((prev) => {
-                            const next = { ...prev };
-                            if (v === saved) delete next[p.k];
-                            else next[p.k] = v;
-                            return next;
-                          });
+                              {open && g.rows.map((p: any) => {
+                                const saved = movementRules[p.k] ?? "";
+                                const timeDirty = Object.prototype.hasOwnProperty.call(movementDraft, p.k);
+                                const val = timeDirty ? movementDraft[p.k] : saved;
+                                // Typing a value and then putting the original back must stop
+                                // counting as a change, or Save would post rows that say nothing.
+                                const setVal = (v: string) =>
+                                  setMovementDraft((prev) => {
+                                    const next = { ...prev };
+                                    if (v === saved) delete next[p.k];
+                                    else next[p.k] = v;
+                                    return next;
+                                  });
 
-                        const savedDist = movementDistRules[p.k] ?? "";
-                        const distDirty = Object.prototype.hasOwnProperty.call(movementDistDraft, p.k);
-                        const dval = distDirty ? movementDistDraft[p.k] : savedDist;
-                        // The same road measured the other way. Filled alongside this
-                        // one so a distance only has to be typed once per road, not
-                        // once per direction.
-                        const revK = reverseKey(p);
-                        const savedRev = movementDistRules[revK] ?? "";
-                        // The return leg follows this box on two conditions, and both
-                        // have to hold.
-                        //
-                        // It must not have been typed into by hand this session. That
-                        // is the escape hatch: give the way back its own figure and it
-                        // stops tracking, permanently, rather than being dragged along
-                        // the next time this side is touched.
-                        //
-                        // And it must still agree with what this box held a keystroke
-                        // ago - blank counts as agreeing. Typing digit by digit agrees
-                        // at every step, so "380" mirrors as 3, 38, 380 without the
-                        // link ever breaking, and clearing this box clears the mirror
-                        // with it. A return already carrying a different SAVED figure
-                        // fails this test and is left alone.
-                        const revFollows = !movementDistTouched[revK];
-                        const setDVal = (v: string) => {
-                          setMovementDistTouched((t) => (t[p.k] ? t : { ...t, [p.k]: true }));
-                          setMovementDistDraft((prev) => {
-                            const next = { ...prev };
-                            const clean = cleanDistance(v);
-                            // Compared after cleaning, so retyping "12.5" over "12.5"
-                            // does not register as an edit on the way through "12.".
-                            if (clean === savedDist) delete next[p.k];
-                            else next[p.k] = clean;
+                                const savedDist = movementDistRules[p.k] ?? "";
+                                const distDirty = Object.prototype.hasOwnProperty.call(movementDistDraft, p.k);
+                                const dval = distDirty ? movementDistDraft[p.k] : savedDist;
+                                // The same road measured the other way. Filled alongside this
+                                // one so a distance only has to be typed once per road, not
+                                // once per direction.
+                                const revK = reverseKey(p);
+                                const savedRev = movementDistRules[revK] ?? "";
+                                // The return leg follows this box on two conditions, and both
+                                // have to hold.
+                                //
+                                // It must not have been typed into by hand this session. That
+                                // is the escape hatch: give the way back its own figure and it
+                                // stops tracking, permanently, rather than being dragged along
+                                // the next time this side is touched.
+                                //
+                                // And it must still agree with what this box held a keystroke
+                                // ago - blank counts as agreeing. Typing digit by digit agrees
+                                // at every step, so "380" mirrors as 3, 38, 380 without the
+                                // link ever breaking, and clearing this box clears the mirror
+                                // with it. A return already carrying a different SAVED figure
+                                // fails this test and is left alone.
+                                const revFollows = !movementDistTouched[revK];
+                                const setDVal = (v: string) => {
+                                  setMovementDistTouched((t) => (t[p.k] ? t : { ...t, [p.k]: true }));
+                                  setMovementDistDraft((prev) => {
+                                    const next = { ...prev };
+                                    const clean = cleanDistance(v);
+                                    // Compared after cleaning, so retyping "12.5" over "12.5"
+                                    // does not register as an edit on the way through "12.".
+                                    if (clean === savedDist) delete next[p.k];
+                                    else next[p.k] = clean;
 
-                            const curRev = Object.prototype.hasOwnProperty.call(prev, revK)
-                              ? prev[revK]
-                              : savedRev;
-                            if (revFollows && (curRev === "" || curRev === dval)) {
-                              if (clean === savedRev) delete next[revK];
-                              else next[revK] = clean;
-                            }
-                            return next;
-                          });
-                        };
+                                    const curRev = Object.prototype.hasOwnProperty.call(prev, revK)
+                                      ? prev[revK]
+                                      : savedRev;
+                                    if (revFollows && (curRev === "" || curRev === dval)) {
+                                      if (clean === savedRev) delete next[revK];
+                                      else next[revK] = clean;
+                                    }
+                                    return next;
+                                  });
+                                };
 
-                        // One row, one highlight. The tint says "this movement has
-                        // something unsaved on it", not which of the two boxes.
-                        const dirty = timeDirty || distDirty;
-                        return (
-                          <tr key={p.k} style={{ background: dirty ? 'rgba(255, 196, 0, 0.14)' : undefined }}>
-                            {/* The From name lives in the group header now; this cell
+                                // One row, one highlight. The tint says "this movement has
+                                // something unsaved on it", not which of the two boxes.
+                                const dirty = timeDirty || distDirty;
+                                return (
+                                  <tr key={p.k} style={{ background: dirty ? 'rgba(255, 196, 0, 0.14)' : undefined }}>
+                                    {/* The From name lives in the group header now; this cell
                                 just carries the indent so the nesting is readable. */}
-                            <td style={{ textAlign: 'right', color: 'var(--stock-muted)', width: '40px', padding: '2px 10px' }}>&#8594;</td>
-                            <td style={{ padding: '2px 10px' }}>{p.to.label}</td>
-                            <td style={{ padding: '2px 10px' }}>
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <input
-                                  type="time"
-                                  className="stock-input"
-                                  style={{ maxWidth: '112px', minHeight: '26px', height: '26px', padding: '0 8px', fontSize: '12px' }}
-                                  value={val}
-                                  onChange={(e) => setVal(e.target.value)}
-                                />
-                                {val ? (
-                                  <button
-                                    className="stock-button stock-button--secondary"
-                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
-                                    title="Back to the actual in-time from the profile"
-                                    onClick={() => setVal("")}
-                                  >
-                                    Clear
-                                  </button>
-                                ) : (
-                                  <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
-                                    actual in-time from profile
-                                  </small>
-                                )}
-                              </div>
-                            </td>
-                            <td style={{ padding: '2px 10px' }}>
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                {/* Text, not number. A number input hands back the
+                                    <td style={{ textAlign: 'right', color: 'var(--stock-muted)', width: '40px', padding: '2px 10px' }}>&#8594;</td>
+                                    <td style={{ padding: '2px 10px' }}>{p.to.label}</td>
+                                    <td style={{ padding: '2px 10px' }}>
+                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <input
+                                          type="time"
+                                          className="stock-input"
+                                          style={{ maxWidth: '112px', minHeight: '26px', height: '26px', padding: '0 8px', fontSize: '12px' }}
+                                          value={val}
+                                          onChange={(e) => setVal(e.target.value)}
+                                        />
+                                        {val ? (
+                                          <button
+                                            className="stock-button stock-button--secondary"
+                                            style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                            title="Back to the actual in-time from the profile"
+                                            onClick={() => setVal("")}
+                                          >
+                                            Clear
+                                          </button>
+                                        ) : (
+                                          <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
+                                            actual in-time from profile
+                                          </small>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '2px 10px' }}>
+                                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        {/* Text, not number. A number input hands back the
                                     empty string for a half-typed "12.", which makes
                                     the decimal point impossible to get past; the
                                     sanitiser above does the same job and lets the
                                     dot survive being typed. */}
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  className="stock-input"
-                                  placeholder="-"
-                                  title="Road distance for this movement, in km"
-                                  style={{ maxWidth: '76px', minHeight: '26px', height: '26px', padding: '0 8px', fontSize: '12px', textAlign: 'right' }}
-                                  value={dval}
-                                  onChange={(e) => setDVal(e.target.value)}
-                                />
-                                {dval ? (
-                                  <button
-                                    className="stock-button stock-button--secondary"
-                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
-                                    title="Clear the distance"
-                                    onClick={() => setDVal("")}
-                                  >
-                                    Clear
-                                  </button>
-                                ) : (
-                                  <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
-                                    not recorded
-                                  </small>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                            })}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {movementPairs.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
-                      Add at least two branch/dept rows above before movements can be mapped.
-                    </div>
-                  )}
-                  {movementPairs.length > 0 && movementVisible.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
-                      No movement matches that filter.
-                    </div>
-                  )}
-                </div>
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          className="stock-input"
+                                          placeholder="-"
+                                          title="Road distance for this movement, in km"
+                                          style={{ maxWidth: '76px', minHeight: '26px', height: '26px', padding: '0 8px', fontSize: '12px', textAlign: 'right' }}
+                                          value={dval}
+                                          onChange={(e) => setDVal(e.target.value)}
+                                        />
+                                        {dval ? (
+                                          <button
+                                            className="stock-button stock-button--secondary"
+                                            style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                            title="Clear the distance"
+                                            onClick={() => setDVal("")}
+                                          >
+                                            Clear
+                                          </button>
+                                        ) : (
+                                          <small style={{ color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
+                                            not recorded
+                                          </small>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {movementPairs.length === 0 && (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                        Add at least two branch/dept rows above before movements can be mapped.
+                      </div>
+                    )}
+                    {movementPairs.length > 0 && movementVisible.length === 0 && (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--stock-muted)' }}>
+                        No movement matches that filter.
+                      </div>
+                    )}
+                  </div>
                 </>)}
               </div>
             )}
@@ -2774,7 +2797,7 @@ const Sources: React.FC = () => {
                           firstDot === -1
                             ? cleaned
                             : cleaned.slice(0, firstDot + 1) +
-                              cleaned.slice(firstDot + 1).replace(/\./g, "")
+                            cleaned.slice(firstDot + 1).replace(/\./g, "")
                         );
                       }}
                       onKeyDown={(e) => { if (e.key === "Enter") saveVehicle(); }}
@@ -2819,74 +2842,74 @@ const Sources: React.FC = () => {
                             : "";
                         const rate = String(v.PerKm ?? "").trim();
                         return (
-                        <tr
-                          key={v.VehId}
-                          onClick={() => {
-                            setVehOwnedBy(owner);
-                            setVehType(String(v.VehType ?? VEH_TYPES[1]));
-                            setVehNo(String(v.VehNo ?? "").toUpperCase());
-                            setVehModel(String(v.VehModel ?? ""));
-                            setVehPerKm(rate);
-                            setTempVehId(id);
-                          }}
-                          style={{
-                            cursor: 'pointer',
-                            background: confirming
-                              ? 'rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.10)'
-                              : Number(tempVehId) === id
-                                ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08)'
-                                : undefined,
-                          }}
-                        >
-                          <td>
-                            {owner || "-"}
-                            {ownerName && (
-                              <small style={{ display: 'block', color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
-                                {ownerName}
-                              </small>
-                            )}
-                          </td>
-                          <td>{String(v.VehType ?? "").trim() || "-"}</td>
-                          <td>{String(v.VehNo ?? "").trim() || "-"}</td>
-                          <td>{String(v.VehModel ?? "").trim() || "-"}</td>
-                          <td style={{ textAlign: 'right' }}>
-                            {/* Blank stays blank. A rate nobody has set is not
+                          <tr
+                            key={v.VehId}
+                            onClick={() => {
+                              setVehOwnedBy(owner);
+                              setVehType(String(v.VehType ?? VEH_TYPES[1]));
+                              setVehNo(String(v.VehNo ?? "").toUpperCase());
+                              setVehModel(String(v.VehModel ?? ""));
+                              setVehPerKm(rate);
+                              setTempVehId(id);
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              background: confirming
+                                ? 'rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.10)'
+                                : Number(tempVehId) === id
+                                  ? 'rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08)'
+                                  : undefined,
+                            }}
+                          >
+                            <td>
+                              {owner || "-"}
+                              {ownerName && (
+                                <small style={{ display: 'block', color: 'var(--stock-muted)', fontSize: '0.72rem' }}>
+                                  {ownerName}
+                                </small>
+                              )}
+                            </td>
+                            <td>{String(v.VehType ?? "").trim() || "-"}</td>
+                            <td>{String(v.VehNo ?? "").trim() || "-"}</td>
+                            <td>{String(v.VehModel ?? "").trim() || "-"}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              {/* Blank stays blank. A rate nobody has set is not
                                 a rate of zero, and printing 0.00 would say it
                                 was. */}
-                            {rate !== "" ? rate : <span style={{ color: 'var(--stock-muted)' }}>-</span>}
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()} style={{ padding: '2px 10px' }}>
-                            {confirming ? (
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <button
-                                  className="stock-button"
-                                  style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none', background: 'var(--ion-color-danger, #eb445a)' }}
-                                  disabled={deleting}
-                                  onClick={() => deleteVehicle(id)}
-                                >
-                                  {deleting ? "Deleting..." : "Confirm"}
-                                </button>
+                              {rate !== "" ? rate : <span style={{ color: 'var(--stock-muted)' }}>-</span>}
+                            </td>
+                            <td onClick={(e) => e.stopPropagation()} style={{ padding: '2px 10px' }}>
+                              {confirming ? (
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  <button
+                                    className="stock-button"
+                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none', background: 'var(--ion-color-danger, #eb445a)' }}
+                                    disabled={deleting}
+                                    onClick={() => deleteVehicle(id)}
+                                  >
+                                    {deleting ? "Deleting..." : "Confirm"}
+                                  </button>
+                                  <button
+                                    className="stock-button stock-button--secondary"
+                                    style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
+                                    disabled={deleting}
+                                    onClick={() => setVehDeleteId(0)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
                                 <button
                                   className="stock-button stock-button--secondary"
                                   style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
-                                  disabled={deleting}
-                                  onClick={() => setVehDeleteId(0)}
+                                  title="Remove this vehicle from the list"
+                                  onClick={() => setVehDeleteId(id)}
                                 >
-                                  Cancel
+                                  Delete
                                 </button>
-                              </div>
-                            ) : (
-                              <button
-                                className="stock-button stock-button--secondary"
-                                style={{ minHeight: '22px', height: '22px', padding: '0 10px', fontSize: '0.72rem', lineHeight: 1, boxShadow: 'none' }}
-                                title="Remove this vehicle from the list"
-                                onClick={() => setVehDeleteId(id)}
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </td>
-                        </tr>
+                              )}
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
