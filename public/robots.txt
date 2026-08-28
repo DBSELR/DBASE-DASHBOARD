@@ -1,12 +1,28 @@
-# Robots.txt for D Base Solutions (mobile.dbasesolutions.in)
+# Robots.txt for DBS Office Dashboard (mobile.dbasesolutions.in)
 User-agent: *
 Allow: /
+Allow: /terms
+Allow: /privacy
+Allow: /policies
+Allow: /delete-account
 Allow: /images/
 Allow: /favicon.ico
 Allow: /favicon.png
 Allow: /favicon-*.png
 Allow: /apple-touch-icon.png
 Allow: /og-image.png
+Allow: /manifest.json
+
+# Prevent crawlers from indexing private authenticated app routes
+Disallow: /home
+Disallow: /admin-dashboard
+Disallow: /attendance
+Disallow: /leave
+Disallow: /workreport
+Disallow: /admin-requests
+Disallow: /admin-workreport
+Disallow: /admin-leaves
+Disallow: /admin-on-duty
 
 User-agent: Googlebot
 Allow: /
