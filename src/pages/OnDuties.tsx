@@ -44,6 +44,7 @@ import { ChevronDown, Search, X, Check } from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
+import DaTaSettlementModal from "../components/DaTaSettlementModal";
 import { apiService } from "../utils/apiService";
 
 // "branch|dept", case- and whitespace-insensitive, so a row read out of
@@ -1499,6 +1500,12 @@ useEffect(() => {
         // convention (see APP_Load_Employee) - r[24] stays undefined,
         // harmlessly, until that proc is altered to include it.
         Emp_Codes: r[24],
+        // When each odometer photo was actually uploaded (tbl_OnDuty_DayTrip's
+        // ReadingFrom_UploadedOn/ReadingTo_UploadedOn) - appended after
+        // Emp_Codes for the same reason, used by the DA/TA popup to show
+        // "uploaded at" beside the reading photo links.
+        ReadingFrom_UploadedOn: r[25],
+        ReadingTo_UploadedOn: r[26],
       };
     }
 
@@ -4056,6 +4063,17 @@ useEffect(() => {
     return !!applicant && applicant === String(empCode || "").trim();
   };
 
+  // Was the logged-in person actually one of the people this duty was FOR
+  // (a camp participant, e.g. "MALLA RAMAKRISHNA (1633)" in row.empNames) -
+  // separate from canAmendDuty, which only covers whoever FILED the
+  // request (row.AppliedBy) plus RAs/edit-capable roles. A duty is very
+  // often filed by someone other than the people going on it, so without
+  // this a participant had no way to see their own DA/TA breakdown at all.
+  const isDutyParticipant = (row: DutyRow): boolean =>
+    formatEmployeeNames((row as any)?.empNames).some(
+      (e: any) => String(e.code || "").trim() === String(empCode || "").trim()
+    );
+
   // Whether it's currently the logged-in user's turn: CurrentLevel names a
   // slot number, and that specific slot's RA value must match the user -
   // matching some OTHER slot doesn't make it their turn.
@@ -4415,6 +4433,13 @@ useEffect(() => {
   }, [dutyDayPills, autoSelectAllDays, showDayPills]);
 
   const history = useHistory();
+  // Which duty (if any) the "DA / TA" popup is open for. Set instead of
+  // history.push("/datasettlement?duty=...") so the settlement numbers
+  // show in a popup over this page rather than navigating away from it.
+  const [dataDutyId, setDataDutyId] = useState<string | number | null>(null);
+  // Whether the currently-open DA/TA popup should show every camp
+  // member (an RA on that duty) or just the viewer's own row.
+  const [dataCanViewAll, setDataCanViewAll] = useState<boolean>(false);
   return (
     <div className="onduties-page">
       <div className="onduties-content">
@@ -5467,11 +5492,23 @@ useEffect(() => {
                   {/* A plain button, not an IonButton: an IonButton carries
                       its own height and margins and would set the header
                       row's height all by itself. */}
-                  {canAmendDuty(row) && isFullyApproved(row) && (
+                  {/* canAmendDuty already covers RAs (roleMatchesUser
+                      against RA1..RA4) and Accountant/Director - added
+                      isDutyParticipant so a camp participant who didn't
+                      personally file the request (very often the case) can
+                      still see their own DA/TA breakdown. The settlement
+                      page itself keeps Save/Approve limited to Accountant/
+                      Director regardless of how someone reached it, so
+                      widening this link to participants and RAs only ever
+                      grants a read-only view. */}
+                  {(canAmendDuty(row) || isDutyParticipant(row)) && isFullyApproved(row) && (
                     <button
                       type="button"
                       className="dm-data-link"
-                      onClick={() => history.push("/datasettlement?duty=" + row.id)}
+                      onClick={() => {
+                        setDataDutyId(row.id);
+                        setDataCanViewAll([row.RA1, row.RA2, row.RA3, row.RA4].some((ra) => roleMatchesUser(ra)));
+                      }}
                     >
                       DA / TA
                     </button>
@@ -8606,6 +8643,13 @@ updateTripDay(
           duration={2500}
           onDidDismiss={() => setToast(null)}
           position="top"
+        />
+
+        <DaTaSettlementModal
+          isOpen={!!dataDutyId}
+          dutyId={dataDutyId}
+          canViewAll={dataCanViewAll}
+          onClose={() => setDataDutyId(null)}
         />
       </div>
     </div>

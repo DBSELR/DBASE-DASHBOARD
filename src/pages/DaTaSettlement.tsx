@@ -140,6 +140,17 @@ const DaTaSettlement: React.FC = () => {
     return localStorage.getItem("empCode") || "";
   }, []);
 
+  // This page is reachable by more than just the Accountant/Director now -
+  // OnDuties.tsx's "DA / TA" link also shows to the duty's RAs and its own
+  // camp participants, so they can see their breakdown. Save freezes the
+  // rates against this duty and Approve marks it decided - both stay
+  // limited to the same two roles that already have edit rights over a
+  // duty elsewhere in the app (OnDuties.tsx's canEdit/isAccountant/
+  // isDirector). Everyone else gets a read-only view of the same numbers.
+  const isAccountant = empCode === "1541";
+  const isDirector = empCode === "1501";
+  const canManageSettlement = isAccountant || isDirector;
+
   const call = useCallback(async (route: string, body: any) => {
     return apiService.post("/OnDuty/" + route, body);
   }, []);
@@ -250,14 +261,18 @@ const DaTaSettlement: React.FC = () => {
             <IonButton size="small" fill="outline" disabled={!idOk || busy !== ""} onClick={() => run("saved")}>
               Open saved
             </IonButton>
-            <IonButton size="small" color="success" disabled={!rows.length || busy !== ""} onClick={save}>
-              <IonIcon slot="start" icon={saveOutline} />
-              Save
-            </IonButton>
-            <IonButton size="small" color="tertiary" disabled={!saved || !rows.length || busy !== ""} onClick={() => approve("Approved")}>
-              <IonIcon slot="start" icon={checkmarkDoneOutline} />
-              Approve
-            </IonButton>
+            {canManageSettlement && (
+              <>
+                <IonButton size="small" color="success" disabled={!rows.length || busy !== ""} onClick={save}>
+                  <IonIcon slot="start" icon={saveOutline} />
+                  Save
+                </IonButton>
+                <IonButton size="small" color="tertiary" disabled={!saved || !rows.length || busy !== ""} onClick={() => approve("Approved")}>
+                  <IonIcon slot="start" icon={checkmarkDoneOutline} />
+                  Approve
+                </IonButton>
+              </>
+            )}
             {busy !== "" && <IonSpinner name="dots" />}
           </div>
 

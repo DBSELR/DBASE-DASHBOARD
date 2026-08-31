@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import moment from "moment";
+import { useHistory } from "react-router-dom";
+import DaTaSettlementModal from "../DaTaSettlementModal";
 import { API_BASE } from "../../config";
 import "./RequestList.css";
 import { speedometerOutline } from "ionicons/icons";
@@ -112,6 +114,17 @@ const getUploadedImageUrl = (path: any) => {
   return `${base}${p.startsWith("/") ? p : `/${p}`}`;
 };
 
+// Reading photos and the client visit slip are the images crew use to mark
+// start-camp / end-camp for day trips, so showing WHEN each was actually
+// uploaded (not just that it exists) matters. These come back as plain
+// datetime strings/Date-ish values from the API - format defensively so a
+// null/invalid value just renders nothing instead of "Invalid date".
+const formatUploadedOn = (value: any) => {
+  if (!value) return "";
+  const m = moment(value);
+  return m.isValid() ? m.format("DD-MM-YYYY hh:mm A") : "";
+};
+
 
 // The overall verdict worked out from the approval chain, for a record that
 // carries no usable status of its own. tbl_On_Duties keeps TWO status columns
@@ -204,6 +217,16 @@ const getRejectionInfo = (item: any) => {
   return null;
 };
 const RequestList: React.FC<Props> = ({ type, view, status }) => {
+  const history = useHistory();
+  // Which duty (if any) the "DA / TA" popup is open for. Set instead of
+  // history.push("/datasettlement?duty=...") so the settlement numbers
+  // show in a popup over whatever list the user was already looking at,
+  // rather than navigating them away to a separate page.
+  const [dataDutyId, setDataDutyId] = useState<string | number | null>(null);
+  // Whether the currently-open DA/TA popup should show every camp
+  // member (an RA on that duty) or just the viewer's own row (a plain
+  // team member) - set alongside dataDutyId at whichever link opened it.
+  const [dataCanViewAll, setDataCanViewAll] = useState<boolean>(false);
   const [presentAlert] = useIonAlert();
   const [amountMap, setAmountMap] = useState<{ [key: string]: string }>({});
   const [commentMap, setCommentMap] = useState<{ [key: string]: string }>({});
@@ -1486,6 +1509,17 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     return !!item?.CurrentRA && normalizeText(item.CurrentRA) === normalizeText(getUser()?.designation);
   }
 
+  // Is the viewer ANY of this duty's RAs, not just whoever's turn it is
+  // right now - matches OnDuties.tsx's own canAmendDuty, which is what
+  // gates its "DA / TA" link.
+  function isAnyRAForOnDuty(item: any) {
+    const me = normalizeText(getUser()?.designation);
+    if (!me) return false;
+    return [item?.RA1, item?.RA2, item?.RA3, item?.RA4].some(
+      (ra) => !!ra && normalizeText(ra) === me
+    );
+  }
+
   // const canAct = (item: any) => {
   //   if (!item) return false;
 
@@ -2117,6 +2151,22 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                         View
                       </a>
                     </div>
+
+                    {/* Read-only on the settlement page itself for anyone
+                        who isn't Accountant/Director - this link just gets
+                        an RA there. */}
+                    {overallApproved && isAnyRAForOnDuty(item) && (
+                      <div className="dm-info-box">
+                        <span className="dm-item-label">DA / TA</span>
+                        <a
+                          href="#"
+                          className="dm-view-link"
+                          onClick={(e) => { e.preventDefault(); setDataDutyId(item.lid); setDataCanViewAll(true); }}
+                        >
+                          View
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   {/* Approve/Reject only when it's actually this viewer's
@@ -2630,7 +2680,22 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
 
             {/* HEADER */}
             <div className="modal-header">
-              <h3>On Duty Details</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                <h3>On Duty Details</h3>
+                {selectedDuty.lid && (
+                  <a
+                    href="#"
+                    className="dm-view-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDataDutyId(selectedDuty.lid);
+                      setDataCanViewAll(isAnyRAForOnDuty(selectedDuty));
+                    }}
+                  >
+                    DA / TA
+                  </a>
+                )}
+              </div>
               <button onClick={() => setViewModalOpen(false)}>✖</button>
             </div>
 
@@ -2689,6 +2754,17 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                       )}
                       {" "}({trip.distance} Km)
                     </p>
+                    {(trip.readingFromUploadedOn || trip.readingToUploadedOn) && (
+                      <p className="upload-time-note" style={{ fontSize: "11px", color: "#64748b", margin: "-6px 0 8px" }}>
+                        {trip.readingFromUploadedOn && (
+                          <>Reading From uploaded {formatUploadedOn(trip.readingFromUploadedOn)}</>
+                        )}
+                        {trip.readingFromUploadedOn && trip.readingToUploadedOn && " · "}
+                        {trip.readingToUploadedOn && (
+                          <>Reading To uploaded {formatUploadedOn(trip.readingToUploadedOn)}</>
+                        )}
+                      </p>
+                    )}
 
                     {trip.fuelAmount ? (
                       <p>
@@ -2729,6 +2805,12 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                           visit.client_Name
                         )}
                       </p>
+
+                      {visit.visit_ImagePathUploadedOn && (
+                        <p className="upload-time-note" style={{ fontSize: "11px", color: "#64748b", margin: "-6px 0 8px" }}>
+                          Client slip uploaded {formatUploadedOn(visit.visit_ImagePathUploadedOn)}
+                        </p>
+                      )}
 
                       <p>
                         <b>Location:</b>{" "}
@@ -2790,6 +2872,20 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                       <p>
                         <b>Remarks:</b> {visit.remarks}
                       </p>
+
+                      {visit.localTransportImagePath && (
+                        <p>
+                          <b>Local Transport:</b>{" "}
+                          <span
+                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
+                            onClick={() =>
+                              window.open(getUploadedImageUrl(visit.localTransportImagePath), "_blank")
+                            }
+                          >
+                            {visit.localTransportAmount ? `₹${visit.localTransportAmount}` : "View"}
+                          </span>
+                        </p>
+                      )}
                       </div>
 
                     </div>
@@ -2802,6 +2898,14 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
           </div>
         </div>
       )}
+
+      <DaTaSettlementModal
+        isOpen={!!dataDutyId}
+        dutyId={dataDutyId}
+        canViewAll={dataCanViewAll}
+        onClose={() => setDataDutyId(null)}
+      />
+
       {editOtModal && (
         <div className="modal-overlay">
           <div className="modal-container">

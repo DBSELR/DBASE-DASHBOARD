@@ -627,7 +627,12 @@
 ═══════════════════════════════════════════════════ */
 
 .dm-card {
-  width: 80% !important;
+  /* Was capped at 80% while .lr-history-card (the My Requests card) sits at
+     95% - the two card types already share the same <=768px width rule
+     below, this was the only place they diverged, and it's what left the
+     Team Requests cards narrower with visible side margins the My Requests
+     cards don't have. */
+  width: 95% !important;
   margin: 0 auto 16px auto !important;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(15px);

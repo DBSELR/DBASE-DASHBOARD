@@ -290,3 +290,543 @@
   .dt-day-hrs { margin-left: 0; }
   .dt-day-amt { margin-left: auto; }
 }
+
+/* Compact single-line-per-day strip used by the DA/TA popup
+   (DaTaSettlementModal) instead of the page's own .dt-day blocks above -
+   the .dt-grid already repeats Hours/DA/Distance for the card, so this
+   only needs to add what the grid can't: which day, the actual
+   clock-in/out, the paid window when it differs, and a missing-punch flag. */
+.dt-days-compact {
+  margin-top: 10px;
+  border-top: 1px dashed #e3e8f2;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dt-day-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #5a6480;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.dt-day-line-date {
+  font-weight: 700;
+  color: #333c5a;
+  min-width: 76px;
+}
+
+.dt-day-line-paid { color: #33518c; }
+.dt-day-line-km { color: #1f6b3f; }
+.dt-day-line-hrs { margin-left: auto; font-weight: 600; }
+
+.dt-day-line-amt {
+  font-weight: 700;
+  color: #1d2540;
+  min-width: 56px;
+  text-align: right;
+}
+
+.dt-day-line-flag {
+  color: #8c2020;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.dt-day-line-miss { color: #8c2020; }
+
+/* Tighter columns for the DA/TA popup's per-employee grid (DaTaSettlementModal)
+   so all of Days present/Hours/DA/Travel/Distance/Rate/TA - and Fuel/Local
+   when present - fit on one row instead of the last item or two wrapping
+   to a second line, matching the compact day-line strip right below it. */
+.dt-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 6px 10px;
+}
+
+/* Duty-level Travel/Distance/Rate summary (DaTaSettlementModal) - shown
+   once in the header instead of repeating on every employee's card when
+   the whole team travelled the same way. */
+.dt-trip-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f7f9fe;
+  border: 1px solid #e3e8f2;
+  border-radius: 12px;
+}
+
+.dt-trip-info > div { min-width: 90px; }
+
+.dt-trip-info span {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7b849c;
+}
+
+.dt-trip-info strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: #1d2540;
+}
+
+/* The merged single line replacing the grid entirely on a one-day card
+   (DaTaSettlementModal) - same look as the expanded multi-day rows but
+   sits right under the card header instead of below a dashed divider. */
+.dt-day-line-merged {
+  padding: 10px 0 2px;
+  font-size: 12.5px;
+}
+
+/* Reading/fuel/visit image links (DaTaSettlementModal only) - small
+   underlined links sitting right under a day's line, each opening the
+   photo in a new tab. */
+.dt-day-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 6px;
+  font-size: 11px;
+}
+
+.dt-day-links a {
+  color: var(--ion-color-primary, #e2711d);
+  text-decoration: underline;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Tighter still on narrow screens - the DA/TA/FUEL/LOCAL/TOTAL summary and
+   the Travel/Distance/Rate strip (DaTaSettlementModal's header) otherwise
+   wrap to 2-3 rows on a phone-width popup. */
+@media (max-width: 480px) {
+  .dt-totals { gap: 6px; }
+  .dt-totals > div { flex: 1 1 72px; padding: 6px 8px; border-radius: 10px; }
+  .dt-totals span { font-size: 9px; }
+  .dt-totals strong { font-size: 13px; margin-top: 1px; }
+
+  .dt-trip-info { gap: 8px; padding: 8px 10px; }
+  .dt-trip-info > div { min-width: 64px; }
+  .dt-trip-info span { font-size: 9px; }
+  .dt-trip-info strong { font-size: 12px; }
+}
+
+/* Per-day odometer reading, shown inline on a single-day employee's own
+   merged line (DaTaSettlementModal) - reuses the same muted-blue treatment
+   as the paid-window chip since it's the same kind of supporting detail. */
+.dt-day-line-reading {
+  color: #33518c;
+  white-space: nowrap;
+}
+
+/* The DA/TA/Fuel/Local figures, the Travel/Distance/Rate/reading facts and
+   the grand total, all on ONE line inside a single card
+   (DaTaSettlementModal only - the standalone page still stacks them as two
+   separate boxes via .dt-totals / .dt-trip-info). The individual figures
+   carry no border or background of their own here: the card around them is
+   the border. Only the grand total keeps its filled treatment, pushed to
+   the far right, since it's the one number people open this popup for. */
+.dt-summary {
+  margin-top: 14px;
+  background: #fff;
+  border: 1px solid #e3e8f2;
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 10px rgba(16, 30, 70, 0.05);
+}
+
+.dt-summary-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 16px;
+  overflow-x: auto;
+}
+
+.dt-summary-row > div {
+  flex: 0 0 auto;
+}
+
+.dt-summary-row span {
+  display: block;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7b849c;
+  white-space: nowrap;
+}
+
+.dt-summary-row strong {
+  display: block;
+  margin-top: 1px;
+  font-size: 14px;
+  color: #1d2540;
+  white-space: nowrap;
+}
+
+.dt-summary-row .dt-grand {
+  margin-left: auto;
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+
+/* On a phone ten figures can't honestly sit on one line. Rather than let
+   them wrap raggedly (every row starting at a different offset) or hide the
+   total behind a sideways scroll, they become a tidy 4-column grid:
+
+     DA    TA     FUEL      LOCAL
+     TRAVEL (x2)  DISTANCE (x2)
+     RATE  START  END       TOTAL
+
+   Travel and Distance take two columns each - they hold the long values -
+   which lands the rate, the readings and the total together on the last
+   row. The total is just another figure there, its value in blue, rather
+   than a filled box or a bar of its own. */
+@media (max-width: 560px) {
+  .dt-summary { padding: 10px 12px; }
+
+  .dt-summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px 6px;
+    align-items: start;
+    overflow-x: visible;
+  }
+
+  .dt-summary-row > div {
+    min-width: 0;
+  }
+
+  .dt-summary-row span {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dt-summary-row strong {
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dt-sum-wide {
+    grid-column: span 2;
+  }
+
+  /* Sits beside the end reading as an ordinary cell - the blue value is
+     enough to mark it as the figure that matters, no box needed. */
+  .dt-summary-row .dt-grand {
+    grid-column: auto;
+    margin-left: 0;
+    display: block;
+    padding: 0;
+    border-radius: 0;
+    background: none !important;
+  }
+
+  .dt-summary-row .dt-grand span { color: #7b849c !important; }
+  .dt-summary-row .dt-grand strong { color: #2f4bd6 !important; }
+}
+
+/* Trip date range beside the popup's title (DaTaSettlementModal) - lighter
+   and smaller than the title itself, since it's the subject of the figures
+   rather than the heading. Drops onto its own line on a phone instead of
+   crowding the close button. */
+.dt-head-dates {
+  margin-left: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #7b849c;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .dt-head-dates {
+    display: block;
+    margin: 3px 0 0;
+    font-size: 12px;
+  }
+}
+
+/* Both card lists in the popup (DaTaSettlementModal) - the date collapses
+   and the employee cards - use this tighter sizing. Each card carries just
+   two short lines in its header, so it doesn't need the full page card's
+   breathing room, and across a ten-day trip that dead space added up to a
+   screenful. One class for both so the two lists stay the same size by
+   construction rather than by two rules kept matching by hand. The
+   standalone DaTaSettlement page keeps the roomier original. */
+.dt-card-compact {
+  padding: 0 14px 6px;
+}
+
+.dt-card-compact .dt-card-head {
+  padding: 8px 0 6px;
+}
+
+/* Name and its detail sit side by side rather than stacked, so a card
+   header is a single line tall - "20 Aug 2026  25299 - 25700 - 401km",
+   "KARRI MAHESH BABU  1586" - and the two lists match in height exactly.
+   The detail is the half that gives way when the header runs out of room:
+   the name is what identifies the card. */
+.dt-card-compact .dt-who {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dt-card-compact .dt-name {
+  font-size: 14px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.dt-card-compact .dt-code {
+  font-size: 11.5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-card-compact .dt-amt-big {
+  font-size: 14px;
+}
+
+.dt-card-compact .dt-status {
+  font-size: 9px;
+}
+
+/* The per-employee figures on ONE line - label beside its value rather
+   than stacked above it. Stacked, five figures cost two lines plus the
+   space between them; inline they cost one, which halves the height of
+   every employee card in the list. Wraps rather than scrolls sideways on
+   a narrow screen, same call as the summary card at the top. */
+.dt-card-compact .dt-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  grid-template-columns: none;
+  padding-top: 7px;
+}
+
+.dt-card-compact .dt-grid > div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.dt-card-compact .dt-grid span {
+  display: inline;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9aa2b8;
+}
+
+.dt-card-compact .dt-grid strong {
+  display: inline;
+  font-size: 13px;
+}
+
+/* Tighter stack between them too - each list reads as one run of cards
+   rather than a set of separate blocks. */
+.dt-cards-tight {
+  gap: 8px;
+}
+
+/* Day breakdown as a real table (DaTaSettlementModal): a header row, and
+   every day's figures sitting under the column that names them. The rows
+   are `display: contents` so their cells become cells of THIS grid - which
+   is what makes the columns line up across rows and with the header,
+   something the old flex strip could never do once optional chips (paid
+   window, km, fuel, local) started appearing on some rows and not others.
+
+   Two variants, because the two places this appears key off different
+   things: an employee's card lists their days, a date's collapse lists
+   that day's people. The third column takes the slack in both, so the
+   money columns stay hard against the right. */
+.dt-daygrid {
+  margin-top: 10px;
+  border-top: 1px dashed #e3e8f2;
+  padding-top: 8px;
+  display: grid;
+  gap: 5px 12px;
+  align-items: baseline;
+  font-size: 11.5px;
+  color: #5a6480;
+  overflow-x: auto;
+}
+
+.dt-daygrid-emp {
+  grid-template-columns: max-content max-content minmax(56px, 1fr) repeat(5, max-content);
+}
+
+.dt-daygrid-day {
+  grid-template-columns: max-content max-content minmax(56px, 1fr) repeat(4, max-content);
+}
+
+.dt-daygrid-head,
+.dt-daygrid-row {
+  display: contents;
+}
+
+.dt-daygrid-head > span {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9aa2b8;
+  white-space: nowrap;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eef1f7;
+}
+
+.dt-daygrid-row > span {
+  white-space: nowrap;
+}
+
+/* Right-aligned columns - every number in a column ends on the same
+   edge, which is what makes a column of money readable at a glance. */
+.dt-daygrid .dg-r {
+  text-align: right;
+}
+
+.dt-daygrid .dg-key {
+  font-weight: 700;
+  color: #333c5a;
+}
+
+.dt-daygrid .dg-num {
+  font-weight: 600;
+  color: #1d2540;
+}
+
+.dt-daygrid .dg-paid {
+  color: #33518c;
+}
+
+.dt-daygrid .dg-km {
+  color: #1f6b3f;
+}
+
+.dt-daygrid .dg-miss {
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: #8c2020;
+}
+
+/* A day nobody was punched in for reads as an aside, not a figure. */
+.dt-daygrid-miss > span {
+  color: #a06a6a;
+}
+
+.dt-daygrid-empty {
+  margin-top: 10px;
+  border-top: 1px dashed #e3e8f2;
+  padding-top: 10px;
+  font-size: 11.5px;
+  color: #7b849c;
+}
+
+/* Employees / Day-wise switch (DaTaSettlementModal). Sits in the static
+   header under the summary card, so it stays put while the list below it
+   scrolls - and only renders on a trip that actually has more than one
+   day, since a single-day duty has nothing to switch to. */
+.dt-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 3px;
+  background: #eef1f7;
+  border-radius: 11px;
+}
+
+.dt-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a6480;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dt-tab-on {
+  background: #fff;
+  color: #1d2540;
+  box-shadow: 0 1px 3px rgba(16, 30, 70, 0.12);
+}
+
+/* Card headers on a phone. The one-line header works on a wide popup, but
+   at phone width both halves get clipped - "SUNKARA HEMAN...", "25299 ->
+   25700..." - and the amount on the right gets squeezed until it breaks
+   across two lines. A truncated name is worse than an extra line, so here
+   the header stacks again and the amount is given room to stay whole. */
+@media (max-width: 560px) {
+  .dt-card-compact .dt-who {
+    display: block;
+    min-width: 0;
+  }
+
+  .dt-card-compact .dt-name,
+  .dt-card-compact .dt-code {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .dt-card-compact .dt-name {
+    font-size: 13.5px;
+    line-height: 1.25;
+  }
+
+  .dt-card-compact .dt-code {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  /* The figure on the right keeps its width instead of being squeezed
+     into a second line. */
+  .dt-card-compact .dt-amt {
+    flex: 0 0 auto;
+  }
+
+  .dt-card-compact .dt-amt-big {
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+
+  .dt-card-compact .dt-card-head {
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* The per-employee figures wrap to a second line at this width - a bit
+     more space between the rows so the two don't read as one run-on. */
+  .dt-card-compact .dt-grid {
+    gap: 6px 12px;
+  }
+}
