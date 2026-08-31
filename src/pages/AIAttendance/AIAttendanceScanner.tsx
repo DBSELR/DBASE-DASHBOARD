@@ -269,6 +269,21 @@ const AIAttendanceScanner: React.FC = () => {
     };
   } | null>(null);
 
+  // Dynamic Live Biometric Guidance States & Voice Prompts
+  const [guidanceState, setGuidanceState] = useState<'idle' | 'too-far' | 'too-close' | 'off-center' | 'aligned'>('idle');
+  const [guidanceText, setGuidanceText] = useState<string>('🎯 Align your face in the circle');
+  const lastVoicePromptRef = useRef<string>('');
+  const lastVoiceTimeRef = useRef<number>(0);
+
+  const triggerVoiceGuidance = (promptKey: string, spokenText: string) => {
+    const now = Date.now();
+    if (now - lastVoiceTimeRef.current < 2800) return;
+    if (lastVoicePromptRef.current === promptKey && now - lastVoiceTimeRef.current < 5000) return;
+    lastVoicePromptRef.current = promptKey;
+    lastVoiceTimeRef.current = now;
+    speakText(spokenText);
+  };
+
   // Auto-dismiss countdown & progress bar state
   const [countdownTimer, setCountdownTimer] = useState<number>(0);
   const [progressPercent, setProgressPercent] = useState<number>(100);
@@ -592,6 +607,138 @@ const AIAttendanceScanner: React.FC = () => {
     startVideo();
     return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
   }, [cameraMode]);
+
+  // Real-time Face Alignment Geometry Analysis & Guidance Loop (every 45ms)
+  useEffect(() => {
+    let detector: any = null;
+    if (typeof window !== "undefined" && "FaceDetector" in window) {
+      try {
+        detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      } catch { }
+    }
+
+    let isMounted = true;
+    const analyzeFacePosition = async () => {
+      if (!isMounted || !isCameraReady || !videoRef.current || isProcessing || scanSuccess) return;
+      const video = videoRef.current;
+      if (video.readyState < 2) return;
+
+      const vW = video.videoWidth || video.clientWidth || 640;
+      const vH = video.videoHeight || video.clientHeight || 480;
+      const targetCenterX = vW / 2;
+      const targetCenterY = vH / 2;
+
+      if (detector) {
+        try {
+          const detections = await detector.detect(video);
+          if (Array.isArray(detections) && detections.length > 0) {
+            const b = detections[0].boundingBox;
+            const rawW = b.width ?? 120;
+            const rawH = b.height ?? 120;
+            const rawLeft = b.x ?? b.left ?? 0;
+            const rawTop = b.y ?? b.top ?? 0;
+            const faceCenterX = rawLeft + rawW / 2;
+            const faceCenterY = rawTop + rawH / 2;
+
+            const sizeRatio = Math.max(rawW, rawH) / vH;
+            const distFromCenter = Math.hypot(faceCenterX - targetCenterX, faceCenterY - targetCenterY);
+
+            if (rawW < 95 || sizeRatio < 0.22) {
+              setGuidanceState("too-far");
+              setGuidanceText("📏 Come closer to the camera");
+              triggerVoiceGuidance("too-far", "Please come closer to the camera");
+              return;
+            } else if (rawW > 260 || sizeRatio > 0.65) {
+              setGuidanceState("too-close");
+              setGuidanceText("📏 Move back a little");
+              triggerVoiceGuidance("too-close", "Please move back a little");
+              return;
+            } else if (distFromCenter > 65) {
+              setGuidanceState("off-center");
+              setGuidanceText("🎯 Center your face in the circle");
+              triggerVoiceGuidance("off-center", "Please center your face inside the circle");
+              return;
+            } else {
+              setGuidanceState("aligned");
+              setGuidanceText("⚡ Hold still, analyzing face...");
+              triggerVoiceGuidance("aligned", "Hold still");
+              return;
+            }
+          } else {
+            setGuidanceState("idle");
+            setGuidanceText("🎯 Align your face in the circle");
+            return;
+          }
+        } catch { }
+      }
+
+      // Fast canvas skin pixel centroid fallback
+      try {
+        const sampleCanvas = document.createElement("canvas");
+        sampleCanvas.width = 80;
+        sampleCanvas.height = 60;
+        const sCtx = sampleCanvas.getContext("2d");
+        if (sCtx && video) {
+          sCtx.drawImage(video, 0, 0, 80, 60);
+          const imgData = sCtx.getImageData(0, 0, 80, 60);
+          const data = imgData.data;
+
+          let totalSkin = 0;
+          let sumX = 0;
+          let sumY = 0;
+          let minX = 80, maxX = 0, minY = 60, maxY = 0;
+
+          for (let y = 0; y < 60; y += 2) {
+            for (let x = 0; x < 80; x += 2) {
+              const idx = (y * 80 + x) * 4;
+              const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+              const isSkin = (r > 60 && g > 40 && b > 20 && (r - Math.min(g, b) > 15) && (Math.abs(r - g) > 15) && r > g && r > b);
+              if (isSkin) {
+                totalSkin++;
+                sumX += x;
+                sumY += y;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+              }
+            }
+          }
+
+          if (totalSkin > 35) {
+            const cX = (sumX / totalSkin) * (vW / 80);
+            const cY = (sumY / totalSkin) * (vH / 60);
+            const fW = (maxX - minX) * (vW / 80);
+            const distFromCenter = Math.hypot(cX - targetCenterX, cY - targetCenterY);
+
+            if (fW < 90 || totalSkin < 70) {
+              setGuidanceState("too-far");
+              setGuidanceText("📏 Come closer to the camera");
+              triggerVoiceGuidance("too-far", "Please come closer to the camera");
+            } else if (fW > 270 || totalSkin > 500) {
+              setGuidanceState("too-close");
+              setGuidanceText("📏 Move back a little");
+              triggerVoiceGuidance("too-close", "Please move back a little");
+            } else if (distFromCenter > 75) {
+              setGuidanceState("off-center");
+              setGuidanceText("🎯 Center your face in the circle");
+              triggerVoiceGuidance("off-center", "Please center your face inside the circle");
+            } else {
+              setGuidanceState("aligned");
+              setGuidanceText("⚡ Hold still, analyzing face...");
+              triggerVoiceGuidance("aligned", "Hold still");
+            }
+          } else {
+            setGuidanceState("idle");
+            setGuidanceText("🎯 Align your face in the circle");
+          }
+        }
+      } catch { }
+    };
+
+    const intervalId = setInterval(analyzeFacePosition, 45);
+    return () => { isMounted = false; clearInterval(intervalId); };
+  }, [isCameraReady, isProcessing, scanSuccess]);
 
   // ── Scan loop ─────────────────────────────────────────────────────────────
   const scheduleNextScan = (delay: number, resetSuccessState = false) => {
@@ -1502,10 +1649,20 @@ const AIAttendanceScanner: React.FC = () => {
               </button>
               <div>
                 <h1 className="page-wr-title">AI Face Attendance</h1>
-                <p className="page-wr-subtitle">Biometric Check-In Portal</p>
+                <p className="page-wr-subtitle" style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>{userData?.EmpName || userData?.empName ? `👤 ${userData?.EmpName || userData?.empName} (#${userData?.empCode || userData?.EmpCode || ''})` : 'Biometric Check-In Portal'}</span>
+                </p>
               </div>
             </div>
             <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => history.push('/security-attendance-scanner')}
+                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: isMobile ? '8px' : '8px 12px', borderRadius: isMobile ? '50%' : '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', width: isMobile ? '36px' : 'auto', height: isMobile ? '36px' : 'auto' }}
+                title="Switch to Kiosk Scanner for Multiple Employees"
+              >
+                <IonIcon icon={fingerPrintOutline} style={{ fontSize: isMobile ? '20px' : '15px', margin: 0 }} />
+                {!isMobile && "Kiosk Mode"}
+              </button>
               <button
                 onClick={() => setShowRulesModal(true)}
                 style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: isMobile ? '8px' : '8px 14px', borderRadius: isMobile ? '50%' : '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', width: isMobile ? '36px' : 'auto', height: isMobile ? '36px' : 'auto' }}
@@ -1537,14 +1694,37 @@ const AIAttendanceScanner: React.FC = () => {
                 <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
 
                 <div className="sc-hud">
-                  <div className="sc-cyber-ring-outer" />
-                  <div className={`sc-ring ai-ring sc-cyber-ring-middle ${isProcessing ? 'ring-scan is-scanning' : scanSuccess ? 'ring-ok is-success' : ''}`} />
-                  <div className="sc-cyber-ring-inner" />
-                  <div className="sc-corners">
-                    <span className="sc-cor tl" /><span className="sc-cor tr" />
-                    <span className="sc-cor bl" /><span className="sc-cor br" />
+                  <div className={`sc-fixed-guide-target state-${scanSuccess ? 'success' : isProcessing ? 'aligned is-scanning' : guidanceState === 'aligned' ? 'aligned' : guidanceState === 'idle' ? 'idle' : 'warning'}`}>
+                    {/* Outer slow-rotating calibration dial */}
+                    <div className="sc-fixed-dial-outer" />
+
+                    {/* Fixed Biometric Frame */}
+                    <div className="sc-fixed-frame" />
+
+                    {/* 4 Precision Corner Brackets */}
+                    <div className="sc-guide-corner tl" />
+                    <div className="sc-guide-corner tr" />
+                    <div className="sc-guide-corner bl" />
+                    <div className="sc-guide-corner br" />
+
+                    {/* Subtle Face Silhouette Guide */}
+                    <svg className="sc-face-silhouette" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="60" cy="72" rx="42" ry="54" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" />
+                      <circle cx="45" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                      <circle cx="75" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                      <path d="M52 82 Q60 88 68 82" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Active Laser Sweeper */}
+                    <div className="sc-guide-laser" />
                   </div>
-                  <div className={`sc-laser ai-laser sc-cyber-laser ${isProcessing ? 'laser-on laser-active' : ''}`} />
+
+                  {/* Live HUD Floating Guidance Pill */}
+                  {!scanSuccess && (
+                    <div className={`sc-hud-guidance-pill pill-${isProcessing ? 'aligned' : guidanceState}`}>
+                      <span>{isProcessing ? '⚡ Hold still, analyzing face...' : guidanceText}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="sc-ind-row">
@@ -1777,12 +1957,20 @@ const AIAttendanceScanner: React.FC = () => {
                       ? `RESUMING IN ${cooldownCountdown}S...`
                       : isProcessing
                         ? 'ANALYZING FACE...'
-                        : 'AWAITING BIOMETRICS'}
+                        : guidanceState === 'aligned'
+                          ? 'FACE ALIGNED & READY'
+                          : guidanceState === 'too-far'
+                            ? 'COME CLOSER'
+                            : guidanceState === 'too-close'
+                              ? 'MOVE BACK'
+                              : guidanceState === 'off-center'
+                                ? 'CENTER FACE'
+                                : 'AWAITING BIOMETRICS'}
                   </div>
-                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : statusColor }}>
+                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : (guidanceState !== 'idle' ? (guidanceState === 'aligned' ? '#10b981' : '#f59e0b') : statusColor) }}>
                     {cooldownCountdown > 0
                       ? 'Please step away from the camera'
-                      : resultMessage}
+                      : isProcessing ? '⚡ Analyzing face biometrics...' : (guidanceText || resultMessage)}
                   </div>
 
                   {/* 2. Monthly Grace & Rules Tracker Widget */}

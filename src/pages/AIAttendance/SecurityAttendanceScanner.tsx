@@ -225,6 +225,21 @@ const SecurityAttendanceScanner: React.FC = () => {
       .catch(() => { });
   }, []);
 
+  // Live Biometric Smart Guidance States & Voice Prompts
+  const [guidanceState, setGuidanceState] = useState<'idle' | 'too-far' | 'too-close' | 'off-center' | 'aligned'>('idle');
+  const [guidanceText, setGuidanceText] = useState<string>('🎯 Align your face in the circle');
+  const lastVoicePromptRef = useRef<string>('');
+  const lastVoiceTimeRef = useRef<number>(0);
+
+  const triggerVoiceGuidance = (promptKey: string, spokenText: string) => {
+    const now = Date.now();
+    if (now - lastVoiceTimeRef.current < 2800) return;
+    if (lastVoicePromptRef.current === promptKey && now - lastVoiceTimeRef.current < 5000) return;
+    lastVoicePromptRef.current = promptKey;
+    lastVoiceTimeRef.current = now;
+    speakText(spokenText);
+  };
+
   // Cooldown countdown state
   const [cooldownCountdown, setCooldownCountdown] = useState<number>(0);
   const cooldownCountdownRef = useRef(0);
@@ -309,7 +324,7 @@ const SecurityAttendanceScanner: React.FC = () => {
   // Smooth 60 FPS motion lerp tracker cache
   const smoothTrackedFacesRef = useRef<Map<string, any>>(new Map());
 
-  // Real-time client-side fast face detector (runs every 30ms for 0ms latency tracking & motion follow)
+  // Real-time client-side fast face detector (runs every 35ms for 0ms latency tracking & motion follow)
   useEffect(() => {
     let detector: any = null;
     if (typeof window !== "undefined" && "FaceDetector" in window) {
@@ -325,6 +340,8 @@ const SecurityAttendanceScanner: React.FC = () => {
       if (video.readyState < 2) return;
 
       const timeNow = Date.now();
+      const isFreshServerMatch = (timeNow - lastDetectedFacesTimestampRef.current) < 1600;
+      const validServerFaces = (isFreshServerMatch && latestServerIdentitiesRef.current.length > 0) ? latestServerIdentitiesRef.current : [];
 
       if (detector) {
         try {
@@ -336,8 +353,6 @@ const SecurityAttendanceScanner: React.FC = () => {
             const iH = video.videoHeight || 480;
             const sX = vW / iW;
             const sY = vH / iH;
-
-            const existingServerFaces = latestServerIdentitiesRef.current.length > 0 ? latestServerIdentitiesRef.current : (detectedFacesRef.current || []);
 
             const updatedLocalFaces = localDetections.map((d: any, idx: number) => {
               const b = d.boundingBox;
@@ -358,18 +373,24 @@ const SecurityAttendanceScanner: React.FC = () => {
               const centerY = top + faceH / 2;
               const radius = Math.max(faceW, faceH) / 2 + 18;
 
-              // Pair with server employee name if available
-              const matchedServer = existingServerFaces[idx] || existingServerFaces[0] || {};
-              const empName = matchedServer.empName || matchedServer.EmpName || matchedServer.empId || matchedServer.EmpId;
+              // Pair ONLY with fresh, confirmed server identities (never stale/ghost identities)
+              const matchedServer = validServerFaces[idx] || (validServerFaces.length > 0 ? validServerFaces[0] : null);
+              const isConfirmedRecognized = Boolean(matchedServer && matchedServer.isRecognized === true && matchedServer.empName && matchedServer.empName !== 'Unknown Person');
+              const isUnknown = Boolean(matchedServer && (matchedServer.isRecognized === false || matchedServer.empName === 'Unknown Person'));
+
+              const empName = isConfirmedRecognized
+                ? (matchedServer.empName || matchedServer.EmpName || matchedServer.empId)
+                : (isUnknown ? 'Unknown Person' : 'Aligning Face...');
 
               return {
                 id: `face_${idx}`,
                 centerX,
                 centerY,
                 radius,
-                empName: empName || (existingServerFaces.length > 0 ? 'Analyzing...' : 'Aligning Face...'),
-                isRecognized: matchedServer.isRecognized !== false || Boolean(empName),
-                alreadyMarked: matchedServer.alreadyMarked,
+                empName,
+                isRecognized: isConfirmedRecognized,
+                isUnknown,
+                alreadyMarked: Boolean(matchedServer?.alreadyMarked),
                 lastSeen: timeNow
               };
             });
@@ -377,8 +398,39 @@ const SecurityAttendanceScanner: React.FC = () => {
             if (updatedLocalFaces.length > 0) {
               detectedFacesRef.current = updatedLocalFaces;
               setActiveFaceCount(updatedLocalFaces.length);
-              lastDetectedFacesTimestampRef.current = timeNow;
+
+              const primaryB = localDetections[0].boundingBox;
+              const rawW = primaryB.width ?? 120;
+              const rawH = primaryB.height ?? 120;
+              const rawLeft = primaryB.x ?? primaryB.left ?? 0;
+              const rawTop = primaryB.y ?? primaryB.top ?? 0;
+              const fCenterX = rawLeft + rawW / 2;
+              const fCenterY = rawTop + rawH / 2;
+
+              const sizeRatio = Math.max(rawW, rawH) / iH;
+              const distFromCenter = Math.hypot(fCenterX - (iW / 2), fCenterY - (iH / 2));
+
+              if (rawW < 95 || sizeRatio < 0.22) {
+                setGuidanceState("too-far");
+                setGuidanceText("📏 Come closer to the camera");
+                triggerVoiceGuidance("too-far", "Please come closer to the camera");
+              } else if (rawW > 260 || sizeRatio > 0.65) {
+                setGuidanceState("too-close");
+                setGuidanceText("📏 Move back a little");
+                triggerVoiceGuidance("too-close", "Please move back a little");
+              } else if (distFromCenter > 65) {
+                setGuidanceState("off-center");
+                setGuidanceText("🎯 Center your face in the circle");
+                triggerVoiceGuidance("off-center", "Please center your face inside the circle");
+              } else {
+                setGuidanceState("aligned");
+                setGuidanceText("⚡ Hold still, analyzing face...");
+                triggerVoiceGuidance("aligned", "Hold still");
+              }
               return;
+            } else {
+              setGuidanceState("idle");
+              setGuidanceText("🎯 Align your face in the circle");
             }
           }
         } catch { }
@@ -429,7 +481,6 @@ const SecurityAttendanceScanner: React.FC = () => {
           }
 
           const localFaces: any[] = [];
-          const serverFaces = latestServerIdentitiesRef.current.length > 0 ? latestServerIdentitiesRef.current : (detectedFacesRef.current || []);
 
           cols.forEach((col, idx) => {
             if (col.count > 12 && col.maxX > col.minX) {
@@ -445,18 +496,23 @@ const SecurityAttendanceScanner: React.FC = () => {
               const cY = top + fH / 2;
               const rad = Math.max(fW, fH) / 2 + 18;
 
-              // Find matched employee from server identities
-              const matchedServer = serverFaces[localFaces.length] || serverFaces[0] || {};
-              const empName = matchedServer.empName || matchedServer.EmpName || matchedServer.empId || matchedServer.EmpId;
+              const matchedServer = validServerFaces[localFaces.length] || (validServerFaces.length > 0 ? validServerFaces[0] : null);
+              const isConfirmedRecognized = Boolean(matchedServer && matchedServer.isRecognized === true && matchedServer.empName && matchedServer.empName !== 'Unknown Person');
+              const isUnknown = Boolean(matchedServer && (matchedServer.isRecognized === false || matchedServer.empName === 'Unknown Person'));
+
+              const empName = isConfirmedRecognized
+                ? (matchedServer.empName || matchedServer.EmpName || matchedServer.empId)
+                : (isUnknown ? 'Unknown Person' : 'Aligning Face...');
 
               localFaces.push({
                 id: `local_face_${idx}`,
                 centerX: cX,
                 centerY: cY,
                 radius: rad,
-                empName: empName || (serverFaces.length > 0 ? 'Analyzing...' : 'Aligning Face...'),
-                isRecognized: matchedServer.isRecognized !== false || Boolean(empName),
-                alreadyMarked: matchedServer.alreadyMarked,
+                empName,
+                isRecognized: isConfirmedRecognized,
+                isUnknown,
+                alreadyMarked: Boolean(matchedServer?.alreadyMarked),
                 lastSeen: timeNow
               });
             }
@@ -465,7 +521,29 @@ const SecurityAttendanceScanner: React.FC = () => {
           if (localFaces.length > 0) {
             detectedFacesRef.current = localFaces;
             setActiveFaceCount(localFaces.length);
-            lastDetectedFacesTimestampRef.current = timeNow;
+
+            const primary = localFaces[0];
+            const distFromCenter = Math.hypot(primary.centerX - (vW / 2), primary.centerY - (vH / 2));
+            if (primary.radius < 50) {
+              setGuidanceState("too-far");
+              setGuidanceText("📏 Come closer to the camera");
+              triggerVoiceGuidance("too-far", "Please come closer to the camera");
+            } else if (primary.radius > 135) {
+              setGuidanceState("too-close");
+              setGuidanceText("📏 Move back a little");
+              triggerVoiceGuidance("too-close", "Please move back a little");
+            } else if (distFromCenter > 75) {
+              setGuidanceState("off-center");
+              setGuidanceText("🎯 Center your face in the circle");
+              triggerVoiceGuidance("off-center", "Please center your face inside the circle");
+            } else {
+              setGuidanceState("aligned");
+              setGuidanceText("⚡ Hold still, analyzing face...");
+              triggerVoiceGuidance("aligned", "Hold still");
+            }
+          } else {
+            setGuidanceState("idle");
+            setGuidanceText("🎯 Align your face in the circle");
           }
         }
       } catch { }
@@ -493,9 +571,8 @@ const SecurityAttendanceScanner: React.FC = () => {
     ctx.clearRect(0, 0, width, height);
 
     const timeNow = Date.now();
-    if (lastDetectedFacesTimestampRef.current > 0 && (timeNow - lastDetectedFacesTimestampRef.current > 4500)) {
-      detectedFacesRef.current = [];
-      smoothTrackedFacesRef.current.clear();
+    if (lastDetectedFacesTimestampRef.current > 0 && (timeNow - lastDetectedFacesTimestampRef.current > 3000)) {
+      latestServerIdentitiesRef.current = [];
     }
 
     const rawFaces = detectedFacesRef.current;
@@ -504,118 +581,35 @@ const SecurityAttendanceScanner: React.FC = () => {
       return;
     }
 
-    const rotationAngle = (timeNow / 16) % (2 * Math.PI);
-    const activeCache = smoothTrackedFacesRef.current;
-
-    // Pick ONLY the single primary face
+    // Pick ONLY the single primary face for badge rendering when verified
     const face = rawFaces[0];
     if (!face) return;
 
-    let box = face.box || face.location || face.boundingBox || face.rect ||
-      (face.top !== undefined || face.Top !== undefined || face.y !== undefined || face.left !== undefined || face.Left !== undefined ? face : null);
+    const isRecognized = face.isRecognized === true && Boolean(face.empName) && face.empName !== 'Analyzing...' && face.empName !== 'Aligning Face...' && face.empName !== 'Unknown Person';
+
+    // Only render overlay badge if face is recognized with a confirmed name
+    if (!isRecognized) return;
 
     let targetCenterX = width / 2;
-    let targetCenterY = height / 2;
-    let targetRadius = 75;
+    let targetCenterY = Math.max(25, (height / 2) - 155);
 
     if (face.centerX !== undefined) {
       targetCenterX = face.centerX;
-      targetCenterY = face.centerY;
-      targetRadius = face.radius;
-    } else if (box && typeof box === 'object') {
-      const imgW = box.imgW || box.imageWidth || box.Width || 640;
-      const imgH = box.imgH || box.imageHeight || box.Height || 480;
-
-      const scaleX = width / imgW;
-      const scaleY = height / imgH;
-
-      let rawTop = box.top ?? box.Top ?? box.y ?? box.y1 ?? 0;
-      let rawLeft = box.left ?? box.Left ?? box.x ?? box.x1 ?? 0;
-      let rawRight = box.right ?? box.Right ?? (box.w ? rawLeft + box.w : box.width ? rawLeft + box.width : rawLeft + 140);
-      let rawBottom = box.bottom ?? box.Bottom ?? (box.h ? rawTop + box.h : box.height ? rawTop + box.height : rawTop + 140);
-
-      const left = width - (rawRight * scaleX);
-      const right = width - (rawLeft * scaleX);
-      const top = rawTop * scaleY;
-      const bottom = rawBottom * scaleY;
-
-      const faceW = Math.max(60, right - left);
-      const faceH = Math.max(60, bottom - top);
-      targetCenterX = left + faceW / 2;
-      targetCenterY = top + faceH / 2;
-      targetRadius = Math.max(faceW, faceH) / 2 + 18;
+      targetCenterY = Math.max(25, face.centerY - (face.radius || 80) - 30);
     }
 
-    // Smooth motion lerp interpolation
-    const key = "primary_single_target";
-    let cached = activeCache.get(key);
-    if (!cached) {
-      cached = {
-        currentX: targetCenterX,
-        currentY: targetCenterY,
-        currentR: targetRadius
-      };
-    }
-
-    cached.currentX += (targetCenterX - cached.currentX) * 0.35;
-    cached.currentY += (targetCenterY - cached.currentY) * 0.35;
-    cached.currentR += (targetRadius - cached.currentR) * 0.35;
-    activeCache.set(key, cached);
-
-    const centerX = cached.currentX;
-    const centerY = cached.currentY;
-    const radius = cached.currentR;
-
-    const isRecognized = face.isRecognized !== false || Boolean(face.empName || face.EmpName || face.empId || face.EmpId);
     const isDup = face.alreadyMarked;
     const color = isDup ? '#f59e0b' : '#10b981';
-    const name = face.empName || face.EmpName || face.empId || face.EmpId || 'Face Aligned';
+    const name = face.empName || '';
 
-    ctx.save();
-    ctx.translate(centerX, centerY);
-
-    // Outer animated biometric dashed circle
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, 2 * Math.PI);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3.5;
-    ctx.setLineDash([14, 8]);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 18;
-    ctx.stroke();
-
-    // Inner counter-rotating white circle
-    ctx.rotate(-rotationAngle * 2);
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(10, radius - 8), 0, 2 * Math.PI);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    ctx.stroke();
-
-    // Stabilization Hold Progress Arc (1.5s - 3.0s fill)
-    const holdRatio = Math.min(1, Math.max(0, matchCountRef.current / 2));
-    if (holdRatio > 0) {
-      ctx.beginPath();
-      ctx.arc(0, 0, radius + 8, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * holdRatio));
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 4.5;
-      ctx.setLineDash([]);
-      ctx.shadowColor = '#3b82f6';
-      ctx.shadowBlur = 14;
-      ctx.stroke();
-    }
-
-    ctx.restore();
-
-    // Single clean badge
-    const badgeText = `${isRecognized ? (isDup ? '⚠️ ' : '✅ ') : '🎯 '}${name}`;
+    // Single clean floating verified badge
+    const badgeText = `${isDup ? '⚠️ ' : '✅ '}${name}`;
     ctx.font = '800 13px Inter, system-ui, sans-serif';
     const textW = ctx.measureText(badgeText).width;
     const bW = textW + 28;
     const bH = 28;
-    const bX = centerX - bW / 2;
-    const bY = centerY - radius - 38;
+    const bX = targetCenterX - bW / 2;
+    const bY = targetCenterY;
 
     ctx.save();
     ctx.beginPath();
@@ -624,9 +618,9 @@ const SecurityAttendanceScanner: React.FC = () => {
     } else {
       ctx.rect(bX, bY, bW, bH);
     }
-    ctx.fillStyle = isRecognized ? (isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)') : 'rgba(139, 92, 246, 0.95)';
+    ctx.fillStyle = isDup ? 'rgba(245, 158, 11, 0.95)' : 'rgba(16, 185, 129, 0.95)';
     ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
     ctx.fill();
 
     ctx.strokeStyle = '#ffffff';
@@ -636,7 +630,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.shadowBlur = 0;
-    ctx.fillText(badgeText, centerX, bY + bH / 2 + 4);
+    ctx.fillText(badgeText, targetCenterX, bY + bH / 2 + 4);
     ctx.restore();
   }, []);
 
@@ -959,6 +953,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     setStatusColor("#8b5cf6");
     setMatchCount(0);
     setCooldownCountdown(0);
+    latestServerIdentitiesRef.current = [];
     detectedFacesRef.current = [];
     setActiveFaceCount(0);
     scheduleNextScan(150);
@@ -1711,35 +1706,37 @@ const SecurityAttendanceScanner: React.FC = () => {
 
 
                 <div className="sc-hud">
-                  <svg className="sc-progress-svg" viewBox="0 0 120 120">
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      className="sc-progress-track"
-                      fill="none"
-                    />
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      className="sc-progress-bar"
-                      fill="none"
-                      strokeDasharray={2 * Math.PI * 50}
-                      strokeDashoffset={2 * Math.PI * 50 * (1 - (matchCount / 3))}
-                      style={{
-                        stroke: matchCount === 3 ? '#10b981' : matchCount === 2 ? '#f59e0b' : '#8b5cf6',
-                        transition: 'stroke-dashoffset 0.15s ease-in-out, stroke 0.15s'
-                      }}
-                    />
-                  </svg>
+                  <div className={`sc-fixed-guide-target state-${scanSuccess ? 'success' : processing ? 'aligned is-scanning' : guidanceState === 'aligned' ? 'aligned' : guidanceState === 'idle' ? 'idle' : 'warning'}`}>
+                    {/* Outer slow-rotating calibration dial */}
+                    <div className="sc-fixed-dial-outer" />
 
-                  <div className={`sc-ring ${processing || matchCount > 0 ? 'ring-scan' : scanSuccess ? 'ring-ok' : ''}`} />
-                  <div className="sc-corners">
-                    <span className="sc-cor tl" /><span className="sc-cor tr" />
-                    <span className="sc-cor bl" /><span className="sc-cor br" />
+                    {/* Fixed Biometric Frame */}
+                    <div className="sc-fixed-frame" />
+
+                    {/* 4 Precision Corner Brackets */}
+                    <div className="sc-guide-corner tl" />
+                    <div className="sc-guide-corner tr" />
+                    <div className="sc-guide-corner bl" />
+                    <div className="sc-guide-corner br" />
+
+                    {/* Subtle Face Silhouette Guide */}
+                    <svg className="sc-face-silhouette" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="60" cy="72" rx="42" ry="54" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" />
+                      <circle cx="45" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                      <circle cx="75" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                      <path d="M52 82 Q60 88 68 82" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+
+                    {/* Active Laser Sweeper */}
+                    <div className="sc-guide-laser" />
                   </div>
-                  <div className={`sc-laser ${processing || matchCount > 0 ? 'laser-on' : ''}`} style={{ background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)', boxShadow: '0 0 12px #8b5cf6' }} />
+
+                  {/* Live HUD Floating Guidance Pill */}
+                  {!scanSuccess && (
+                    <div className={`sc-hud-guidance-pill pill-${processing ? 'aligned' : guidanceState}`}>
+                      <span>{processing ? '⚡ Hold still, analyzing face...' : guidanceText}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="sc-ind-row">
@@ -1920,9 +1917,17 @@ const SecurityAttendanceScanner: React.FC = () => {
                       ? `RESUMING IN ${cooldownCountdown}S...`
                       : processing
                         ? 'ANALYZING FACE...'
-                        : 'AWAITING SCAN'}
+                        : guidanceState === 'aligned'
+                          ? 'FACE ALIGNED & READY'
+                          : guidanceState === 'too-far'
+                            ? 'COME CLOSER'
+                            : guidanceState === 'too-close'
+                              ? 'MOVE BACK'
+                              : guidanceState === 'off-center'
+                                ? 'CENTER FACE'
+                                : 'AWAITING SCAN'}
                   </div>
-                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : statusColor }}>
+                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : (guidanceState !== 'idle' ? (guidanceState === 'aligned' ? '#10b981' : '#f59e0b') : statusColor) }}>
                     {cooldownCountdown > 0
                       ? 'Please step away from the camera'
                       : message}
