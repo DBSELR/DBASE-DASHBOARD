@@ -324,12 +324,17 @@ const Salaries: React.FC = () => {
     }
   };
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+  };
+
   // ==========================
   // API 3 & 4: DELETE TEMP TABLES
   // ==========================
   const DelETable = async () => {
     try {
-      await axios.post(`${API_BASE}Salaries/Delete_ETable`, "");
+      await axios.post(`${API_BASE}Salaries/Delete_ETable`, "", getAuthHeaders());
     } catch (err) {
       console.log("Error DelETable", err);
     }
@@ -337,7 +342,7 @@ const Salaries: React.FC = () => {
 
   const DelHTable = async () => {
     try {
-      await axios.post(`${API_BASE}Salaries/Delete_HTable`, "");
+      await axios.post(`${API_BASE}Salaries/Delete_HTable`, "", getAuthHeaders());
     } catch (err) {
       console.log("Error DelHTable", err);
     }
@@ -348,46 +353,25 @@ const Salaries: React.FC = () => {
   // ==========================
 
   const InsertETable = async (data = dt_emp_Active) => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      await DelETable();
+      const selectedEmployees = data
+        .filter((x: any) => x.isSelected)
+        .map((item: any) => ({
+          EmpCode: String(item.EmpCode || "").trim(),
+          EmpName: String(item.EmpName || "").replace(item.EmpCode + "-", "").trim(),
+        }));
 
-    const selectedEmployees = data
-      .filter((x: any) => x.isSelected)
-      .map((item: any) => ({
-        EmpCode: item.EmpCode,
-        EmpName: item.EmpName.replace(item.EmpCode + "-", ""),
-      }));
-
-    await axios.post(
-      `${API_BASE}Salaries/Insert_ETable`,
-      selectedEmployees
-    );
-  } catch (err) {
-    console.log(err);
-  } finally {
-    setLoading(false);
-  }
-};
-  // const InsertETable = async (data = dt_emp_Active) => {
-  //   try {
-  //     setLoading(true);
-  //     await DelETable();
-  //     for (const item of data) {
-  //       if (item.isSelected) {
-  //         await delay(50); // Angular parity
-  //         const payload = {
-  //           _Ecode: item.EmpCode,
-  //           _Ename: item.EmpName.replace(item.EmpCode + "-", ""),
-  //         };
-  //         await axios.post(`${API_BASE}Salaries/Insert_ETable`, payload);
-  //       }
-  //     }
-  //   } catch (err) {
-  //     console.log(err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      if (selectedEmployees.length > 0) {
+        await axios.post(`${API_BASE}Salaries/Insert_ETable`, selectedEmployees, getAuthHeaders());
+      }
+    } catch (err: any) {
+      console.error("Error in InsertETable:", err?.response?.data || err?.message || err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ==========================
   // API 6: INSERT HOLIDAY TABLE (SEQUENTIAL)
@@ -396,18 +380,20 @@ const Salaries: React.FC = () => {
     try {
       setLoading(true);
       await DelHTable();
+      let recno = 1;
       for (const item of data) {
         if (item.isSelected) {
-          await delay(50); // Angular parity
+          await delay(50);
           const payload = {
             _Hdt: moment(item.HolidayDate).format("DD-MM-YYYY"),
-            _Remark: item.Remark,
+            _Remark: item.Remark || "",
+            _Recno: String(recno++),
           };
-          await axios.post(`${API_BASE}Salaries/Insert_HTable`, payload);
+          await axios.post(`${API_BASE}Salaries/Insert_HTable`, payload, getAuthHeaders());
         }
       }
-    } catch (err) {
-      console.log(err);
+    } catch (err: any) {
+      console.error("Error in InsertHTable:", err?.response?.data || err?.message || err);
     } finally {
       setLoading(false);
     }
@@ -430,7 +416,7 @@ const Salaries: React.FC = () => {
       let tmpmnth = moment(HMnth).format("MMM");
       const payload = { _SalMY: `${tmpmnth}-${tmpyr}` };
 
-      await axios.post(`${API_BASE}Salaries/UpdateEmpHoliday`, payload);
+      await axios.post(`${API_BASE}Salaries/UpdateEmpHoliday`, payload, getAuthHeaders());
 
       // Refresh data
       await Load_EmployeesActive();
@@ -438,9 +424,9 @@ const Salaries: React.FC = () => {
       setSomeSelectEmp(false);
       setSelectEmp(false);
       alert("Employees Holidays Updated Successfully");
-    } catch (err) {
-      console.log(err);
-      alert("Error While Updating");
+    } catch (err: any) {
+      console.error("Error in UpdateEmpHoliday:", err?.response?.data || err?.message || err);
+      alert("Error While Updating: " + (err?.response?.data?.message || err?.response?.data || err?.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -594,23 +580,21 @@ const UpdateAdjustmentField = async (
   // ==========================
   // Selection Logic
   // ==========================
-  const selectUnselectAllEmp = async (e: any) => {
+  const selectUnselectAllEmp = (e: any) => {
     const checked = e.target.checked;
     setSelectEmp(checked);
     const updated = dt_emp_Active.map((x: any) => ({ ...x, isSelected: checked }));
     setDt_emp_Active(updated);
-    await InsertETable(updated);
   };
 
-  const selectUnselectAllHls = async (e: any) => {
+  const selectUnselectAllHls = (e: any) => {
     const checked = e.target.checked;
     setSelectHls(checked);
     const updated = dt_Holidays.map((x: any) => ({ ...x, isSelected: checked }));
     setDt_Holidays(updated);
-    await InsertHTable(updated);
   };
 
-  const singleChangeEmp = async (e: any, id: any) => {
+  const singleChangeEmp = (e: any, id: any) => {
     const checked = e.target.checked;
     const updated = dt_emp_Active.map((x: any) =>
       x.EmpName === id ? { ...x, isSelected: checked } : x
@@ -619,10 +603,9 @@ const UpdateAdjustmentField = async (
     const filtered = updated.filter((x: any) => x.isSelected);
     setSelectEmp(filtered.length > 0);
     setSomeSelectEmp(filtered.length > 0 && filtered.length !== updated.length);
-    await InsertETable(updated);
   };
 
-  const singleChangeHls = async (e: any, id: any) => {
+  const singleChangeHls = (e: any, id: any) => {
     const checked = e.target.checked;
     const updated = dt_Holidays.map((x: any) =>
       x.HolidayDate === id ? { ...x, isSelected: checked } : x
@@ -631,7 +614,6 @@ const UpdateAdjustmentField = async (
     const filtered = updated.filter((x: any) => x.isSelected);
     setSelectHls(filtered.length > 0);
     setSomeSelectHls(filtered.length > 0 && filtered.length !== updated.length);
-    await InsertHTable(updated);
   };
 
   return (
@@ -752,7 +734,6 @@ const UpdateAdjustmentField = async (
                               const selectedCount = updated.filter(x => x.isSelected).length;
                               setSelectEmp(selectedCount === updated.length);
                               setSomeSelectEmp(selectedCount > 0 && selectedCount < updated.length);
-                              InsertETable(updated);
                             }}
                             style={{
                               backgroundColor: mapGroupColor(color),
