@@ -405,8 +405,13 @@ const DaTaSettlementModal: React.FC<Props> = ({ isOpen, dutyId, onClose, canView
                       // replaces the grid entirely instead of duplicating it
                       // underneath, with TA/Fuel/Local folded onto the same
                       // line since there's nothing left to expand into.
+                      // Only what is this PERSON's: the date is in the popup
+                      // title, the odometer reading is in the summary card as
+                      // Start/End, and both are the same on every card here -
+                      // printing them per employee just repeated them down the
+                      // list. The reading still appears if the summary could
+                      // not show it (day trips failed to load).
                       <div className={"dt-day-line dt-day-line-merged" + (dd[0].MissingPunch ? " dt-day-line-miss" : "")}>
-                        <span className="dt-day-line-date">{day(dd[0].Duty_Date)}</span>
                         <span>{clock(dd[0].FirstIn)}–{clock(dd[0].LastOut)}</span>
                         {!dd[0].MissingPunch &&
                           (dd[0].PaidFrom !== dd[0].FirstIn || dd[0].PaidTo !== dd[0].LastOut) && (
@@ -417,7 +422,7 @@ const DaTaSettlementModal: React.FC<Props> = ({ isOpen, dutyId, onClose, canView
                         {dd[0].Km != null && Number(dd[0].Km) > 0 && (
                           <span className="dt-day-line-km">{Number(dd[0].Km).toFixed(0)}km</span>
                         )}
-                        {readingFor(dd[0].Duty_Date) && (
+                        {!startEndReading && readingFor(dd[0].Duty_Date) && (
                           <span className="dt-day-line-reading">
                             {readingFor(dd[0].Duty_Date)!.Reading_From ?? "--"}
                             {" → "}
@@ -426,7 +431,7 @@ const DaTaSettlementModal: React.FC<Props> = ({ isOpen, dutyId, onClose, canView
                         )}
                         <span className="dt-day-line-hrs">{hours(dd[0].Hours)}h</span>
                         <span className="dt-day-line-amt">DA {money(r.DA_Amount)}</span>
-                        <span className="dt-day-line-amt">TA {money(r.TA_Amount)}</span>
+                        {Number(r.TA_Amount) > 0 && <span className="dt-day-line-amt">TA {money(r.TA_Amount)}</span>}
                         {Number(r.Fuel_Amount) > 0 && <span className="dt-day-line-amt">Fuel {money(r.Fuel_Amount)}</span>}
                         {Number(r.Local_Amount) > 0 && <span className="dt-day-line-amt">Local {money(r.Local_Amount)}</span>}
                         {dd[0].MissingPunch && <span className="dt-day-line-flag">missing</span>}
