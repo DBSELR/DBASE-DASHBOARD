@@ -40,7 +40,39 @@ import axios from "axios";
 import "./OnDuties.css";
 import "../components/requests/RequestList.css";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, X, Check } from "lucide-react";
+import {
+  ChevronDown,
+  Search,
+  X,
+  Check,
+  Camera,
+  Upload,
+  Eye,
+  RotateCw,
+  Gauge,
+  MapPin,
+  Clock,
+  Fuel,
+  Building2,
+  User,
+  Phone,
+  Sparkles,
+  Plus,
+  Trash2,
+  Lock,
+  Calendar,
+  Car,
+  CheckCircle2,
+  FileText,
+  AlertCircle,
+  Navigation,
+  Pencil,
+  ExternalLink,
+  RefreshCw,
+  MessageSquare,
+  Download,
+  ZoomIn,
+} from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
@@ -409,7 +441,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
 
   const api = useMemo(() => {
-    return axios.create({ baseURL: API_BASE});
+    return axios.create({ baseURL: API_BASE });
   }, []);
 
   const isAccountant = empCode === "1541";
@@ -522,8 +554,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   // The camp day the form assumes until told otherwise: in at 9:30, out at
   // 6:30. Held as numbers rather than a "09:30" string so no parsing has to
   // happen on the way to the picker, which wants a full timestamp anyway.
-  const CAMP_DEFAULT_FROM_H = 9,  CAMP_DEFAULT_FROM_M = 30;   // 09:30
-  const CAMP_DEFAULT_TO_H   = 18, CAMP_DEFAULT_TO_M   = 30;   // 18:30
+  const CAMP_DEFAULT_FROM_H = 9, CAMP_DEFAULT_FROM_M = 30;   // 09:30
+  const CAMP_DEFAULT_TO_H = 18, CAMP_DEFAULT_TO_M = 30;   // 18:30
 
   // Same idea as daysTouchedRef, for the two date boxes. Once either picker
   // has been used - or an existing duty has been opened for editing - the
@@ -798,287 +830,287 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({});
   const [activeDutyTab, setActiveDutyTab] = useState<"my" | "team">("my");
 
-// The device/browser's own system timezone can't be trusted to be IST (dev
-// machines and emulators are frequently left on UTC), and this app's camp
-// scheduling is always meant in IST regardless of the device - so "now" is
-// always computed as the true current instant re-expressed with a fixed
-// +05:30 offset, never via plain `new Date()`/`moment()` (which silently
-// follow whatever timezone the OS happens to be set to).
-const IST_OFFSET_MIN = 330; // +05:30, no DST in India
-const nowIST = () => moment().utcOffset(IST_OFFSET_MIN);
-// Re-expresses an already-correct stored instant in the IST offset context,
-// so "same day"/hour/minute reads use IST's calendar boundaries rather than
-// whatever offset moment would otherwise default to when parsing the string.
-const toIST = (val: string) => moment(val).utcOffset(IST_OFFSET_MIN);
+  // The device/browser's own system timezone can't be trusted to be IST (dev
+  // machines and emulators are frequently left on UTC), and this app's camp
+  // scheduling is always meant in IST regardless of the device - so "now" is
+  // always computed as the true current instant re-expressed with a fixed
+  // +05:30 offset, never via plain `new Date()`/`moment()` (which silently
+  // follow whatever timezone the OS happens to be set to).
+  const IST_OFFSET_MIN = 330; // +05:30, no DST in India
+  const nowIST = () => moment().utcOffset(IST_OFFSET_MIN);
+  // Re-expresses an already-correct stored instant in the IST offset context,
+  // so "same day"/hour/minute reads use IST's calendar boundaries rather than
+  // whatever offset moment would otherwise default to when parsing the string.
+  const toIST = (val: string) => moment(val).utcOffset(IST_OFFSET_MIN);
 
-const today = nowIST().format("YYYY-MM-DD");
+  const today = nowIST().format("YYYY-MM-DD");
 
-const [unlockRange, setUnlockRange] = useState({
-  approved: false,
-  fromDate: "",
-  toDate: ""
-});
-
-
-
-const [dutyFromDate, setDutyFromDate] = useState<string>(nowIST().toISOString(true));
-const [dutyToDate, setDutyToDate] = useState<string | null>(null);
+  const [unlockRange, setUnlockRange] = useState({
+    approved: false,
+    fromDate: "",
+    toDate: ""
+  });
 
 
-const maxDateObj = new Date(dutyFromDate || today);
-maxDateObj.setDate(maxDateObj.getDate() + 6);
-const maxDate = maxDateObj.toISOString().split("T")[0];
 
-// The To picker gets its own, wider ceiling: always 15 days past whatever the
-// From date currently is, so a camp can run a fortnight without the wheel
-// stopping dead at day 7. Built with moment rather than toISOString() because
-// toISOString() converts to UTC first, which rolls the date back a day for any
-// IST time before 05:30 - the exact bug maxDate above still has.
-const maxToDate = moment(dutyFromDate || today).add(15, "days").format("YYYY-MM-DD");
+  const [dutyFromDate, setDutyFromDate] = useState<string>(nowIST().toISOString(true));
+  const [dutyToDate, setDutyToDate] = useState<string | null>(null);
 
-// One entry per calendar day the duty spans. Derived from the From/To pair
-// rather than held in its own state, so it can never drift out of step with
-// the range the user actually picked.
-const dutyDayPills = useMemo(() => {
-  const from = moment(dutyFromDate);
-  // No To date yet is a one-day duty, not an error - the form opens that way.
-  const to = dutyToDate ? moment(dutyToDate) : from.clone();
-  if (!from.isValid() || !to.isValid()) return [];
 
-  const start = from.clone().startOf("day");
-  const end = to.clone().startOf("day");
-  // A backwards range is a half-finished edit, not something to render.
-  if (end.isBefore(start)) return [];
+  const maxDateObj = new Date(dutyFromDate || today);
+  maxDateObj.setDate(maxDateObj.getDate() + 6);
+  const maxDate = maxDateObj.toISOString().split("T")[0];
 
-  const days: { key: string; day: string; full: string }[] = [];
-  // The picker caps a duty at 15 days past the From date; the 62 is only so a
-  // mistyped year
-  // cannot lock the page up building thousands of nodes.
-  for (let d = start.clone(); !d.isAfter(end) && days.length < 62; d.add(1, "day")) {
-    days.push({
-      key: d.format("YYYY-MM-DD"),
-      day: d.format("DD"),
-      full: d.format("DD MMM YYYY"),
-    });
-  }
-  return days;
-}, [dutyFromDate, dutyToDate]);
+  // The To picker gets its own, wider ceiling: always 15 days past whatever the
+  // From date currently is, so a camp can run a fortnight without the wheel
+  // stopping dead at day 7. Built with moment rather than toISOString() because
+  // toISOString() converts to UTC first, which rolls the date back a day for any
+  // IST time before 05:30 - the exact bug maxDate above still has.
+  const maxToDate = moment(dutyFromDate || today).add(15, "days").format("YYYY-MM-DD");
 
-// A duty that begins and ends on the same calendar day cannot be a shuttle:
-// there is no second day to shuttle on. Round Trip is the only answer the
-// form could accept, so it fills it in rather than putting up a dropdown whose
-// one valid option is already chosen.
-// No To date is a same-day duty, not an unfinished one - the form opens that
-// way and a duty saved without ever touching the To picker is a single day.
-const isSingleDayDuty = useMemo(() => {
-  const from = moment(dutyFromDate);
-  const to = dutyToDate ? moment(dutyToDate) : from.clone();
-  // A half-typed date is not a same-day duty; better to leave the question on
-  // screen than to silently answer it from a value that is not a date yet.
-  if (!from.isValid() || !to.isValid()) return false;
-  return from.isSame(to, "day");
-}, [dutyFromDate, dutyToDate]);
+  // One entry per calendar day the duty spans. Derived from the From/To pair
+  // rather than held in its own state, so it can never drift out of step with
+  // the range the user actually picked.
+  const dutyDayPills = useMemo(() => {
+    const from = moment(dutyFromDate);
+    // No To date yet is a one-day duty, not an error - the form opens that way.
+    const to = dutyToDate ? moment(dutyToDate) : from.clone();
+    if (!from.isValid() || !to.isValid()) return [];
 
-// Eligible AND worth asking. Everything on screen keys off this; the payload
-// and the pinning effect key off tripTypeApplies, because a single-day duty
-// still carries a trip type - it just is not asked for one.
-// "8 hrs 30 min", "45 min", "9 hrs". Minutes are dropped when there are none
-// rather than printed as "9 hrs 0 min", which reads like a rounding artefact.
-const fmtHM = (mins: number) => {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h === 0) return `${m} min`;
-  if (m === 0) return `${h} hr${h === 1 ? "" : "s"}`;
-  return `${h} hr${h === 1 ? "" : "s"} ${m} min`;
-};
+    const start = from.clone().startOf("day");
+    const end = to.clone().startOf("day");
+    // A backwards range is a half-finished edit, not something to render.
+    if (end.isBefore(start)) return [];
 
-// How long the camp day actually runs, shown under the To picker.
-//
-// Only two shapes have an answer worth stating. A single-day duty, where From
-// and To are the two ends of one stretch. And a Daily Shuttle, where the same
-// clock window repeats on every day of the run. A multi-day Round Trip is one
-// continuous absence rather than a daily window - the hours between leaving on
-// Monday and returning on Thursday are not a working duration - so nothing is
-// worked out for it and nothing is shown.
-const campDuration = useMemo(() => {
-  const from = dutyFromDate ? toIST(dutyFromDate) : null;
-  const to = dutyToDate ? toIST(dutyToDate) : null;
-  if (!from || !to || !from.isValid() || !to.isValid()) return null;
-
-  const shuttle = tripTypeApplies && tripType === "Daily Shuttle";
-  if (!isSingleDayDuty && !shuttle) return null;
-
-  // Clock times only, never the whole timestamps. On a shuttle the two dates
-  // are the first and last day of the run, so subtracting them would give the
-  // length of the entire camp where what is wanted is one day of it. On a
-  // single-day duty the dates are equal anyway, so the same arithmetic is
-  // right for both.
-  let mins = (to.hour() * 60 + to.minute()) - (from.hour() * 60 + from.minute());
-  // Ending "before" it began means the day crosses midnight.
-  if (mins < 0) mins += 24 * 60;
-  // Same time in both boxes is a range nobody has filled in yet, not a camp of
-  // no length. Better to show nothing than to announce "0 min".
-  if (mins === 0) return null;
-
-  // Per day only. A camp-wide total was there and has been taken out: it is
-  // the same figure multiplied by a day count already visible in the pills,
-  // and it invited being read as time owed rather than as a working window.
-  return { mins, perDay: fmtHM(mins) };
-}, [dutyFromDate, dutyToDate, isSingleDayDuty, tripType, tripTypeApplies]);
-
-const showTripType = tripTypeApplies && !isSingleDayDuty;
-const [tripModalMode, setTripModalMode] =
-  useState<"add" | "edit">("add");
-
-  
-
-const [fromModal, setFromModal] = useState(false);
-const [toModal, setToModal] = useState(false);
-
-// custom dropdown states
-const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
-const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-const [isTransportDropdownOpen, setIsTransportDropdownOpen] = useState(false);
-const [isOnDutyTypeDropdownOpen, setIsOnDutyTypeDropdownOpen] = useState(false);
-const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
-const [isTripTypeDropdownOpen, setIsTripTypeDropdownOpen] = useState(false);
-const [isBranchChangeTypeDropdownOpen, setIsBranchChangeTypeDropdownOpen] = useState(false);
-const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
-
-// Closed set. "Official Assignment" is the company moving someone;
-// "Employee Request" is the employee asking to be moved. "Mutual" is both
-// at once - the company wanted them at the other branch and the employee
-// asked to go - so it is settled halfway between the two: travel is paid
-// for the journey one way only, because the return leg was the employee's
-// own doing, while the daily allowance is paid in full exactly as it is on
-// any other duty. Because this is not the literal string "Employee
-// Request", the transport, vehicle and reporting-day fields below stay on
-// screen for it - which is right, since there is still a company journey.
-//
-// The settlement procedure recognises this case by looking for the word
-// "Mutual" in the saved value, so renaming it here means changing the
-// matcher in APP_OnDuty_DA_TA_Setup.sql to suit.
-const BRANCH_CHANGE_TYPE_OPTIONS = [
-  "Official Assignment",
-  "Employee Request",
-  "Mutual",
-];
-
-// Closed set, same as the on-duty types below. "Round Trip" is one journey
-// out and one back; "Daily Shuttle" is that journey repeated on each day of
-// the duty - the distinction the mileage is worked out from.
-const TRIP_TYPE_OPTIONS = ["Round Trip", "Daily Shuttle"];
-
-// Closed set, no free text. Anything outside these six is not a
-// state this form is allowed to produce.
-// Order is the one the user specified. It is not alphabetical and not
-// singles-then-combinations, so do not "tidy" it into either.
-const ONDUTY_TYPE_OPTIONS = [
-  "Party",
-  "Client",
-  "Branch",
-  "Branch & Party",
-  "Branch & Client",
-  // Duty that is none of the above - a court date, a government office, a
-  // training session. Deliberately last rather than first: it is the
-  // catch-all, and putting a catch-all at the top of a list makes people
-  // stop reading before they reach the specific option they wanted.
-  // Contains no "Branch", so it behaves exactly like "Party": free-text
-  // Location, no branch picker, no day pills.
-  "Official",
-];
-
-const [teamSearchTerm, setTeamSearchTerm] = useState("");
-const [clientSearchTerm, setClientSearchTerm] = useState("");
-const [branchSearchTerm, setBranchSearchTerm] = useState("");
-
-const [teamDropdownPos, setTeamDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [transportDropdownPos, setTransportDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [onDutyTypeDropdownPos, setOnDutyTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [branchDropdownPos, setBranchDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [tripTypeDropdownPos, setTripTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [branchChangeTypeDropdownPos, setBranchChangeTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-const [vehicleDropdownPos, setVehicleDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-
-const teamTriggerRef = useRef<HTMLDivElement>(null);
-const clientTriggerRef = useRef<HTMLDivElement>(null);
-const transportTriggerRef = useRef<HTMLDivElement>(null);
-const onDutyTypeTriggerRef = useRef<HTMLDivElement>(null);
-const branchTriggerRef = useRef<HTMLDivElement>(null);
-const tripTypeTriggerRef = useRef<HTMLDivElement>(null);
-const branchChangeTypeTriggerRef = useRef<HTMLDivElement>(null);
-const vehicleTriggerRef = useRef<HTMLDivElement>(null);
-
-// useLayoutEffect, not useEffect. Every one of these dropdowns starts life at
-// {top: 0, left: 0, width: 0}, and a portal renders into document.body the
-// moment it opens - so with a plain effect the browser painted the list in the
-// top left corner at zero width before the measurement landed, and it visibly
-// jumped down to its field. Laying out before paint means the first frame is
-// already in the right place; there is nothing to see jump.
-useLayoutEffect(() => {
-  const updateDropdownPositions = () => {
-    if (isTeamDropdownOpen && teamTriggerRef.current) {
-      const rect = teamTriggerRef.current.getBoundingClientRect();
-      setTeamDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+    const days: { key: string; day: string; full: string }[] = [];
+    // The picker caps a duty at 15 days past the From date; the 62 is only so a
+    // mistyped year
+    // cannot lock the page up building thousands of nodes.
+    for (let d = start.clone(); !d.isAfter(end) && days.length < 62; d.add(1, "day")) {
+      days.push({
+        key: d.format("YYYY-MM-DD"),
+        day: d.format("DD"),
+        full: d.format("DD MMM YYYY"),
+      });
     }
-    if (isClientDropdownOpen && clientTriggerRef.current) {
-      const rect = clientTriggerRef.current.getBoundingClientRect();
-      setClientDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
-    if (isTransportDropdownOpen && transportTriggerRef.current) {
-      const rect = transportTriggerRef.current.getBoundingClientRect();
-      setTransportDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
-    if (isOnDutyTypeDropdownOpen && onDutyTypeTriggerRef.current) {
-      const rect = onDutyTypeTriggerRef.current.getBoundingClientRect();
-      setOnDutyTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
-    if (isBranchDropdownOpen && branchTriggerRef.current) {
-      const rect = branchTriggerRef.current.getBoundingClientRect();
-      setBranchDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
-    if (isTripTypeDropdownOpen && tripTypeTriggerRef.current) {
-      const rect = tripTypeTriggerRef.current.getBoundingClientRect();
-      setTripTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
-    if (isBranchChangeTypeDropdownOpen && branchChangeTypeTriggerRef.current) {
-      const rect = branchChangeTypeTriggerRef.current.getBoundingClientRect();
-      setBranchChangeTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
-    if (isVehicleDropdownOpen && vehicleTriggerRef.current) {
-      const rect = vehicleTriggerRef.current.getBoundingClientRect();
-      setVehicleDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
-    }
+    return days;
+  }, [dutyFromDate, dutyToDate]);
+
+  // A duty that begins and ends on the same calendar day cannot be a shuttle:
+  // there is no second day to shuttle on. Round Trip is the only answer the
+  // form could accept, so it fills it in rather than putting up a dropdown whose
+  // one valid option is already chosen.
+  // No To date is a same-day duty, not an unfinished one - the form opens that
+  // way and a duty saved without ever touching the To picker is a single day.
+  const isSingleDayDuty = useMemo(() => {
+    const from = moment(dutyFromDate);
+    const to = dutyToDate ? moment(dutyToDate) : from.clone();
+    // A half-typed date is not a same-day duty; better to leave the question on
+    // screen than to silently answer it from a value that is not a date yet.
+    if (!from.isValid() || !to.isValid()) return false;
+    return from.isSame(to, "day");
+  }, [dutyFromDate, dutyToDate]);
+
+  // Eligible AND worth asking. Everything on screen keys off this; the payload
+  // and the pinning effect key off tripTypeApplies, because a single-day duty
+  // still carries a trip type - it just is not asked for one.
+  // "8 hrs 30 min", "45 min", "9 hrs". Minutes are dropped when there are none
+  // rather than printed as "9 hrs 0 min", which reads like a rounding artefact.
+  const fmtHM = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h} hr${h === 1 ? "" : "s"}`;
+    return `${h} hr${h === 1 ? "" : "s"} ${m} min`;
   };
 
-  window.addEventListener('resize', updateDropdownPositions);
-  const container = contentRef.current;
-  if (container) {
-    container.addEventListener('scroll', updateDropdownPositions);
-  }
-  updateDropdownPositions();
+  // How long the camp day actually runs, shown under the To picker.
+  //
+  // Only two shapes have an answer worth stating. A single-day duty, where From
+  // and To are the two ends of one stretch. And a Daily Shuttle, where the same
+  // clock window repeats on every day of the run. A multi-day Round Trip is one
+  // continuous absence rather than a daily window - the hours between leaving on
+  // Monday and returning on Thursday are not a working duration - so nothing is
+  // worked out for it and nothing is shown.
+  const campDuration = useMemo(() => {
+    const from = dutyFromDate ? toIST(dutyFromDate) : null;
+    const to = dutyToDate ? toIST(dutyToDate) : null;
+    if (!from || !to || !from.isValid() || !to.isValid()) return null;
 
-  return () => {
-    window.removeEventListener('resize', updateDropdownPositions);
-    if (container) container.removeEventListener('scroll', updateDropdownPositions);
+    const shuttle = tripTypeApplies && tripType === "Daily Shuttle";
+    if (!isSingleDayDuty && !shuttle) return null;
+
+    // Clock times only, never the whole timestamps. On a shuttle the two dates
+    // are the first and last day of the run, so subtracting them would give the
+    // length of the entire camp where what is wanted is one day of it. On a
+    // single-day duty the dates are equal anyway, so the same arithmetic is
+    // right for both.
+    let mins = (to.hour() * 60 + to.minute()) - (from.hour() * 60 + from.minute());
+    // Ending "before" it began means the day crosses midnight.
+    if (mins < 0) mins += 24 * 60;
+    // Same time in both boxes is a range nobody has filled in yet, not a camp of
+    // no length. Better to show nothing than to announce "0 min".
+    if (mins === 0) return null;
+
+    // Per day only. A camp-wide total was there and has been taken out: it is
+    // the same figure multiplied by a day count already visible in the pills,
+    // and it invited being read as time owed rather than as a working window.
+    return { mins, perDay: fmtHM(mins) };
+  }, [dutyFromDate, dutyToDate, isSingleDayDuty, tripType, tripTypeApplies]);
+
+  const showTripType = tripTypeApplies && !isSingleDayDuty;
+  const [tripModalMode, setTripModalMode] =
+    useState<"add" | "edit">("add");
+
+
+
+  const [fromModal, setFromModal] = useState(false);
+  const [toModal, setToModal] = useState(false);
+
+  // custom dropdown states
+  const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [isTransportDropdownOpen, setIsTransportDropdownOpen] = useState(false);
+  const [isOnDutyTypeDropdownOpen, setIsOnDutyTypeDropdownOpen] = useState(false);
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+  const [isTripTypeDropdownOpen, setIsTripTypeDropdownOpen] = useState(false);
+  const [isBranchChangeTypeDropdownOpen, setIsBranchChangeTypeDropdownOpen] = useState(false);
+  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
+
+  // Closed set. "Official Assignment" is the company moving someone;
+  // "Employee Request" is the employee asking to be moved. "Mutual" is both
+  // at once - the company wanted them at the other branch and the employee
+  // asked to go - so it is settled halfway between the two: travel is paid
+  // for the journey one way only, because the return leg was the employee's
+  // own doing, while the daily allowance is paid in full exactly as it is on
+  // any other duty. Because this is not the literal string "Employee
+  // Request", the transport, vehicle and reporting-day fields below stay on
+  // screen for it - which is right, since there is still a company journey.
+  //
+  // The settlement procedure recognises this case by looking for the word
+  // "Mutual" in the saved value, so renaming it here means changing the
+  // matcher in APP_OnDuty_DA_TA_Setup.sql to suit.
+  const BRANCH_CHANGE_TYPE_OPTIONS = [
+    "Official Assignment",
+    "Employee Request",
+    "Mutual",
+  ];
+
+  // Closed set, same as the on-duty types below. "Round Trip" is one journey
+  // out and one back; "Daily Shuttle" is that journey repeated on each day of
+  // the duty - the distinction the mileage is worked out from.
+  const TRIP_TYPE_OPTIONS = ["Round Trip", "Daily Shuttle"];
+
+  // Closed set, no free text. Anything outside these six is not a
+  // state this form is allowed to produce.
+  // Order is the one the user specified. It is not alphabetical and not
+  // singles-then-combinations, so do not "tidy" it into either.
+  const ONDUTY_TYPE_OPTIONS = [
+    "Party",
+    "Client",
+    "Branch",
+    "Branch & Party",
+    "Branch & Client",
+    // Duty that is none of the above - a court date, a government office, a
+    // training session. Deliberately last rather than first: it is the
+    // catch-all, and putting a catch-all at the top of a list makes people
+    // stop reading before they reach the specific option they wanted.
+    // Contains no "Branch", so it behaves exactly like "Party": free-text
+    // Location, no branch picker, no day pills.
+    "Official",
+  ];
+
+  const [teamSearchTerm, setTeamSearchTerm] = useState("");
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [branchSearchTerm, setBranchSearchTerm] = useState("");
+
+  const [teamDropdownPos, setTeamDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [clientDropdownPos, setClientDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [transportDropdownPos, setTransportDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [onDutyTypeDropdownPos, setOnDutyTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [branchDropdownPos, setBranchDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [tripTypeDropdownPos, setTripTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [branchChangeTypeDropdownPos, setBranchChangeTypeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [vehicleDropdownPos, setVehicleDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const teamTriggerRef = useRef<HTMLDivElement>(null);
+  const clientTriggerRef = useRef<HTMLDivElement>(null);
+  const transportTriggerRef = useRef<HTMLDivElement>(null);
+  const onDutyTypeTriggerRef = useRef<HTMLDivElement>(null);
+  const branchTriggerRef = useRef<HTMLDivElement>(null);
+  const tripTypeTriggerRef = useRef<HTMLDivElement>(null);
+  const branchChangeTypeTriggerRef = useRef<HTMLDivElement>(null);
+  const vehicleTriggerRef = useRef<HTMLDivElement>(null);
+
+  // useLayoutEffect, not useEffect. Every one of these dropdowns starts life at
+  // {top: 0, left: 0, width: 0}, and a portal renders into document.body the
+  // moment it opens - so with a plain effect the browser painted the list in the
+  // top left corner at zero width before the measurement landed, and it visibly
+  // jumped down to its field. Laying out before paint means the first frame is
+  // already in the right place; there is nothing to see jump.
+  useLayoutEffect(() => {
+    const updateDropdownPositions = () => {
+      if (isTeamDropdownOpen && teamTriggerRef.current) {
+        const rect = teamTriggerRef.current.getBoundingClientRect();
+        setTeamDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isClientDropdownOpen && clientTriggerRef.current) {
+        const rect = clientTriggerRef.current.getBoundingClientRect();
+        setClientDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isTransportDropdownOpen && transportTriggerRef.current) {
+        const rect = transportTriggerRef.current.getBoundingClientRect();
+        setTransportDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isOnDutyTypeDropdownOpen && onDutyTypeTriggerRef.current) {
+        const rect = onDutyTypeTriggerRef.current.getBoundingClientRect();
+        setOnDutyTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isBranchDropdownOpen && branchTriggerRef.current) {
+        const rect = branchTriggerRef.current.getBoundingClientRect();
+        setBranchDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isTripTypeDropdownOpen && tripTypeTriggerRef.current) {
+        const rect = tripTypeTriggerRef.current.getBoundingClientRect();
+        setTripTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isBranchChangeTypeDropdownOpen && branchChangeTypeTriggerRef.current) {
+        const rect = branchChangeTypeTriggerRef.current.getBoundingClientRect();
+        setBranchChangeTypeDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+      if (isVehicleDropdownOpen && vehicleTriggerRef.current) {
+        const rect = vehicleTriggerRef.current.getBoundingClientRect();
+        setVehicleDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+      }
+    };
+
+    window.addEventListener('resize', updateDropdownPositions);
+    const container = contentRef.current;
+    if (container) {
+      container.addEventListener('scroll', updateDropdownPositions);
+    }
+    updateDropdownPositions();
+
+    return () => {
+      window.removeEventListener('resize', updateDropdownPositions);
+      if (container) container.removeEventListener('scroll', updateDropdownPositions);
+    };
+  }, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen, isTripTypeDropdownOpen, isBranchChangeTypeDropdownOpen, isVehicleDropdownOpen]);
+
+  const loadUnlockRange = async () => {
+    const res = await fetch(
+      `${API_BASE}ApprovalRequest/GetApprovedUnlockRequest?empCode=${empCode}&requestType=On%20Duty`
+    );
+
+    const data = await res.json();
+
+    setUnlockRange(data);
   };
-}, [isTeamDropdownOpen, isClientDropdownOpen, isTransportDropdownOpen, isOnDutyTypeDropdownOpen, isBranchDropdownOpen, isTripTypeDropdownOpen, isBranchChangeTypeDropdownOpen, isVehicleDropdownOpen]);
+  useEffect(() => {
+    if (!empCode) return;
 
-const loadUnlockRange = async () => {
-  const res = await fetch(
-    `${API_BASE}ApprovalRequest/GetApprovedUnlockRequest?empCode=${empCode}&requestType=On%20Duty`
-  );
-
-  const data = await res.json();
-
-  setUnlockRange(data);
-};
-useEffect(() => {
-  if (!empCode) return;
-
-  loadUnlockRange();
-}, [empCode]);
+    loadUnlockRange();
+  }, [empCode]);
 
   const notify = (msg: string, color: string = "primary") =>
     setToast({ msg, color });
@@ -1141,8 +1173,8 @@ useEffect(() => {
     if (isReadingLocked(dutyDate, which, hasImage)) {
       notify(
         `The ${label} reading photo for this day has already been uploaded ` +
-          `and can no longer be changed. It could only be replaced within ` +
-          `5 minutes of the first upload.`,
+        `and can no longer be changed. It could only be replaced within ` +
+        `5 minutes of the first upload.`,
         "warning"
       );
       return false;
@@ -1157,16 +1189,16 @@ useEffect(() => {
       );
       return window.confirm(
         `This ${label} reading photo can still be replaced for about ` +
-          `${leftMin} more minute${leftMin === 1 ? "" : "s"}, after which it ` +
-          `is fixed.\n\nReplace it now?${suffix}`
+        `${leftMin} more minute${leftMin === 1 ? "" : "s"}, after which it ` +
+        `is fixed.\n\nReplace it now?${suffix}`
       );
     }
 
     const ok = window.confirm(
       `The ${label} reading photo is the record of when this part of the ` +
-        `day happened, so it cannot be edited once it has been uploaded.` +
-        `\n\nIf it comes out wrong you can replace it, but only within ` +
-        `5 minutes of uploading it.\n\nUpload now?${suffix}`
+      `day happened, so it cannot be edited once it has been uploaded.` +
+      `\n\nIf it comes out wrong you can replace it, but only within ` +
+      `5 minutes of uploading it.\n\nUpload now?${suffix}`
     );
     if (ok) readingLockRef.current[readingLockKey(dutyDate, which)] = Date.now();
     return ok;
@@ -1317,98 +1349,98 @@ useEffect(() => {
   };
 
   const openAddDayTripModal = (row: DutyRow) => {
-  setTripModalMode("add");
+    setTripModalMode("add");
 
-  const allTripDates = getTripDatesForDuty(row);
+    const allTripDates = getTripDatesForDuty(row);
 
-  const normalize = (d: string) =>
-    d ? new Date(d).toISOString().split("T")[0] : "";
+    const normalize = (d: string) =>
+      d ? new Date(d).toISOString().split("T")[0] : "";
 
-  const currentTrips = tripDaysByDuty[row.id] || [];
+    const currentTrips = tripDaysByDuty[row.id] || [];
 
-  const existingDates = currentTrips.map((x) =>
-    normalize(x.dutyDate)
-  );
+    const existingDates = currentTrips.map((x) =>
+      normalize(x.dutyDate)
+    );
 
-  const nextDate = allTripDates.find(
-    (d) => !existingDates.includes(normalize(d))
-  );
+    const nextDate = allTripDates.find(
+      (d) => !existingDates.includes(normalize(d))
+    );
 
-  if (!nextDate) {
-    notify("All day trips already added", "warning");
-    return;
-  }
-
-  // Block adding the next day until the immediately preceding day's
-  // closing (Reading To) photo has actually been uploaded. The card list
-  // can show "Reading X -> X (0 Kms)" for a day whose end reading was
-  // never really uploaded - in "add" mode Reading To is auto-mirrored
-  // from Reading From purely as a form default (see updateTripDay's
-  // readingFrom handler), with no photo behind it - so checking
-  // readingToImage (not readingTo, which can hold that mirrored text)
-  // is the only reliable way to tell a real closing upload from the
-  // placeholder. Without this, a new day could be opened and even saved
-  // while the previous day's vehicle reading was never actually closed
-  // out, leaving a gap in the reading trail and, for a same-day Round
-  // Trip, silently skipping the auto-close/lock that closing reading
-  // was supposed to trigger.
-  //
-  // Public Transport never has a Reading To photo at all - that mode
-  // skips vehicle readings entirely and only ever asks for Distance (see
-  // isPublicTransport throughout this file, e.g. the day-trip modal's
-  // "only distance required" validation) - so this guard would otherwise
-  // permanently block every Public Transport duty from adding a second
-  // day. It only applies to duties that actually upload readings.
-  const isPublicTransportRow = row.Mode_of_Trans === "PublicTransport";
-  if (!isPublicTransportRow) {
-    const previousTrip = [...currentTrips].sort((a, b) =>
-      normalize(a.dutyDate).localeCompare(normalize(b.dutyDate))
-    )[currentTrips.length - 1];
-    if (previousTrip && !previousTrip.readingToImage) {
-      notify(
-        `Please upload the End Reading for ${moment(previousTrip.dutyDate).format("DD-MM-YYYY")} before adding the next day.`,
-        "warning"
-      );
+    if (!nextDate) {
+      notify("All day trips already added", "warning");
       return;
     }
-  }
 
-  // Note: adding a duty day for a FUTURE date is deliberately allowed - an
-  // employee may start the journey the evening before the camp day and needs
-  // to record the vehicle's start reading then. Only VISIT entries stay
-  // blocked on future dates (see + Add Party / addTripVisit / edit-mode save
-  // guards).
-  const defaultVisitFromTime = row.Start_Time ? String(row.Start_Time).slice(0, 5) : "";
-  const defaultEmpCodes = formatEmployeeNames(row.empNames)
-    .map((e: any) => e.code)
-    .filter(Boolean);
-  if (empCode && !defaultEmpCodes.includes(empCode)) defaultEmpCodes.push(empCode);
-  const newTrip = emptyTripDay(normalize(nextDate), defaultVisitFromTime, defaultEmpCodes);
+    // Block adding the next day until the immediately preceding day's
+    // closing (Reading To) photo has actually been uploaded. The card list
+    // can show "Reading X -> X (0 Kms)" for a day whose end reading was
+    // never really uploaded - in "add" mode Reading To is auto-mirrored
+    // from Reading From purely as a form default (see updateTripDay's
+    // readingFrom handler), with no photo behind it - so checking
+    // readingToImage (not readingTo, which can hold that mirrored text)
+    // is the only reliable way to tell a real closing upload from the
+    // placeholder. Without this, a new day could be opened and even saved
+    // while the previous day's vehicle reading was never actually closed
+    // out, leaving a gap in the reading trail and, for a same-day Round
+    // Trip, silently skipping the auto-close/lock that closing reading
+    // was supposed to trigger.
+    //
+    // Public Transport never has a Reading To photo at all - that mode
+    // skips vehicle readings entirely and only ever asks for Distance (see
+    // isPublicTransport throughout this file, e.g. the day-trip modal's
+    // "only distance required" validation) - so this guard would otherwise
+    // permanently block every Public Transport duty from adding a second
+    // day. It only applies to duties that actually upload readings.
+    const isPublicTransportRow = row.Mode_of_Trans === "PublicTransport";
+    if (!isPublicTransportRow) {
+      const previousTrip = [...currentTrips].sort((a, b) =>
+        normalize(a.dutyDate).localeCompare(normalize(b.dutyDate))
+      )[currentTrips.length - 1];
+      if (previousTrip && !previousTrip.readingToImage) {
+        notify(
+          `Please upload the End Reading for ${moment(previousTrip.dutyDate).format("DD-MM-YYYY")} before adding the next day.`,
+          "warning"
+        );
+        return;
+      }
+    }
 
-  const newIndex = currentTrips.length;
+    // Note: adding a duty day for a FUTURE date is deliberately allowed - an
+    // employee may start the journey the evening before the camp day and needs
+    // to record the vehicle's start reading then. Only VISIT entries stay
+    // blocked on future dates (see + Add Party / addTripVisit / edit-mode save
+    // guards).
+    const defaultVisitFromTime = row.Start_Time ? String(row.Start_Time).slice(0, 5) : "";
+    const defaultEmpCodes = formatEmployeeNames(row.empNames)
+      .map((e: any) => e.code)
+      .filter(Boolean);
+    if (empCode && !defaultEmpCodes.includes(empCode)) defaultEmpCodes.push(empCode);
+    const newTrip = emptyTripDay(normalize(nextDate), defaultVisitFromTime, defaultEmpCodes);
 
-  setTripDaysByDuty((prev) => ({
-    ...prev,
-    [row.id]: [...(prev[row.id] || []), newTrip],
-  }));
+    const newIndex = currentTrips.length;
 
-  setSelectedDutyRow(row);
-  setSelectedDutyId(row.id);
-  setEditingTripIndex(newIndex);
-  setShowDayTripModal(true);
-};
+    setTripDaysByDuty((prev) => ({
+      ...prev,
+      [row.id]: [...(prev[row.id] || []), newTrip],
+    }));
+
+    setSelectedDutyRow(row);
+    setSelectedDutyId(row.id);
+    setEditingTripIndex(newIndex);
+    setShowDayTripModal(true);
+  };
 
   const openEditDayTripModal = (
-  row: DutyRow,
-  index: number
-) => {
-  setTripModalMode("edit");
+    row: DutyRow,
+    index: number
+  ) => {
+    setTripModalMode("edit");
 
-  setSelectedDutyRow(row);
-  setSelectedDutyId(row.id);
-  setEditingTripIndex(index);
-  setShowDayTripModal(true);
-};
+    setSelectedDutyRow(row);
+    setSelectedDutyId(row.id);
+    setEditingTripIndex(index);
+    setShowDayTripModal(true);
+  };
 
   const closeDayTripModal = () => {
     setShowDayTripModal(false);
@@ -1626,8 +1658,8 @@ useEffect(() => {
       const defaultEmpCodes = lastVisitWithEmployees
         ? [...lastVisitWithEmployees.empCodes]
         : formatEmployeeNames(selectedDutyRow?.empNames)
-            .map((e: any) => e.code)
-            .filter(Boolean);
+          .map((e: any) => e.code)
+          .filter(Boolean);
       if (empCode && !defaultEmpCodes.includes(empCode)) defaultEmpCodes.push(empCode);
 
       currentTrips[tripIndex] = {
@@ -1688,479 +1720,479 @@ useEffect(() => {
     if (isSavingTrip.current) return;
     isSavingTrip.current = true;
     try {
-    // Everything below is wrapped in this outer try so that ANY
-    // unexpected/uncaught exception (not just the API call itself,
-    // which already has its own inner try/catch below) always shows
-    // the user a toast and always resets isSavingTrip.current - a
-    // silent throw here used to leave the ref stuck true forever,
-    // which looks exactly like "nothing happens" on every future
-    // click of Save Trip with zero error/success feedback.
-    if (
-      !selectedDutyId ||
-      editingTripIndex === null ||
-      editingTripIndex === undefined
-    ) {
-      notify("Invalid trip state", "warning");
-      isSavingTrip.current = false;
-      return;
-    }
-
-    const trips = tripDaysByDuty[selectedDutyId] || [];
-    const trip =
-      editingTripIndex != null &&
-      editingTripIndex >= 0 &&
-      editingTripIndex < trips.length
-        ? trips[editingTripIndex]
-        : null;
-
-    if (!trip) {
-      notify("Trip data missing", "danger");
-      isSavingTrip.current = false;
-      return;
-    }
-
-    // Saving a future-dated day trip is allowed only in ADD mode (recording
-    // the vehicle's start reading before the journey day begins). VISIT
-    // entries (edit mode) stay blocked until the date actually arrives.
-    if (
-      tripModalMode === "edit" &&
-      trip.dutyDate &&
-      String(trip.dutyDate).slice(0, 10) > nowIST().format("YYYY-MM-DD")
-    ) {
-      notify("Visit entries are not allowed for future dates", "warning");
-      isSavingTrip.current = false;
-      return;
-    }
-
-    // ===== VALIDATION =====
-
-    // Public Transport → only distance required
-    if (isPublicTransport) {
-      if (!trip.distance || Number(trip.distance) <= 0) {
-        notify("Distance is required for Public Transport", "warning");
-        isSavingTrip.current = false;
-        return;
-      }
-    }
-
-    // Office / Own Vehicle → reading required
-    if (!isPublicTransport) {
+      // Everything below is wrapped in this outer try so that ANY
+      // unexpected/uncaught exception (not just the API call itself,
+      // which already has its own inner try/catch below) always shows
+      // the user a toast and always resets isSavingTrip.current - a
+      // silent throw here used to leave the ref stuck true forever,
+      // which looks exactly like "nothing happens" on every future
+      // click of Save Trip with zero error/success feedback.
       if (
-        !trip.readingFrom ||
-        !trip.readingFromImage
+        !selectedDutyId ||
+        editingTripIndex === null ||
+        editingTripIndex === undefined
       ) {
-        notify("Reading values and images are required", "warning");
+        notify("Invalid trip state", "warning");
         isSavingTrip.current = false;
         return;
       }
-    }
 
-    // A day trip can now be saved with zero visits recorded - the
-    // reading upload (and, for Party/Client/Official work, the trip
-    // itself) is already the record that the day happened; requiring a
-    // visit on top of that blocked otherwise-valid saves (e.g. a day with
-    // only travel and no client stop). The time-ordering checks below
-    // still apply whenever visits ARE present, for any duty type - they
-    // simply have nothing to check against an empty visits array.
-    if (tripModalMode === "edit") {
-      // Visit From Time must not be earlier than the On Duty's own applied
-      // Timeline start (selectedDutyRow.Start_Time, fetched from the db -
-      // see the mapDutyRows/backend fix). Visit To Time has no Timeline
-      // ceiling - it only needs to be at/after that SAME visit's own From
-      // Time (a visit can legitimately run past the On Duty's nominal end).
-      // Skip gracefully if Start_Time isn't available (older duties saved
-      // before this field existed).
-      const campStart = selectedDutyRow?.Start_Time
-        ? moment(selectedDutyRow.Start_Time, ["HH:mm:ss", "HH:mm"])
-        : null;
-      if (campStart && campStart.isValid()) {
-        const earlyVisit = trip.visits.find((v) => {
-          if (!v.visitFromTime) return false;
-          const vTime = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
-          return vTime.isValid() && vTime.isBefore(campStart);
-        });
-        if (earlyVisit) {
-          notify(
-            `Visit From Time must be ${campStart.format("HH:mm")} or later (On Duty start time)`,
-            "warning"
-          );
+      const trips = tripDaysByDuty[selectedDutyId] || [];
+      const trip =
+        editingTripIndex != null &&
+          editingTripIndex >= 0 &&
+          editingTripIndex < trips.length
+          ? trips[editingTripIndex]
+          : null;
+
+      if (!trip) {
+        notify("Trip data missing", "danger");
+        isSavingTrip.current = false;
+        return;
+      }
+
+      // Saving a future-dated day trip is allowed only in ADD mode (recording
+      // the vehicle's start reading before the journey day begins). VISIT
+      // entries (edit mode) stay blocked until the date actually arrives.
+      if (
+        tripModalMode === "edit" &&
+        trip.dutyDate &&
+        String(trip.dutyDate).slice(0, 10) > nowIST().format("YYYY-MM-DD")
+      ) {
+        notify("Visit entries are not allowed for future dates", "warning");
+        isSavingTrip.current = false;
+        return;
+      }
+
+      // ===== VALIDATION =====
+
+      // Public Transport → only distance required
+      if (isPublicTransport) {
+        if (!trip.distance || Number(trip.distance) <= 0) {
+          notify("Distance is required for Public Transport", "warning");
           isSavingTrip.current = false;
           return;
         }
       }
 
-      const backwardsVisit = trip.visits.find((v) => {
-        if (!v.visitFromTime || !v.visitToTime) return false;
-        const fromTime = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
-        const toTime = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
-        return fromTime.isValid() && toTime.isValid() && toTime.isBefore(fromTime);
-      });
-      if (backwardsVisit) {
-        notify("Visit To Time must be at or after Visit From Time", "warning");
-        isSavingTrip.current = false;
-        return;
-      }
-
-      // Visit To Time can't be later than the current real-world time when
-      // this day trip's date is today - you can't log a visit that hasn't
-      // happened yet. Past-dated day trips have no such cap. Compare as
-      // plain HH:mm (both sides parsed the same way, no real date attached)
-      // rather than against a live nowIST() moment directly, to avoid the
-      // system-timezone-vs-IST mismatch bug documented elsewhere in this
-      // file (moment(str, "HH:mm") anchors to the parser's own "today",
-      // which could differ from IST's today if compared against a real
-      // datetime moment).
-      if (trip.dutyDate === nowIST().format("YYYY-MM-DD")) {
-        const nowTimeOnly = moment(nowIST().format("HH:mm"), ["HH:mm"]);
-        const futureVisit = trip.visits.find((v) => {
-          if (!v.visitToTime) return false;
-          const toTime = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
-          return toTime.isValid() && toTime.isAfter(nowTimeOnly);
-        });
-        if (futureVisit) {
-          notify(
-            `Visit To Time must be ${nowIST().format("HH:mm")} or earlier (current time)`,
-            "warning"
-          );
-          isSavingTrip.current = false;
-          return;
-        }
-      }
-
-      // Safety net: no two visits on the same day trip may have overlapping
-      // [From, To] time ranges, regardless of how they were entered (the
-      // picker already discourages this via adjacent-visit min/max bounds,
-      // but this catches anything that slips through - e.g. a visit edited
-      // out of its original chronological position).
-      const parseRange = (v: (typeof trip.visits)[number]) => {
-        if (!v.visitFromTime || !v.visitToTime) return null;
-        const from = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
-        const to = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
-        if (!from.isValid() || !to.isValid()) return null;
-        return { from, to };
-      };
-      let overlapFound = false;
-      for (let i = 0; i < trip.visits.length && !overlapFound; i++) {
-        const rangeA = parseRange(trip.visits[i]);
-        if (!rangeA) continue;
-        for (let j = i + 1; j < trip.visits.length; j++) {
-          const rangeB = parseRange(trip.visits[j]);
-          if (!rangeB) continue;
-          if (rangeA.from.isBefore(rangeB.to) && rangeB.from.isBefore(rangeA.to)) {
-            overlapFound = true;
-            break;
-          }
-        }
-      }
-      if (overlapFound) {
-        notify("Visit times must not overlap with another visit on the same day", "warning");
-        isSavingTrip.current = false;
-        return;
-      }
-
-      // Every visit must say who was actually there - the team can split
-      // across visits on the same day, so this can't be assumed from the
-      // duty's overall team list. The logged-in employee is always counted
-      // (see the emp_Codes formData append below), so in practice this
-      // only trips if empCode itself hasn't loaded yet.
-      const visitWithNoEmployees = trip.visits.find((v) => {
-        const codes = new Set(v.empCodes || []);
-        if (empCode) codes.add(empCode);
-        return codes.size === 0;
-      });
-      if (visitWithNoEmployees) {
-        notify("Select at least one employee for every visit", "warning");
-        isSavingTrip.current = false;
-        return;
-      }
-    }
-
-    // Daily Shuttle never shows a manual Start/End Camp button on an
-    // own/office vehicle (see the card) - every day's own reading upload
-    // does that job instead. Round Trip only shows End Camp manually - the
-    // trip itself still starts from a reading, same as Shuttle, just once
-    // rather than every day. Both ask the same Yes/No + 5 second question
-    // at the point the upload is about to happen, rather than doing it
-    // silently:
-    //   Daily Shuttle - every start reading opens that day's camp, every
-    //     end reading closes it. Confirm on either.
-    //   Round Trip - only the very FIRST start reading starts anything
-    //     (campStatusByDuty says the camp is not active yet); a start
-    //     reading on any day after that is just recording that day's
-    //     numbers, the trip is already running, so no prompt. Round Trip
-    //     never ends from a reading upload at all - only the End Camp
-    //     button on the card does that (see openCampConfirm there), so an
-    //     end reading here never prompts either.
-    const dutyTripTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
-    const isDailyShuttleDuty = dutyTripTypeLower === "daily shuttle";
-    // The server's own camp-trigger gates (Save_DayTrip's isOwnOrOfficeVehicle,
-    // and EndCamp's isRoundTrip) don't require an exact "Round Trip" match -
-    // they trigger for ANY TripType that isn't "Daily Shuttle", blank
-    // included. Office-vehicle duty types like "Party" never ask Round Trip
-    // vs Daily Shuttle, so TripType is "" for them, yet the server still
-    // auto-starts/closes their camp on a reading upload (and permanently
-    // locks a same-day one) exactly as it does for an explicit "Round Trip".
-    // Requiring an exact match here meant isVehicleDuty was false for every
-    // blank-TripType duty, so this whole confirm-dialog block was skipped
-    // for them: readings got uploaded and camps got started/closed/locked
-    // server-side with no warning ever shown. Matching the server's own
-    // proxy keeps what the user is told in sync with what actually happens.
-    const isRoundTripDuty = !isDailyShuttleDuty;
-    const isVehicleDuty = !isPublicTransport && (isDailyShuttleDuty || isRoundTripDuty);
-    // A Round Trip whose own DateFrom/DateTo fall on the same calendar day
-    // now auto-closes (and permanently locks) exactly like Daily Shuttle's
-    // final reading does - see Save_DayTrip on the API. A multi-day Round
-    // Trip still only ever ends from the explicit End Camp button.
-    const isSameDayRoundTrip =
-      isRoundTripDuty &&
-      !!selectedDutyRow?.DateFrom &&
-      !!selectedDutyRow?.DateTo &&
-      String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
-
-    if (isVehicleDuty && !skipReadingConfirm) {
-      const uploadingStart = trip.readingFromImage instanceof File;
-      const uploadingEnd = trip.readingToImage instanceof File;
-      const campAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
-
-      // If the Reading From/To upload click already asked (and got a yes
-      // for) this exact question, don't ask it again here - see
-      // confirmedReadingUploadsRef and the file inputs' onClick above.
-      const alreadyConfirmedStart = confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`);
-      const alreadyConfirmedEnd = confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`);
-
-      const endReadingApplies = uploadingEnd && (isDailyShuttleDuty || isSameDayRoundTrip);
-
-      // The click-time question can only ask "do you want to do this" -
-      // the closing number usually isn't typed in until after that photo
-      // is picked, so it can't check it yet. This is where that check
-      // actually happens once the reading is final - skipping it just
-      // because the click-time question was already answered would drop
-      // the one check that actually looks at the numbers.
-      if (endReadingApplies && alreadyConfirmedEnd) {
-        const endRf = trip.readingFrom || "";
-        const endRt = trip.readingTo || "";
+      // Office / Own Vehicle → reading required
+      if (!isPublicTransport) {
         if (
-          endRf !== "" &&
-          endRt !== "" &&
-          !Number.isNaN(Number(endRf)) &&
-          Number(endRf) === Number(endRt)
+          !trip.readingFrom ||
+          !trip.readingFromImage
         ) {
+          notify("Reading values and images are required", "warning");
           isSavingTrip.current = false;
-          notify(
-            `Start and end reading are both ${endRf} - no distance recorded. Please re-check ` +
-              `and update the closing reading before saving.`,
-            "danger"
-          );
           return;
         }
       }
 
-      const needsStartConfirm =
-        uploadingStart &&
-        !alreadyConfirmedStart &&
-        (isDailyShuttleDuty || (isRoundTripDuty && !campAlreadyActive));
-      const needsEndConfirm = endReadingApplies && !alreadyConfirmedEnd;
-
-      if (needsStartConfirm || needsEndConfirm) {
-        isSavingTrip.current = false;
-        setDayTripCampConfirm({
-          open: true,
-          kind: needsStartConfirm && needsEndConfirm ? "both" : needsStartConfirm ? "start" : "end",
-          isRoundTrip: isRoundTripDuty,
-          secondsLeft: 5,
-          readingFrom: trip.readingFrom || "",
-          readingTo: trip.readingTo || "",
-        });
-        return;
-      }
-    }
-
-    const formData = new FormData();
-
-    formData.append("duty_Id", selectedDutyId);
-    formData.append("duty_Date", trip.dutyDate);
-
-    // Transport based data handling
-    if (isPublicTransport) {
-      // Public Transport
-      formData.append("reading_From", "0");
-      formData.append("reading_To", "0");
-      formData.append("distance", trip.distance || "0");
-      formData.append("fuel_Amount", "0");
-    } else {
-      // Office / Own Vehicle
-      formData.append("reading_From", trip.readingFrom || "0");
-      formData.append("reading_To", trip.readingTo || "0");
-      formData.append("distance", trip.distance || "0");
-
-      // Fuel only for Office vehicle
-      if (isOfficeVehicle) {
-        formData.append("fuel_Amount", trip.fuelAmount || "0");
-      } else {
-        formData.append("fuel_Amount", "0");
-      }
-    }
-    formData.append("created_By", empCode);
-
-    // images 
-    if (!isPublicTransport) {
-      if (trip.readingFromImage instanceof File) {
-        formData.append("ReadingFrom_Image", trip.readingFromImage);
-      } else if (typeof trip.readingFromImage === "string" && trip.readingFromImage.trim() !== "") {
-        formData.append("ReadingFrom_ImagePath", trip.readingFromImage);
-      }
-
-      if (trip.readingToImage instanceof File) {
-        formData.append("ReadingTo_Image", trip.readingToImage);
-      } else if (typeof trip.readingToImage === "string" && trip.readingToImage.trim() !== "") {
-        formData.append("ReadingTo_ImagePath", trip.readingToImage);
-      }
-    }
-
-    // Fuel image only for Office vehicle
-    if (isOfficeVehicle) {
-      if (trip.fuelImage instanceof File) {
-        formData.append("Fuel_Image", trip.fuelImage);
-      } else if (typeof trip.fuelImage === "string" && trip.fuelImage.trim() !== "") {
-        formData.append("Fuel_ImagePath", trip.fuelImage);
-      }
-    }
-
-    // visits (Only in EDIT mode)
-    if (tripModalMode === "edit") {
-      trip.visits.forEach((v, i) => {
-        formData.append(`visits[${i}].visit_Id`, String(v.visit_Id || 0));
-        formData.append(`visits[${i}].client_Name`, v.partyName);
-        formData.append(`visits[${i}].location`, v.location);
-        formData.append(`visits[${i}].latitude`, v.latitude || "");
-        formData.append(`visits[${i}].longitude`, v.longitude || "");
-        formData.append(`visits[${i}].visit_FromTime`, v.visitFromTime);
-        formData.append(`visits[${i}].visit_ToTime`, v.visitToTime);
-        formData.append(`visits[${i}].projects`, (v.demoProjects || []).join(","));
-        const savedEmpCodes = new Set(v.empCodes || []);
-        if (empCode) savedEmpCodes.add(empCode);
-        formData.append(`visits[${i}].emp_Codes`, Array.from(savedEmpCodes).join(","));
-        formData.append(`visits[${i}].contact_Person`, v.contactPerson);
-        formData.append(`visits[${i}].mobile_Number`, v.mobile);
-        formData.append(`visits[${i}].remarks`, v.remarks);
-        {
-          // Guard against a non-primitive ever being serialized here -
-          // FormData silently stringifies any object to the literal text
-          // "[object Object]", which the backend then rejects with a
-          // validation error ("The value '[object Object]' is not valid
-          // for LocalTransportAmount") that is meaningless to whoever is
-          // filling out the trip. Only a string/number is ever sent;
-          // anything else is treated as "not entered" instead of corrupting
-          // the request.
-          const rawAmount = v.localTransportAmount as unknown;
-          const safeAmount =
-            typeof rawAmount === "string" || typeof rawAmount === "number"
-              ? String(rawAmount)
-              : "";
-          formData.append(`visits[${i}].localTransportAmount`, safeAmount);
-        }
-
-        if (v.visitSlipImage instanceof File) {
-          formData.append(`visits[${i}].visit_Image`, v.visitSlipImage);
-        } else if (typeof v.visitSlipImage === "string" && v.visitSlipImage.trim() !== "") {
-          formData.append(`visits[${i}].visit_ImagePath`, v.visitSlipImage);
-        }
-
-        if (v.localTransportImage instanceof File) {
-          formData.append(`visits[${i}].localTransportImage`, v.localTransportImage);
-        } else if (
-          typeof v.localTransportImage === "string" &&
-          v.localTransportImage.trim() !== ""
-        ) {
-          formData.append(`visits[${i}].localTransportImagePath`, v.localTransportImage);
-        }
-      });
-    }
-
-    try {
-      const res = await api.post("OnDuty/save_daytrip", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      // The trip itself always saved if execution reaches here - the
-      // |WARN: suffix (same convention SaveDuties uses) only ever
-      // covers the best-effort camp auto-close failing to find a
-      // session to close, which used to be reported nowhere but the
-      // server console. Surfacing it here is what makes "trip saved,
-      // but live location never turned off" visible instead of silent.
-      const campWarn = String(res?.data?.message ?? "").split("|WARN:")[1];
-      if (campWarn) {
-        notify(campWarn, "warning");
-      } else if (res?.data?.campStartAttempted && Number(res?.data?.campStartedCount) > 0) {
-        // Uploading the start reading auto-opens the camp for every
-        // teammate on the duty (same as tapping Start Camp by hand) -
-        // say so here instead of a generic "Trip Saved" that leaves the
-        // team-wide effect invisible unless someone checks the map.
-        const n = Number(res.data.campStartedCount);
-        notify(
-          `Trip Saved - Live location turned on for ${n} team member${n === 1 ? "" : "s"}`,
-          "success"
-        );
-      } else {
-        notify("Trip Saved Successfully", "success");
-      }
-      await loadDuties();
-
-      // Refresh this duty's local trip/visit state from the server before
-      // closing. save_daytrip assigns a real Visit_ID to every visit it
-      // just inserted, but that ID never made it back into tripDaysByDuty -
-      // only loadDuties() (the duties list) ran above, not loadDayTrips()
-      // (the day-trip/visit rows). Reopening Edit for this same day without
-      // this refresh reused the stale in-memory visits, still carrying
-      // visit_Id: 0 for anything just saved, and the next save resent them
-      // with no ID - app_Save_OnDuty_Visit treats that as a brand new visit
-      // and inserts a duplicate row instead of updating the existing one.
-      if (selectedDutyId) {
-        await loadDayTrips(selectedDutyId);
-      }
-
-      closeDayTripModal();
-
-    } catch (error: any) {
-      let errorMsg = "Save failed";
-      const data = error?.response?.data;
-      if (data) {
-        if (typeof data === "string") {
-          errorMsg = data;
-        } else if (typeof data === "object") {
-          // ASP.NET's automatic [ApiController] model-validation response
-          // (HTTP 400) is a ProblemDetails object: { errors: { "Visits[0].
-          // LocalTransportAmount": ["message"], ... }, title, status, ... }.
-          // Neither .message nor .error exists on it, so this used to fall
-          // through to JSON.stringify(data) and show the raw payload -
-          // type, title, status, traceId and all - in a danger toast. Pull
-          // the field-level messages out instead so the person filling the
-          // form sees "Local Transport Amount: The value ... is not valid"
-          // rather than a wall of JSON they can't act on.
-          const validationErrors = data.errors && typeof data.errors === "object" ? data.errors : null;
-          if (validationErrors) {
-            const messages = Object.entries(validationErrors)
-              .map(([field, msgs]) => {
-                const label = field
-                  .replace(/^Visits\[\d+\]\./, "")
-                  .replace(/([a-z])([A-Z])/g, "$1 $2");
-                const text = Array.isArray(msgs) ? msgs.join(" ") : String(msgs);
-                return `${label}: ${text}`;
-              })
-              .join("\n");
-            errorMsg = messages || data.title || "Save failed";
-          } else {
-            errorMsg = data.message || data.error || data.title || "Save failed";
+      // A day trip can now be saved with zero visits recorded - the
+      // reading upload (and, for Party/Client/Official work, the trip
+      // itself) is already the record that the day happened; requiring a
+      // visit on top of that blocked otherwise-valid saves (e.g. a day with
+      // only travel and no client stop). The time-ordering checks below
+      // still apply whenever visits ARE present, for any duty type - they
+      // simply have nothing to check against an empty visits array.
+      if (tripModalMode === "edit") {
+        // Visit From Time must not be earlier than the On Duty's own applied
+        // Timeline start (selectedDutyRow.Start_Time, fetched from the db -
+        // see the mapDutyRows/backend fix). Visit To Time has no Timeline
+        // ceiling - it only needs to be at/after that SAME visit's own From
+        // Time (a visit can legitimately run past the On Duty's nominal end).
+        // Skip gracefully if Start_Time isn't available (older duties saved
+        // before this field existed).
+        const campStart = selectedDutyRow?.Start_Time
+          ? moment(selectedDutyRow.Start_Time, ["HH:mm:ss", "HH:mm"])
+          : null;
+        if (campStart && campStart.isValid()) {
+          const earlyVisit = trip.visits.find((v) => {
+            if (!v.visitFromTime) return false;
+            const vTime = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
+            return vTime.isValid() && vTime.isBefore(campStart);
+          });
+          if (earlyVisit) {
+            notify(
+              `Visit From Time must be ${campStart.format("HH:mm")} or later (On Duty start time)`,
+              "warning"
+            );
+            isSavingTrip.current = false;
+            return;
           }
         }
-      } else if (error?.message) {
-        errorMsg = error.message;
+
+        const backwardsVisit = trip.visits.find((v) => {
+          if (!v.visitFromTime || !v.visitToTime) return false;
+          const fromTime = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
+          const toTime = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
+          return fromTime.isValid() && toTime.isValid() && toTime.isBefore(fromTime);
+        });
+        if (backwardsVisit) {
+          notify("Visit To Time must be at or after Visit From Time", "warning");
+          isSavingTrip.current = false;
+          return;
+        }
+
+        // Visit To Time can't be later than the current real-world time when
+        // this day trip's date is today - you can't log a visit that hasn't
+        // happened yet. Past-dated day trips have no such cap. Compare as
+        // plain HH:mm (both sides parsed the same way, no real date attached)
+        // rather than against a live nowIST() moment directly, to avoid the
+        // system-timezone-vs-IST mismatch bug documented elsewhere in this
+        // file (moment(str, "HH:mm") anchors to the parser's own "today",
+        // which could differ from IST's today if compared against a real
+        // datetime moment).
+        if (trip.dutyDate === nowIST().format("YYYY-MM-DD")) {
+          const nowTimeOnly = moment(nowIST().format("HH:mm"), ["HH:mm"]);
+          const futureVisit = trip.visits.find((v) => {
+            if (!v.visitToTime) return false;
+            const toTime = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
+            return toTime.isValid() && toTime.isAfter(nowTimeOnly);
+          });
+          if (futureVisit) {
+            notify(
+              `Visit To Time must be ${nowIST().format("HH:mm")} or earlier (current time)`,
+              "warning"
+            );
+            isSavingTrip.current = false;
+            return;
+          }
+        }
+
+        // Safety net: no two visits on the same day trip may have overlapping
+        // [From, To] time ranges, regardless of how they were entered (the
+        // picker already discourages this via adjacent-visit min/max bounds,
+        // but this catches anything that slips through - e.g. a visit edited
+        // out of its original chronological position).
+        const parseRange = (v: (typeof trip.visits)[number]) => {
+          if (!v.visitFromTime || !v.visitToTime) return null;
+          const from = moment(v.visitFromTime, ["HH:mm:ss", "HH:mm"]);
+          const to = moment(v.visitToTime, ["HH:mm:ss", "HH:mm"]);
+          if (!from.isValid() || !to.isValid()) return null;
+          return { from, to };
+        };
+        let overlapFound = false;
+        for (let i = 0; i < trip.visits.length && !overlapFound; i++) {
+          const rangeA = parseRange(trip.visits[i]);
+          if (!rangeA) continue;
+          for (let j = i + 1; j < trip.visits.length; j++) {
+            const rangeB = parseRange(trip.visits[j]);
+            if (!rangeB) continue;
+            if (rangeA.from.isBefore(rangeB.to) && rangeB.from.isBefore(rangeA.to)) {
+              overlapFound = true;
+              break;
+            }
+          }
+        }
+        if (overlapFound) {
+          notify("Visit times must not overlap with another visit on the same day", "warning");
+          isSavingTrip.current = false;
+          return;
+        }
+
+        // Every visit must say who was actually there - the team can split
+        // across visits on the same day, so this can't be assumed from the
+        // duty's overall team list. The logged-in employee is always counted
+        // (see the emp_Codes formData append below), so in practice this
+        // only trips if empCode itself hasn't loaded yet.
+        const visitWithNoEmployees = trip.visits.find((v) => {
+          const codes = new Set(v.empCodes || []);
+          if (empCode) codes.add(empCode);
+          return codes.size === 0;
+        });
+        if (visitWithNoEmployees) {
+          notify("Select at least one employee for every visit", "warning");
+          isSavingTrip.current = false;
+          return;
+        }
       }
 
-      notify(errorMsg, "danger");
-    } finally {
-      isSavingTrip.current = false;
-    }
+      // Daily Shuttle never shows a manual Start/End Camp button on an
+      // own/office vehicle (see the card) - every day's own reading upload
+      // does that job instead. Round Trip only shows End Camp manually - the
+      // trip itself still starts from a reading, same as Shuttle, just once
+      // rather than every day. Both ask the same Yes/No + 5 second question
+      // at the point the upload is about to happen, rather than doing it
+      // silently:
+      //   Daily Shuttle - every start reading opens that day's camp, every
+      //     end reading closes it. Confirm on either.
+      //   Round Trip - only the very FIRST start reading starts anything
+      //     (campStatusByDuty says the camp is not active yet); a start
+      //     reading on any day after that is just recording that day's
+      //     numbers, the trip is already running, so no prompt. Round Trip
+      //     never ends from a reading upload at all - only the End Camp
+      //     button on the card does that (see openCampConfirm there), so an
+      //     end reading here never prompts either.
+      const dutyTripTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+      const isDailyShuttleDuty = dutyTripTypeLower === "daily shuttle";
+      // The server's own camp-trigger gates (Save_DayTrip's isOwnOrOfficeVehicle,
+      // and EndCamp's isRoundTrip) don't require an exact "Round Trip" match -
+      // they trigger for ANY TripType that isn't "Daily Shuttle", blank
+      // included. Office-vehicle duty types like "Party" never ask Round Trip
+      // vs Daily Shuttle, so TripType is "" for them, yet the server still
+      // auto-starts/closes their camp on a reading upload (and permanently
+      // locks a same-day one) exactly as it does for an explicit "Round Trip".
+      // Requiring an exact match here meant isVehicleDuty was false for every
+      // blank-TripType duty, so this whole confirm-dialog block was skipped
+      // for them: readings got uploaded and camps got started/closed/locked
+      // server-side with no warning ever shown. Matching the server's own
+      // proxy keeps what the user is told in sync with what actually happens.
+      const isRoundTripDuty = !isDailyShuttleDuty;
+      const isVehicleDuty = !isPublicTransport && (isDailyShuttleDuty || isRoundTripDuty);
+      // A Round Trip whose own DateFrom/DateTo fall on the same calendar day
+      // now auto-closes (and permanently locks) exactly like Daily Shuttle's
+      // final reading does - see Save_DayTrip on the API. A multi-day Round
+      // Trip still only ever ends from the explicit End Camp button.
+      const isSameDayRoundTrip =
+        isRoundTripDuty &&
+        !!selectedDutyRow?.DateFrom &&
+        !!selectedDutyRow?.DateTo &&
+        String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
+
+      if (isVehicleDuty && !skipReadingConfirm) {
+        const uploadingStart = trip.readingFromImage instanceof File;
+        const uploadingEnd = trip.readingToImage instanceof File;
+        const campAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
+
+        // If the Reading From/To upload click already asked (and got a yes
+        // for) this exact question, don't ask it again here - see
+        // confirmedReadingUploadsRef and the file inputs' onClick above.
+        const alreadyConfirmedStart = confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`);
+        const alreadyConfirmedEnd = confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`);
+
+        const endReadingApplies = uploadingEnd && (isDailyShuttleDuty || isSameDayRoundTrip);
+
+        // The click-time question can only ask "do you want to do this" -
+        // the closing number usually isn't typed in until after that photo
+        // is picked, so it can't check it yet. This is where that check
+        // actually happens once the reading is final - skipping it just
+        // because the click-time question was already answered would drop
+        // the one check that actually looks at the numbers.
+        if (endReadingApplies && alreadyConfirmedEnd) {
+          const endRf = trip.readingFrom || "";
+          const endRt = trip.readingTo || "";
+          if (
+            endRf !== "" &&
+            endRt !== "" &&
+            !Number.isNaN(Number(endRf)) &&
+            Number(endRf) === Number(endRt)
+          ) {
+            isSavingTrip.current = false;
+            notify(
+              `Start and end reading are both ${endRf} - no distance recorded. Please re-check ` +
+              `and update the closing reading before saving.`,
+              "danger"
+            );
+            return;
+          }
+        }
+
+        const needsStartConfirm =
+          uploadingStart &&
+          !alreadyConfirmedStart &&
+          (isDailyShuttleDuty || (isRoundTripDuty && !campAlreadyActive));
+        const needsEndConfirm = endReadingApplies && !alreadyConfirmedEnd;
+
+        if (needsStartConfirm || needsEndConfirm) {
+          isSavingTrip.current = false;
+          setDayTripCampConfirm({
+            open: true,
+            kind: needsStartConfirm && needsEndConfirm ? "both" : needsStartConfirm ? "start" : "end",
+            isRoundTrip: isRoundTripDuty,
+            secondsLeft: 5,
+            readingFrom: trip.readingFrom || "",
+            readingTo: trip.readingTo || "",
+          });
+          return;
+        }
+      }
+
+      const formData = new FormData();
+
+      formData.append("duty_Id", selectedDutyId);
+      formData.append("duty_Date", trip.dutyDate);
+
+      // Transport based data handling
+      if (isPublicTransport) {
+        // Public Transport
+        formData.append("reading_From", "0");
+        formData.append("reading_To", "0");
+        formData.append("distance", trip.distance || "0");
+        formData.append("fuel_Amount", "0");
+      } else {
+        // Office / Own Vehicle
+        formData.append("reading_From", trip.readingFrom || "0");
+        formData.append("reading_To", trip.readingTo || "0");
+        formData.append("distance", trip.distance || "0");
+
+        // Fuel only for Office vehicle
+        if (isOfficeVehicle) {
+          formData.append("fuel_Amount", trip.fuelAmount || "0");
+        } else {
+          formData.append("fuel_Amount", "0");
+        }
+      }
+      formData.append("created_By", empCode);
+
+      // images 
+      if (!isPublicTransport) {
+        if (trip.readingFromImage instanceof File) {
+          formData.append("ReadingFrom_Image", trip.readingFromImage);
+        } else if (typeof trip.readingFromImage === "string" && trip.readingFromImage.trim() !== "") {
+          formData.append("ReadingFrom_ImagePath", trip.readingFromImage);
+        }
+
+        if (trip.readingToImage instanceof File) {
+          formData.append("ReadingTo_Image", trip.readingToImage);
+        } else if (typeof trip.readingToImage === "string" && trip.readingToImage.trim() !== "") {
+          formData.append("ReadingTo_ImagePath", trip.readingToImage);
+        }
+      }
+
+      // Fuel image only for Office vehicle
+      if (isOfficeVehicle) {
+        if (trip.fuelImage instanceof File) {
+          formData.append("Fuel_Image", trip.fuelImage);
+        } else if (typeof trip.fuelImage === "string" && trip.fuelImage.trim() !== "") {
+          formData.append("Fuel_ImagePath", trip.fuelImage);
+        }
+      }
+
+      // visits (Only in EDIT mode)
+      if (tripModalMode === "edit") {
+        trip.visits.forEach((v, i) => {
+          formData.append(`visits[${i}].visit_Id`, String(v.visit_Id || 0));
+          formData.append(`visits[${i}].client_Name`, v.partyName);
+          formData.append(`visits[${i}].location`, v.location);
+          formData.append(`visits[${i}].latitude`, v.latitude || "");
+          formData.append(`visits[${i}].longitude`, v.longitude || "");
+          formData.append(`visits[${i}].visit_FromTime`, v.visitFromTime);
+          formData.append(`visits[${i}].visit_ToTime`, v.visitToTime);
+          formData.append(`visits[${i}].projects`, (v.demoProjects || []).join(","));
+          const savedEmpCodes = new Set(v.empCodes || []);
+          if (empCode) savedEmpCodes.add(empCode);
+          formData.append(`visits[${i}].emp_Codes`, Array.from(savedEmpCodes).join(","));
+          formData.append(`visits[${i}].contact_Person`, v.contactPerson);
+          formData.append(`visits[${i}].mobile_Number`, v.mobile);
+          formData.append(`visits[${i}].remarks`, v.remarks);
+          {
+            // Guard against a non-primitive ever being serialized here -
+            // FormData silently stringifies any object to the literal text
+            // "[object Object]", which the backend then rejects with a
+            // validation error ("The value '[object Object]' is not valid
+            // for LocalTransportAmount") that is meaningless to whoever is
+            // filling out the trip. Only a string/number is ever sent;
+            // anything else is treated as "not entered" instead of corrupting
+            // the request.
+            const rawAmount = v.localTransportAmount as unknown;
+            const safeAmount =
+              typeof rawAmount === "string" || typeof rawAmount === "number"
+                ? String(rawAmount)
+                : "";
+            formData.append(`visits[${i}].localTransportAmount`, safeAmount);
+          }
+
+          if (v.visitSlipImage instanceof File) {
+            formData.append(`visits[${i}].visit_Image`, v.visitSlipImage);
+          } else if (typeof v.visitSlipImage === "string" && v.visitSlipImage.trim() !== "") {
+            formData.append(`visits[${i}].visit_ImagePath`, v.visitSlipImage);
+          }
+
+          if (v.localTransportImage instanceof File) {
+            formData.append(`visits[${i}].localTransportImage`, v.localTransportImage);
+          } else if (
+            typeof v.localTransportImage === "string" &&
+            v.localTransportImage.trim() !== ""
+          ) {
+            formData.append(`visits[${i}].localTransportImagePath`, v.localTransportImage);
+          }
+        });
+      }
+
+      try {
+        const res = await api.post("OnDuty/save_daytrip", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        // The trip itself always saved if execution reaches here - the
+        // |WARN: suffix (same convention SaveDuties uses) only ever
+        // covers the best-effort camp auto-close failing to find a
+        // session to close, which used to be reported nowhere but the
+        // server console. Surfacing it here is what makes "trip saved,
+        // but live location never turned off" visible instead of silent.
+        const campWarn = String(res?.data?.message ?? "").split("|WARN:")[1];
+        if (campWarn) {
+          notify(campWarn, "warning");
+        } else if (res?.data?.campStartAttempted && Number(res?.data?.campStartedCount) > 0) {
+          // Uploading the start reading auto-opens the camp for every
+          // teammate on the duty (same as tapping Start Camp by hand) -
+          // say so here instead of a generic "Trip Saved" that leaves the
+          // team-wide effect invisible unless someone checks the map.
+          const n = Number(res.data.campStartedCount);
+          notify(
+            `Trip Saved - Live location turned on for ${n} team member${n === 1 ? "" : "s"}`,
+            "success"
+          );
+        } else {
+          notify("Trip Saved Successfully", "success");
+        }
+        await loadDuties();
+
+        // Refresh this duty's local trip/visit state from the server before
+        // closing. save_daytrip assigns a real Visit_ID to every visit it
+        // just inserted, but that ID never made it back into tripDaysByDuty -
+        // only loadDuties() (the duties list) ran above, not loadDayTrips()
+        // (the day-trip/visit rows). Reopening Edit for this same day without
+        // this refresh reused the stale in-memory visits, still carrying
+        // visit_Id: 0 for anything just saved, and the next save resent them
+        // with no ID - app_Save_OnDuty_Visit treats that as a brand new visit
+        // and inserts a duplicate row instead of updating the existing one.
+        if (selectedDutyId) {
+          await loadDayTrips(selectedDutyId);
+        }
+
+        closeDayTripModal();
+
+      } catch (error: any) {
+        let errorMsg = "Save failed";
+        const data = error?.response?.data;
+        if (data) {
+          if (typeof data === "string") {
+            errorMsg = data;
+          } else if (typeof data === "object") {
+            // ASP.NET's automatic [ApiController] model-validation response
+            // (HTTP 400) is a ProblemDetails object: { errors: { "Visits[0].
+            // LocalTransportAmount": ["message"], ... }, title, status, ... }.
+            // Neither .message nor .error exists on it, so this used to fall
+            // through to JSON.stringify(data) and show the raw payload -
+            // type, title, status, traceId and all - in a danger toast. Pull
+            // the field-level messages out instead so the person filling the
+            // form sees "Local Transport Amount: The value ... is not valid"
+            // rather than a wall of JSON they can't act on.
+            const validationErrors = data.errors && typeof data.errors === "object" ? data.errors : null;
+            if (validationErrors) {
+              const messages = Object.entries(validationErrors)
+                .map(([field, msgs]) => {
+                  const label = field
+                    .replace(/^Visits\[\d+\]\./, "")
+                    .replace(/([a-z])([A-Z])/g, "$1 $2");
+                  const text = Array.isArray(msgs) ? msgs.join(" ") : String(msgs);
+                  return `${label}: ${text}`;
+                })
+                .join("\n");
+              errorMsg = messages || data.title || "Save failed";
+            } else {
+              errorMsg = data.message || data.error || data.title || "Save failed";
+            }
+          }
+        } else if (error?.message) {
+          errorMsg = error.message;
+        }
+
+        notify(errorMsg, "danger");
+      } finally {
+        isSavingTrip.current = false;
+      }
     } catch (outerErr: any) {
       console.error("saveDayTripModal unexpected error", outerErr);
       notify(
@@ -2728,39 +2760,39 @@ useEffect(() => {
   };
 
   const formatEmployeeNames = (value: any) => {
-  if (!value) return [];
+    if (!value) return [];
 
-  const str = String(value);
+    const str = String(value);
 
-  return str
-    .split(",")
-    .map((x) => {
-      const parts = x.split("-");
+    return str
+      .split(",")
+      .map((x) => {
+        const parts = x.split("-");
 
-      if (parts.length >= 2) {
-        const empCode = parts[0]?.trim();
+        if (parts.length >= 2) {
+          const empCode = parts[0]?.trim();
 
-        const empNames = parts
-          .slice(1)
-          .join("-")
-          .trim();
+          const empNames = parts
+            .slice(1)
+            .join("-")
+            .trim();
+
+          return {
+            code: empCode,
+            // Upper case throughout, so a name entered as "y r m raju" and one
+            // entered as "SATTIBABU" look like entries in the same list rather
+            // than like two different systems talking.
+            name: empNames.toUpperCase(),
+          };
+        }
 
         return {
-          code: empCode,
-          // Upper case throughout, so a name entered as "y r m raju" and one
-          // entered as "SATTIBABU" look like entries in the same list rather
-          // than like two different systems talking.
-          name: empNames.toUpperCase(),
+          code: "",
+          name: x.trim().toUpperCase(),
         };
-      }
-
-      return {
-        code: "",
-        name: x.trim().toUpperCase(),
-      };
-    })
-    .filter((x) => x.name);
-};
+      })
+      .filter((x) => x.name);
+  };
 
   // The applicant arrives from the API as a bare code, because that is all
   // tbl_On_Duties stores. The team list is the only place on this page a
@@ -3038,7 +3070,7 @@ useEffect(() => {
       const ok = field(first, "Ok") !== false;
       notify(
         String(field(first, "Message") ?? "").trim() ||
-          (ok ? "Reporting days saved." : "That change was not accepted."),
+        (ok ? "Reporting days saved." : "That change was not accepted."),
         ok ? "success" : "warning"
       );
       if (ok) {
@@ -3103,7 +3135,7 @@ useEffect(() => {
       // words are worth more than a generic success line.
       notify(
         String(field(first, "Message") ?? "").trim() ||
-          (ok ? "Done." : "That decision was not accepted."),
+        (ok ? "Done." : "That decision was not accepted."),
         ok ? "success" : "warning"
       );
       await loadChangeRequests();
@@ -3118,10 +3150,12 @@ useEffect(() => {
 
   const [previewFile, setPreviewFile] = useState<File | string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRotation, setPreviewRotation] = useState<number>(0);
 
   const openFilePreview = (file: File | string | null | undefined) => {
     if (!file) return;
     setPreviewFile(file);
+    setPreviewRotation(0);
     setPreviewOpen(true);
   };
   const removeTripDay = async (dutyId: string, tripIndex: number) => {
@@ -3449,11 +3483,11 @@ useEffect(() => {
     // make it unsavable with no visible field to fix.
     if ((showClientField && !institution) || !dutiesDesc || (showTravelFields && !transportMode) || (showLocationField && !location) || !empCode || !dutyFromDate || !dutyToDate
       || (
-      showTravelFields &&
-      transportMode !== "PublicTransport" &&
-      !vehicleNo
-    )
-  ) {
+        showTravelFields &&
+        transportMode !== "PublicTransport" &&
+        !vehicleNo
+      )
+    ) {
       notify("Please fill all required fields", "warning");
       return;
     }
@@ -3491,9 +3525,9 @@ useEffect(() => {
       // branch duty as a client duty actually clears the days it used to have.
       _AttDaysAtBranch: showDayPills
         ? dutyDayPills
-            .filter((d) => selectedDays.includes(d.key))
-            .map((d) => d.day)
-            .join(",")
+          .filter((d) => selectedDays.includes(d.key))
+          .map((d) => d.day)
+          .join(",")
         : "",
       // "" on an office-vehicle duty rather than omitted, so re-saving a duty
       // whose transport changed actually clears the trip type it used to have.
@@ -3881,16 +3915,16 @@ useEffect(() => {
         // with it, because the day pills only offer days inside the range.
         setDutyFromDate(
           composeDateTime(card?.DateFrom, card?.Start_Time) ??
-            toIsoOrNull(row[13]) ??
-            composeDateTime(row[2], row[7]) ??
-            nowIST().toISOString(true)
+          toIsoOrNull(row[13]) ??
+          composeDateTime(row[2], row[7]) ??
+          nowIST().toISOString(true)
         );
         setDutyToDate(
           composeDateTime(card?.DateTo, card?.End_Time) ??
-            composeDateTime(card?.DateFrom, card?.End_Time) ??
-            toIsoOrNull(row[14]) ??
-            composeDateTime(row[2], row[8]) ??
-            nowIST().toISOString(true)
+          composeDateTime(card?.DateFrom, card?.End_Time) ??
+          toIsoOrNull(row[14]) ??
+          composeDateTime(row[2], row[8]) ??
+          nowIST().toISOString(true)
         );
         setInstitution(row[3]);
         setLocation(row[15] || "");
@@ -4009,8 +4043,8 @@ useEffect(() => {
           st === "approved" || st === "accepted"
             ? "approved"
             : st === "rejected"
-            ? "rejected"
-            : "pending";
+              ? "rejected"
+              : "pending";
         return { role: String(s.role).trim(), color };
       });
   };
@@ -4119,7 +4153,7 @@ useEffect(() => {
         if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
           displayMsg = String(rows[0][1]);
         }
-      } catch {}
+      } catch { }
 
       notify(displayMsg, "success");
       loadDuties();
@@ -4149,7 +4183,7 @@ useEffect(() => {
         if (Array.isArray(rows) && rows.length > 0 && rows[0][1]) {
           displayMsg = String(rows[0][1]);
         }
-      } catch {}
+      } catch { }
 
       notify(displayMsg, "warning");
       loadDuties();
@@ -4490,8 +4524,8 @@ useEffect(() => {
                         {selectedCodes.length === 0
                           ? "Select Team"
                           : selectedCodes.length === 1
-                          ? selectedNames[0]
-                          : `${selectedNames[0]}  +${selectedCodes.length - 1}`}
+                            ? selectedNames[0]
+                            : `${selectedNames[0]}  +${selectedCodes.length - 1}`}
                       </span>
                       <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
 
@@ -4711,124 +4745,124 @@ useEffect(() => {
 
               {/* Branch */}
               {showBranchField && (
-              <div className="lr-field-box" onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}>
-                <label className="lr-field-label">Branch</label>
-                <div className="lr-field-content" ref={branchTriggerRef}>
-                  <IonIcon icon={businessOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: branchName ? "#1e293b" : "#94a3b8" }}>
-                    {branchName || "Select Branch"}
-                  </span>
-                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+                <div className="lr-field-box" onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}>
+                  <label className="lr-field-label">Branch</label>
+                  <div className="lr-field-content" ref={branchTriggerRef}>
+                    <IonIcon icon={businessOutline} className="lr-field-icon" />
+                    <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: branchName ? "#1e293b" : "#94a3b8" }}>
+                      {branchName || "Select Branch"}
+                    </span>
+                    <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
 
-                  {isBranchDropdownOpen && createPortal(
-                    <>
-                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsBranchDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchDropdownPos.top}px`, left: `${branchDropdownPos.left}px`, width: `${branchDropdownPos.width}px`, visibility: branchDropdownPos.width ? 'visible' : 'hidden' }}>
-                        <div className="dropdown-search-sec">
-                          <Search size={16} className="dropdown-search-icon" />
-                          <input type="text" placeholder="Search branch..." value={branchSearchTerm} onChange={(e) => setBranchSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
-                          {branchSearchTerm && <button className="dropdown-clear-btn" onClick={() => setBranchSearchTerm("")}><X size={16} /></button>}
-                        </div>
-                        <div className="dropdown-body">
-                          {(() => {
-                            const term = branchSearchTerm.toLowerCase();
-                            // Match on the label so typing either the branch
-                            // or the dept narrows the list.
-                            const options = selectableBranches.filter((b) => b.label.toLowerCase().includes(term));
-                            return options.length > 0 ? (
-                              options.map((b, index) => {
-                                const isSelected = branchName === b.label;
-                                return (
-                                  <div
-                                    key={`${b.id}-${index}`}
-                                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setBranchName(b.label);
-                                      setIsBranchDropdownOpen(false);
-                                    }}
-                                  >
-                                    <div className={`dr-avatar grad-${(index % 5) || 0}`}>{(b.branch.charAt(0) || "?").toUpperCase()}</div>
-                                    <div className="dr-info">
-                                      <span className="dr-name">{b.branch}</span>
-                                      {b.dept && <span className="dr-id">{b.dept}</span>}
+                    {isBranchDropdownOpen && createPortal(
+                      <>
+                        <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsBranchDropdownOpen(false); }} />
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${branchDropdownPos.top}px`, left: `${branchDropdownPos.left}px`, width: `${branchDropdownPos.width}px`, visibility: branchDropdownPos.width ? 'visible' : 'hidden' }}>
+                          <div className="dropdown-search-sec">
+                            <Search size={16} className="dropdown-search-icon" />
+                            <input type="text" placeholder="Search branch..." value={branchSearchTerm} onChange={(e) => setBranchSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
+                            {branchSearchTerm && <button className="dropdown-clear-btn" onClick={() => setBranchSearchTerm("")}><X size={16} /></button>}
+                          </div>
+                          <div className="dropdown-body">
+                            {(() => {
+                              const term = branchSearchTerm.toLowerCase();
+                              // Match on the label so typing either the branch
+                              // or the dept narrows the list.
+                              const options = selectableBranches.filter((b) => b.label.toLowerCase().includes(term));
+                              return options.length > 0 ? (
+                                options.map((b, index) => {
+                                  const isSelected = branchName === b.label;
+                                  return (
+                                    <div
+                                      key={`${b.id}-${index}`}
+                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setBranchName(b.label);
+                                        setIsBranchDropdownOpen(false);
+                                      }}
+                                    >
+                                      <div className={`dr-avatar grad-${(index % 5) || 0}`}>{(b.branch.charAt(0) || "?").toUpperCase()}</div>
+                                      <div className="dr-info">
+                                        <span className="dr-name">{b.branch}</span>
+                                        {b.dept && <span className="dr-id">{b.dept}</span>}
+                                      </div>
+                                      {isSelected && <Check size={18} className="dr-check" />}
                                     </div>
-                                    {isSelected && <Check size={18} className="dr-check" />}
-                                  </div>
-                                );
-                              })
-                            ) : <div className="dr-no-results">No branches found</div>;
-                          })()}
+                                  );
+                                })
+                              ) : <div className="dr-no-results">No branches found</div>;
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    </>,
-                    document.body
-                  )}
+                      </>,
+                      document.body
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Client / Institution */}
               {showClientField && (
-              <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
-                <label className="lr-field-label">Client / Institution</label>
-                <div className="lr-field-content" ref={clientTriggerRef}>
-                  <IonIcon icon={businessOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: institution ? "#1e293b" : "#94a3b8" }}>
-                    {institution || "Search Party / Client"}
-                  </span>
-                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+                <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
+                  <label className="lr-field-label">Client / Institution</label>
+                  <div className="lr-field-content" ref={clientTriggerRef}>
+                    <IonIcon icon={businessOutline} className="lr-field-icon" />
+                    <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: institution ? "#1e293b" : "#94a3b8" }}>
+                      {institution || "Search Party / Client"}
+                    </span>
+                    <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
 
-                  {isClientDropdownOpen && createPortal(
-                    <>
-                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsClientDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${clientDropdownPos.top}px`, left: `${clientDropdownPos.left}px`, width: `${clientDropdownPos.width}px`, visibility: clientDropdownPos.width ? 'visible' : 'hidden' }}>
-                        <div className="dropdown-search-sec">
-                          <Search size={16} className="dropdown-search-icon" />
-                          <input type="text" placeholder="Search client..." value={clientSearchTerm} onChange={(e) => setClientSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
-                          {clientSearchTerm && <button className="dropdown-clear-btn" onClick={() => setClientSearchTerm("")}><X size={16} /></button>}
-                        </div>
-                        <div className="dropdown-body">
-                          {(() => {
-                            const term = clientSearchTerm.toLowerCase();
-                            // Real clients only. Branch / Party / the combinations
-                            // are the On-duty Type now, not names of a client.
-                            const options = clients.filter((c: any) =>
-                              String(c.Client_Name ?? "").toLowerCase().includes(term)
-                            );
-                            return options.length > 0 ? (
-                            options.map((c: any, index: number) => {
-                              const isSelected = institution === c.Client_Name;
-                              const initials = (c.Client_Name.charAt(0) || "?").toUpperCase();
-                              return (
-                                <div
-                                  key={index}
-                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setInstitution(c.Client_Name);
-                                    setIsClientDropdownOpen(false);
-                                  }}
-                                >
-                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
-                                  <div className="dr-info">
-                                    <span className="dr-name">{c.Client_Name}</span>
-                                  </div>
-                                  {isSelected && <Check size={18} className="dr-check" />}
-                                </div>
+                    {isClientDropdownOpen && createPortal(
+                      <>
+                        <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsClientDropdownOpen(false); }} />
+                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${clientDropdownPos.top}px`, left: `${clientDropdownPos.left}px`, width: `${clientDropdownPos.width}px`, visibility: clientDropdownPos.width ? 'visible' : 'hidden' }}>
+                          <div className="dropdown-search-sec">
+                            <Search size={16} className="dropdown-search-icon" />
+                            <input type="text" placeholder="Search client..." value={clientSearchTerm} onChange={(e) => setClientSearchTerm(e.target.value)} autoFocus className="dropdown-pure-input" />
+                            {clientSearchTerm && <button className="dropdown-clear-btn" onClick={() => setClientSearchTerm("")}><X size={16} /></button>}
+                          </div>
+                          <div className="dropdown-body">
+                            {(() => {
+                              const term = clientSearchTerm.toLowerCase();
+                              // Real clients only. Branch / Party / the combinations
+                              // are the On-duty Type now, not names of a client.
+                              const options = clients.filter((c: any) =>
+                                String(c.Client_Name ?? "").toLowerCase().includes(term)
                               );
-                            })
-                          ) : <div className="dr-no-results">No clients found</div>;
-                          })()}
+                              return options.length > 0 ? (
+                                options.map((c: any, index: number) => {
+                                  const isSelected = institution === c.Client_Name;
+                                  const initials = (c.Client_Name.charAt(0) || "?").toUpperCase();
+                                  return (
+                                    <div
+                                      key={index}
+                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setInstitution(c.Client_Name);
+                                        setIsClientDropdownOpen(false);
+                                      }}
+                                    >
+                                      <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
+                                      <div className="dr-info">
+                                        <span className="dr-name">{c.Client_Name}</span>
+                                      </div>
+                                      {isSelected && <Check size={18} className="dr-check" />}
+                                    </div>
+                                  );
+                                })
+                              ) : <div className="dr-no-results">No clients found</div>;
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    </>,
-                    document.body
-                  )}
+                      </>,
+                      document.body
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Camp From Date & To Date Wrapper */}
@@ -4898,11 +4932,10 @@ useEffect(() => {
                       mid-scroll would only interrupt the drag - which is what
                       made its date wheel stutter and snap back. */}
                   <IonDatetime
-                    key={`${dateModalType ?? "none"}|${dateModalOpenSeq}|${
-                      dateModalType === "from"
+                    key={`${dateModalType ?? "none"}|${dateModalOpenSeq}|${dateModalType === "from"
                         ? String(dutyFromDate || "").split("T")[0]
                         : ""
-                    }`}
+                      }`}
                     presentation="date-time"
                     hourCycle="h23"
                     preferWheel={true}
@@ -4944,10 +4977,10 @@ useEffect(() => {
                           const next = isToday
                             ? nowIST()
                             : toIST(`${newDatePart}T00:00:00+05:30`)
-                                .hour(CAMP_DEFAULT_FROM_H)
-                                .minute(CAMP_DEFAULT_FROM_M)
-                                .second(0)
-                                .millisecond(0);
+                              .hour(CAMP_DEFAULT_FROM_H)
+                              .minute(CAMP_DEFAULT_FROM_M)
+                              .second(0)
+                              .millisecond(0);
                           finalVal = next.toISOString(true);
 
                           // The other half of the camp day. Its time goes back to
@@ -5015,19 +5048,19 @@ useEffect(() => {
 
               {/* Location - hidden for branch visits, see showLocationField */}
               {showLocationField && (
-              <div className="lr-field-box">
-                <label className="lr-field-label">Location</label>
-                <div className="lr-field-content">
-                  <IonIcon icon={locationOutline} className="lr-field-icon" />
-                  <input
-                    type="text"
-                    placeholder="Vijayawada"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
-                  />
+                <div className="lr-field-box">
+                  <label className="lr-field-label">Location</label>
+                  <div className="lr-field-content">
+                    <IonIcon icon={locationOutline} className="lr-field-icon" />
+                    <input
+                      type="text"
+                      placeholder="Vijayawada"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "500" }}
+                    />
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Transport and the vehicle it implies, side by side on one
@@ -5043,149 +5076,149 @@ useEffect(() => {
                   the row. Transport itself is one tile wide either way, so
                   nothing appears to resize - the gap simply goes. */}
               {showTravelFields && (
-              <div className={`od-pair-row${transportMode === "PublicTransport" ? " od-pair-row-solo" : ""}`}>
-              <div className="lr-field-box" onClick={() => setIsTransportDropdownOpen(!isTransportDropdownOpen)}>
-                <label className="lr-field-label">Transport</label>
-                <div className="lr-field-content" ref={transportTriggerRef}>
-                  <IonIcon icon={carOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: transportMode ? "#1e293b" : "#94a3b8" }}>
-                    {transportMode || "Select Transport"}
-                  </span>
-                  <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+                <div className={`od-pair-row${transportMode === "PublicTransport" ? " od-pair-row-solo" : ""}`}>
+                  <div className="lr-field-box" onClick={() => setIsTransportDropdownOpen(!isTransportDropdownOpen)}>
+                    <label className="lr-field-label">Transport</label>
+                    <div className="lr-field-content" ref={transportTriggerRef}>
+                      <IonIcon icon={carOutline} className="lr-field-icon" />
+                      <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: transportMode ? "#1e293b" : "#94a3b8" }}>
+                        {transportMode || "Select Transport"}
+                      </span>
+                      <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
 
-                  {isTransportDropdownOpen && createPortal(
-                    <>
-                      <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTransportDropdownOpen(false); }} />
-                      <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${transportDropdownPos.top}px`, left: `${transportDropdownPos.left}px`, width: `${transportDropdownPos.width}px`, visibility: transportDropdownPos.width ? 'visible' : 'hidden' }}>
-                        <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
-                          {["PublicTransport", "Office 4 Wheeler", "Office 2 Wheeler", "Own 2 Wheeler", "Own 4 Wheeler"].map((loc, index) => {
-                            const isSelected = transportMode === loc;
-                            const initials = loc.charAt(0);
-                            return (
-                              <div
-                                key={index}
-                                className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  // A vehicle chosen under the old transport
-                                  // line is not a vehicle under the new one -
-                                  // an office car must not stay selected once
-                                  // the answer becomes "own two wheeler".
-                                  if (loc !== transportMode) setVehicleNo("");
-                                  setTransportMode(loc);
-                                  setIsTransportDropdownOpen(false);
-                                }}
-                              >
-                                <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
-                                <div className="dr-info">
-                                  <span className="dr-name">{loc}</span>
-                                </div>
-                                {isSelected && <Check size={18} className="dr-check" />}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>,
-                    document.body
-                  )}
-                </div>
-              </div>
-              {/* Vehicle No - the vehicles master, narrowed by the transport
+                      {isTransportDropdownOpen && createPortal(
+                        <>
+                          <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsTransportDropdownOpen(false); }} />
+                          <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${transportDropdownPos.top}px`, left: `${transportDropdownPos.left}px`, width: `${transportDropdownPos.width}px`, visibility: transportDropdownPos.width ? 'visible' : 'hidden' }}>
+                            <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
+                              {["PublicTransport", "Office 4 Wheeler", "Office 2 Wheeler", "Own 2 Wheeler", "Own 4 Wheeler"].map((loc, index) => {
+                                const isSelected = transportMode === loc;
+                                const initials = loc.charAt(0);
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      // A vehicle chosen under the old transport
+                                      // line is not a vehicle under the new one -
+                                      // an office car must not stay selected once
+                                      // the answer becomes "own two wheeler".
+                                      if (loc !== transportMode) setVehicleNo("");
+                                      setTransportMode(loc);
+                                      setIsTransportDropdownOpen(false);
+                                    }}
+                                  >
+                                    <div className={`dr-avatar grad-${(index % 5) || 0}`}>{initials}</div>
+                                    <div className="dr-info">
+                                      <span className="dr-name">{loc}</span>
+                                    </div>
+                                    {isSelected && <Check size={18} className="dr-check" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>,
+                        document.body
+                      )}
+                    </div>
+                  </div>
+                  {/* Vehicle No - the vehicles master, narrowed by the transport
                   line and by who is applying. It falls back to a typed box
                   when that master has nothing for this combination, so a duty
                   is never blocked by a list somebody has not filled in yet. */}
-              {transportMode !== "PublicTransport" && (
-                <div
-                  className="lr-field-box"
-                  onClick={() => {
-                    if (vehicleOptions.length > 0) setIsVehicleDropdownOpen(!isVehicleDropdownOpen);
-                  }}
-                >
-                  <label className="lr-field-label">Vehicle No</label>
-                  <div className="lr-field-content" ref={vehicleTriggerRef}>
-                    <IonIcon icon={carOutline} className="lr-field-icon" />
+                  {transportMode !== "PublicTransport" && (
+                    <div
+                      className="lr-field-box"
+                      onClick={() => {
+                        if (vehicleOptions.length > 0) setIsVehicleDropdownOpen(!isVehicleDropdownOpen);
+                      }}
+                    >
+                      <label className="lr-field-label">Vehicle No</label>
+                      <div className="lr-field-content" ref={vehicleTriggerRef}>
+                        <IonIcon icon={carOutline} className="lr-field-icon" />
 
-                    {vehicleOptions.length > 0 ? (
-                      <>
-                        <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: vehicleNo ? "#1e293b" : "#94a3b8" }}>
-                          {vehicleNo || "Select Vehicle No"}
-                        </span>
-                        <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
-                      </>
-                    ) : (
-                      // Nothing to pick, and nothing to type either. A plate
-                      // that is not on the master has no owner and no per
-                      // kilometre rate behind it, so a duty carrying one is
-                      // approved and then quietly pays no TA at all. Better to
-                      // say the vehicle is not registered than to accept a
-                      // number that will not be honoured. It gets added on the
-                      // vehicles master, and then it is here.
-                      <span
-                        style={{
-                          flex: 1,
-                          fontSize: "13px",
-                          fontWeight: "500",
-                          color: vehicleNo ? "#1e293b" : "#94a3b8",
-                        }}
-                      >
-                        {vehicleNo
-                          ? vehicleNo
-                          : !transportMode
-                          ? "Select the transport first"
-                          : String(transportMode).toLowerCase().startsWith("office")
-                          ? "No office vehicle is registered"
-                          : "No vehicle is registered"}
-                      </span>
-                    )}
+                        {vehicleOptions.length > 0 ? (
+                          <>
+                            <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: vehicleNo ? "#1e293b" : "#94a3b8" }}>
+                              {vehicleNo || "Select Vehicle No"}
+                            </span>
+                            <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
+                          </>
+                        ) : (
+                          // Nothing to pick, and nothing to type either. A plate
+                          // that is not on the master has no owner and no per
+                          // kilometre rate behind it, so a duty carrying one is
+                          // approved and then quietly pays no TA at all. Better to
+                          // say the vehicle is not registered than to accept a
+                          // number that will not be honoured. It gets added on the
+                          // vehicles master, and then it is here.
+                          <span
+                            style={{
+                              flex: 1,
+                              fontSize: "13px",
+                              fontWeight: "500",
+                              color: vehicleNo ? "#1e293b" : "#94a3b8",
+                            }}
+                          >
+                            {vehicleNo
+                              ? vehicleNo
+                              : !transportMode
+                                ? "Select the transport first"
+                                : String(transportMode).toLowerCase().startsWith("office")
+                                  ? "No office vehicle is registered"
+                                  : "No vehicle is registered"}
+                          </span>
+                        )}
 
-                    {isVehicleDropdownOpen && vehicleOptions.length > 0 && createPortal(
-                      <>
-                        <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsVehicleDropdownOpen(false); }} />
-                        <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${vehicleDropdownPos.top}px`, left: `${vehicleDropdownPos.left}px`, width: `${vehicleDropdownPos.width}px`, visibility: vehicleDropdownPos.width ? 'visible' : 'hidden' }}>
-                          <div className="dropdown-body" style={{ height: 'auto', maxHeight: '220px' }}>
-                            {vehicleOptions.map((v: any, index: number) => {
-                              const isSelected =
-                                String(vehicleNo ?? "").trim().toLowerCase() ===
-                                String(v.VehNo ?? "").trim().toLowerCase();
-                              return (
-                                <div
-                                  key={`${v.VehNo}-${index}`}
-                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setVehicleNo(String(v.VehNo ?? ""));
-                                    setIsVehicleDropdownOpen(false);
-                                  }}
-                                >
-                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>{String(v.VehNo ?? "?").charAt(0)}</div>
-                                  <div className="dr-info">
-                                    <span className="dr-name">{v.VehNo}</span>
-                                    {/* The model is what people recognise a
+                        {isVehicleDropdownOpen && vehicleOptions.length > 0 && createPortal(
+                          <>
+                            <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsVehicleDropdownOpen(false); }} />
+                            <div className="custom-inline-dropdown" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: `${vehicleDropdownPos.top}px`, left: `${vehicleDropdownPos.left}px`, width: `${vehicleDropdownPos.width}px`, visibility: vehicleDropdownPos.width ? 'visible' : 'hidden' }}>
+                              <div className="dropdown-body" style={{ height: 'auto', maxHeight: '220px' }}>
+                                {vehicleOptions.map((v: any, index: number) => {
+                                  const isSelected =
+                                    String(vehicleNo ?? "").trim().toLowerCase() ===
+                                    String(v.VehNo ?? "").trim().toLowerCase();
+                                  return (
+                                    <div
+                                      key={`${v.VehNo}-${index}`}
+                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setVehicleNo(String(v.VehNo ?? ""));
+                                        setIsVehicleDropdownOpen(false);
+                                      }}
+                                    >
+                                      <div className={`dr-avatar grad-${(index % 5) || 0}`}>{String(v.VehNo ?? "?").charAt(0)}</div>
+                                      <div className="dr-info">
+                                        <span className="dr-name">{v.VehNo}</span>
+                                        {/* The model is what people recognise a
                                         vehicle by; the number is what the
                                         claim needs. Both, so neither has to be
                                         remembered. */}
-                                    <span className="dr-id">
-                                      {[v.VehModel || v.VehType, v._ownerLabel]
-                                        .filter(Boolean)
-                                        .join("  \u00b7  ")}
-                                    </span>
-                                  </div>
-                                  {isSelected && <Check size={18} className="dr-check" />}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                  </div>
+                                        <span className="dr-id">
+                                          {[v.VehModel || v.VehType, v._ownerLabel]
+                                            .filter(Boolean)
+                                            .join("  \u00b7  ")}
+                                        </span>
+                                      </div>
+                                      {isSelected && <Check size={18} className="dr-check" />}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>,
+                          document.body
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              </div>
               )}
 
               {/* Trip Type - own vehicle / public transport only, see
@@ -5296,69 +5329,69 @@ useEffect(() => {
                     {dutyDayPills.map((d) => {
                       const isSelected = selectedDays.includes(d.key);
                       return (
-                      <span
-                        key={d.key}
-                        // The pill shows only the day number, so the full date
-                        // lives in the tooltip - a bare "03" is ambiguous the
-                        // moment a range crosses a month boundary. The state is
-                        // spelled out too: colour alone carries it otherwise,
-                        // and red/green is the one pair a colour-blind user is
-                        // least likely to be able to tell apart.
-                        title={`${d.full} - ${isSelected ? "marked for attendance" : "not marked"}`}
-                        onClick={() => toggleDay(d.key)}
-                        // A span is not focusable or keyboard-operable on its
-                        // own; these three lines are what stop this from being
-                        // a mouse-only control.
-                        role="checkbox"
-                        aria-checked={isSelected}
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            // Space would scroll the page underneath.
-                            e.preventDefault();
-                            toggleDay(d.key);
-                          }
-                        }}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          // The strip drags to scroll; without this the browser
-                          // starts a text selection instead of a drag.
-                          userSelect: "none",
-                          // minWidth keeps "02" and "12" the same width so the
-                          // row reads as a row. It has to stay >= the height or
-                          // the pill turns into an oval instead of a circle.
-                          // Sized to fill .od-line-box's 20px content row
-                          // exactly. That row is what keeps Days level with
-                          // Work Description, and overflow-y is hidden, so a
-                          // taller pill would just get its top and bottom
-                          // shaved off rather than making the box grow. The
-                          // pills answer to the row, never the other way round.
-                          boxSizing: "border-box",
-                          minWidth: "20px",
-                          height: "20px",
-                          padding: "0 5px",
-                          borderRadius: "999px",
-                          // Red is the resting state and green is the marked
-                          // one, per the request. Worth being aware that this
-                          // inverts the usual reading: an untouched form is a
-                          // wall of red, which looks like fifteen errors rather
-                          // than fifteen days waiting to be chosen. The tints
-                          // are kept soft for that reason - alarm colours at
-                          // full strength would make the form feel broken.
-                          background: isSelected ? "#dcfce7" : "#fee2e2",
-                          color: isSelected ? "#15803d" : "#b91c1c",
-                          border: `1px solid ${isSelected ? "#86efac" : "#fecaca"}`,
-                          fontSize: "10px",
-                          fontWeight: 600,
-                          lineHeight: 1,
-                          transition: "background 120ms ease, color 120ms ease, border-color 120ms ease",
-                        }}
-                      >
-                        {d.day}
-                      </span>
+                        <span
+                          key={d.key}
+                          // The pill shows only the day number, so the full date
+                          // lives in the tooltip - a bare "03" is ambiguous the
+                          // moment a range crosses a month boundary. The state is
+                          // spelled out too: colour alone carries it otherwise,
+                          // and red/green is the one pair a colour-blind user is
+                          // least likely to be able to tell apart.
+                          title={`${d.full} - ${isSelected ? "marked for attendance" : "not marked"}`}
+                          onClick={() => toggleDay(d.key)}
+                          // A span is not focusable or keyboard-operable on its
+                          // own; these three lines are what stop this from being
+                          // a mouse-only control.
+                          role="checkbox"
+                          aria-checked={isSelected}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              // Space would scroll the page underneath.
+                              e.preventDefault();
+                              toggleDay(d.key);
+                            }
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            // The strip drags to scroll; without this the browser
+                            // starts a text selection instead of a drag.
+                            userSelect: "none",
+                            // minWidth keeps "02" and "12" the same width so the
+                            // row reads as a row. It has to stay >= the height or
+                            // the pill turns into an oval instead of a circle.
+                            // Sized to fill .od-line-box's 20px content row
+                            // exactly. That row is what keeps Days level with
+                            // Work Description, and overflow-y is hidden, so a
+                            // taller pill would just get its top and bottom
+                            // shaved off rather than making the box grow. The
+                            // pills answer to the row, never the other way round.
+                            boxSizing: "border-box",
+                            minWidth: "20px",
+                            height: "20px",
+                            padding: "0 5px",
+                            borderRadius: "999px",
+                            // Red is the resting state and green is the marked
+                            // one, per the request. Worth being aware that this
+                            // inverts the usual reading: an untouched form is a
+                            // wall of red, which looks like fifteen errors rather
+                            // than fifteen days waiting to be chosen. The tints
+                            // are kept soft for that reason - alarm colours at
+                            // full strength would make the form feel broken.
+                            background: isSelected ? "#dcfce7" : "#fee2e2",
+                            color: isSelected ? "#15803d" : "#b91c1c",
+                            border: `1px solid ${isSelected ? "#86efac" : "#fecaca"}`,
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            lineHeight: 1,
+                            transition: "background 120ms ease, color 120ms ease, border-color 120ms ease",
+                          }}
+                        >
+                          {d.day}
+                        </span>
                       );
                     })}
                   </div>
@@ -5424,75 +5457,75 @@ useEffect(() => {
               const rowChain = getDutyChain(row);
 
               return (
-            <div key={`${row.id}-${idx}`} className="premium-card">
-              <span
-                className={`dm-side-flag ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
-              />
-              <div
-                className="card-header"
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
-              >
-                <div style={{ flex: 1 }}>
-                  {/* The heading is the duty itself now: type and branch,
+                <div key={`${row.id}-${idx}`} className="premium-card">
+                  <span
+                    className={`dm-side-flag ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
+                  />
+                  <div
+                    className="card-header"
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      {/* The heading is the duty itself now: type and branch,
                       which used to cost two labelled boxes down in the grid.
                       "Party" was a placeholder standing in for a column most
                       duties never fill, so it survives only as the fallback
                       for a duty that has neither a type nor a branch. */}
-                  <div className="college-name" data-probe="dm-head-title">
-                    {/* The id leads. It is the thing anyone quotes back in a
+                      <div className="college-name" data-probe="dm-head-title">
+                        {/* The id leads. It is the thing anyone quotes back in a
                         message or a phone call, so it should not have to be
                         hunted for at the end of a branch name that varies in
                         length from card to card. */}
-                    <span className="dm-id-badge lead">#{row.id}</span>
-                    {(() => {
-                      const t = String(row.OnDutyType || "").trim();
-                      const b = String(row.Branch || "").trim();
-                      const head = [t, b].filter(Boolean).join(" - ");
-                      return head || String(row.College || "").trim() || "Duty";
-                    })()}
-                    {/* Why they are at that branch travelled with the branch
+                        <span className="dm-id-badge lead">#{row.id}</span>
+                        {(() => {
+                          const t = String(row.OnDutyType || "").trim();
+                          const b = String(row.Branch || "").trim();
+                          const head = [t, b].filter(Boolean).join(" - ");
+                          return head || String(row.College || "").trim() || "Duty";
+                        })()}
+                        {/* Why they are at that branch travelled with the branch
                         in the old box, so it travels with it here too. */}
-                    {!!row.BranchChangeType && (
-                      <span style={{ color: "#64748b", fontWeight: 600 }}>
-                        {" "}
-                        &bull; {row.BranchChangeType}
-                      </span>
-                    )}
-                  </div>
-                  <div className="duty-subtitle">{row.Description}</div>
-                </div>
+                        {!!row.BranchChangeType && (
+                          <span style={{ color: "#64748b", fontWeight: 600 }}>
+                            {" "}
+                            &bull; {row.BranchChangeType}
+                          </span>
+                        )}
+                      </div>
+                      <div className="duty-subtitle">{row.Description}</div>
+                    </div>
 
-                {/* Hovering the badge says where this verdict came from. The
+                    {/* Hovering the badge says where this verdict came from. The
                     duty table keeps two status columns and only one of them is
                     ever written, so "why does an approved duty say Pending" is
                     a question this badge gets asked - it should be able to
                     answer it without a rebuild and a console. The tooltip is
                     also the marker for whether the running bundle has this fix
                     in it at all: no tooltip, old bundle. */}
-                {/* The two things anyone scanning a duty actually wants -
+                    {/* The two things anyone scanning a duty actually wants -
                     how far the approval has got, and whether there is money
                     left to settle - now travel with the id instead of
                     sitting at the foot of the card, so neither costs a
                     scroll past everything in between. */}
-                <div className="dm-head-right">
-                  {rowChain.length > 0 && (
-                    <div className="dm-chain">
-                      <span className="dm-chain-label">Approval Status:</span>{" "}
-                      {rowChain.map((step, idx) => (
-                        <React.Fragment key={idx}>
-                          <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
-                          {idx < rowChain.length - 1 && (
-                            <span className="dm-chain-arrow"> → </span>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  )}
+                    <div className="dm-head-right">
+                      {rowChain.length > 0 && (
+                        <div className="dm-chain">
+                          <span className="dm-chain-label">Approval Status:</span>{" "}
+                          {rowChain.map((step, idx) => (
+                            <React.Fragment key={idx}>
+                              <span className={`dm-chain-role ${step.color}`}>{step.role}</span>
+                              {idx < rowChain.length - 1 && (
+                                <span className="dm-chain-arrow"> → </span>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
 
-                  {/* A plain button, not an IonButton: an IonButton carries
+                      {/* A plain button, not an IonButton: an IonButton carries
                       its own height and margins and would set the header
                       row's height all by itself. */}
-                  {/* canAmendDuty already covers RAs (roleMatchesUser
+                      {/* canAmendDuty already covers RAs (roleMatchesUser
                       against RA1..RA4) and Accountant/Director - added
                       isDutyParticipant so a camp participant who didn't
                       personally file the request (very often the case) can
@@ -5501,20 +5534,20 @@ useEffect(() => {
                       Director regardless of how someone reached it, so
                       widening this link to participants and RAs only ever
                       grants a read-only view. */}
-                  {(canAmendDuty(row) || isDutyParticipant(row)) && isFullyApproved(row) && (
-                    <button
-                      type="button"
-                      className="dm-data-link"
-                      onClick={() => {
-                        setDataDutyId(row.id);
-                        setDataCanViewAll([row.RA1, row.RA2, row.RA3, row.RA4].some((ra) => roleMatchesUser(ra)));
-                      }}
-                    >
-                      DA / TA
-                    </button>
-                  )}
+                      {(canAmendDuty(row) || isDutyParticipant(row)) && isFullyApproved(row) && (
+                        <button
+                          type="button"
+                          className="dm-data-link"
+                          onClick={() => {
+                            setDataDutyId(row.id);
+                            setDataCanViewAll([row.RA1, row.RA2, row.RA3, row.RA4].some((ra) => roleMatchesUser(ra)));
+                          }}
+                        >
+                          DA / TA
+                        </button>
+                      )}
 
-                  {/* Only offered once a duty is actually approved - a camp
+                      {/* Only offered once a duty is actually approved - a camp
                       for a duty that might still be rejected is not a thing.
                       Round Trip's ended camp shows as a plain badge instead
                       of a button: it cannot be restarted (see EndCamp on the
@@ -5535,856 +5568,827 @@ useEffect(() => {
                           does not recognise: both buttons work exactly as
                           before - there is no reading upload to do the job
                           instead, so a person has to. */}
-                  {rowApproved &&
-                    (() => {
-                      const campStatus = campStatusByDuty[String(row.id)];
-                      const busy = !!campBusy[String(row.id)];
-                      const tripTypeRow = String(row.TripType || "").trim().toLowerCase();
-                      const modeRow = String(row.Mode_of_Trans || "").trim();
-                      const isShuttleRow = tripTypeRow === "daily shuttle";
-                      const isRoundTripRow = tripTypeRow === "round trip";
-                      const isVehicleRow =
-                        modeRow === "Own 4 Wheeler" ||
-                        modeRow === "Own 2 Wheeler" ||
-                        modeRow === "Office 4 Wheeler" ||
-                        modeRow === "Office 2 Wheeler";
+                      {rowApproved &&
+                        (() => {
+                          const campStatus = campStatusByDuty[String(row.id)];
+                          const busy = !!campBusy[String(row.id)];
+                          const tripTypeRow = String(row.TripType || "").trim().toLowerCase();
+                          const modeRow = String(row.Mode_of_Trans || "").trim();
+                          const isShuttleRow = tripTypeRow === "daily shuttle";
+                          const isRoundTripRow = tripTypeRow === "round trip";
+                          const isVehicleRow =
+                            modeRow === "Own 4 Wheeler" ||
+                            modeRow === "Own 2 Wheeler" ||
+                            modeRow === "Office 4 Wheeler" ||
+                            modeRow === "Office 2 Wheeler";
 
-                      if (isShuttleRow && isVehicleRow) return null;
+                          if (isShuttleRow && isVehicleRow) return null;
 
-                      // campStatusByDuty has no entry for this duty until
-                      // camp_status actually answers for it - undefined is
-                      // "not known yet", not "not active". Falling through
-                      // to the Start Camp default while that answer is
-                      // still in flight is exactly the misleading flash
-                      // this was hiding: a camp that is genuinely already
-                      // running would show "Start Camp" for however long
-                      // the fetch takes, on every single reload. Showing
-                      // nothing until the real answer arrives is honest
-                      // about not knowing yet, instead of guessing wrong.
-                      if (campStatus === undefined) {
-                        return (
-                          <span className="dm-camp-loading" title="Checking camp status...">
-                            &hellip;
-                          </span>
-                        );
-                      }
+                          // campStatusByDuty has no entry for this duty until
+                          // camp_status actually answers for it - undefined is
+                          // "not known yet", not "not active". Falling through
+                          // to the Start Camp default while that answer is
+                          // still in flight is exactly the misleading flash
+                          // this was hiding: a camp that is genuinely already
+                          // running would show "Start Camp" for however long
+                          // the fetch takes, on every single reload. Showing
+                          // nothing until the real answer arrives is honest
+                          // about not knowing yet, instead of guessing wrong.
+                          if (campStatus === undefined) {
+                            return (
+                              <span className="dm-camp-loading" title="Checking camp status...">
+                                &hellip;
+                              </span>
+                            );
+                          }
 
-                      if (campStatus?.locked) {
-                        return (
-                          <span
-                            className="dm-camp-locked"
-                            title="Round Trip camp has ended - no further visits, reading uploads, or team changes on this duty."
-                          >
-                            Camp Ended
-                          </span>
-                        );
-                      }
+                          if (campStatus?.locked) {
+                            return (
+                              <span
+                                className="dm-camp-locked"
+                                title="Round Trip camp has ended - no further visits, reading uploads, or team changes on this duty."
+                              >
+                                Camp Ended
+                              </span>
+                            );
+                          }
 
-                      if (campStatus?.active) {
-                        return (
-                          <button
-                            type="button"
-                            className="dm-data-link dm-camp-end"
-                            disabled={busy}
-                            onClick={() => openCampConfirm("end", row)}
-                          >
-                            {busy ? "Ending…" : "End Camp"}
-                          </button>
-                        );
-                      }
+                          if (campStatus?.active) {
+                            return (
+                              <button
+                                type="button"
+                                className="dm-data-link dm-camp-end"
+                                disabled={busy}
+                                onClick={() => openCampConfirm("end", row)}
+                              >
+                                {busy ? "Ending…" : "End Camp"}
+                              </button>
+                            );
+                          }
 
-                      // Not active yet. Round Trip on an own/office vehicle
-                      // only ever starts from the opening reading - there is
-                      // no manual Start Camp for that combination.
-                      if (isRoundTripRow && isVehicleRow) return null;
+                          // Not active yet. Round Trip on an own/office vehicle
+                          // only ever starts from the opening reading - there is
+                          // no manual Start Camp for that combination.
+                          if (isRoundTripRow && isVehicleRow) return null;
 
-                      return (
-                        <button
-                          type="button"
-                          className="dm-data-link"
-                          disabled={busy}
-                          onClick={() => openCampConfirm("start", row)}
-                        >
-                          {busy ? "Starting…" : "Start Camp"}
-                        </button>
-                      );
-                    })()}
+                          return (
+                            <button
+                              type="button"
+                              className="dm-data-link"
+                              disabled={busy}
+                              onClick={() => openCampConfirm("start", row)}
+                            >
+                              {busy ? "Starting…" : "Start Camp"}
+                            </button>
+                          );
+                        })()}
 
-                  <span
-                    className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
-                    data-probe="dm-status-probe"
-                    title={`status = ${row.Status || "(none)"} | RA: ${[row.RA1_Status, row.RA2_Status, row.RA3_Status, row.RA4_Status]
-                      .map((s) => String(s ?? "-"))
-                      .join(", ")}`}
-                  >
-                    {rowApproved ? "Approved" : rowRejected ? "Rejected" : "Pending"}
-                  </span>
-                </div>
-              </div>
-              {/* An amendment to an approved duty is a request, not an act,
+                      <span
+                        className={`dm-status-dot ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
+                        data-probe="dm-status-probe"
+                        title={`status = ${row.Status || "(none)"} | RA: ${[row.RA1_Status, row.RA2_Status, row.RA3_Status, row.RA4_Status]
+                          .map((s) => String(s ?? "-"))
+                          .join(", ")}`}
+                      >
+                        {rowApproved ? "Approved" : rowRejected ? "Rejected" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                  {/* An amendment to an approved duty is a request, not an act,
                   so the card has to say out loud that something has been
                   asked for and has not happened yet. Without this strip the
                   person who pressed the button sees a duty that looks
                   exactly as it did, and reasonably concludes the button is
                   broken. The two decision buttons appear only for HR. */}
-              {(changeReqs[String(row.id)] || []).length > 0 && (
-                <div className="od-chg-strip">
-                  <div className="od-chg-head">
-                    Waiting for approval ({(changeReqs[String(row.id)] || []).length})
-                    {/* Without this the strip reads as a broken control to
+                  {(changeReqs[String(row.id)] || []).length > 0 && (
+                    <div className="od-chg-strip">
+                      <div className="od-chg-head">
+                        Waiting for approval ({(changeReqs[String(row.id)] || []).length})
+                        {/* Without this the strip reads as a broken control to
                         everyone who is not HR: something is clearly waiting,
                         and there is nothing to press. */}
-                    {!(changeReqs[String(row.id)] || []).some(
-                      (cr: any) => !!field(cr, "CanDecide")
-                    ) && (
-                      <span className="od-chg-note">
-                        one of this duty's approvers, or HR, decides this
-                      </span>
-                    )}
-                  </div>
-                  {(changeReqs[String(row.id)] || []).map((cr: any, ci: number) => (
-                    <div className="od-chg-row" key={String(field(cr, "ID") ?? ci)}>
-                      <div className="od-chg-text">
-                        <span>{String(field(cr, "Summary") ?? "").trim()}</span>
-                        <span className="od-chg-by">
-                          asked by{" "}
-                          {String(
-                            field(cr, "RequestedByName") ??
-                              field(cr, "Requested_By") ??
-                              "someone"
-                          ).trim()}
-                        </span>
-                        {!!String(field(cr, "Outcome") ?? "").trim() && (
-                          <span className="od-chg-why">
-                            {String(field(cr, "Outcome")).trim()}
-                          </span>
-                        )}
+                        {!(changeReqs[String(row.id)] || []).some(
+                          (cr: any) => !!field(cr, "CanDecide")
+                        ) && (
+                            <span className="od-chg-note">
+                              one of this duty's approvers, or HR, decides this
+                            </span>
+                          )}
                       </div>
-                      {!!field(cr, "CanDecide") && (
-                        <div className="od-chg-acts">
-                          <button
-                            type="button"
-                            className="od-team-btn add"
-                            disabled={changeBusy === Number(field(cr, "ID"))}
-                            onClick={() => decideChange(Number(field(cr, "ID")), true)}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="od-team-btn remove"
-                            disabled={changeBusy === Number(field(cr, "ID"))}
-                            onClick={() => decideChange(Number(field(cr, "ID")), false)}
-                          >
-                            Reject
-                          </button>
+                      {(changeReqs[String(row.id)] || []).map((cr: any, ci: number) => (
+                        <div className="od-chg-row" key={String(field(cr, "ID") ?? ci)}>
+                          <div className="od-chg-text">
+                            <span>{String(field(cr, "Summary") ?? "").trim()}</span>
+                            <span className="od-chg-by">
+                              asked by{" "}
+                              {String(
+                                field(cr, "RequestedByName") ??
+                                field(cr, "Requested_By") ??
+                                "someone"
+                              ).trim()}
+                            </span>
+                            {!!String(field(cr, "Outcome") ?? "").trim() && (
+                              <span className="od-chg-why">
+                                {String(field(cr, "Outcome")).trim()}
+                              </span>
+                            )}
+                          </div>
+                          {!!field(cr, "CanDecide") && (
+                            <div className="od-chg-acts">
+                              <button
+                                type="button"
+                                className="od-team-btn add"
+                                disabled={changeBusy === Number(field(cr, "ID"))}
+                                onClick={() => decideChange(Number(field(cr, "ID")), true)}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="od-team-btn remove"
+                                disabled={changeBusy === Number(field(cr, "ID"))}
+                                onClick={() => decideChange(Number(field(cr, "ID")), false)}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-              {/* Was choosing its column count from a one-off
+                  )}
+                  {/* Was choosing its column count from a one-off
                   window.innerWidth read at render time - not a media
                   query, so it never adjusted again after that render,
                   regardless of how the actual container width changed
                   afterward (a resize, the app's side panel opening/
                   closing, rotating a device). A real CSS breakpoint
                   reacts to the current width every time, not just once. */}
-              <div className="duty-info-grid">
-                <div className="duty-info-box full-width">
-                  {/* Once a duty is approved the pencil is the wrong tool -
+                  <div className="duty-info-grid">
+                    <div className="duty-info-box full-width">
+                      {/* Once a duty is approved the pencil is the wrong tool -
                       re-opening the whole request to move one person would
                       put its approvals back in play. Add and Remove change
                       one membership from a stated day and leave everything
                       else, including the approval chain, alone. While the
                       duty is still pending the pencil is still the right
                       answer, so the two never appear together. */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span className="item-label">Employees</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span className="item-label">Employees</span>
 
-                    {canAmendDuty(row) &&
-                      rowApproved &&
-                      !dutyHasEnded(row) && (
-                        <>
-                          <button
-                            type="button"
-                            className="od-team-btn add"
-                            disabled={campHasLocked(row)}
-                            title={
-                              campHasLocked(row)
-                                ? "Camp has ended - team changes are closed on this duty."
-                                : undefined
-                            }
-                            onClick={() => !campHasLocked(row) && openTeamChange("add", row)}
-                          >
-                            + Add
-                          </button>
-                          <button
-                            type="button"
-                            className="od-team-btn remove"
-                            disabled={campHasLocked(row)}
-                            title={
-                              campHasLocked(row)
-                                ? "Camp has ended - team changes are closed on this duty."
-                                : undefined
-                            }
-                            onClick={() => !campHasLocked(row) && openTeamChange("remove", row)}
-                          >
-                            &minus; Remove
-                          </button>
-                        </>
-                      )}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "6px",
-                      marginTop: "4px",
-                    }}
-                  >
-                    {(() => {
-                      const { chips, applicant, assignedBy } = dutyPeople(row);
-
-                      return (
-                        <>
-                          {chips.map((emp: any, idx: number) => {
-                            const isApplicant =
-                              !!applicant &&
-                              String(emp.code ?? "").trim() === applicant;
-
-                            return (
-                              <div
-                                key={idx}
+                        {canAmendDuty(row) &&
+                          rowApproved &&
+                          !dutyHasEnded(row) && (
+                            <>
+                              <button
+                                type="button"
+                                className="od-team-btn add"
+                                disabled={campHasLocked(row)}
                                 title={
-                                  isApplicant
-                                    ? "Applied for this duty themselves"
+                                  campHasLocked(row)
+                                    ? "Camp has ended - team changes are closed on this duty."
                                     : undefined
                                 }
-                                style={{
-                                  background: isApplicant ? "#ecfdf5" : "#eef2ff",
-                                  color: isApplicant ? "#065f46" : "#3730a3",
-                                  border:
-                                    "1px solid " +
-                                    (isApplicant ? "#6ee7b7" : "#c7d2fe"),
-                                  padding: "4px 9px",
-                                  borderRadius: "20px",
-                                  fontSize: "11px",
-                                  fontWeight: 600,
-                                }}
+                                onClick={() => !campHasLocked(row) && openTeamChange("add", row)}
                               >
-                                {emp.name}
-                                {emp.code && (
-                                  <span style={{ opacity: 0.7 }}> ({emp.code})</span>
-                                )}
-                                {/* Shown only for the exceptions. Marking
+                                + Add
+                              </button>
+                              <button
+                                type="button"
+                                className="od-team-btn remove"
+                                disabled={campHasLocked(row)}
+                                title={
+                                  campHasLocked(row)
+                                    ? "Camp has ended - team changes are closed on this duty."
+                                    : undefined
+                                }
+                                onClick={() => !campHasLocked(row) && openTeamChange("remove", row)}
+                              >
+                                &minus; Remove
+                              </button>
+                            </>
+                          )}
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "6px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        {(() => {
+                          const { chips, applicant, assignedBy } = dutyPeople(row);
+
+                          return (
+                            <>
+                              {chips.map((emp: any, idx: number) => {
+                                const isApplicant =
+                                  !!applicant &&
+                                  String(emp.code ?? "").trim() === applicant;
+
+                                return (
+                                  <div
+                                    key={idx}
+                                    title={
+                                      isApplicant
+                                        ? "Applied for this duty themselves"
+                                        : undefined
+                                    }
+                                    style={{
+                                      background: isApplicant ? "#ecfdf5" : "#eef2ff",
+                                      color: isApplicant ? "#065f46" : "#3730a3",
+                                      border:
+                                        "1px solid " +
+                                        (isApplicant ? "#6ee7b7" : "#c7d2fe"),
+                                      padding: "4px 9px",
+                                      borderRadius: "20px",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {emp.name}
+                                    {emp.code && (
+                                      <span style={{ opacity: 0.7 }}> ({emp.code})</span>
+                                    )}
+                                    {/* Shown only for the exceptions. Marking
                                     every chip with the duty's own dates
                                     would bury the one person whose stretch
                                     is actually different. */}
-                                {(() => {
-                                  const w = (dutyMembers[String(row.id)] || []).find(
-                                    (m) =>
-                                      m.EmpCode ===
-                                      String(emp.code ?? "").trim()
-                                  );
-                                  if (!w || !w.Partial) return null;
-                                  return (
-                                    <span
-                                      style={{
-                                        display: "block",
-                                        fontSize: "10px",
-                                        fontWeight: 600,
-                                        opacity: 0.85,
-                                        marginTop: "2px",
-                                      }}
-                                    >
-                                      {prettyDay(w.FromDate)} &rarr;{" "}
-                                      {prettyDay(w.ToDate)}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-                            );
-                          })}
+                                    {(() => {
+                                      const w = (dutyMembers[String(row.id)] || []).find(
+                                        (m) =>
+                                          m.EmpCode ===
+                                          String(emp.code ?? "").trim()
+                                      );
+                                      if (!w || !w.Partial) return null;
+                                      return (
+                                        <span
+                                          style={{
+                                            display: "block",
+                                            fontSize: "10px",
+                                            fontWeight: 600,
+                                            opacity: 0.85,
+                                            marginTop: "2px",
+                                          }}
+                                        >
+                                          {prettyDay(w.FromDate)} &rarr;{" "}
+                                          {prettyDay(w.ToDate)}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                );
+                              })}
 
-                          {assignedBy && (
-                            <div
-                              title="Applied for this request on their behalf"
-                              style={{
-                                background: "#fff7ed",
-                                color: "#9a3412",
-                                border: "1px dashed #fdba74",
-                                padding: "4px 9px",
-                                borderRadius: "20px",
-                                fontSize: "11px",
-                                fontWeight: 600,
-                              }}
-                            >
-                              <span style={{ opacity: 0.75, fontWeight: 500 }}>
-                                Applied by{" "}
-                              </span>
-                              {nameForCode(assignedBy)}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
+                              {assignedBy && (
+                                <div
+                                  title="Applied for this request on their behalf"
+                                  style={{
+                                    background: "#fff7ed",
+                                    color: "#9a3412",
+                                    border: "1px dashed #fdba74",
+                                    padding: "4px 9px",
+                                    borderRadius: "20px",
+                                    fontSize: "11px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  <span style={{ opacity: 0.75, fontWeight: 500 }}>
+                                    Applied by{" "}
+                                  </span>
+                                  {nameForCode(assignedBy)}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
 
-                <div className="duty-info-box" style={{ minWidth: 0 }}>
-                  <span className="item-label">Transport</span>
-                  <span
-                    className="item-value"
-                    style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
-                  >
-                    {row.Mode_of_Trans}
-                    {row.Vehicle_No && (
-                      <span style={{ color: "#64748b" }}> • {row.Vehicle_No}</span>
-                    )}
-                    {/* Part of the same answer as the mode, so it shares the
+                    <div className="duty-info-box" style={{ minWidth: 0 }}>
+                      <span className="item-label">Transport</span>
+                      <span
+                        className="item-value"
+                        style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
+                      >
+                        {row.Mode_of_Trans}
+                        {row.Vehicle_No && (
+                          <span style={{ color: "#64748b" }}> • {row.Vehicle_No}</span>
+                        )}
+                        {/* Part of the same answer as the mode, so it shares the
                         box rather than taking a fifth column of its own. */}
-                    {row.TripType && (
-                      <span style={{ color: "#64748b" }}> • {row.TripType}</span>
-                    )}
-                  </span>
-                </div>
+                        {row.TripType && (
+                          <span style={{ color: "#64748b" }}> • {row.TripType}</span>
+                        )}
+                      </span>
+                    </div>
 
-                <div className="duty-info-box" style={{ minWidth: 0 }}>
-                  <span className="item-label">Timeline</span>
-                  <span
-                    className="item-value"
-                    style={{
-                      wordBreak: "break-word",
-                      overflowWrap: "anywhere",
-                      fontSize: "0.7rem",
-                      lineHeight: "20px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {row.DateFrom && row.DateTo
-                      ? `${fmtDateWithTime(row.DateFrom, row.Start_Time)} → ${fmtDateWithTime(row.DateTo, row.End_Time)}`
-                      : row.Date}
-                  </span>
-                </div>
+                    <div className="duty-info-box" style={{ minWidth: 0 }}>
+                      <span className="item-label">Timeline</span>
+                      <span
+                        className="item-value"
+                        style={{
+                          wordBreak: "break-word",
+                          overflowWrap: "anywhere",
+                          fontSize: "0.7rem",
+                          lineHeight: "20px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {row.DateFrom && row.DateTo
+                          ? `${fmtDateWithTime(row.DateFrom, row.Start_Time)} → ${fmtDateWithTime(row.DateTo, row.End_Time)}`
+                          : row.Date}
+                      </span>
+                    </div>
 
-                {/* Branch visits carry no location by design, so this box
+                    {/* Branch visits carry no location by design, so this box
                     was rendering as an empty labelled slot on every one of
                     them. A missing box reads as "not applicable"; an empty
                     one reads as "we lost it". */}
-                {!!row.Location && (
-                  <div className="duty-info-box" style={{ minWidth: 0 }}>
-                    <span className="item-label">Location</span>
-                    <span
-                      className="item-value"
-                      style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
-                    >
-                      {row.Location}
-                    </span>
-                  </div>
-                )}
+                    {!!row.Location && (
+                      <div className="duty-info-box" style={{ minWidth: 0 }}>
+                        <span className="item-label">Location</span>
+                        <span
+                          className="item-value"
+                          style={{ wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: "20px" }}
+                        >
+                          {row.Location}
+                        </span>
+                      </div>
+                    )}
 
-                {/* Only the marked days are stored, so unlike the form there
+                    {/* Only the marked days are stored, so unlike the form there
                     is no unmarked counterpart to show here - every pill is a
                     green one, and the count carries the rest of the meaning. */}
-                {(attDayPills(row).length > 0 ||
-                  (canAmendDuty(row) &&
-                    rowApproved &&
-                    !dutyHasEnded(row) &&
-                    !!row.OnDutyType &&
-                    String(row.OnDutyType).toLowerCase().includes("branch"))) && (
-                  <div className="duty-info-box" style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <span className="item-label">
-                        Reporting Dates at Branch ({attDayPills(row).length})
-                      </span>
-
-                      {/* Same gate as Add and Remove: while the duty is still
-                          pending the pencil opens the whole form, so a second
-                          way in would only be a second thing to keep in step. */}
-                      {canAmendDuty(row) &&
+                    {(attDayPills(row).length > 0 ||
+                      (canAmendDuty(row) &&
                         rowApproved &&
-                        !dutyHasEnded(row) && (
-                          <button
-                            type="button"
-                            className="od-team-btn"
-                            disabled={campHasLocked(row)}
-                            title={
-                              campHasLocked(row)
-                                ? "Camp has ended - reporting dates are closed on this duty."
-                                : undefined
-                            }
-                            onClick={() => !campHasLocked(row) && openAttEdit(row)}
-                          >
-                            Edit
-                          </button>
-                        )}
-                    </div>
-                    <div
-                      className="item-value"
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "4px",
-                        lineHeight: "20px",
-                      }}
-                    >
-                      {attDayPills(row).map((d) => (
-                        <span
-                          key={d.day}
-                          title={`${d.full} - marked for attendance`}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                            // Matched to the form's pills so the same day
-                            // looks like the same thing in both places.
-                            minWidth: "20px",
-                            height: "20px",
-                            padding: "0 5px",
-                            borderRadius: "999px",
-                            background: "#dcfce7",
-                            color: "#15803d",
-                            border: "1px solid #86efac",
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            lineHeight: 1,
-                          }}
-                        >
-                          {d.day}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="duty-info-box" style={{ minWidth: 0 }}>
-                  <span className="item-label">Details</span>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setExpandedTrips((prev) => ({
-                        ...prev,
-                        [row.id]: !prev[row.id],
-                      }));
-                    }}
-                    className="duty-view-link"
-                    style={{ lineHeight: "20px" }}
-                  >
-                    {expandedTrips[row.id] ? "Hide" : "View"}
-                  </a>
-                </div>
-              </div>
-
-              {expandedTrips[row.id] && (
-              <div style={{ marginTop: "16px", marginBottom: "12px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (!hasAnyApproval(row)) {
-                        notify(
-                          "Duty days can be added only after the request is approved at least at one stage",
-                          "warning"
-                        );
-                        return;
-                      }
-                      openAddDayTripModal(row);
-                    }}
-                    className="duty-view-link"
-                    style={{
-                      opacity: hasAnyApproval(row) ? 1 : 0.4,
-                      cursor: hasAnyApproval(row) ? "pointer" : "not-allowed",
-                    }}
-                  >
-                    + Add Duty Day
-                  </a>
-
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      refreshDayTrips(row.id);
-                    }}
-                    className="duty-view-link"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      opacity: refreshingTripsDutyId === row.id ? 0.5 : 1,
-                      pointerEvents: refreshingTripsDutyId ? "none" : "auto",
-                    }}
-                  >
-                    <IonIcon icon={refreshOutline} style={{ fontSize: "15px" }} />
-                    {refreshingTripsDutyId === row.id ? "Refreshing..." : "Refresh"}
-                  </a>
-                </div>
-
-                {(tripDaysByDuty[row.id] || []).length > 0 && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                      gap: "12px",
-                      alignItems: "start",
-                    }}
-                  >
-                    {(tripDaysByDuty[row.id] || []).map((trip, index) => (
-                      <div
-                        key={trip.dayTrip_Id || `${trip.dutyDate}-${index}`}
-                        style={{
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "14px",
-                          padding: "14px",
-                          background: "#fafafa",
-                          color: "#1f2937",
-                          height: "100%",
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            gap: "8px",
-                            marginBottom: "10px",
-                            flexWrap: "nowrap",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              color: "#1f2937",
-                              fontSize: "15px",
-                              lineHeight: 1.3,
-                              whiteSpace: "nowrap",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {moment(trip.dutyDate).format("DD-MM-YYYY")}
-                          </div>
-
+                        !dutyHasEnded(row) &&
+                        !!row.OnDutyType &&
+                        String(row.OnDutyType).toLowerCase().includes("branch"))) && (
+                        <div className="duty-info-box" style={{ minWidth: 0 }}>
                           <div
                             style={{
                               display: "flex",
                               alignItems: "center",
-                              gap: "2px",
-                              flexShrink: 0,
-                              marginLeft: "auto",
-                              whiteSpace: "nowrap",
+                              gap: "8px",
+                              flexWrap: "wrap",
                             }}
                           >
-                            <IonButton
-                              fill="clear"
-                              size="small"
-                              color="primary"
-                              disabled={campHasLocked(row)}
-                              title={
-                                campHasLocked(row)
-                                  ? "Camp has ended - this trip's log is closed to further edits."
-                                  : undefined
-                              }
-                              style={{
-                                margin: 0,
-                                minHeight: "24px",
-                                fontSize: "11px",
-                              }}
-                              onClick={() => !campHasLocked(row) && openEditDayTripModal(row, index)}
-                            >
-                              EDIT
-                            </IonButton>
-
-                            <IonButton
-                              fill="clear"
-                              size="small"
-                              color="danger"
-                              disabled={campHasLocked(row)}
-                              title={
-                                campHasLocked(row)
-                                  ? "Camp has ended - this trip's log is closed to further edits."
-                                  : undefined
-                              }
-                              style={{
-                                margin: 0,
-                                minHeight: "24px",
-                                fontSize: "11px",
-                              }}
-                              onClick={() => !campHasLocked(row) && removeTripDay(row.id, index)}
-                            >
-                              DELETE
-                            </IonButton>
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "6px",
-                            fontSize: "13px",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <div>
-                            <strong>Reading :</strong>{" "}
-
-                            {/* Reading From */}
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              style={{
-                                color: trip.readingFromImage ? "#2563eb" : "#111827",
-                                cursor: trip.readingFromImage ? "pointer" : "default",
-                                fontWeight: 600,
-                                userSelect: "none",
-                                padding: "2px 6px",
-                                borderRadius: "6px",
-                                background: trip.readingFromImage ? "#e0f2fe" : "transparent",
-                                display: "inline-block",
-                              }}
-                              onClick={() => {
-                                if (trip.readingFromImage) {
-                                  openFilePreview(trip.readingFromImage);
-                                }
-                              }}
-                            >
-                              {trip.readingFrom || "-"}
+                            <span className="item-label">
+                              Reporting Dates at Branch ({attDayPills(row).length})
                             </span>
 
-                            {"  →  "}
-
-                            {/* Reading To */}
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              style={{
-                                color: trip.readingToImage ? "#2563eb" : "#111827",
-                                cursor: trip.readingToImage ? "pointer" : "default",
-                                fontWeight: 600,
-                                userSelect: "none",
-                                padding: "2px 6px",
-                                borderRadius: "6px",
-                                background: trip.readingToImage ? "#e0f2fe" : "transparent",
-                                display: "inline-block",
-                              }}
-                              onClick={() => {
-                                if (trip.readingToImage) {
-                                  openFilePreview(trip.readingToImage);
-                                }
-                              }}
-                            >
-                              {trip.readingTo || "-"}
-                            </span>
-
-                            {" "}
-                            <span style={{ color: "#475569" }}>
-                              ({trip.distance || 0} Kms)
-                            </span>
-                          </div>
-                          {/* ROW 2 — Fuel (Only for Office Vehicles) */}
-                          {(row.Mode_of_Trans === "Office 4 Wheeler" ||
-                            row.Mode_of_Trans === "Office 2 Wheeler") && (
-                              <div>
-                                <strong>Fuel :</strong>{" "}
-                                <span
-                                  style={{
-                                    color: trip.fuelImage ? "#2563eb" : "#111827",
-                                    textDecoration: trip.fuelImage ? "underline" : "none",
-                                    cursor: trip.fuelImage ? "pointer" : "default",
-                                    fontWeight: 600,
-                                  }}
-                                  onClick={() => {
-                                    if (trip.fuelImage) {
-                                      openFilePreview(trip.fuelImage);
-                                    }
-                                  }}
+                            {/* Same gate as Add and Remove: while the duty is still
+                          pending the pencil opens the whole form, so a second
+                          way in would only be a second thing to keep in step. */}
+                            {canAmendDuty(row) &&
+                              rowApproved &&
+                              !dutyHasEnded(row) && (
+                                <button
+                                  type="button"
+                                  className="od-team-btn"
+                                  disabled={campHasLocked(row)}
+                                  title={
+                                    campHasLocked(row)
+                                      ? "Camp has ended - reporting dates are closed on this duty."
+                                      : undefined
+                                  }
+                                  onClick={() => !campHasLocked(row) && openAttEdit(row)}
                                 >
-                                  {trip.fuelAmount ? `${trip.fuelAmount}/-` : "-"}
-                                </span>
-                              </div>
-                            )}
+                                  Edit
+                                </button>
+                              )}
+                          </div>
+                          <div
+                            className="item-value"
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "4px",
+                              lineHeight: "20px",
+                            }}
+                          >
+                            {attDayPills(row).map((d) => (
+                              <span
+                                key={d.day}
+                                title={`${d.full} - marked for attendance`}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  boxSizing: "border-box",
+                                  // Matched to the form's pills so the same day
+                                  // looks like the same thing in both places.
+                                  minWidth: "20px",
+                                  height: "20px",
+                                  padding: "0 5px",
+                                  borderRadius: "999px",
+                                  background: "#dcfce7",
+                                  color: "#15803d",
+                                  border: "1px solid #86efac",
+                                  fontSize: "10px",
+                                  fontWeight: 600,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {d.day}
+                              </span>
+                            ))}
+                          </div>
                         </div>
+                      )}
 
-                        <div
+                    <div className="duty-info-box" style={{ minWidth: 0 }}>
+                      <span className="item-label">Details</span>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setExpandedTrips((prev) => ({
+                            ...prev,
+                            [row.id]: !prev[row.id],
+                          }));
+                        }}
+                        className="duty-view-link"
+                        style={{ lineHeight: "20px" }}
+                      >
+                        {expandedTrips[row.id] ? "Hide" : "View"}
+                      </a>
+                    </div>
+                  </div>
+
+                  {expandedTrips[row.id] && (
+                    <div style={{ marginTop: "16px", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (!hasAnyApproval(row)) {
+                              notify(
+                                "Duty days can be added only after the request is approved at least at one stage",
+                                "warning"
+                              );
+                              return;
+                            }
+                            openAddDayTripModal(row);
+                          }}
+                          className="daylog-btn-add"
                           style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "8px",
-                            marginTop: "8px",
+                            opacity: hasAnyApproval(row) ? 1 : 0.4,
+                            cursor: hasAnyApproval(row) ? "pointer" : "not-allowed",
                           }}
                         >
-                          {(trip.visits || []).map((visit: VisitItem, vIndex: number) => (
+                          <Plus size={14} /> Add Duty Day
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            refreshDayTrips(row.id);
+                          }}
+                          className="daylog-btn-refresh"
+                          style={{
+                            opacity: refreshingTripsDutyId === row.id ? 0.5 : 1,
+                            pointerEvents: refreshingTripsDutyId ? "none" : "auto",
+                          }}
+                        >
+                          <RefreshCw size={13} className={refreshingTripsDutyId === row.id ? "spin-animation" : ""} />
+                          <span>{refreshingTripsDutyId === row.id ? "Refreshing..." : "Refresh"}</span>
+                        </button>
+                      </div>
+
+                      {(tripDaysByDuty[row.id] || []).length > 0 && (
+                        <div className="daylog-card-grid">
+                          {(tripDaysByDuty[row.id] || []).map((trip, index) => (
                             <div
-                              key={vIndex}
-                              style={{
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "12px",
-                                padding: "10px",
-                                background: "#ffffff",
-                                fontSize: "13px",
-                                lineHeight: "1.6",
-                              }}
+                              key={trip.dayTrip_Id || `${trip.dutyDate}-${index}`}
+                              className="daylog-card"
                             >
-                              {/* Client */}
-                              <div>
-                                <strong>Client :</strong>{" "}
-                                <span
-                                  style={{
-                                    color: visit.visitSlipImage ? "#2563eb" : "#111827",
-                                    cursor: visit.visitSlipImage ? "pointer" : "default",
-                                    textDecoration: visit.visitSlipImage ? "underline" : "none",
-                                  }}
-                                  onClick={() => {
-                                    if (visit.visitSlipImage) {
-                                      openFilePreview(visit.visitSlipImage);
+                              {/* Header: Date + Action Buttons */}
+                              <div className="daylog-card-header">
+                                <div className="daylog-date-group">
+                                  <div className="daylog-date-icon">
+                                    <Calendar size={16} />
+                                  </div>
+                                  <div>
+                                    <div className="daylog-date-text">
+                                      {moment(trip.dutyDate).format("DD-MM-YYYY")}
+                                    </div>
+                                    <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                                      Day Trip #{index + 1}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="daylog-actions">
+                                  <button
+                                    type="button"
+                                    className="daylog-action-btn edit"
+                                    disabled={campHasLocked(row)}
+                                    title={
+                                      campHasLocked(row)
+                                        ? "Camp has ended - this trip's log is closed to further edits."
+                                        : undefined
                                     }
-                                  }}
-                                >
-                                  {visit.partyName || "-"}
-                                </span>
+                                    onClick={() => !campHasLocked(row) && openEditDayTripModal(row, index)}
+                                  >
+                                    <Pencil size={12} />
+                                    <span>EDIT</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="daylog-action-btn delete"
+                                    disabled={campHasLocked(row)}
+                                    title={
+                                      campHasLocked(row)
+                                        ? "Camp has ended - this trip's log is closed to further edits."
+                                        : undefined
+                                    }
+                                    onClick={() => !campHasLocked(row) && removeTripDay(row.id, index)}
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>DELETE</span>
+                                  </button>
+                                </div>
                               </div>
 
-                              {/* Location */}
-                              <div>
-                                <strong>Location :</strong>{" "}
-                                {visit.latitude && visit.longitude ? (
+                              {/* Metrics Summary Bar (Readings, Distance, Fuel) */}
+                              <div className="daylog-metrics-bar">
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", width: "100%" }}>
+                                  <span style={{ fontWeight: 700, color: "#475569", fontSize: "12px" }}>Reading:</span>
+
+                                  {/* Reading From */}
                                   <span
-                                    style={{
-                                      color: "#2563eb",
-                                      textDecoration: "underline",
-                                      cursor: "pointer",
-                                      fontWeight: 600,
-                                    }}
-                                    onClick={() =>
-                                      window.open(
-                                        `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
-                                        "_blank"
-                                      )
-                                    }
-                                  >
-                                    {visit.location || "View Map"}
-                                  </span>
-                                ) : (
-                                  visit.location || "-"
-                                )}
-                              </div>
-                              {/* Local Transport */}
-                              {visit.localTransportAmount && (
-                                <div>
-                                  <strong>Local Transport :</strong>{" "}
-                                  <span
-                                    style={{
-                                      color: visit.localTransportImage ? "#2563eb" : "#111827",
-                                      textDecoration: visit.localTransportImage ? "underline" : "none",
-                                      cursor: visit.localTransportImage ? "pointer" : "default",
-                                      fontWeight: 600,
-                                    }}
+                                    className={`daylog-metric-badge reading ${trip.readingFromImage ? "has-photo" : ""}`}
                                     onClick={() => {
-                                      if (visit.localTransportImage) {
-                                        openFilePreview(visit.localTransportImage);
+                                      if (trip.readingFromImage) {
+                                        openFilePreview(trip.readingFromImage);
                                       }
                                     }}
+                                    title={trip.readingFromImage ? "Click to view start meter photo" : undefined}
                                   >
-                                    ₹ {visit.localTransportAmount}
+                                    <Gauge size={13} />
+                                    <span>{trip.readingFrom || "-"}</span>
+                                    {trip.readingFromImage && <Camera size={11} color="#2563eb" />}
                                   </span>
+
+                                  <span style={{ color: "#94a3b8", fontWeight: 700 }}>→</span>
+
+                                  {/* Reading To */}
+                                  <span
+                                    className={`daylog-metric-badge reading ${trip.readingToImage ? "has-photo" : ""}`}
+                                    onClick={() => {
+                                      if (trip.readingToImage) {
+                                        openFilePreview(trip.readingToImage);
+                                      }
+                                    }}
+                                    title={trip.readingToImage ? "Click to view closing meter photo" : undefined}
+                                  >
+                                    <Gauge size={13} />
+                                    <span>{trip.readingTo || "-"}</span>
+                                    {trip.readingToImage && <Camera size={11} color="#2563eb" />}
+                                  </span>
+
+                                  {/* Distance */}
+                                  <span className="daylog-metric-badge distance">
+                                    <Navigation size={12} />
+                                    <span>{trip.distance || 0} Kms</span>
+                                  </span>
+
+                                  {/* Fuel (Office Vehicles) */}
+                                  {(row.Mode_of_Trans === "Office 4 Wheeler" || row.Mode_of_Trans === "Office 2 Wheeler") && (
+                                    <span
+                                      className="daylog-metric-badge fuel"
+                                      onClick={() => {
+                                        if (trip.fuelImage) {
+                                          openFilePreview(trip.fuelImage);
+                                        }
+                                      }}
+                                      title={trip.fuelImage ? "Click to view fuel bill" : undefined}
+                                    >
+                                      <Fuel size={12} />
+                                      <span>Fuel: {trip.fuelAmount ? `₹${trip.fuelAmount}` : "-"}</span>
+                                      {trip.fuelImage && <Camera size={11} color="#d97706" />}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
-                              {/* Visiting Time */}
-                              <div>
-                                <strong>Visiting Time :</strong>{" "}
-                                {visit.visitFromTime || "-"} → {visit.visitToTime || "-"}
                               </div>
 
-                              {/* Projects */}
-                              <div>
-                                <strong>Projects :</strong>{" "}
-                                {visit.demoProjects && visit.demoProjects.length > 0
-                                  ? visit.demoProjects.join(", ")
-                                  : "-"}
-                              </div>
+                              {/* Visits List */}
+                              <div className="daylog-visits-list">
+                                {(trip.visits || []).map((visit: VisitItem, vIndex: number) => (
+                                  <div key={vIndex} className="daylog-visit-card">
+                                    {/* Visit Header */}
+                                    <div className="daylog-visit-top">
+                                      <div className="daylog-client-title">
+                                        <Building2 size={15} color="#d97706" />
+                                        <span>{visit.partyName ? visit.partyName : `Client Stop #${vIndex + 1}`}</span>
+                                      </div>
 
-                              {/* Employees */}
-                              <div>
-                                <strong>Employees :</strong>{" "}
-                                {visit.empCodes && visit.empCodes.length > 0
-                                  ? formatEmployeeNames(selectedDutyRow?.empNames)
-                                      .filter((e: any) => visit.empCodes.includes(e.code))
-                                      .map((e: any) => e.name)
-                                      .join(", ") || visit.empCodes.join(", ")
-                                  : "-"}
-                              </div>
+                                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                        {visit.visitSlipImage && (
+                                          <div
+                                            className="daylog-slip-chip"
+                                            onClick={() => openFilePreview(visit.visitSlipImage)}
+                                            title="Click to view client visit slip"
+                                          >
+                                            <Eye size={11} />
+                                            <span>Slip Attached</span>
+                                          </div>
+                                        )}
 
-                              {/* Contact */}
-                              <div>
-                                <strong>Contact :</strong>{" "}
-                                {visit.contactPerson || "-"}{" "}
-                                {visit.mobile ? `(${visit.mobile})` : ""}
-                              </div>
+                                        {(visit.visitFromTime || visit.visitToTime) && (
+                                          <div className="daylog-time-chip">
+                                            <Clock size={12} />
+                                            <span>
+                                              {visit.visitFromTime ? String(visit.visitFromTime).slice(0, 5) : "--:--"}
+                                              {" → "}
+                                              {visit.visitToTime ? String(visit.visitToTime).slice(0, 5) : "--:--"}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
 
-                              {/* Remarks */}
-                              <div>
-                                <strong>Remarks :</strong>{" "}
-                                {visit.remarks || "-"}
-                              </div>
+                                    {/* Visit Details Grid / Rows */}
+                                    <div className="daylog-visit-details">
+                                      {/* Location */}
+                                      <div className="daylog-detail-row">
+                                        <MapPin size={14} color="#10b981" />
+                                        <strong style={{ color: "#475569" }}>Location:</strong>
+                                        {visit.latitude && visit.longitude ? (
+                                          <span
+                                            style={{
+                                              color: "#2563eb",
+                                              fontWeight: 600,
+                                              cursor: "pointer",
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: "3px",
+                                            }}
+                                            onClick={() =>
+                                              window.open(
+                                                `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
+                                                "_blank"
+                                              )
+                                            }
+                                          >
+                                            <span>{visit.location || "View Map"}</span>
+                                            <ExternalLink size={12} />
+                                          </span>
+                                        ) : (
+                                          <span>{visit.location || "-"}</span>
+                                        )}
+                                      </div>
 
+                                      {/* Local Transport */}
+                                      {visit.localTransportAmount && (
+                                        <div className="daylog-detail-row">
+                                          <Car size={14} color="#d97706" />
+                                          <strong style={{ color: "#475569" }}>Local Transport:</strong>
+                                          <span
+                                            style={{
+                                              color: visit.localTransportImage ? "#2563eb" : "#0f172a",
+                                              fontWeight: 700,
+                                              cursor: visit.localTransportImage ? "pointer" : "default",
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: "4px",
+                                            }}
+                                            onClick={() => {
+                                              if (visit.localTransportImage) {
+                                                openFilePreview(visit.localTransportImage);
+                                              }
+                                            }}
+                                          >
+                                            <span>₹ {visit.localTransportAmount}</span>
+                                            {visit.localTransportImage && (
+                                              <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 600 }}>
+                                                (View Bill)
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Projects */}
+                                      {visit.demoProjects && visit.demoProjects.length > 0 && (
+                                        <div className="daylog-detail-row">
+                                          <Sparkles size={14} color="#8b5cf6" />
+                                          <strong style={{ color: "#475569" }}>Projects:</strong>
+                                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                            {visit.demoProjects.map((proj: string, pIdx: number) => (
+                                              <span key={pIdx} className="daylog-tag-pill">
+                                                {proj}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Employees Present */}
+                                      {visit.empCodes && visit.empCodes.length > 0 && (
+                                        <div className="daylog-detail-row">
+                                          <User size={14} color="#0284c7" />
+                                          <strong style={{ color: "#475569" }}>Employees:</strong>
+                                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                            {formatEmployeeNames(selectedDutyRow?.empNames)
+                                              .filter((e: any) => visit.empCodes?.includes(e.code))
+                                              .map((e: any) => (
+                                                <span key={e.code || e.name} className="daylog-emp-chip">
+                                                  {e.name}
+                                                </span>
+                                              ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Contact Person & Phone */}
+                                      {(visit.contactPerson || visit.mobile) && (
+                                        <div className="daylog-detail-row">
+                                          <Phone size={14} color="#64748b" />
+                                          <strong style={{ color: "#475569" }}>Contact:</strong>
+                                          <span>{visit.contactPerson || "-"}</span>
+                                          {visit.mobile && (
+                                            <a
+                                              href={`tel:${visit.mobile}`}
+                                              style={{
+                                                color: "#2563eb",
+                                                fontWeight: 600,
+                                                textDecoration: "none",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "2px",
+                                              }}
+                                            >
+                                              ({visit.mobile})
+                                            </a>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Remarks */}
+                                      {visit.remarks && (
+                                        <div className="daylog-remark-box">
+                                          <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
+                                            <MessageSquare size={12} color="#f59e0b" />
+                                            <strong style={{ fontStyle: "normal", color: "#334155" }}>Remarks:</strong>
+                                          </div>
+                                          <span>{visit.remarks}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              )}
-              {canApprove && isMyTurn(row) && (
-                <div className="duty-action-row">
-                  <IonButton className="compact-duty-approve" onClick={() => approveDutyRow(row)}>
-                    Approve
-                  </IonButton>
-                  <IonButton className="compact-duty-reject" onClick={() => rejectDutyRow(row)}>
-                    Reject
-                  </IonButton>
-                </div>
-              )}
+                      )}
+                    </div>
+                  )}
+                  {canApprove && isMyTurn(row) && (
+                    <div className="duty-action-row">
+                      <IonButton className="compact-duty-approve" onClick={() => approveDutyRow(row)}>
+                        Approve
+                      </IonButton>
+                      <IonButton className="compact-duty-reject" onClick={() => rejectDutyRow(row)}>
+                        Reject
+                      </IonButton>
+                    </div>
+                  )}
 
-              {/* edit_onduties looks the record up by the VIEWER's own
+                  {/* edit_onduties looks the record up by the VIEWER's own
                   empCode + id, so it only ever finds rows that viewer
                   actually owns - showing the pencil on a team member's card
                   (row.isOwn === false) let approvers click it and always hit
                   "Failed to load record". Admin roles (Accountant/Director)
                   are the exception and can edit any record. */}
-              {(canEdit || (canApprove && row.isOwn !== false)) && !rowApproved && (
-                <IonButton
-                  fill="clear"
-                  color="primary"
-                  className="ion-no-margin"
-                  onClick={() => editOnDuty(row.id, row.AppliedBy, row)}
-                >
-                  <IonIcon icon={pencilOutline} />
-                </IonButton>
-              )}
+                  {(canEdit || (canApprove && row.isOwn !== false)) && !rowApproved && (
+                    <IonButton
+                      fill="clear"
+                      color="primary"
+                      className="ion-no-margin"
+                      onClick={() => editOnDuty(row.id, row.AppliedBy, row)}
+                    >
+                      <IonIcon icon={pencilOutline} />
+                    </IonButton>
+                  )}
 
-            </div>
+                </div>
               );
             })}
 
@@ -6532,21 +6536,21 @@ useEffect(() => {
               const options =
                 teamChange.mode === "add"
                   ? team
-                      .filter(
-                        (t: any) => !onCodes.has(String(t.EmpCode ?? "").trim())
-                      )
-                      .map((t: any) => ({
-                        code: String(t.EmpCode ?? "").trim(),
-                        name: String(t.EmpName ?? "")
-                          .replace(/^\s*\d+\s*-\s*/, "")
-                          .trim()
-                          .toUpperCase(),
-                      }))
-                      .filter((o: any) => o.code)
+                    .filter(
+                      (t: any) => !onCodes.has(String(t.EmpCode ?? "").trim())
+                    )
+                    .map((t: any) => ({
+                      code: String(t.EmpCode ?? "").trim(),
+                      name: String(t.EmpName ?? "")
+                        .replace(/^\s*\d+\s*-\s*/, "")
+                        .trim()
+                        .toUpperCase(),
+                    }))
+                    .filter((o: any) => o.code)
                   : onDuty.map((c: any) => ({
-                      code: String(c.code ?? "").trim(),
-                      name: c.name,
-                    }));
+                    code: String(c.code ?? "").trim(),
+                    name: c.name,
+                  }));
 
               return (
                 <>
@@ -6648,7 +6652,7 @@ useEffect(() => {
           </div>
         </IonModal>
 
-        <IonModal isOpen={showDayTripModal} onDidDismiss={closeDayTripModal}>
+        <IonModal isOpen={showDayTripModal} onDidDismiss={closeDayTripModal} className="daytrip-modal">
           <IonContent className="ion-padding" ref={modalContentRef}>
             {editingTripIndex !== null && currentModalTrip && (() => {
               const trip = currentModalTrip;
@@ -6665,29 +6669,11 @@ useEffect(() => {
                 ? String(selectedDutyRow.End_Time).slice(0, 5)
                 : null;
 
-              // Visit From Time is floored/ceilinged by the On Duty's own
-              // Timeline (campStartTimeStr / campEndTimeStr). Visit To Time
-              // floors at that SAME visit's own From Time (no ceiling from
-              // the Timeline's End_Time - a visit can legitimately run past
-              // the On Duty's nominal end time) and is capped at the current
-              // real-world time whenever this day trip's date is today (past-
-              // dated day trips get no such cap).
-              //
-              // On top of those, visits within the SAME day trip must not
-              // overlap each other. Visits are treated as a simple ordered
-              // list by their index (matching how "+ Add Party" always
-              // appends at the end) - each visit's floor also considers the
-              // nearest PRIOR visit's own To Time, and each visit's ceiling
-              // also considers the nearest FOLLOWING visit's own From Time.
               const isTripToday = trip.dutyDate === nowIST().format("YYYY-MM-DD");
               const isTripFuture =
                 String(trip.dutyDate || "").slice(0, 10) > nowIST().format("YYYY-MM-DD");
               const nowTimeStr = nowIST().format("HH:mm");
-              // Normalize any time string to plain HH:mm. Saved visits come
-              // back from the db as "HH:mm:ss" - feeding that into the
-              // `2000-01-01T${t}:00` templates below would produce an
-              // invalid ISO string ("...T17:40:00:00") that IonDatetime
-              // silently ignores, leaving the wheel unbounded/mispositioned.
+
               const hhmm = (t?: string | null): string | null =>
                 t ? String(t).slice(0, 5) : null;
               const laterOf = (a: string | null, b: string | null) => {
@@ -6700,14 +6686,14 @@ useEffect(() => {
                 if (!b) return a;
                 return moment(a, ["HH:mm:ss", "HH:mm"]).isBefore(moment(b, ["HH:mm:ss", "HH:mm"])) ? a : b;
               };
-              // Nearest prior visit (by index) that already has a To Time set.
+
               const prevVisitEndTimeStr = (idx: number): string | null => {
                 for (let i = idx - 1; i >= 0; i--) {
                   if (trip.visits[i]?.visitToTime) return hhmm(trip.visits[i].visitToTime);
                 }
                 return null;
               };
-              // Nearest following visit (by index) that already has a From Time set.
+
               const nextVisitStartTimeStr = (idx: number): string | null => {
                 for (let i = idx + 1; i < trip.visits.length; i++) {
                   if (trip.visits[i]?.visitFromTime) return hhmm(trip.visits[i].visitFromTime);
@@ -6721,14 +6707,6 @@ useEffect(() => {
               const visitToTimeMax = (idx: number) =>
                 earlierOf(isTripToday ? nowTimeStr : null, nextVisitStartTimeStr(idx));
 
-              // Opens the Visit Time wheel picker, but first snaps the field
-              // to its min/max bound whenever the current value is empty or
-              // already outside that bound - so the picker always reflects
-              // the fetched Timeline (or, for "to", the visit's own From Time
-              // / the current time / the next visit's start) immediately
-              // instead of showing an old/blank value that still needs to be
-              // rolled into range by hand, and never opens already
-              // overlapping an adjacent visit.
               const openVisitTimePicker = (
                 idx: number,
                 field: "visitFromTime" | "visitToTime"
@@ -6747,8 +6725,6 @@ useEffect(() => {
                 } else if (maxBound && currentMoment.isAfter(moment(maxBound, ["HH:mm:ss", "HH:mm"]))) {
                   snapTo = maxBound;
                 } else if (currentVal !== hhmm(currentVal)) {
-                  // In-range but stored with seconds (HH:mm:ss from the db) -
-                  // rewrite as HH:mm so the picker's ISO templates stay valid.
                   snapTo = hhmm(currentVal);
                 }
                 if (snapTo) {
@@ -6758,859 +6734,778 @@ useEffect(() => {
               };
 
               return (
-                <>
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr auto",
-                      alignItems: "start",
-                      columnGap: "12px",
-                      marginBottom: "18px",
-                      width: "100%",
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: "#1e3a5f",
-                        fontSize: "18px",
-                        fontWeight: 700,
-                        lineHeight: 1.25,
-                        wordBreak: "break-word",
-                      }}
-                    >{moment(trip.dutyDate).format("DD-MM-YYYY")} Day Trip
+                <div className="daytrip-modal-container">
+                  {/* Top Bar Header */}
+                  <div className="daytrip-modal-header">
+                    <div className="daytrip-header-left">
+                      <div className="daytrip-header-icon-box">
+                        <Calendar size={22} />
+                      </div>
+                      <div>
+                        <div className="daytrip-header-title">
+                          {moment(trip.dutyDate).format("DD-MM-YYYY")} Day Trip
+                        </div>
+                        <div className="daytrip-header-subtitle">
+                          <span className={`daytrip-mode-badge ${tripModalMode === "add" ? "add" : "edit"}`}>
+                            {tripModalMode === "add" ? "✨ Add Duty Day" : "✏️ Edit Day Trip"}
+                          </span>
+                          <span>•</span>
+                          <span>{selectedDutyRow?.OnDutyType || "Official"}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <IonButton
-                      fill="clear"
+                    <button
+                      type="button"
+                      className="daytrip-close-btn"
                       onClick={closeDayTripModal}
-                      style={{
-                        margin: 0,
-                        justifySelf: "end",
-                        alignSelf: "start",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        minHeight: "32px",
-                      }}
+                      title="Close Modal"
                     >
-                      Close
-                    </IonButton>
+                      <X size={18} />
+                    </button>
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      marginBottom: "12px",
-                      padding: "12px 14px",
-                      border: "1px solid #d8dee8",
-                      borderRadius: "16px",
-                      background: "#ffffff",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "15px",
-                        fontWeight: 700,
-                        color: "#1e3a5f",
-                        marginBottom: "2px",
-                      }}
-                    >
-                      Trip Details
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#64748b",
-                      }}
-                    >
-                      Reading and fuel details for this trip
-                    </div>
-                  </div>
-
-
-                  <div
-                    style={{
-                      border: "1px solid #d8dee8",
-                      borderRadius: "18px",
-                      padding: "12px",
-                      background: "#f8fafc",
-                      marginBottom: "18px",
-                    }}
-                  >
-                    {!isPublicTransport && (
-                      <div
-                        style={{
-                          display: "grid",
-                        gridTemplateColumns:
-  window.innerWidth <= 768
-    ? "1fr"
-    : tripModalMode === "add"
-    ? "1fr"
-    : "1fr 1fr",
-                          gap: "10px",
-                          alignItems: "start",
-                        }}
-                      >
-                        <div
-                          style={{
-                            border: "1px solid #d8dee8",
-                            borderRadius: "16px",
-                            padding: "12px",
-                            background: "#ffffff",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "10px",
-                            justifyContent: "flex-start",
-                            alignSelf: "start",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: "6px",
-                              flexWrap: "wrap",
-                              minHeight: "24px",
-                            }}
-                          >
-                           <label
-  style={{
-    fontSize: "14px",
-    fontWeight: 700,
-    color: "#334155",
-    cursor: "pointer",
-    textDecoration: "underline",
-    lineHeight: "20px",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-  }}
->
-  Reading From
-  <input
-    hidden
-    ref={readingFromInputRef}
-    type="file"
-    accept="image/*"
-    onClick={(e) => {
-      // A bypass "Yes" click on readingUploadConfirm below re-triggers
-      // this same input via the ref - let that one through untouched, the
-      // question has already been asked and answered.
-      if (readingUploadBypassRef.current.from) {
-        readingUploadBypassRef.current.from = false;
-        saveModalScroll();
-        return;
-      }
-
-      if (isReadingLocked(trip.dutyDate, "from", !!trip.readingFromImage)) {
-        e.preventDefault();
-        notify(
-          "The starting reading photo for this day has already been uploaded " +
-            "and can no longer be changed. It could only be replaced within " +
-            "5 minutes of the first upload.",
-          "warning"
-        );
-        return;
-      }
-
-      const rfFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "from")];
-      if (rfFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`)) {
-        // Already asked once (either replacing within the window, or this
-        // exact upload was already confirmed here) - the plain lock-replace
-        // confirm still applies, nothing more to ask about camp.
-        if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
-          e.preventDefault();
-          return;
-        }
-        saveModalScroll();
-        return;
-      }
-
-      // First-time upload. Mirrors needsStartConfirm in saveDayTripModal -
-      // Daily Shuttle asks every day; a Round-Trip-like duty (blank
-      // TripType included, same "not Daily Shuttle" proxy used throughout
-      // this session) only asks on the very first reading of the whole
-      // trip - once the camp is already active, later days' Reading From
-      // uploads are just recording that day's numbers.
-      const rfDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
-      const rfIsDailyShuttle = rfDutyTypeLower === "daily shuttle";
-      const rfCampAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
-      const rfNeedsConfirm = rfIsDailyShuttle || !rfCampAlreadyActive;
-
-      if (!rfNeedsConfirm) {
-        if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
-          e.preventDefault();
-          return;
-        }
-        saveModalScroll();
-        return;
-      }
-
-      // Stop here and ask with the same styled dialog Save Trip used to
-      // wait until Save Trip for - before the photo (and its 5 minute
-      // replace clock) exists at all, not after.
-      e.preventDefault();
-      setReadingUploadConfirm({
-        open: true,
-        which: "from",
-        dutyDate: trip.dutyDate,
-        title: rfIsDailyShuttle ? "Start today's camp?" : "Start this trip's camp?",
-        text: rfIsDailyShuttle
-          ? "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
-          : "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it.",
-        secondsLeft: 5,
-      });
-    }}
-    onChange={(e) => {
-      const file = e.target.files?.[0] || null;
-
-      if (file && readingLockRef.current[readingLockKey(trip.dutyDate, "from")] === undefined) {
-        readingLockRef.current[readingLockKey(trip.dutyDate, "from")] = Date.now();
-      }
-
-      updateTripDay(
-        editingTripIndex!,
-        "readingFromImage",
-        file
-      );
-
-      if (tripModalMode === "add") {
-        updateTripDay(
-          editingTripIndex!,
-          "readingTo",
-          trip.readingFrom
-        );
-      }
-      restoreModalScroll();
-    }}
-  />
-</label>
-
-                            {trip.readingFromImage && (
-                              <span
-                                style={{
-                                  fontSize: "12px",
-                                  color: "#0f172a",
-                                  fontWeight: 500,
-                                  lineHeight: "20px",
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                }}
-                                onClick={() => openFilePreview(trip.readingFromImage)}
-                              >
-                                {getFileLabel(trip.readingFromImage)}
-                              </span>
-                            )}
-                          </div>
-
-                        <input
-  value={trip.readingFrom}
-  // Locked on the same clock as the photo it was read off. Leaving the
-  // number editable while the image behind it is frozen would let the two
-  // drift apart, which is the one thing the photo exists to prevent.
-  disabled={
-    !hasReadingFromImage ||
-    isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
-  }
-  placeholder={
-    isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
-      ? "Locked - uploaded over 5 minutes ago"
-      : hasReadingFromImage
-      ? "Reading From"
-      : "Upload image to enable"
-  }
-  onChange={(e) => {
-    const value = e.target.value;
-
-    updateTripDay(
-      editingTripIndex!,
-      "readingFrom",
-      value
-    );
-
-    if (tripModalMode === "add") {
-      updateTripDay(
-        editingTripIndex!,
-        "readingTo",
-        value
-      );
-    }
-
-    autoFillDistance(
-      editingTripIndex!,
-      value,
-      // In "add" mode, readingTo was just mirrored to this same
-      // keystroke's value two lines up via updateTripDay - but that
-      // update goes through setState, so `trip.readingTo` here is
-      // still the PREVIOUS keystroke's value (stale closure), one
-      // character behind. Comparing a fresh multi-digit "from"
-      // against a lagging single-digit "to" made toNum < fromNum
-      // true on almost every keystroke, firing a false "Reading To
-      // should be greater than or equal to Reading From" warning
-      // while the user was still typing a normal number. Compare
-      // against the same fresh value instead of the stale one.
-      tripModalMode === "add" ? value : trip.readingTo
-    );
-  }}
-  style={{
-    width: "100%",
-    height: "46px",
-    border: "1px solid #cbd5e1",
-    borderRadius: "12px",
-    padding: "0 14px",
-    fontSize: "14px",
-    background: hasReadingFromImage ? "#fff" : "#f1f5f9",
-  }}
-/>
-                        </div>
-
-                      {tripModalMode === "edit" && (
-  <div
-    style={{
-      border: "1px solid #d8dee8",
-      borderRadius: "16px",
-      padding: "12px",
-      background: "#ffffff",
-      display: "flex",
-      flexDirection: "column",
-      gap: "10px",
-      justifyContent: "flex-start",
-      alignSelf: "start",
-    }}
-  >
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: "8px",
-        minHeight: "24px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "8px",
-          minWidth: 0,
-          flex: 1,
-        }}
-      >
-        <label
-          style={{
-            fontSize: "14px",
-            fontWeight: 700,
-            color: "#334155",
-            cursor: "pointer",
-            textDecoration: "underline",
-            lineHeight: "20px",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          Reading To
-          <input
-            hidden
-            ref={readingToInputRef}
-            type="file"
-            accept="image/*"
-            onClick={(e) => {
-              // A bypass "Yes" click on readingUploadConfirm below
-              // re-triggers this same input via the ref - let it through.
-              if (readingUploadBypassRef.current.to) {
-                readingUploadBypassRef.current.to = false;
-                saveModalScroll();
-                return;
-              }
-
-              if (isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)) {
-                e.preventDefault();
-                notify(
-                  "The closing reading photo for this day has already been uploaded " +
-                    "and can no longer be changed. It could only be replaced within " +
-                    "5 minutes of the first upload.",
-                  "warning"
-                );
-                return;
-              }
-
-              const rtFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "to")];
-              if (rtFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`)) {
-                if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
-                  e.preventDefault();
-                  return;
-                }
-                saveModalScroll();
-                return;
-              }
-
-              // Same "not Daily Shuttle" proxy used everywhere else this
-              // session (Save_DayTrip/EndCamp on the API, isVehicleDuty
-              // above) - a blank TripType office-vehicle duty (e.g.
-              // "Party") is Round-Trip-like here too, not exempt.
-              const rtDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
-              const rtIsDailyShuttle = rtDutyTypeLower === "daily shuttle";
-              const rtIsSameDay =
-                !!selectedDutyRow?.DateFrom &&
-                !!selectedDutyRow?.DateTo &&
-                String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
-              const rtIsSameDayRoundTrip = !rtIsDailyShuttle && rtIsSameDay;
-              const rtNeedsConfirm = rtIsDailyShuttle || rtIsSameDayRoundTrip;
-
-              if (!rtNeedsConfirm) {
-                // Multi-day Round Trip - a reading upload never ends camp
-                // here, only the explicit End Camp button does.
-                if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
-                  e.preventDefault();
-                  return;
-                }
-                saveModalScroll();
-                return;
-              }
-
-              // Stop here and ask before the photo (and its 5 minute
-              // replace clock) exists at all, not after - the actual
-              // reading-value check (same start/end reading) still runs
-              // again at Save Trip, once the closing number is known.
-              e.preventDefault();
-              setReadingUploadConfirm({
-                open: true,
-                which: "to",
-                dutyDate: trip.dutyDate,
-                title: rtIsDailyShuttle ? "End today's camp?" : "End this trip's camp?",
-                text: rtIsDailyShuttle
-                  ? "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
-                  : "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it.",
-                secondsLeft: 5,
-              });
-            }}
-            onChange={(e) => {
-              const toFile = e.target.files?.[0] || null;
-
-              if (toFile && readingLockRef.current[readingLockKey(trip.dutyDate, "to")] === undefined) {
-                readingLockRef.current[readingLockKey(trip.dutyDate, "to")] = Date.now();
-              }
-
-              updateTripDay(
-                editingTripIndex!,
-                "readingToImage",
-                toFile
-              );
-              restoreModalScroll();
-            }}
-          />
-        </label>
-
-        {trip.readingToImage && (
-          <span
-            style={{
-              fontSize: "12px",
-              color: "#0f172a",
-              fontWeight: 500,
-              lineHeight: "20px",
-              cursor: "pointer",
-              textDecoration: "underline",
-            }}
-            onClick={() => openFilePreview(trip.readingToImage)}
-          >
-            {getFileLabel(trip.readingToImage)}
-          </span>
-        )}
-      </div>
-    </div>
-
-    <input
-      value={trip.readingTo}
-      disabled={
-        !trip.readingToImage ||
-        isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
-      }
-      placeholder={
-        isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
-          ? "Locked - uploaded over 5 minutes ago"
-          : trip.readingToImage
-          ? "Reading To"
-          : "Upload image to enable"
-      }
-      onChange={(e) => {
-        const value = e.target.value;
-
-       if (editingTripIndex === undefined) return;
-
-updateTripDay(
-  editingTripIndex,
-  "readingTo",
-  value
-);
-
-        autoFillDistance(
-          editingTripIndex!,
-          trip.readingFrom,
-          value
-        );
-      }}
-      style={{
-        width: "100%",
-        height: "46px",
-        border: "1px solid #cbd5e1",
-        borderRadius: "12px",
-        padding: "0 14px",
-        fontSize: "14px",
-        background: trip.readingToImage
-          ? "#fff"
-          : "#f1f5f9",
-      }}
-    />
-  </div>
-)}
-                      </div>
-                    )}
-
-                    {tripModalMode === "edit" && (
-<div
-  style={{
-    display: "grid",
-    gridTemplateColumns:
-      window.innerWidth <= 768
-        ? "1fr"
-        : isOfficeVehicle
-        ? "1fr 1fr"
-        : "1fr",
-    gap: "12px",
-    marginTop: "14px",
-  }}
->
-                      {/* DISTANCE */}
-                      <div
-                        style={{
-                          border: "1px solid #d8dee8",
-                          borderRadius: "16px",
-                          padding: "12px",
-                          background: "#ffffff",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "10px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: "14px",
-                            fontWeight: 700,
-                            color: "#334155",
-                          }}
-                        >
-                          Distance (Kms)
-                        </div>
-
-                        <input
-                          type="number"
-                          value={trip.distance}
-                          disabled={!isPublicTransport}
-                          placeholder={
-                            isPublicTransport
-                              ? "Enter Distance"
-                              : "Auto calculated from readings"
-                          }
-                          onChange={(e) =>
-                            updateTripDay(
-                              editingTripIndex!,
-                              "distance",
-                              e.target.value || ""
-                            )
-                          }
-                          style={{
-                            width: "100%",
-                            height: "46px",
-                            border: "1px solid #cbd5e1",
-                            borderRadius: "12px",
-                            padding: "0 14px",
-                            fontSize: "14px",
-                            background: isPublicTransport ? "#fff" : "#f1f5f9",
-                          }}
-                        />
+                  {/* Luminous Warm Hero Overview Card */}
+                  <div className="daytrip-hero-card">
+                    <div className="daytrip-hero-card-content">
+                      <div className="daytrip-hero-main">
+                        <h3>
+                          <Sparkles size={16} color="#d97706" />
+                          Trip Details & Meter Recording
+                        </h3>
+                        <p>
+                          {tripModalMode === "add"
+                            ? "Upload start odometer photo to unlock reading & initialize day trip."
+                            : "Record start/end odometer readings, fuel bills, and client visits."}
+                        </p>
                       </div>
 
-                      {/* FUEL (Only Office Vehicles) */}
-                      {isOfficeVehicle && (
-                        <div
-                          style={{
-                            border: "1px solid #d8dee8",
-                            borderRadius: "16px",
-                            padding: "12px",
-                            background: "#ffffff",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "10px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: "8px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <label
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: 700,
-                                color: "#334155",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                              }}
-                            >
-                              Fuel Amount
-                              <input
-                                hidden
-                                type="file"
-                                accept="image/*"
-                                onClick={saveModalScroll}
-                                onChange={(e) => {
-                                  updateTripDay(
-                                    editingTripIndex!,
-                                    "fuelImage",
-                                    e.target.files?.[0] || null
-                                  );
-                                  restoreModalScroll();
-                                }}
-                              />
-                            </label>
-
-                            {trip.fuelImage && (
-                              <span
-                                style={{
-                                  fontSize: "12px",
-                                  color: "#0f172a",
-                                  fontWeight: 500,
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                }}
-                                onClick={() => openFilePreview(trip.fuelImage)}
-                              >
-                                {getFileLabel(trip.fuelImage)}
-                              </span>
-                            )}
-                          </div>
-
-                          <input
-                            value={trip.fuelAmount}
-                            disabled={!trip.fuelImage}
-                            placeholder={
-                              trip.fuelImage
-                                ? "Enter Fuel Amount"
-                                : "Upload bill image to enable"
-                            }
-                            onChange={(e) =>
-                              updateTripDay(
-                                editingTripIndex!,
-                                "fuelAmount",
-                                e.target.value || ""
-                              )
-                            }
-                            style={{
-                              width: "100%",
-                              height: "46px",
-                              border: "1px solid #cbd5e1",
-                              borderRadius: "12px",
-                              padding: "0 14px",
-                              fontSize: "14px",
-                              background: trip.fuelImage
-                                ? "#fff"
-                                : "#f1f5f9",
-                            }}
-                          />
+                      {selectedDutyRow && (
+                        <div className="daytrip-vehicle-chip">
+                          <Car size={14} />
+                          <span>
+                            {selectedDutyRow.Mode_of_Trans || "Vehicle"}
+                            {selectedDutyRow.Vehicle_No ? ` • ${selectedDutyRow.Vehicle_No}` : ""}
+                          </span>
                         </div>
                       )}
                     </div>
-)}
                   </div>
 
-                 {tripModalMode === "edit" && (
-<div
-  style={{
-    marginTop: "8px",
-    marginBottom: "12px",
-    padding: "12px 14px",
-    border: "1px solid #d8dee8",
-    borderRadius: "16px",
-    background: "#ffffff",
-  }}
->
-                    <div
-                      style={{
-                        fontSize: "15px",
-                        fontWeight: 700,
-                        color: "#1e3a5f",
-                        marginBottom: "2px",
-                      }}
-                    >
-                      Visit Details
+                  {/* Step Guidance Banner for Add Mode */}
+                  {tripModalMode === "add" && !isPublicTransport && (
+                    <div className="daytrip-step-banner">
+                      <Camera size={16} />
+                      <span>
+                        {!hasReadingFromImage
+                          ? "Step 1: Upload Start Meter Photo to unlock the reading input field below"
+                          : "Step 2: Verify and enter the starting odometer reading"}
+                      </span>
                     </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#64748b",
-                      }}
-                    >
-                      Add one or more client / party visit entries
-                    </div>
-                  </div>
                   )}
-                 {tripModalMode === "edit" &&
-  trip.visits.map((visit, visitIndex) => {
 
-                    const isGeoTagged =
-                      visit.latitude &&
-                      visit.longitude &&
-                      visit.latitude !== "" &&
-                      visit.longitude !== "";
-
-
-                    const hasVisitImage = !!visit.visitSlipImage;
-                    const hasLocalTransportImage = !!visit.localTransportImage;
-                    const hasGeo = !!visit.latitude && !!visit.longitude;
-                    return (
-
-                      <div
-                        key={visitIndex}
-                        style={{
-                          border: "1px solid #d8dee8",
-                          borderRadius: "16px",
-                          padding: "12px",
-                          background: "#f8fafc",
-                          marginBottom: "10px",
-                        }}
-
-                      >
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr auto",
-                            alignItems: "center",
-                            width: "100%",
-                            marginBottom: "14px",
-                            columnGap: "10px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontSize: "15px",
-                              fontWeight: 700,
-                              color: "#1e293b",
-                              minWidth: 0,
-                            }}
-                          >
-                            Client / Party {visitIndex + 1}
+                  {/* TRANSPORT & ODOMETER CARD */}
+                  {!isPublicTransport && (
+                    <div className="daytrip-card">
+                      <div className="daytrip-card-header">
+                        <div className="daytrip-card-title-group">
+                          <div className="daytrip-card-title-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
+                            <Gauge size={16} />
                           </div>
+                          <div className="daytrip-card-title">
+                            {tripModalMode === "add" ? "Start Meter Reading" : "Odometer Readings"}
+                          </div>
+                        </div>
+                        {tripModalMode === "add" && hasReadingFromImage && (
+                          <span className="daytrip-mode-badge" style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #86efac" }}>
+                            <CheckCircle2 size={12} /> Ready
+                          </span>
+                        )}
+                      </div>
 
-                          {trip.visits.length > 1 ? (
-                            <IonButton
-                              size="small"
-                              color="danger"
-                              fill="clear"
-                              style={{
-                                margin: 0,
-                                justifySelf: "end",
-                                minWidth: "70px",
+                      <div className={tripModalMode === "edit" ? "daytrip-grid-2" : ""}>
+                        {/* READING FROM */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+                          <label className="daytrip-input-label">
+                            <Camera size={14} color="#d97706" />
+                            <span>Starting Reading Photo</span>
+                            <span style={{ color: "#ef4444" }}>*</span>
+                          </label>
+
+                          <input
+                            hidden
+                            ref={readingFromInputRef}
+                            type="file"
+                            accept="image/*"
+                            onClick={(e) => {
+                              if (readingUploadBypassRef.current.from) {
+                                readingUploadBypassRef.current.from = false;
+                                saveModalScroll();
+                                return;
+                              }
+
+                              if (isReadingLocked(trip.dutyDate, "from", !!trip.readingFromImage)) {
+                                e.preventDefault();
+                                notify(
+                                  "The starting reading photo for this day has already been uploaded " +
+                                  "and can no longer be changed. It could only be replaced within " +
+                                  "5 minutes of the first upload.",
+                                  "warning"
+                                );
+                                return;
+                              }
+
+                              const rfFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "from")];
+                              if (rfFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`)) {
+                                if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                                saveModalScroll();
+                                return;
+                              }
+
+                              const rfDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+                              const rfIsDailyShuttle = rfDutyTypeLower === "daily shuttle";
+                              const rfCampAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
+                              const rfNeedsConfirm = rfIsDailyShuttle || !rfCampAlreadyActive;
+
+                              if (!rfNeedsConfirm) {
+                                if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                                saveModalScroll();
+                                return;
+                              }
+
+                              e.preventDefault();
+                              setReadingUploadConfirm({
+                                open: true,
+                                which: "from",
+                                dutyDate: trip.dutyDate,
+                                title: rfIsDailyShuttle ? "Start today's camp?" : "Start this trip's camp?",
+                                text: rfIsDailyShuttle
+                                  ? "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+                                  : "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it.",
+                                secondsLeft: 5,
+                              });
+                            }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+
+                              if (file && readingLockRef.current[readingLockKey(trip.dutyDate, "from")] === undefined) {
+                                readingLockRef.current[readingLockKey(trip.dutyDate, "from")] = Date.now();
+                              }
+
+                              updateTripDay(
+                                editingTripIndex!,
+                                "readingFromImage",
+                                file
+                              );
+
+                              if (tripModalMode === "add") {
+                                updateTripDay(
+                                  editingTripIndex!,
+                                  "readingTo",
+                                  trip.readingFrom
+                                );
+                              }
+                              restoreModalScroll();
+                            }}
+                          />
+
+                          {!hasReadingFromImage ? (
+                            <div
+                              className={`daytrip-upload-box ${isReadingLocked(trip.dutyDate, "from", false) ? "disabled" : ""}`}
+                              onClick={() => {
+                                if (!isReadingLocked(trip.dutyDate, "from", false)) {
+                                  readingFromInputRef.current?.click();
+                                }
                               }}
-                              onClick={() => removeTripVisit(editingTripIndex, visitIndex)}
                             >
-                              Remove
-                            </IonButton>
+                              <div className="daytrip-upload-icon-circle">
+                                <Camera size={20} />
+                              </div>
+                              <div className="daytrip-upload-title">Upload Start Meter Photo</div>
+                              <div className="daytrip-upload-sub">Tap here to capture or choose photo</div>
+                            </div>
                           ) : (
-                            <div />
+                            <div className="daytrip-attached-card">
+                              <div className="daytrip-attached-left">
+                                <div className="daytrip-attached-icon">
+                                  <Check size={18} />
+                                </div>
+                                <div className="daytrip-attached-info">
+                                  <div className="daytrip-attached-status">Photo Attached</div>
+                                  <div
+                                    className="daytrip-attached-name"
+                                    onClick={() => openFilePreview(trip.readingFromImage)}
+                                    title="Click to preview"
+                                  >
+                                    {getFileLabel(trip.readingFromImage)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="daytrip-attached-actions">
+                                <button
+                                  type="button"
+                                  className="daytrip-btn-preview"
+                                  onClick={() => openFilePreview(trip.readingFromImage)}
+                                >
+                                  <Eye size={12} /> View
+                                </button>
+                                {!isReadingLocked(trip.dutyDate, "from", true) && (
+                                  <button
+                                    type="button"
+                                    className="daytrip-btn-replace"
+                                    onClick={() => readingFromInputRef.current?.click()}
+                                    title="Replace within 5 mins"
+                                  >
+                                    <RotateCw size={12} /> Replace
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           )}
+
+                          {isReadingLocked(trip.dutyDate, "from", hasReadingFromImage) && (
+                            <div className="daytrip-locked-banner">
+                              <Lock size={14} />
+                              <span>Locked — uploaded over 5 minutes ago</span>
+                            </div>
+                          )}
+
+                          <div className="daytrip-input-group">
+                            <label className="daytrip-input-label">
+                              <Gauge size={14} color="#d97706" />
+                              <span>Reading From (Odometer Value)</span>
+                            </label>
+                            <div className="daytrip-input-field-wrapper">
+                              <Gauge size={18} className="daytrip-input-icon" />
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={trip.readingFrom}
+                                disabled={
+                                  !hasReadingFromImage ||
+                                  isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
+                                }
+                                placeholder={
+                                  isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
+                                    ? "Locked - uploaded over 5 minutes ago"
+                                    : hasReadingFromImage
+                                      ? "Enter Start Reading (e.g. 12450)"
+                                      : "Upload photo above to unlock"
+                                }
+                                onChange={(e) => {
+                                  const value = e.target.value;
+
+                                  updateTripDay(
+                                    editingTripIndex!,
+                                    "readingFrom",
+                                    value
+                                  );
+
+                                  if (tripModalMode === "add") {
+                                    updateTripDay(
+                                      editingTripIndex!,
+                                      "readingTo",
+                                      value
+                                    );
+                                  }
+
+                                  autoFillDistance(
+                                    editingTripIndex!,
+                                    value,
+                                    tripModalMode === "add" ? value : trip.readingTo
+                                  );
+                                }}
+                                className="daytrip-input"
+                              />
+                            </div>
+                            {tripModalMode === "add" && hasReadingFromImage && (
+                              <div className="daytrip-helper-text">
+                                ✨ Reading To will automatically initialize with this value.
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        <div
-                          style={{
-                            display: "grid",
-                            gap: "10px",
-                          }}
-                        >
+                        {/* READING TO (Only in Edit mode) */}
+                        {tripModalMode === "edit" && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+                            <label className="daytrip-input-label">
+                              <Camera size={14} color="#d97706" />
+                              <span>Closing Reading Photo</span>
+                            </label>
 
+                            <input
+                              hidden
+                              ref={readingToInputRef}
+                              type="file"
+                              accept="image/*"
+                              onClick={(e) => {
+                                if (readingUploadBypassRef.current.to) {
+                                  readingUploadBypassRef.current.to = false;
+                                  saveModalScroll();
+                                  return;
+                                }
 
-                          <div
-                            style={{
-                              display: "grid",
-                              gap: "10px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "10px",
+                                if (isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)) {
+                                  e.preventDefault();
+                                  notify(
+                                    "The closing reading photo for this day has already been uploaded " +
+                                    "and can no longer be changed. It could only be replaced within " +
+                                    "5 minutes of the first upload.",
+                                    "warning"
+                                  );
+                                  return;
+                                }
+
+                                const rtFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "to")];
+                                if (rtFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`)) {
+                                  if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                  saveModalScroll();
+                                  return;
+                                }
+
+                                const rtDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+                                const rtIsDailyShuttle = rtDutyTypeLower === "daily shuttle";
+                                const rtIsSameDay =
+                                  !!selectedDutyRow?.DateFrom &&
+                                  !!selectedDutyRow?.DateTo &&
+                                  String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
+                                const rtIsSameDayRoundTrip = !rtIsDailyShuttle && rtIsSameDay;
+                                const rtNeedsConfirm = rtIsDailyShuttle || rtIsSameDayRoundTrip;
+
+                                if (!rtNeedsConfirm) {
+                                  if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                  saveModalScroll();
+                                  return;
+                                }
+
+                                e.preventDefault();
+                                setReadingUploadConfirm({
+                                  open: true,
+                                  which: "to",
+                                  dutyDate: trip.dutyDate,
+                                  title: rtIsDailyShuttle ? "End today's camp?" : "End this trip's camp?",
+                                  text: rtIsDailyShuttle
+                                    ? "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+                                    : "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it.",
+                                  secondsLeft: 5,
+                                });
                               }}
-                            >
+                              onChange={(e) => {
+                                const toFile = e.target.files?.[0] || null;
+
+                                if (toFile && readingLockRef.current[readingLockKey(trip.dutyDate, "to")] === undefined) {
+                                  readingLockRef.current[readingLockKey(trip.dutyDate, "to")] = Date.now();
+                                }
+
+                                updateTripDay(
+                                  editingTripIndex!,
+                                  "readingToImage",
+                                  toFile
+                                );
+                                restoreModalScroll();
+                              }}
+                            />
+
+                            {!trip.readingToImage ? (
                               <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "flex-start",
-                                  gap: "10px",
-                                  flexWrap: "wrap",
-                                  minHeight: "24px",
+                                className={`daytrip-upload-box ${isReadingLocked(trip.dutyDate, "to", false) ? "disabled" : ""}`}
+                                onClick={() => {
+                                  if (!isReadingLocked(trip.dutyDate, "to", false)) {
+                                    readingToInputRef.current?.click();
+                                  }
                                 }}
                               >
-                                <label
-                                  style={{
-                                    fontSize: "14px",
-                                    fontWeight: 700,
-                                    color: "#334155",
-                                    cursor: "pointer",
-                                    textDecoration: "underline",
-                                    lineHeight: "20px",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    marginRight: "4px",
-                                  }}
-                                >
-                                  Client / Party Name
-                                  <input
-                                    hidden
-                                    type="file"
-                                    accept="image/*"
-                                    onClick={saveModalScroll}
-                                    onChange={(e) => {
-                                      updateTripVisit(
-                                        editingTripIndex!,
-                                        visitIndex,
-                                        "visitSlipImage",
-                                        e.target.files?.[0] || null
-                                      );
-                                      restoreModalScroll();
-                                    }}
-                                  />
-                                </label>
+                                <div className="daytrip-upload-icon-circle">
+                                  <Camera size={20} />
+                                </div>
+                                <div className="daytrip-upload-title">Upload Closing Meter Photo</div>
+                                <div className="daytrip-upload-sub">Tap here to capture or choose photo</div>
+                              </div>
+                            ) : (
+                              <div className="daytrip-attached-card">
+                                <div className="daytrip-attached-left">
+                                  <div className="daytrip-attached-icon">
+                                    <Check size={18} />
+                                  </div>
+                                  <div className="daytrip-attached-info">
+                                    <div className="daytrip-attached-status">Photo Attached</div>
+                                    <div
+                                      className="daytrip-attached-name"
+                                      onClick={() => openFilePreview(trip.readingToImage)}
+                                      title="Click to preview"
+                                    >
+                                      {getFileLabel(trip.readingToImage)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="daytrip-attached-actions">
+                                  <button
+                                    type="button"
+                                    className="daytrip-btn-preview"
+                                    onClick={() => openFilePreview(trip.readingToImage)}
+                                  >
+                                    <Eye size={12} /> View
+                                  </button>
+                                  {!isReadingLocked(trip.dutyDate, "to", true) && (
+                                    <button
+                                      type="button"
+                                      className="daytrip-btn-replace"
+                                      onClick={() => readingToInputRef.current?.click()}
+                                      title="Replace within 5 mins"
+                                    >
+                                      <RotateCw size={12} /> Replace
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
-                                {visit.visitSlipImage && (
+                            {isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage) && (
+                              <div className="daytrip-locked-banner">
+                                <Lock size={14} />
+                                <span>Locked — uploaded over 5 minutes ago</span>
+                              </div>
+                            )}
+
+                            <div className="daytrip-input-group">
+                              <label className="daytrip-input-label">
+                                <Gauge size={14} color="#d97706" />
+                                <span>Reading To (Odometer Value)</span>
+                              </label>
+                              <div className="daytrip-input-field-wrapper">
+                                <Gauge size={18} className="daytrip-input-icon" />
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={trip.readingTo}
+                                  disabled={
+                                    !trip.readingToImage ||
+                                    isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
+                                  }
+                                  placeholder={
+                                    isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
+                                      ? "Locked - uploaded over 5 minutes ago"
+                                      : trip.readingToImage
+                                        ? "Enter Closing Reading (e.g. 12580)"
+                                        : "Upload photo above to unlock"
+                                  }
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (editingTripIndex === undefined) return;
+
+                                    updateTripDay(
+                                      editingTripIndex,
+                                      "readingTo",
+                                      value
+                                    );
+
+                                    autoFillDistance(
+                                      editingTripIndex!,
+                                      trip.readingFrom,
+                                      value
+                                    );
+                                  }}
+                                  className="daytrip-input"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* DISTANCE & FUEL (in Edit mode) */}
+                      {tripModalMode === "edit" && (
+                        <div
+                          className="daytrip-grid-2"
+                          style={{
+                            marginTop: "12px",
+                            paddingTop: "14px",
+                            borderTop: "1px solid #f1f5f9",
+                          }}
+                        >
+                          {/* DISTANCE */}
+                          <div className="daytrip-input-group">
+                            <label className="daytrip-input-label">
+                              <Navigation size={14} color="#d97706" />
+                              <span>Distance (Kms)</span>
+                              {!isPublicTransport && (
+                                <span className="daytrip-mode-badge" style={{ background: "#fef3c7", color: "#b45309", fontSize: "10px" }}>
+                                  Auto-calculated
+                                </span>
+                              )}
+                            </label>
+                            <div className="daytrip-input-field-wrapper">
+                              <Navigation size={18} className="daytrip-input-icon" />
+                              <input
+                                type="number"
+                                value={trip.distance}
+                                disabled={!isPublicTransport}
+                                placeholder={
+                                  isPublicTransport
+                                    ? "Enter Distance"
+                                    : "Auto calculated from readings"
+                                }
+                                onChange={(e) =>
+                                  updateTripDay(
+                                    editingTripIndex!,
+                                    "distance",
+                                    e.target.value || ""
+                                  )
+                                }
+                                className="daytrip-input"
+                              />
+                            </div>
+                          </div>
+
+                          {/* FUEL (Office Vehicles) */}
+                          {isOfficeVehicle && (
+                            <div className="daytrip-input-group">
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <label className="daytrip-input-label">
+                                  <Fuel size={14} color="#d97706" />
+                                  <span>Fuel Amount (₹)</span>
+                                </label>
+                                <input
+                                  hidden
+                                  id="dt-fuel-file-input"
+                                  type="file"
+                                  accept="image/*"
+                                  onClick={saveModalScroll}
+                                  onChange={(e) => {
+                                    updateTripDay(
+                                      editingTripIndex!,
+                                      "fuelImage",
+                                      e.target.files?.[0] || null
+                                    );
+                                    restoreModalScroll();
+                                  }}
+                                />
+                                {trip.fuelImage ? (
                                   <span
                                     style={{
-                                      fontSize: "12px",
-                                      color: "#0f172a",
-                                      fontWeight: 500,
-                                      lineHeight: "20px",
+                                      fontSize: "11px",
+                                      color: "#15803d",
+                                      fontWeight: 700,
                                       cursor: "pointer",
                                       textDecoration: "underline",
                                     }}
-                                    onClick={() => openFilePreview(visit.visitSlipImage)}
+                                    onClick={() => openFilePreview(trip.fuelImage)}
                                   >
-                                    {getFileLabel(visit.visitSlipImage)}
+                                    View Bill ({getFileLabel(trip.fuelImage)})
                                   </span>
+                                ) : (
+                                  <label
+                                    htmlFor="dt-fuel-file-input"
+                                    style={{
+                                      fontSize: "11px",
+                                      color: "#d97706",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                    }}
+                                  >
+                                    <Upload size={12} /> Upload Bill
+                                  </label>
+                                )}
+                              </div>
+                              <div className="daytrip-input-field-wrapper">
+                                <Fuel size={18} className="daytrip-input-icon" />
+                                <input
+                                  type="number"
+                                  value={trip.fuelAmount}
+                                  disabled={!trip.fuelImage}
+                                  placeholder={
+                                    trip.fuelImage
+                                      ? "Enter Fuel Amount (₹)"
+                                      : "Upload bill image to unlock"
+                                  }
+                                  onChange={(e) =>
+                                    updateTripDay(
+                                      editingTripIndex!,
+                                      "fuelAmount",
+                                      e.target.value || ""
+                                    )
+                                  }
+                                  className="daytrip-input"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PUBLIC TRANSPORT DISTANCE CARD */}
+                  {isPublicTransport && (
+                    <div className="daytrip-card">
+                      <div className="daytrip-card-header">
+                        <div className="daytrip-card-title-group">
+                          <div className="daytrip-card-title-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
+                            <Navigation size={16} />
+                          </div>
+                          <div className="daytrip-card-title">Public Transport Journey</div>
+                        </div>
+                      </div>
+                      <div className="daytrip-input-group">
+                        <label className="daytrip-input-label">
+                          <Navigation size={14} color="#d97706" />
+                          <span>Distance Traveled (Kms)</span>
+                          <span style={{ color: "#ef4444" }}>*</span>
+                        </label>
+                        <div className="daytrip-input-field-wrapper">
+                          <Navigation size={18} className="daytrip-input-icon" />
+                          <input
+                            type="number"
+                            value={trip.distance}
+                            placeholder="Enter Total Distance Traveled in Kms"
+                            onChange={(e) =>
+                              updateTripDay(
+                                editingTripIndex!,
+                                "distance",
+                                e.target.value || ""
+                              )
+                            }
+                            className="daytrip-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VISIT DETAILS SECTION (Only in Edit mode) */}
+                  {tripModalMode === "edit" && (
+                    <div className="daytrip-card">
+                      <div className="daytrip-card-header">
+                        <div className="daytrip-card-title-group">
+                          <div className="daytrip-card-title-icon" style={{ background: "#fef3c7", color: "#b45309" }}>
+                            <Building2 size={16} />
+                          </div>
+                          <div>
+                            <div className="daytrip-card-title">Client / Party Visits</div>
+                            <div style={{ fontSize: "11px", color: "#64748b" }}>
+                              {trip.visits.length} visit stop{trip.visits.length === 1 ? "" : "s"} recorded
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {trip.visits.map((visit, visitIndex) => {
+                        const hasGeo = !!visit.latitude && !!visit.longitude;
+
+                        return (
+                          <div key={visitIndex} className="daytrip-visit-box">
+                            <div className="daytrip-visit-header">
+                              <div className="daytrip-visit-badge">
+                                <Building2 size={13} />
+                                <span>Client Stop #{visitIndex + 1}</span>
+                              </div>
+
+                              {trip.visits.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="daytrip-btn-remove-visit"
+                                  onClick={() => removeTripVisit(editingTripIndex, visitIndex)}
+                                  title="Remove this visit stop"
+                                >
+                                  <Trash2 size={14} /> Remove
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Client Party Slip & Name */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                                <label className="daytrip-input-label">
+                                  <Building2 size={14} color="#d97706" />
+                                  <span>Client / Party Name</span>
+                                  <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+
+                                <input
+                                  hidden
+                                  id={`dt-visit-slip-${visitIndex}`}
+                                  type="file"
+                                  accept="image/*"
+                                  onClick={saveModalScroll}
+                                  onChange={(e) => {
+                                    updateTripVisit(
+                                      editingTripIndex!,
+                                      visitIndex,
+                                      "visitSlipImage",
+                                      e.target.files?.[0] || null
+                                    );
+                                    restoreModalScroll();
+                                  }}
+                                />
+
+                                {visit.visitSlipImage ? (
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <span
+                                      style={{
+                                        fontSize: "11.5px",
+                                        color: "#15803d",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                      }}
+                                      onClick={() => openFilePreview(visit.visitSlipImage)}
+                                    >
+                                      ✓ Slip Attached ({getFileLabel(visit.visitSlipImage)})
+                                    </span>
+                                    <label
+                                      htmlFor={`dt-visit-slip-${visitIndex}`}
+                                      style={{ fontSize: "11px", color: "#64748b", cursor: "pointer", textDecoration: "underline" }}
+                                    >
+                                      Change
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <label
+                                    htmlFor={`dt-visit-slip-${visitIndex}`}
+                                    style={{
+                                      fontSize: "11.5px",
+                                      color: "#b45309",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      background: "#fef3c7",
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      border: "1px solid #fde68a",
+                                    }}
+                                  >
+                                    <Camera size={13} /> Upload Visit Slip / Photo
+                                  </label>
                                 )}
                               </div>
 
-                              <div style={{ width: "100%" }}>
+                              <div className="daytrip-input-field-wrapper">
+                                <Building2 size={18} className="daytrip-input-icon" />
                                 <input
                                   value={visit.partyName}
                                   disabled={!visit.visitSlipImage}
                                   placeholder={
                                     visit.visitSlipImage
                                       ? "Enter Client / Party Name"
-                                      : "Upload image to enable"
+                                      : "Upload visit slip above to unlock"
                                   }
                                   onChange={(e) =>
                                     updateTripVisit(
@@ -7620,95 +7515,36 @@ updateTripDay(
                                       e.target.value || ""
                                     )
                                   }
-                                  style={{
-                                    width: "100%",
-                                    height: "46px",
-                                    border: "1px solid #cbd5e1",
-                                    borderRadius: "12px",
-                                    padding: "0 14px",
-                                    fontSize: "14px",
-                                    background: visit.visitSlipImage ? "#fff" : "#f1f5f9",
-                                  }}
+                                  className="daytrip-input"
                                 />
                               </div>
                             </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "10px",
-                                marginBottom: "12px",
-                                width: "100%",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns:
-                                    window.innerWidth <= 768 ? "1fr" : "2fr 1fr",
-                                  gap: "10px",
-                                }}
-                              >
-                                {/* Location with Geo Tag */}
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: "10px",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "flex-start",
-                                      gap: "8px",
-                                      flexWrap: "wrap",
-                                      minHeight: "24px",
-                                    }}
+
+                            {/* Location & Local Transport Grid */}
+                            <div className="daytrip-grid-2">
+                              {/* Location with Geo Tag */}
+                              <div className="daytrip-input-group">
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                  <label className="daytrip-input-label">
+                                    <MapPin size={14} color="#10b981" />
+                                    <span>Location</span>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className={`daytrip-geo-btn ${hasGeo ? "tagged" : ""}`}
+                                    onClick={() => tagVisitLocation(editingTripIndex!, visitIndex)}
                                   >
-                                    <label
-                                      style={{
-                                        fontSize: "14px",
-                                        fontWeight: 700,
-                                        color: "#334155",
-                                        cursor: "pointer",
-                                        textDecoration: "underline",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                      }}
-                                      onClick={() => tagVisitLocation(editingTripIndex!, visitIndex)}
-                                    >
-                                      Location
-                                    </label>
-
-                                    {hasGeo && (
-                                      <span
-                                        style={{
-                                          fontSize: "12px",
-                                          color: "#0f172a",
-                                          fontWeight: 500,
-                                          lineHeight: "20px",
-                                          cursor: "pointer",
-                                          textDecoration: "underline",
-                                        }}
-                                        onClick={() =>
-                                          window.open(
-                                            `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
-                                            "_blank"
-                                          )
-                                        }
-                                      >
-                                        {getGeoLabel(visit.latitude, visit.longitude)}
-                                      </span>
-                                    )}
-                                  </div>
-
+                                    <MapPin size={12} />
+                                    {hasGeo ? "Geo Tagged ✓" : "Tap to Geo Tag"}
+                                  </button>
+                                </div>
+                                <div className="daytrip-input-field-wrapper">
+                                  <MapPin size={18} className="daytrip-input-icon" />
                                   <input
                                     value={visit.location}
                                     disabled={!hasGeo}
                                     placeholder={
-                                      hasGeo ? "Enter Location" : "Click label to Geo Tag"
+                                      hasGeo ? "Enter Location" : "Click 'Tap to Geo Tag' first"
                                     }
                                     onChange={(e) =>
                                       updateTripVisit(
@@ -7718,90 +7554,94 @@ updateTripDay(
                                         e.target.value || ""
                                       )
                                     }
-                                    style={{
-                                      width: "100%",
-                                      height: "46px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "12px",
-                                      padding: "0 14px",
-                                      fontSize: "14px",
-                                      background: hasGeo ? "#fff" : "#f1f5f9",
-                                    }}
+                                    className="daytrip-input"
                                   />
                                 </div>
-
-                                {/* Local Transport */}
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: "10px",
-                                  }}
-                                >
+                                {hasGeo && (
                                   <div
                                     style={{
-                                      display: "flex",
-                                      alignItems: "flex-start",
-                                      gap: "8px",
-                                      flexWrap: "wrap",
-                                      minHeight: "24px",
+                                      fontSize: "11px",
+                                      color: "#059669",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                      marginTop: "2px",
                                     }}
+                                    onClick={() =>
+                                      window.open(
+                                        `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
+                                        "_blank"
+                                      )
+                                    }
                                   >
-                                    <label
+                                    🗺️ View Coordinates ({getGeoLabel(visit.latitude, visit.longitude)})
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Local Transport */}
+                              <div className="daytrip-input-group">
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                  <label className="daytrip-input-label">
+                                    <Car size={14} color="#d97706" />
+                                    <span>Local Transport (₹)</span>
+                                  </label>
+                                  <input
+                                    hidden
+                                    id={`dt-loc-trans-${visitIndex}`}
+                                    type="file"
+                                    accept="image/*"
+                                    onClick={saveModalScroll}
+                                    onChange={(e) => {
+                                      updateTripVisit(
+                                        editingTripIndex!,
+                                        visitIndex,
+                                        "localTransportImage",
+                                        e.target.files?.[0] || null
+                                      );
+                                      restoreModalScroll();
+                                    }}
+                                  />
+                                  {visit.localTransportImage ? (
+                                    <span
                                       style={{
-                                        fontSize: "14px",
+                                        fontSize: "11px",
+                                        color: "#15803d",
                                         fontWeight: 700,
-                                        color: "#334155",
                                         cursor: "pointer",
                                         textDecoration: "underline",
+                                      }}
+                                      onClick={() => openFilePreview(visit.localTransportImage)}
+                                    >
+                                      View Bill
+                                    </span>
+                                  ) : (
+                                    <label
+                                      htmlFor={`dt-loc-trans-${visitIndex}`}
+                                      style={{
+                                        fontSize: "11px",
+                                        color: "#d97706",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
                                         display: "inline-flex",
                                         alignItems: "center",
-                                        gap: "6px",
+                                        gap: "4px",
                                       }}
                                     >
-                                      Loc Tran
-                                      <input
-                                        hidden
-                                        type="file"
-                                        accept="image/*"
-                                        onClick={saveModalScroll}
-                                        onChange={(e) => {
-                                          updateTripVisit(
-                                            editingTripIndex!,
-                                            visitIndex,
-                                            "localTransportImage",
-                                            e.target.files?.[0] || null
-                                          );
-                                          restoreModalScroll();
-                                        }}
-                                      />
+                                      <Upload size={12} /> Upload Bill
                                     </label>
-
-                                    {visit.localTransportImage && (
-                                      <span
-                                        style={{
-                                          fontSize: "12px",
-                                          color: "#0f172a",
-                                          fontWeight: 500,
-                                          lineHeight: "20px",
-                                          cursor: "pointer",
-                                          textDecoration: "underline",
-                                        }}
-                                        onClick={() => openFilePreview(visit.localTransportImage)}
-                                      >
-                                        {getFileLabel(visit.localTransportImage)}
-                                      </span>
-                                    )}
-                                  </div>
-
+                                  )}
+                                </div>
+                                <div className="daytrip-input-field-wrapper">
+                                  <Car size={18} className="daytrip-input-icon" />
                                   <input
                                     type="number"
                                     value={visit.localTransportAmount || ""}
                                     disabled={!visit.localTransportImage}
                                     placeholder={
                                       visit.localTransportImage
-                                        ? "Enter Amount"
-                                        : "Upload bill to enable"
+                                        ? "Enter Amount (₹)"
+                                        : "Upload bill to unlock"
                                     }
                                     onChange={(e) =>
                                       updateTripVisit(
@@ -7811,198 +7651,116 @@ updateTripDay(
                                         e.target.value || ""
                                       )
                                     }
-                                    style={{
-                                      width: "100%",
-                                      height: "46px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "12px",
-                                      padding: "0 14px",
-                                      fontSize: "14px",
-                                      background: visit.localTransportImage ? "#fff" : "#f1f5f9",
-                                    }}
+                                    className="daytrip-input"
                                   />
-                                </div>
-                              </div>
-
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "1fr 1fr",
-                                  gap: "10px",
-                                  width: "100%",
-                                }}
-                              >
-                                <div style={{ minWidth: 0 }}>
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      fontWeight: 700,
-                                      color: "#334155",
-                                      marginBottom: "8px",
-                                    }}
-                                  >
-                                    Visit From Time
-                                  </div>
-
-                                  <div
-                                    onClick={() =>
-                                      openVisitTimePicker(visitIndex, "visitFromTime")
-                                    }
-                                    style={{
-                                      width: "100%",
-                                      height: "46px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "12px",
-                                      padding: "0 10px",
-                                      outline: "none",
-                                      fontSize: "14px",
-                                      background: "#fff",
-                                      color: visit.visitFromTime ? "#0f172a" : "#94a3b8",
-                                      boxSizing: "border-box",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    {visit.visitFromTime || "Select time"}
-                                  </div>
-                                </div>
-
-                                <div style={{ minWidth: 0 }}>
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      fontWeight: 700,
-                                      color: "#334155",
-                                      marginBottom: "8px",
-                                    }}
-                                  >
-                                    Visit To Time
-                                  </div>
-
-                                  <div
-                                    onClick={() =>
-                                      openVisitTimePicker(visitIndex, "visitToTime")
-                                    }
-                                    style={{
-                                      width: "100%",
-                                      height: "46px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "12px",
-                                      padding: "0 10px",
-                                      outline: "none",
-                                      fontSize: "14px",
-                                      background: "#fff",
-                                      color: visit.visitToTime ? "#0f172a" : "#94a3b8",
-                                      boxSizing: "border-box",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    {visit.visitToTime || "Select time"}
-                                  </div>
                                 </div>
                               </div>
                             </div>
 
-                            <div
-                              style={{
-                                display: "grid",
-                                gap: "10px",
-                                marginTop: "2px",
-                              }}
-                            >
-                              <div>
+                            {/* Visit Times Grid */}
+                            <div className="daytrip-grid-2">
+                              <div className="daytrip-input-group">
+                                <label className="daytrip-input-label">
+                                  <Clock size={14} color="#d97706" />
+                                  <span>Visit From Time</span>
+                                </label>
                                 <div
+                                  onClick={() => openVisitTimePicker(visitIndex, "visitFromTime")}
+                                  className="daytrip-time-picker-trigger"
                                   style={{
-                                    fontSize: "12px",
-                                    fontWeight: 700,
-                                    color: "#334155",
-                                    marginBottom: "8px",
+                                    color: visit.visitFromTime ? "#0f172a" : "#94a3b8",
                                   }}
                                 >
-                                  Demo Project
+                                  <Clock size={16} color="#d97706" />
+                                  <span>{visit.visitFromTime || "Select Start Time"}</span>
                                 </div>
-
-                                <IonSelect
-                                  multiple
-                                  interface="popover"
-                                  value={visit.demoProjects}
-                                  selectedText={
-                                    !visit.demoProjects || visit.demoProjects.length === 0
-                                      ? ""
-                                      : visit.demoProjects.length <= 2
-                                        ? visit.demoProjects.join(", ")
-                                        : `${visit.demoProjects.slice(0, 2).join(", ")} +${visit.demoProjects.length - 2
-                                        } more`
-                                  }
-                                  placeholder="Select Demo Project"
-                                  onIonChange={(e) =>
-                                    updateTripVisit(
-                                      editingTripIndex,
-                                      visitIndex,
-                                      "demoProjects",
-                                      e.detail.value || []
-                                    )
-                                  }
-                                  style={{
-                                    width: "100%",
-                                    minHeight: "46px",
-                                    height: "46px",
-                                    border: "1px solid #cbd5e1",
-                                    borderRadius: "12px",
-                                    padding: "0 12px",
-                                    background: "#fff",
-                                    color: "#0f172a",
-                                    boxSizing: "border-box",
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  <IonSelectOption value="BEAT Visit">BEAT Visit</IonSelectOption>
-                                  <IonSelectOption value="BOAT Visit">BOAT Visit</IonSelectOption>
-                                  <IonSelectOption value="Skill Ascent  Visit">Skill Ascent Visit</IonSelectOption>
-                                  <IonSelectOption value="Edvedha  Visit">Edvedha Visit</IonSelectOption>
-                                  <IonSelectOption value="UNICODE  Visit">UNICODE Visit</IonSelectOption>
-                                  <IonSelectOption value="BEAT Demo">BEAT Demo</IonSelectOption>
-                                  <IonSelectOption value="BOAT Demo">BOAT Demo</IonSelectOption>
-                                  <IonSelectOption value="Skill Ascent  Demo">Skill Ascent Demo</IonSelectOption>
-                                  <IonSelectOption value="Edvedha  Demo">Edvedha Demo</IonSelectOption>
-                                  <IonSelectOption value="UNICODE  Demo">UNICODE Demo</IonSelectOption>
-                                  <IonSelectOption value="BEAT Serv.">BEAT Serv.</IonSelectOption>
-                                  <IonSelectOption value="BOAT Serv.">BOAT Serv.</IonSelectOption>
-                                  <IonSelectOption value="Skill Ascent  Serv.">Skill Ascent Serv.</IonSelectOption>
-                                  <IonSelectOption value="Edvedha  Serv.">Edvedha Serv.</IonSelectOption>
-                                  <IonSelectOption value="UNICODE  Serv.">UNICODE Serv.</IonSelectOption>
-
-                                </IonSelect>
                               </div>
 
-                              <div>
+                              <div className="daytrip-input-group">
+                                <label className="daytrip-input-label">
+                                  <Clock size={14} color="#d97706" />
+                                  <span>Visit To Time</span>
+                                </label>
                                 <div
+                                  onClick={() => openVisitTimePicker(visitIndex, "visitToTime")}
+                                  className="daytrip-time-picker-trigger"
                                   style={{
-                                    fontSize: "12px",
-                                    fontWeight: 700,
-                                    color: "#334155",
-                                    marginBottom: "8px",
+                                    color: visit.visitToTime ? "#0f172a" : "#94a3b8",
                                   }}
                                 >
-                                  Employees at this Visit (including you)
+                                  <Clock size={16} color="#d97706" />
+                                  <span>{visit.visitToTime || "Select End Time"}</span>
                                 </div>
+                              </div>
+                            </div>
 
-                                {/* The team can split across visits on the same
-                                    day (2 at one client, 2 at another), so this
-                                    is a per-visit selection, not a fixed copy of
-                                    the whole duty team. Every member starts
-                                    checked (see emptyVisit's defaultEmpCodes) -
-                                    uncheck whoever wasn't at this one. Plain
-                                    toggle buttons rather than IonSelect/checkbox
-                                    list so it stays a single tap per person on
-                                    a phone screen. */}
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                                  {formatEmployeeNames(selectedDutyRow?.empNames)
-                                    .filter((emp: any) => emp.code !== empCode)
-                                    .map((emp: any) => {
+                            {/* Demo Projects */}
+                            <div className="daytrip-input-group">
+                              <label className="daytrip-input-label">
+                                <Sparkles size={14} color="#d97706" />
+                                <span>Demo / Service Projects</span>
+                              </label>
+                              <IonSelect
+                                multiple
+                                interface="popover"
+                                value={visit.demoProjects}
+                                selectedText={
+                                  !visit.demoProjects || visit.demoProjects.length === 0
+                                    ? ""
+                                    : visit.demoProjects.length <= 2
+                                      ? visit.demoProjects.join(", ")
+                                      : `${visit.demoProjects.slice(0, 2).join(", ")} +${visit.demoProjects.length - 2} more`
+                                }
+                                placeholder="Select Demo / Service Projects"
+                                onIonChange={(e) =>
+                                  updateTripVisit(
+                                    editingTripIndex,
+                                    visitIndex,
+                                    "demoProjects",
+                                    e.detail.value || []
+                                  )
+                                }
+                                style={{
+                                  width: "100%",
+                                  minHeight: "48px",
+                                  height: "48px",
+                                  border: "1.5px solid #cbd5e1",
+                                  borderRadius: "12px",
+                                  padding: "0 12px",
+                                  background: "#fff",
+                                  color: "#0f172a",
+                                  boxSizing: "border-box",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <IonSelectOption value="BEAT Visit">BEAT Visit</IonSelectOption>
+                                <IonSelectOption value="BOAT Visit">BOAT Visit</IonSelectOption>
+                                <IonSelectOption value="Skill Ascent  Visit">Skill Ascent Visit</IonSelectOption>
+                                <IonSelectOption value="Edvedha  Visit">Edvedha Visit</IonSelectOption>
+                                <IonSelectOption value="UNICODE  Visit">UNICODE Visit</IonSelectOption>
+                                <IonSelectOption value="BEAT Demo">BEAT Demo</IonSelectOption>
+                                <IonSelectOption value="BOAT Demo">BOAT Demo</IonSelectOption>
+                                <IonSelectOption value="Skill Ascent  Demo">Skill Ascent Demo</IonSelectOption>
+                                <IonSelectOption value="Edvedha  Demo">Edvedha Demo</IonSelectOption>
+                                <IonSelectOption value="UNICODE  Demo">UNICODE Demo</IonSelectOption>
+                                <IonSelectOption value="BEAT Serv.">BEAT Serv.</IonSelectOption>
+                                <IonSelectOption value="BOAT Serv.">BOAT Serv.</IonSelectOption>
+                                <IonSelectOption value="Skill Ascent  Serv.">Skill Ascent Serv.</IonSelectOption>
+                                <IonSelectOption value="Edvedha  Serv.">Edvedha Serv.</IonSelectOption>
+                                <IonSelectOption value="UNICODE  Serv.">UNICODE Serv.</IonSelectOption>
+                              </IonSelect>
+                            </div>
+
+                            {/* Team Members Present Toggle */}
+                            <div className="daytrip-input-group">
+                              <label className="daytrip-input-label">
+                                <User size={14} color="#d97706" />
+                                <span>Employees Present at this Visit (including you)</span>
+                              </label>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }}>
+                                {formatEmployeeNames(selectedDutyRow?.empNames)
+                                  .filter((emp: any) => emp.code !== empCode)
+                                  .map((emp: any) => {
                                     const isSelected = (visit.empCodes || []).includes(emp.code);
                                     return (
                                       <button
@@ -8015,50 +7773,26 @@ updateTripDay(
                                             : [...current, emp.code];
                                           updateTripVisit(editingTripIndex, visitIndex, "empCodes", next);
                                         }}
-                                        style={{
-                                          padding: "8px 14px",
-                                          borderRadius: "999px",
-                                          border: isSelected ? "1px solid #16a34a" : "1px solid #cbd5e1",
-                                          background: isSelected ? "#ecfdf5" : "#fff",
-                                          color: isSelected ? "#065f46" : "#334155",
-                                          fontSize: "13px",
-                                          fontWeight: 600,
-                                          cursor: "pointer",
-                                        }}
+                                        className={`daytrip-emp-pill ${isSelected ? "selected" : "unselected"}`}
                                       >
-                                        {emp.name}
-                                        {emp.code && <span style={{ opacity: 0.7 }}> ({emp.code})</span>}
+                                        {isSelected ? <Check size={13} /> : <Plus size={13} />}
+                                        <span>{emp.name}</span>
+                                        {emp.code && <span style={{ opacity: 0.65 }}>({emp.code})</span>}
                                       </button>
                                     );
                                   })}
-                                </div>
-
-                                {/* You're always counted as present on your own trip (see
-                                    empCode in the emp_Codes save above) even though your own
-                                    pill isn't shown - this only warns about the REST of the
-                                    team having nobody picked, which is fine on its own, so
-                                    there is nothing to warn about here. */}
                               </div>
+                            </div>
 
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "1fr 1fr",
-                                  gap: "10px",
-                                  alignItems: "end",
-                                }}
-                              >
-                                <div>
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      fontWeight: 700,
-                                      color: "#334155",
-                                      marginBottom: "8px",
-                                    }}
-                                  >
-                                    Contact Person Name
-                                  </div>
+                            {/* Contact Person & Mobile Grid */}
+                            <div className="daytrip-grid-2">
+                              <div className="daytrip-input-group">
+                                <label className="daytrip-input-label">
+                                  <User size={14} color="#64748b" />
+                                  <span>Contact Person Name</span>
+                                </label>
+                                <div className="daytrip-input-field-wrapper">
+                                  <User size={18} className="daytrip-input-icon" />
                                   <input
                                     value={visit.contactPerson}
                                     placeholder="Enter Contact Person Name"
@@ -8070,33 +7804,20 @@ updateTripDay(
                                         e.target.value || ""
                                       )
                                     }
-                                    style={{
-                                      width: "100%",
-                                      height: "46px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "12px",
-                                      padding: "0 14px",
-                                      outline: "none",
-                                      fontSize: "14px",
-                                      background: "#fff",
-                                      color: "#0f172a",
-                                      boxSizing: "border-box",
-                                    }}
+                                    className="daytrip-input"
                                   />
                                 </div>
+                              </div>
 
-                                <div>
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      fontWeight: 700,
-                                      color: "#334155",
-                                      marginBottom: "8px",
-                                    }}
-                                  >
-                                    Mobile Number
-                                  </div>
+                              <div className="daytrip-input-group">
+                                <label className="daytrip-input-label">
+                                  <Phone size={14} color="#64748b" />
+                                  <span>Mobile Number</span>
+                                </label>
+                                <div className="daytrip-input-field-wrapper">
+                                  <Phone size={18} className="daytrip-input-icon" />
                                   <input
+                                    type="tel"
                                     value={visit.mobile}
                                     placeholder="Enter Mobile Number"
                                     onChange={(e) =>
@@ -8107,36 +7828,23 @@ updateTripDay(
                                         e.target.value || ""
                                       )
                                     }
-                                    style={{
-                                      width: "100%",
-                                      height: "46px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "12px",
-                                      padding: "0 14px",
-                                      outline: "none",
-                                      fontSize: "14px",
-                                      background: "#fff",
-                                      color: "#0f172a",
-                                      boxSizing: "border-box",
-                                    }}
+                                    className="daytrip-input"
                                   />
                                 </div>
                               </div>
-                              <div style={{ width: "100%" }}>
-                                <div
-                                  style={{
-                                    fontSize: "12px",
-                                    fontWeight: 700,
-                                    color: "#334155",
-                                    marginBottom: "8px",
-                                  }}
-                                >
-                                  Remarks
-                                </div>
+                            </div>
 
+                            {/* Remarks */}
+                            <div className="daytrip-input-group">
+                              <label className="daytrip-input-label">
+                                <FileText size={14} color="#64748b" />
+                                <span>Remarks / Notes</span>
+                              </label>
+                              <div className="daytrip-input-field-wrapper">
+                                <FileText size={18} className="daytrip-input-icon" />
                                 <input
                                   value={visit.remarks}
-                                  placeholder="Enter Remarks"
+                                  placeholder="Enter Visit Remarks or Notes"
                                   onChange={(e) =>
                                     updateTripVisit(
                                       editingTripIndex,
@@ -8145,114 +7853,63 @@ updateTripDay(
                                       e.target.value || ""
                                     )
                                   }
-                                  style={{
-                                    width: "100%",
-                                    height: "46px",
-                                    border: "1px solid #cbd5e1",
-                                    borderRadius: "12px",
-                                    padding: "0 14px",
-                                    outline: "none",
-                                    fontSize: "14px",
-                                    background: "#fff",
-                                    color: "#0f172a",
-                                    boxSizing: "border-box",
-                                  }}
+                                  className="daytrip-input"
                                 />
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "12px",
-                      marginTop: "18px",
-                      alignItems: "stretch",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "grid",
-                       gridTemplateColumns:
-  tripModalMode === "add"
-    ? "1fr"
-    : "1fr 1fr",
-                        gap: "10px",
-                        marginTop: "18px",
-                        width: "100%",
+                  {/* Actions Footer */}
+                  <div className="daytrip-actions-row">
+                    {tripModalMode === "edit" && (() => {
+                      const gate = addPartyBlockReason(selectedDutyRow, trip.dutyDate);
+                      return (
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <button
+                            type="button"
+                            disabled={!!gate}
+                            className="daytrip-btn-add-party"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (gate) {
+                                notify(gate, "warning");
+                                return;
+                              }
+                              addTripVisit(editingTripIndex!);
+                            }}
+                          >
+                            <Plus size={16} /> Add Another Client Stop
+                          </button>
+                          {gate && (
+                            <div style={{ fontSize: "11px", textAlign: "center", color: "var(--ion-color-medium, #8a8a8a)" }}>
+                              {gate}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <button
+                      type="button"
+                      className="daytrip-btn-save"
+                      disabled={isSavingTrip.current}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        saveDayTripModal();
                       }}
                     >
-                     {tripModalMode === "edit" && (() => {
-  const gate = addPartyBlockReason(selectedDutyRow, trip.dutyDate);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      <IonButton
-        type="button"
-        fill="outline"
-        disabled={!!gate}
-        style={{
-          margin: 0,
-          width: "100%",
-          minHeight: "46px",
-          fontSize: "12px",
-          opacity: gate ? 0.5 : 1,
-        }}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (gate) {
-            notify(gate, "warning");
-            return;
-          }
-          addTripVisit(editingTripIndex);
-        }}
-      >
-        + Add Party
-      </IonButton>
-      {gate && (
-        <div
-          style={{
-            fontSize: "11px",
-            lineHeight: 1.35,
-            textAlign: "center",
-            color: "var(--ion-color-medium, #8a8a8a)",
-          }}
-        >
-          {gate}
-        </div>
-      )}
-    </div>
-  );
-})()}
-                      <IonButton
-                        style={{
-                          margin: 0,
-                          width: "100%",
-                          minHeight: "46px",
-                          fontSize: "12px",
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          saveDayTripModal();
-                        }}
-                        disabled={isSavingTrip.current}
-                      >
-                        Save Trip
-                      </IonButton>
-                    </div>
+                      <CheckCircle2 size={18} />
+                      {isSavingTrip.current ? "Saving Trip..." : "Save Trip"}
+                    </button>
                   </div>
 
-                  {/* Visit From/To Time picker - wheel modal, matching the
-                      Camp From/To Date & Time picker's look/feel instead of
-                      relying on the native <input type="time"> (which some
-                      Android WebViews render as a bare text box with no
-                      picker affordance). */}
+                  {/* Visit From/To Time picker Modal */}
                   <IonModal
                     isOpen={!!visitTimeModal}
                     onDidDismiss={() => setVisitTimeModal(null)}
@@ -8267,34 +7924,33 @@ updateTripDay(
                         min={
                           visitTimeModal
                             ? (() => {
-                                const b =
-                                  visitTimeModal.field === "visitFromTime"
-                                    ? visitFromTimeMin(visitTimeModal.visitIndex)
-                                    : visitToTimeMin(visitTimeModal.visitIndex);
-                                return b ? `2000-01-01T${b}:00` : undefined;
-                              })()
+                              const b =
+                                visitTimeModal.field === "visitFromTime"
+                                  ? visitFromTimeMin(visitTimeModal.visitIndex)
+                                  : visitToTimeMin(visitTimeModal.visitIndex);
+                              return b ? `2000-01-01T${b}:00` : undefined;
+                            })()
                             : undefined
                         }
                         max={
                           visitTimeModal
                             ? (() => {
-                                const b =
-                                  visitTimeModal.field === "visitFromTime"
-                                    ? visitFromTimeMax()
-                                    : visitToTimeMax(visitTimeModal.visitIndex);
-                                return b ? `2000-01-01T${b}:00` : undefined;
-                              })()
+                              const b =
+                                visitTimeModal.field === "visitFromTime"
+                                  ? visitFromTimeMax()
+                                  : visitToTimeMax(visitTimeModal.visitIndex);
+                              return b ? `2000-01-01T${b}:00` : undefined;
+                            })()
                             : undefined
                         }
                         value={
                           visitTimeModal
-                            ? `2000-01-01T${
-                                hhmm(trip.visits[visitTimeModal.visitIndex]?.[visitTimeModal.field]) ||
-                                (visitTimeModal.field === "visitFromTime"
-                                  ? visitFromTimeMin(visitTimeModal.visitIndex)
-                                  : visitToTimeMin(visitTimeModal.visitIndex)) ||
-                                "00:00"
-                              }:00`
+                            ? `2000-01-01T${hhmm(trip.visits[visitTimeModal.visitIndex]?.[visitTimeModal.field]) ||
+                            (visitTimeModal.field === "visitFromTime"
+                              ? visitFromTimeMin(visitTimeModal.visitIndex)
+                              : visitToTimeMin(visitTimeModal.visitIndex)) ||
+                            "00:00"
+                            }:00`
                             : undefined
                         }
                         onIonChange={(e) => {
@@ -8312,7 +7968,7 @@ updateTripDay(
                       />
                     </div>
                   </IonModal>
-                </>
+                </div>
               );
             })()}
           </IonContent>
@@ -8322,54 +7978,104 @@ updateTripDay(
           onDidDismiss={() => {
             setPreviewOpen(false);
             setPreviewFile(null);
+            setPreviewRotation(0);
           }}
+          className="daytrip-preview-modal"
         >
-          <IonContent className="ion-padding">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 700,
-                  color: "#1f2937",
-                }}
-              >
-                Image Preview
+          {previewFile && (() => {
+            const fileUrl = getPreviewUrl(previewFile);
+            const fileName = getFileLabel(previewFile);
+
+            return (
+              <div className="light-preview-card">
+                {/* Header */}
+                <div className="light-preview-header">
+                  <div className="light-preview-title-group">
+                    <div className="light-preview-icon">
+                      <Camera size={18} />
+                    </div>
+                    <div>
+                      <div className="light-preview-title">
+                        Attachment Preview
+                      </div>
+                      <div className="light-preview-sub" title={fileName}>
+                        {fileName || "Photo"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="light-preview-actions">
+                    {/* Rotate Button */}
+                    <button
+                      type="button"
+                      className="light-preview-btn"
+                      onClick={() => setPreviewRotation((prev) => (prev + 90) % 360)}
+                      title="Rotate Image 90°"
+                    >
+                      <RotateCw size={14} />
+                      <span>Rotate</span>
+                    </button>
+
+                    {/* Open in New Tab */}
+                    {fileUrl && (
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="light-preview-btn primary"
+                        title="Open full resolution in new tab"
+                      >
+                        <ExternalLink size={14} />
+                        <span>Open</span>
+                      </a>
+                    )}
+
+                    {/* Close Button */}
+                    <button
+                      type="button"
+                      className="light-preview-close-btn"
+                      onClick={() => {
+                        setPreviewOpen(false);
+                        setPreviewFile(null);
+                        setPreviewRotation(0);
+                      }}
+                      title="Close Preview"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Main Image Canvas */}
+                <div className="light-preview-stage">
+                  <img
+                    src={fileUrl}
+                    alt="Preview"
+                    className="light-preview-image"
+                    style={{
+                      transform: `rotate(${previewRotation}deg)`,
+                    }}
+                  />
+                </div>
+
+                {/* Footer */}
+                <div className="light-preview-footer">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <Eye size={13} color="#d97706" />
+                    <span>Click <strong>Open</strong> to view full size or download original image.</span>
+                  </span>
+                  {previewRotation !== 0 && (
+                    <span
+                      style={{ color: "#d97706", cursor: "pointer", fontWeight: 700 }}
+                      onClick={() => setPreviewRotation(0)}
+                    >
+                      Reset rotation ({previewRotation}°)
+                    </span>
+                  )}
+                </div>
               </div>
-
-              <IonButton
-                fill="clear"
-                size="small"
-                onClick={() => {
-                  setPreviewOpen(false);
-                  setPreviewFile(null);
-                }}
-              >
-                Close
-              </IonButton>
-            </div>
-
-            {previewFile && (
-              <img
-                src={getPreviewUrl(previewFile)}
-                alt="Preview"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "80vh",
-                  borderRadius: "12px",
-                  display: "block",
-                  margin: "0 auto",
-                  objectFit: "contain",
-                }}
-              />
-            )}
-          </IonContent>
+            );
+          })()}
         </IonModal>
         <IonModal
           isOpen={campConfirm.open}
@@ -8555,12 +8261,12 @@ updateTripDay(
               const text =
                 kind === "end"
                   ? (isRT
-                      ? "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it."
-                      : "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it.")
+                    ? "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it."
+                    : "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it.")
                   : kind === "both"
                     ? (isRT
-                        ? "These readings will start this trip's camp and immediately end it again, since the trip is scheduled for a single day - the duty will be permanently locked afterwards: no more visits, reading uploads, or team changes."
-                        : "These readings will both start and end today's camp in one save.")
+                      ? "These readings will start this trip's camp and immediately end it again, since the trip is scheduled for a single day - the duty will be permanently locked afterwards: no more visits, reading uploads, or team changes."
+                      : "These readings will both start and end today's camp in one save.")
                     : isRT
                       ? "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it."
                       : "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it.";

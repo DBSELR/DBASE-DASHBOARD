@@ -205,12 +205,15 @@ const SecurityAttendanceScanner: React.FC = () => {
   // Status Selector
   const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
   const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
+  const [isSlotSelected, setIsSlotSelected] = useState<boolean>(false);
+  const [showSlotModal, setShowSlotModal] = useState<boolean>(true);
 
   // Rules popup
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isScannerPaused, setIsScannerPaused] = useState<boolean>(false);
   const isScannerPausedRef = useRef<boolean>(false);
   const [policyMap, setPolicyMap] = useState<Record<string, string>>({});
+  const getPolVal = (key: string, fallback: string = '') => policyMap[key] || fallback;
 
   useEffect(() => {
     fetch(`${API_BASE}Checkin/GetAttendancePolicyMaster`)
@@ -274,6 +277,35 @@ const SecurityAttendanceScanner: React.FC = () => {
     }, 50);
   };
 
+  const buildGpsTelemetry = (empData?: any, rootData?: any) => {
+    const actLat = empData?.actualLatitude ?? rootData?.actualLatitude;
+    const actLng = empData?.actualLongitude ?? rootData?.actualLongitude;
+    const presLat = empData?.presentLatitude ?? rootData?.presentLatitude ?? (latitudeRef.current !== 0 ? latitudeRef.current : undefined);
+    const presLng = empData?.presentLongitude ?? rootData?.presentLongitude ?? (longitudeRef.current !== 0 ? longitudeRef.current : undefined);
+    const offName = empData?.actualOfficeName ?? rootData?.actualOfficeName ?? empData?.officeName ?? rootData?.officeName ?? "Assigned Office";
+    const distM = empData?.distanceMeters ?? rootData?.distanceMeters;
+    const radM = empData?.allowedRadiusMeters ?? rootData?.allowedRadiusMeters ?? 100;
+    const btMatched = empData?.bluetoothMatched ?? rootData?.bluetoothMatched ?? bleVerifiedRef.current;
+    const btRequired = empData?.btRequired ?? rootData?.btRequired ?? true;
+    const gpsMatched = empData?.locationMatched ?? rootData?.locationMatched ?? (distM !== undefined && distM !== null ? distM <= radM : true);
+    const gpsRequired = empData?.gpsRequired ?? rootData?.gpsRequired ?? true;
+
+    if (actLat || actLng || presLat || presLng || offName) {
+      return {
+        actualOfficeName: offName,
+        actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
+        presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
+        distance: distM !== undefined && distM !== null ? `${Math.round(distM)}m away` : undefined,
+        allowedRadius: radM ? `${radM}m radius` : '100m radius',
+        bluetoothMatched: Boolean(btMatched),
+        bluetoothRequired: Boolean(btRequired),
+        gpsMatched: Boolean(gpsMatched),
+        gpsRequired: Boolean(gpsRequired)
+      };
+    }
+    return undefined;
+  };
+
   const getSlotColorConfig = (slot?: string) => {
     const s = (slot || '').toLowerCase();
     if (s.includes('morning') || s.includes('in') || s.includes('09:') || s.includes('10:')) {
@@ -297,6 +329,12 @@ const SecurityAttendanceScanner: React.FC = () => {
   useEffect(() => {
     cooldownCountdownRef.current = cooldownCountdown;
   }, [cooldownCountdown]);
+
+  const isSlotSelectedRef = useRef(false);
+  const showSlotModalRef = useRef(true);
+
+  useEffect(() => { isSlotSelectedRef.current = isSlotSelected; }, [isSlotSelected]);
+  useEffect(() => { showSlotModalRef.current = showSlotModal; }, [showSlotModal]);
 
   useEffect(() => { isScannerPausedRef.current = isScannerPaused; }, [isScannerPaused]);
 
@@ -335,7 +373,7 @@ const SecurityAttendanceScanner: React.FC = () => {
 
     let isMounted = true;
     const runFastLocalDetector = async () => {
-      if (!isMounted || !cameraReady || !videoRef.current || isScannerPausedRef.current) return;
+      if (!isMounted || !cameraReady || !videoRef.current || isScannerPausedRef.current || showSlotModalRef.current || !isSlotSelectedRef.current) return;
       const video = videoRef.current;
       if (video.readyState < 2) return;
 
@@ -566,6 +604,11 @@ const SecurityAttendanceScanner: React.FC = () => {
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
+    }
+
+    if (showSlotModalRef.current || !isSlotSelectedRef.current) {
+      ctx.clearRect(0, 0, width, height);
+      return;
     }
 
     ctx.clearRect(0, 0, width, height);
@@ -809,6 +852,10 @@ const SecurityAttendanceScanner: React.FC = () => {
 
   // ── Camera ────────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!isSlotSelected) {
+      setCameraReady(false);
+      return;
+    }
     let stream: any = null;
     const startCamera = async () => {
       try {
@@ -848,7 +895,7 @@ const SecurityAttendanceScanner: React.FC = () => {
     };
     startCamera();
     return () => { if (stream) stream.getTracks().forEach((x: any) => x.stop()); };
-  }, [cameraMode]);
+  }, [cameraMode, isSlotSelected]);
 
   // ── BLE ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -956,14 +1003,17 @@ const SecurityAttendanceScanner: React.FC = () => {
     latestServerIdentitiesRef.current = [];
     detectedFacesRef.current = [];
     setActiveFaceCount(0);
+    setShowSlotModal(true);
     scheduleNextScan(150);
   };
 
   const handleSlotSelect = async (slot: string) => {
     setSelectedStatus(slot);
     selectedStatusRef.current = slot;
+    setIsSlotSelected(true);
+    setShowSlotModal(false);
     alreadyMarkedSuppressedRef.current = null;
-    logDebug(`Slot selected manually: ${slot}`);
+    logDebug(`Slot selected: ${slot}`);
 
     if (slot === "Permission Out" || slot === "Permission In") {
       const empId = userData?.empCode || userData?.EmpCode || "";
@@ -990,6 +1040,10 @@ const SecurityAttendanceScanner: React.FC = () => {
   };
 
   const autoScan = async () => {
+    if (showSlotModalRef.current || !isSlotSelectedRef.current) {
+      scheduleNextScan(400);
+      return;
+    }
     if (isScannerPausedRef.current) { scheduleNextScan(1000); return; }
     if (processingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
     if (!cameraReadyRef.current || !videoRef.current) { scheduleNextScan(1000); return; }
@@ -1117,7 +1171,8 @@ const SecurityAttendanceScanner: React.FC = () => {
             time: displayTime,
             isDuplicate: false,
             customMessage: `✅ ${slotName} recorded successfully at ${displayTime}.`,
-            confidence: firstSaved.confidence || 95
+            confidence: firstSaved.confidence || 95,
+            gpsDetails: buildGpsTelemetry(firstSaved, data)
           });
           setMessage(`✅ Verified (${validSaved.length}): ${savedNames}`);
           playSuccessChime();
@@ -1150,26 +1205,6 @@ const SecurityAttendanceScanner: React.FC = () => {
           setStatusColor("#ef4444");
           const errMsg = firstMatched.message || "Location / Bluetooth presence verification failed.";
 
-          const actLat = firstMatched.actualLatitude || data.actualLatitude;
-          const actLng = firstMatched.actualLongitude || data.actualLongitude;
-          const presLat = firstMatched.presentLatitude || data.presentLatitude || latitudeRef.current;
-          const presLng = firstMatched.presentLongitude || data.presentLongitude || longitudeRef.current;
-          const offName = firstMatched.actualOfficeName || data.actualOfficeName || "Assigned Office";
-          const distM = firstMatched.distanceMeters || data.distanceMeters;
-          const radM = firstMatched.allowedRadiusMeters || data.allowedRadiusMeters || 100;
-
-          const gpsDetails = (actLat && actLng) || (presLat && presLng) ? {
-            actualOfficeName: offName,
-            actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
-            presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
-            distance: distM ? `${Math.round(distM)}m away` : undefined,
-            allowedRadius: `${radM}m radius`,
-            bluetoothMatched: firstMatched.bluetoothMatched ?? data.bluetoothMatched,
-            bluetoothRequired: firstMatched.btRequired ?? data.btRequired,
-            gpsMatched: firstMatched.locationMatched ?? data.locationMatched,
-            gpsRequired: firstMatched.gpsRequired ?? data.gpsRequired
-          } : undefined;
-
           setScannedEmployee({
             empName: allNames,
             empId: data.matchedEmployees.map((e: any) => e.empId).join(", "),
@@ -1178,7 +1213,7 @@ const SecurityAttendanceScanner: React.FC = () => {
             customMessage: `⛔ Location Restriction: ${errMsg}`,
             isDuplicate: true,
             confidence: firstMatched.confidence || 90,
-            gpsDetails
+            gpsDetails: buildGpsTelemetry(firstMatched, data)
           });
           setScanSuccess(true);
           scanSuccessRef.current = true;
@@ -1201,7 +1236,8 @@ const SecurityAttendanceScanner: React.FC = () => {
             time: displayTime,
             customMessage: `⛔ Approval Required: ${alertMsg}`,
             isDuplicate: true,
-            confidence: firstMatched.confidence || 90
+            confidence: firstMatched.confidence || 90,
+            gpsDetails: buildGpsTelemetry(firstMatched, data)
           });
           setScanSuccess(true);
           scanSuccessRef.current = true;
@@ -1219,7 +1255,8 @@ const SecurityAttendanceScanner: React.FC = () => {
             time: displayTime,
             customMessage: `⚠️ ${slotName} was already recorded at ${displayTime}. You cannot punch again for this session.`,
             isDuplicate: true,
-            confidence: firstMatched.confidence || 90
+            confidence: firstMatched.confidence || 90,
+            gpsDetails: buildGpsTelemetry(firstMatched, data)
           });
           setScanSuccess(true);
           scanSuccessRef.current = true;
@@ -1235,26 +1272,6 @@ const SecurityAttendanceScanner: React.FC = () => {
         setStatusColor("#ef4444");
         const errMsg = data.message || "Outside Office Location";
 
-        const actLat = data.actualLatitude;
-        const actLng = data.actualLongitude;
-        const presLat = data.presentLatitude || latitudeRef.current;
-        const presLng = data.presentLongitude || longitudeRef.current;
-        const offName = data.actualOfficeName || "Assigned Office";
-        const distM = data.distanceMeters;
-        const radM = data.allowedRadiusMeters || 100;
-
-        const gpsDetails = (actLat && actLng) || (presLat && presLng) ? {
-          actualOfficeName: offName,
-          actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
-          presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
-          distance: distM ? `${Math.round(distM)}m away` : undefined,
-          allowedRadius: `${radM}m radius`,
-          bluetoothMatched: data.bluetoothMatched,
-          bluetoothRequired: data.btRequired,
-          gpsMatched: data.locationMatched,
-          gpsRequired: data.gpsRequired
-        } : undefined;
-
         setScannedEmployee({
           empName: "Employee",
           empId: "",
@@ -1263,7 +1280,7 @@ const SecurityAttendanceScanner: React.FC = () => {
           customMessage: `⛔ Location Restriction: ${errMsg}`,
           isDuplicate: true,
           confidence: 90,
-          gpsDetails
+          gpsDetails: buildGpsTelemetry(undefined, data)
         });
         setScanSuccess(true);
         scanSuccessRef.current = true;
@@ -1283,7 +1300,8 @@ const SecurityAttendanceScanner: React.FC = () => {
           time: formatTime12H(new Date()),
           customMessage: `⛔ Timing Restriction: ${errMsg}`,
           isDuplicate: true,
-          confidence: 90
+          confidence: 90,
+          gpsDetails: buildGpsTelemetry(undefined, data)
         });
         setScanSuccess(true);
         scanSuccessRef.current = true;
@@ -1310,7 +1328,8 @@ const SecurityAttendanceScanner: React.FC = () => {
           isDuplicate: true,
           customMessage: `⚠️ ${slotName} was already recorded at ${displayTime}. You cannot punch again for this session.`,
           confidence: data.confidence || 95,
-          time: displayTime
+          time: displayTime,
+          gpsDetails: buildGpsTelemetry(undefined, data)
         });
         setMessage(`⚠️ ${slotName} Already Marked: ${empName}`);
         speakText(`${empName} ${slotName} already marked`);
@@ -1351,7 +1370,8 @@ const SecurityAttendanceScanner: React.FC = () => {
             time: displayTime,
             isDuplicate: false,
             customMessage: `✅ ${slotName} recorded successfully at ${displayTime}.`,
-            confidence: data.confidence || 98
+            confidence: data.confidence || 98,
+            gpsDetails: buildGpsTelemetry(undefined, data)
           });
           setMessage(`✅ Verified: ${empName}`); speakText(`${empName} attendance marked successfully`);
           setVerifyingName(""); lastMatchedEmpIdRef.current = "";
@@ -1667,252 +1687,69 @@ const SecurityAttendanceScanner: React.FC = () => {
           }
         `}</style>
 
-        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+        <div className="sc-kiosk-page-container">
 
-          {/* ── Premium Header ── */}
-          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
-            <div className="page-wr-header-left">
-              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+          {/* ── Premium Native Header ── */}
+          <div className="sc-top-nav">
+            <div className="sc-top-nav-left">
+              <button className="sc-top-nav-back-btn" onClick={() => history.goBack()} title="Go Back">
                 <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
               </button>
-              <div>
-                <h1 className="page-wr-title">SECURITY KIOSK</h1>
-                <p className="page-wr-subtitle">Officer Face Verification Scanner</p>
+              <div className="sc-top-nav-title-wrap">
+                <h1 className="sc-top-nav-title">Security Kiosk</h1>
+                <p className="sc-top-nav-subtitle">Biometric Face Verification</p>
               </div>
             </div>
-            <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="sc-top-nav-right">
               <button
+                className="sc-top-nav-rules-btn"
                 onClick={() => setShowRulesModal(true)}
-                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: '8px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                title="View Attendance Rules"
               >
-                <IonIcon icon={informationCircleOutline} style={{ fontSize: '16px' }} />
-                View Rules
+                <IonIcon icon={informationCircleOutline} />
+                <span>Rules</span>
               </button>
-              <div className="page-wr-header-icon-box" onClick={() => history.push('/ai-attendance-log/security')}>
-                <IonIcon icon={calendarOutline} style={{ fontSize: '26px', color: 'var(--ion-color-primary)' }} />
-              </div>
+              <button
+                className="sc-top-nav-log-btn"
+                onClick={() => history.push('/ai-attendance-log/security')}
+                title="View Attendance Logs"
+              >
+                <IonIcon icon={calendarOutline} />
+              </button>
             </div>
           </div>
 
-          {/* BODY */}
-          <div className="sc-body" style={{ height: 'calc(100vh - 120px)' }}>
+          {/* ── CENTERED KIOSK TERMINAL SCANNER ── */}
+          <div className="sc-kiosk-wrapper">
 
-            {/* LEFT: CAMERA */}
-            <div className="sc-cam-area">
-              <div className="sc-cam-card clay">
-                <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
-                <canvas ref={overlayCanvasRef} className="sc-overlay-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
-
-
-
-                <div className="sc-hud">
-                  <div className={`sc-fixed-guide-target state-${scanSuccess ? 'success' : processing ? 'aligned is-scanning' : guidanceState === 'aligned' ? 'aligned' : guidanceState === 'idle' ? 'idle' : 'warning'}`}>
-                    {/* Outer slow-rotating calibration dial */}
-                    <div className="sc-fixed-dial-outer" />
-
-                    {/* Fixed Biometric Frame */}
-                    <div className="sc-fixed-frame" />
-
-                    {/* 4 Precision Corner Brackets */}
-                    <div className="sc-guide-corner tl" />
-                    <div className="sc-guide-corner tr" />
-                    <div className="sc-guide-corner bl" />
-                    <div className="sc-guide-corner br" />
-
-                    {/* Subtle Face Silhouette Guide */}
-                    <svg className="sc-face-silhouette" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <ellipse cx="60" cy="72" rx="42" ry="54" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" />
-                      <circle cx="45" cy="62" r="3" fill="currentColor" opacity="0.6" />
-                      <circle cx="75" cy="62" r="3" fill="currentColor" opacity="0.6" />
-                      <path d="M52 82 Q60 88 68 82" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Active Laser Sweeper */}
-                    <div className="sc-guide-laser" />
+            {/* 1. Unified 2-Row Native Kiosk Toolbar */}
+            <div className="sc-kiosk-toolbar">
+              <div className="sc-kiosk-tb-row1">
+                <button
+                  className="sc-kiosk-slot-trigger"
+                  onClick={() => setShowSlotModal(true)}
+                  type="button"
+                  title="Click to Switch Attendance Slot"
+                >
+                  <div className="sc-kiosk-slot-left">
+                    <span className="sc-active-slot-dot" />
+                    <span className="sc-kiosk-slot-label">Target: <strong>{getSlotColorConfig(selectedStatus).label}</strong></span>
                   </div>
-
-                  {/* Live HUD Floating Guidance Pill */}
-                  {!scanSuccess && (
-                    <div className={`sc-hud-guidance-pill pill-${processing ? 'aligned' : guidanceState}`}>
-                      <span>{processing ? '⚡ Hold still, analyzing face...' : guidanceText}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="sc-ind-row">
-                  <div className={`sc-ind ${locationReady ? 'ind-ok' : 'ind-wait'}`}>
-                    <IonIcon icon={pinOutline} />
-                    <span>{locationReady ? 'GPS Verified' : 'GPS Fix…'}</span>
-                  </div>
-                  <div
-                    className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
-                    style={
-                      !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
-                        ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
-                        : {}
-                    }
-                  >
-                    <IonIcon icon={bluetoothOutline} />
-                    <span>{bleVerified
-                      ? 'Beacon OK'
-                      : bleSignalStrength !== null && bleSignalStrength < -80
-                        ? 'BLE Weak'
-                        : 'Beacon…'}</span>
-                  </div>
-                </div>
-
-                {!cameraReady && (
-                  <div className="sc-cam-loader" style={{ background: '#f8fafc' }}>
-                    <div className="tech-loader">
-                      <div className="tech-ring-1" />
-                      <div className="tech-ring-2" />
-                      <div className="tech-ring-3" />
-                      <div className="tech-center" />
-                    </div>
-                    <p style={{ color: '#8b5cf6', marginTop: '16px', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.5px' }}>
-                      STARTING BIOMETRIC CAMERA…
-                    </p>
-                  </div>
-                )}
-
-                {capturedImg && (
-                  <div className="sc-last-capture-preview" onClick={() => setCapturedImg(null)} title="Clear Preview">
-                    <img src={capturedImg} alt="last scan preview" />
-                  </div>
-                )}
-
-                {cameraReady && (
-                  <>
-                    <button
-                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`}
-                      onClick={toggleScannerPause}
-                      title={isScannerPaused ? "Start Scanner" : "Pause Scanner"}
-                    >
-                      <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
-                    </button>
-                    <button className="sc-cam-flip-btn" onClick={toggleCamera} title="Flip Camera">
-                      <IonIcon icon={cameraReverseOutline} />
-                    </button>
-                  </>
-                )}
-
-                {/* Debug Logs */}
-                <div className="sc-debug-logs" style={{
-                  position: 'absolute',
-                  bottom: '16px',
-                  left: '16px',
-                  zIndex: 100,
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  color: '#475569',
-                  padding: '6px 10px',
-                  borderRadius: '10px',
-                  fontSize: '9px',
-                  fontFamily: 'monospace',
-                  pointerEvents: 'none',
-                  maxWidth: '75%',
-                  lineHeight: '1.3',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                }}>
-                  {debugLogs.length === 0 ? "[DEBUG] Idle" : debugLogs.map((log, i) => (
-                    <div key={i}>{log}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT: PANEL */}
-            <div
-              className="sc-panel-area"
-              style={
-                isMobile
-                  ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
-                  : {}
-              }
-            >
-              <div
-                className="sc-drag-zone"
-                onClick={toggleSheet}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-              >
-                <div className="sc-drag-handle" />
+                  <span className="sc-kiosk-change-badge">🔄 Switch Slot</span>
+                </button>
               </div>
 
-              {scanSuccess && scannedEmployee ? (
-
-                /* ── RESULT CARD ── */
-                <div className="stock-panel animate__animated animate__fadeInUp animate__fast">
-                  <div className="sc-res-top">
-                    <div className={`sc-res-avatar ${scannedEmployee.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
-                      {capturedImg ? (
-                        <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        (scannedEmployee.empName || 'E').charAt(0)
-                      )}
-                    </div>
-                    <div className="sc-res-info">
-                      <div className="sc-res-name">{scannedEmployee.empName}</div>
-                      <div className="sc-res-id">ID #{scannedEmployee.empId}</div>
-                    </div>
-                    <div className={`sc-res-badge ${scannedEmployee.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
-                      {scannedEmployee.isDuplicate ? 'Already Marked' : 'Verified'}
-                    </div>
-                  </div>
-                  {scannedEmployee.isDuplicate ? (
-                    <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '14px', marginTop: '12px', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e11d48', fontWeight: 800, fontSize: '0.88rem', marginBottom: '6px' }}>
-                        <span>⚠️ ATTENDANCE ALREADY MARKED</span>
-                      </div>
-                      <div style={{ color: '#9f1239', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.4 }}>
-                        {scannedEmployee.customMessage || `${scannedEmployee.status} is already logged for today at ${scannedEmployee.time}.`}
-                      </div>
-                      <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#be123c', fontWeight: 700 }}>
-                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Slot: {scannedEmployee.status}</span>
-                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Time: {scannedEmployee.time}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <h3 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                        Officer Verification Details
-                      </h3>
-                      <div className="sc-res-chips">
-                        <div className="sc-chip ok-chip" style={{ background: getSlotColorConfig(scannedEmployee.status).bg, borderColor: getSlotColorConfig(scannedEmployee.status).border }}>
-                          <span className="chip-lbl" style={{ color: getSlotColorConfig(scannedEmployee.status).color }}>Shift Status</span>
-                          <span className="chip-val" style={{ color: getSlotColorConfig(scannedEmployee.status).color, fontWeight: 800 }}>{getSlotColorConfig(scannedEmployee.status).label}</span>
-                        </div>
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Logged At</span>
-                          <span className="chip-val">{scannedEmployee.time}</span>
-                        </div>
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Face Match %</span>
-                          <span className="chip-val">🎯 {scannedEmployee.confidence || 98}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    className="stock-button stock-button--primary"
-                    onClick={resetScannerAndResume}
-                    style={{
-                      width: '100%',
-                      marginTop: '20px',
-                    }}
-                  >
-                    Clear Result & Scan Again
-                  </button>
-                </div>
-
-              ) : (
-
-                /* ── IDLE PANEL ── */
-                <div className="stock-panel">
-                  <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
-                    <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
+              <div className="sc-kiosk-tb-row2">
+                <div
+                  className="sc-kiosk-status-pill"
+                  style={{
+                    background: cooldownCountdown > 0 ? '#f59e0b15' : `${statusColor}15`,
+                    color: cooldownCountdown > 0 ? '#f59e0b' : statusColor,
+                    borderColor: cooldownCountdown > 0 ? '#f59e0b40' : `${statusColor}40`
+                  }}
+                >
+                  <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
+                  <span>
                     {cooldownCountdown > 0
                       ? `RESUMING IN ${cooldownCountdown}S...`
                       : processing
@@ -1925,230 +1762,413 @@ const SecurityAttendanceScanner: React.FC = () => {
                               ? 'MOVE BACK'
                               : guidanceState === 'off-center'
                                 ? 'CENTER FACE'
-                                : 'AWAITING SCAN'}
+                                : 'ALIGN FACE'}
+                  </span>
+                </div>
+
+                <div className="sc-kiosk-telem-group">
+                  <div className={`sc-ind ${locationReady ? 'ind-ok' : 'ind-wait'}`}>
+                    <IonIcon icon={pinOutline} />
+                    <span>{locationReady ? 'GPS OK' : 'GPS Fix…'}</span>
                   </div>
-                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : (guidanceState !== 'idle' ? (guidanceState === 'aligned' ? '#10b981' : '#f59e0b') : statusColor) }}>
-                    {cooldownCountdown > 0
-                      ? 'Please step away from the camera'
-                      : message}
+                  <div
+                    className={`sc-ind ${bleVerified ? 'ind-ok' : 'ind-wait'}`}
+                    style={
+                      !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
+                        ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
+                        : {}
+                    }
+                  >
+                    <IonIcon icon={bluetoothOutline} />
+                    <span>{bleVerified ? 'Beacon OK' : bleSignalStrength !== null && bleSignalStrength < -80 ? 'BLE Weak' : 'Beacon…'}</span>
                   </div>
-                  {/* Status Selection Buttons Widget */}
-                  <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-                    <div className="status-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span className="checklist-header" style={{ margin: 0, fontSize: '0.78rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Target Attendance Slot</span>
-                      <button
-                        onClick={() => setShowRulesModal(true)}
-                        style={{ background: 'transparent', border: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        <IonIcon icon={informationCircleOutline} style={{ fontSize: '14px' }} />
-                        View Rules
-                      </button>
-                    </div>
+                </div>
+              </div>
+            </div>
 
-                    <div className="status-btn-group" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                      {["Morning In", "Lunch Out", "Lunch In", "Evening Out", "Permission Out", "Permission In"].map(slot => {
-                        const isAuto = slot === getAutoStatus();
-                        const isActive = selectedStatus === slot;
-                        const shortLabel =
-                          slot === "Morning In" ? "Morning" :
-                            slot === "Lunch Out" ? "Lunch Out" :
-                              slot === "Lunch In" ? "Lunch In" :
-                                slot === "Evening Out" ? "Evening" :
-                                  slot === "Permission Out" ? "Perm Out" : "Perm In";
-                        const slotClass =
-                          slot === "Morning In" ? "slot-morning" :
-                            slot === "Lunch Out" ? "slot-lunch-out" :
-                              slot === "Lunch In" ? "slot-lunch-in" :
-                                slot === "Evening Out" ? "slot-evening" :
-                                  slot === "Permission Out" ? "slot-perm-out" : "slot-perm-in";
-                        return (
-                          <button
-                            key={slot}
-                            className={`status-btn ${slotClass} ${isActive ? 'active' : ''}`}
-                            onClick={() => handleSlotSelect(slot)}
-                            style={{
-                              position: 'relative',
-                              padding: '8px 4px',
-                              borderRadius: '10px',
-                              fontWeight: 700,
-                              fontSize: '0.78rem',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            <span>{shortLabel}</span>
-                            {isAuto && <span className="auto-tag">Auto</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
+            {/* 2. Centered Camera Viewport */}
+            <div className="sc-kiosk-camera-box">
+              <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
+              <canvas ref={overlayCanvasRef} className="sc-overlay-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
+
+              <div className="sc-hud">
+                <div className={`sc-fixed-guide-target state-${scanSuccess ? 'success' : processing ? 'aligned is-scanning' : guidanceState === 'aligned' ? 'aligned' : guidanceState === 'idle' ? 'idle' : 'warning'}`}>
+                  {/* Outer slow-rotating calibration dial */}
+                  <div className="sc-fixed-dial-outer" />
+
+                  {/* Fixed Biometric Frame */}
+                  <div className="sc-fixed-frame" />
+
+                  {/* Precision Corner Brackets */}
+                  <div className="sc-guide-corner tl" />
+                  <div className="sc-guide-corner tr" />
+                  <div className="sc-guide-corner bl" />
+                  <div className="sc-guide-corner br" />
+
+                  {/* Subtle Face Silhouette Guide */}
+                  <svg className="sc-face-silhouette" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="60" cy="72" rx="42" ry="54" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" />
+                    <circle cx="45" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                    <circle cx="75" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                    <path d="M52 82 Q60 88 68 82" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+
+                  {/* Active Laser Sweeper */}
+                  <div className="sc-guide-laser" />
+                </div>
+
+                {/* Live HUD Guidance Pill */}
+                {!scanSuccess && (
+                  <div className={`sc-hud-guidance-pill pill-${processing ? 'aligned' : guidanceState}`}>
+                    <span>{processing ? '⚡ Hold still, analyzing face...' : guidanceText}</span>
                   </div>
+                )}
+              </div>
 
-                  {/* Dashboard Checklist Widget */}
-                  {(!isMobile || sheetState === "expanded") && (
-                    <div style={{ marginTop: '24px' }}>
-                      <h3 className="checklist-header">
-                        Security Telemetry Checklist
-                      </h3>
+              {!cameraReady && (
+                <div className="sc-cam-loader" style={{ background: '#090d16' }}>
+                  <div className="tech-loader">
+                    <div className="tech-ring-1" />
+                    <div className="tech-ring-2" />
+                    <div className="tech-ring-3" />
+                    <div className="tech-center" />
+                  </div>
+                  <p style={{ color: '#a78bfa', marginTop: '16px', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.5px' }}>
+                    INITIALIZING BIOMETRIC KIOSK CAMERA…
+                  </p>
+                </div>
+              )}
 
-                      <div className="checklist-widget">
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>📷</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>Live Video Stream</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {cameraReady ? 'Connected (640x480 user)' : 'Connecting camera device...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${cameraReady ? 'badge-verified' : 'badge-pending'}`}>
-                            {cameraReady ? 'ACTIVE' : 'OFFLINE'}
-                          </span>
-                        </div>
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>📍</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>Officer Geofencing</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {locationReady ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : 'Resolving GPS coordinates...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
-                            {locationReady ? 'VERIFIED' : 'SYNCING'}
-                          </span>
-                        </div>
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>📶</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>EasyReach BLE Beacon</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {bleVerified
-                                  ? `Found: ${bleDeviceName} (${bleSignalStrength} dBm)`
-                                  : bleSignalStrength !== null && bleSignalStrength < -80
-                                    ? `Too far: ${bleSignalStrength} dBm`
-                                    : 'Scanning BLE signals...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}
-                            style={
-                              !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
-                                ? { backgroundColor: '#ef4444', color: '#ffffff' }
-                                : {}
-                            }
-                          >
-                            {bleVerified
-                              ? 'CONNECTED'
-                              : bleSignalStrength !== null && bleSignalStrength < -80
-                                ? 'TOO FAR'
-                                : 'SCANNING'}
-                          </span>
-                        </div>
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>👤</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>Biometric Profile</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {userData ? `${userData.empName || userData.EmpName} (${userData.empCode})` : 'Resolving login data...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
-                            {userData ? 'LOADED' : 'AWAITING'}
-                          </span>
-                        </div>
-
-                      </div>
-                    </div>
-                  )}
+              {cameraReady && (
+                <div className="sc-kiosk-cam-actions">
+                  <button
+                    className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`}
+                    onClick={toggleScannerPause}
+                    title={isScannerPaused ? "Start Scanner" : "Pause Scanner"}
+                  >
+                    <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
+                  </button>
+                  <button className="sc-cam-flip-btn" onClick={toggleCamera} title="Flip Camera">
+                    <IonIcon icon={cameraReverseOutline} />
+                  </button>
                 </div>
               )}
             </div>
 
-          </div>{/* sc-body */}
+            {/* 3. Bottom Telemetry & Status Bar */}
+            <div className="sc-kiosk-footer-info">
+              <div className="sc-kiosk-info-card">
+                <div className="sc-kiosk-info-icon">🛡️</div>
+                <div className="sc-kiosk-info-text">
+                  <div className="sc-kiosk-info-title">{userData ? `${userData.empName || userData.EmpName}` : 'Security Gate Officer'}</div>
+                  <div className="sc-kiosk-info-subtitle">Emp Code #{userData?.empCode || userData?.EmpCode || 'KIOSK-01'}</div>
+                </div>
+              </div>
+              <div className="sc-kiosk-info-card">
+                <div className="sc-kiosk-info-icon">📍</div>
+                <div className="sc-kiosk-info-text">
+                  <div className="sc-kiosk-info-title">{locationReady ? 'Geofence Active' : 'Locating GPS...'}</div>
+                  <div className="sc-kiosk-info-subtitle">Branch Office Biometrics</div>
+                </div>
+              </div>
+              <div className="sc-kiosk-info-card">
+                <div className="sc-kiosk-info-icon">⏱️</div>
+                <div className="sc-kiosk-info-text">
+                  <div className="sc-kiosk-info-title">Active Slot: {selectedStatus}</div>
+                  <div className="sc-kiosk-info-subtitle">Auto Shift Timings Verified</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── TARGET ATTENDANCE SLOT POPUP MODAL ── */}
+          {showSlotModal && (
+            <div className="slot-hub-modal-overlay">
+              <div className="slot-hub-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="slot-hub-header">
+                  <div className="slot-hub-title-group">
+                    <div className="slot-hub-icon-wrap">🛡️</div>
+                    <div>
+                      <h2 className="slot-hub-title">Target Attendance Slot</h2>
+                      <p className="slot-hub-subtitle">Select session to start camera scan</p>
+                    </div>
+                  </div>
+                  <button
+                    className="slot-hub-rules-btn"
+                    onClick={() => setShowRulesModal(true)}
+                    type="button"
+                  >
+                    <IonIcon icon={informationCircleOutline} style={{ fontSize: '17px' }} />
+                    {/* <span>Rules</span> */}
+                  </button>
+                </div>
+
+                <div className="slot-hub-grid">
+                  {[
+                    { key: "Morning In", label: "Morning", icon: "🌅", desc: "Workday In" },
+                    { key: "Lunch Out", label: "Lunch Out", icon: "🍱", desc: "Break Exit" },
+                    { key: "Lunch In", label: "Lunch In", icon: "🥗", desc: "Break Return" },
+                    { key: "Evening Out", label: "Evening", icon: "🌇", desc: "Workday Exit" },
+                    { key: "Permission Out", label: "Perm Out", icon: "🚪", desc: "Short Exit" },
+                    { key: "Permission In", label: "Perm In", icon: "🏁", desc: "Office Return" }
+                  ].map(item => {
+                    const isAuto = item.key === getAutoStatus();
+                    const isSelected = selectedStatus === item.key;
+                    const slotClass =
+                      item.key === "Morning In" ? "slot-item-morning-in" :
+                      item.key === "Lunch Out" ? "slot-item-lunch-out" :
+                      item.key === "Lunch In" ? "slot-item-lunch-in" :
+                      item.key === "Evening Out" ? "slot-item-evening-out" :
+                      item.key === "Permission Out" ? "slot-item-permission-out" : "slot-item-permission-in";
+
+                    return (
+                      <button
+                        key={item.key}
+                        className={`slot-hub-item ${slotClass} ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleSlotSelect(item.key)}
+                        type="button"
+                      >
+                        <div className="slot-hub-item-icon">{item.icon}</div>
+                        <div className="slot-hub-item-info">
+                          <span className="slot-hub-item-title">{item.label}</span>
+                          <span className="slot-hub-item-desc">{item.desc}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* RULES INFO MODAL */}
           {showRulesModal && (
             <div className="rules-modal-overlay">
               <div className="rules-modal-card">
+                {/* 1. Header */}
                 <div className="rules-modal-header">
-                  <h3 className="rules-modal-title">Attendance Policy & Rules</h3>
+                  <div>
+                    <span className="rules-modal-badge">
+                      ⚡ Global Policy Master
+                    </span>
+                    <h3 className="rules-modal-title">
+                      Face Attendance Policy Master
+                    </h3>
+                    <p className="rules-modal-subtitle">
+                      Configure and dynamically control all Face Attendance, Free Grace, Permission, LOP &amp; Yellow Slip Rules
+                    </p>
+                  </div>
                   <button
+                    className="rules-modal-close-btn"
                     onClick={() => setShowRulesModal(false)}
-                    style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    type="button"
+                    title="Close"
                   >
                     <IonIcon icon={closeOutline} />
                   </button>
                 </div>
-                <div className="rules-modal-body text-left" style={{ textAlign: 'left', maxHeight: '70vh', overflowY: 'auto' }}>
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🌅 1. Morning In Window &amp; Monthly Free Grace</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Dynamic In-Time:</strong> Reporting time is strictly read from your employee profile in <code>tbl_employee.InTime</code> (e.g. 09:00, 09:30, 10:00).</li>
-                      <li><strong>{policyMap['FreeGraceMonthlyCount'] || '4'} Free Graces:</strong> Allowed <strong>{policyMap['FreeGraceMonthlyCount'] || '4'} Free Graces</strong> per calendar month for late arrival up to <strong>{policyMap['FreeGraceMaxMinutes'] || '15'} minutes</strong> each.</li>
-                      <li><strong>{policyMap['MaxPermissionSessionsPerMonth'] || '6'} Permission Sessions:</strong> Subsequent late arrivals auto-deduct from your monthly allotted <code>P_Time</code> balance (up to <strong>{policyMap['MaxPermissionSessionsPerMonth'] || '6'} permission sessions</strong>).</li>
-                      <li><strong>{policyMap['TotalAllowedLateOccasions'] || '10'} Total Occasion Cap:</strong> Maximum <strong>{policyMap['TotalAllowedLateOccasions'] || '10'} late occasions</strong> allowed per month ({policyMap['FreeGraceMonthlyCount'] || '4'} free graces + {policyMap['MaxPermissionSessionsPerMonth'] || '6'} permissions). After {policyMap['MaxPermissionSessionsPerMonth'] || '6'} sessions, permission adjustment is stopped even if P_Time balance remains.</li>
-                      <li><strong>Beyond {policyMap['TotalAllowedLateOccasions'] || '10'} Occasions Penalty:</strong> Exceeding {policyMap['TotalAllowedLateOccasions'] || '10'} occasions OR having zero permission balance converts the total late time including the 60 min grace to <strong>Loss of Pay (LOP) + 1 Yellow Slip</strong>.</li>
+
+                {/* 2. Top Highlights Metrics Ribbon */}
+                <div className="rules-modal-ribbon">
+                  <div className="rules-ribbon-card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+                    <span className="rules-ribbon-icon">🛡️</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#1e40af' }}>{getPolVal('FreeGraceMonthlyCount', '4')} Graces</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#3b82f6' }}>Max {getPolVal('FreeGraceMaxMinutes', '15')}m / grace</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                    <span className="rules-ribbon-icon">⏱️</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#065f46' }}>{getPolVal('MaxPermissionSessionsPerMonth', '6')} Sessions</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#10b981' }}>Allotted P_Time</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#faf5ff', borderColor: '#e9d5ff' }}>
+                    <span className="rules-ribbon-icon">⚠️</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#6b21a8' }}>{getPolVal('TotalAllowedLateOccasions', '10')} Occasions</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#a855f7' }}>Monthly Late Cap</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#fffbeb', borderColor: '#fde68a' }}>
+                    <span className="rules-ribbon-icon">🍱</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#92400e' }}>{getPolVal('LunchBreakDurationMinutes', '60')}m Break</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#f59e0b' }}>Auto from Lunch Out</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#fff1f2', borderColor: '#fecdd3' }}>
+                    <span className="rules-ribbon-icon">🟨</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#9f1239' }}>Yellow Slips</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#ef4444' }}>&gt; 10 Occ / 3 Excess</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Structured Policy Cards Body */}
+                <div className="rules-modal-body text-left">
+                  {/* Section 1 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🌅 1. Morning In Window &amp; Monthly Free Grace Rules
+                      </h4>
+                      <span className="rule-card-badge">Morning Reporting</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Dynamic In-Time</span>
+                        <span className="rule-text">Reporting time is strictly read from your employee profile in <code>tbl_employee.InTime</code> (e.g. 09:00, 09:30, 10:00).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces</span>
+                        <span className="rule-text">Allowed <strong>{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces</strong> per calendar month for late arrival up to <strong>{getPolVal('FreeGraceMaxMinutes', '15')} minutes</strong> each.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">{getPolVal('MaxPermissionSessionsPerMonth', '6')} Sessions</span>
+                        <span className="rule-text">Subsequent late arrivals auto-deduct from your monthly allotted <code>P_Time</code> balance (up to <strong>{getPolVal('MaxPermissionSessionsPerMonth', '6')} permission sessions</strong>).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">{getPolVal('TotalAllowedLateOccasions', '10')} Cap</span>
+                        <span className="rule-text">Maximum <strong>{getPolVal('TotalAllowedLateOccasions', '10')} late occasions</strong> allowed per month ({getPolVal('FreeGraceMonthlyCount', '4')} free graces + {getPolVal('MaxPermissionSessionsPerMonth', '6')} permissions). After {getPolVal('MaxPermissionSessionsPerMonth', '6')} sessions, permission adjustment is stopped even if P_Time balance remains.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fee2e2', color: '#991b1b', borderColor: '#fca5a5' }}>Occasion Penalty</span>
+                        <span className="rule-text">Exceeding {getPolVal('TotalAllowedLateOccasions', '10')} occasions OR having zero permission balance converts the total late time including the 60 min grace to <strong>Loss of Pay (LOP) + 1 Yellow Slip</strong>.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🍱 2. Lunch Break &amp; Afternoon Rules</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Official Window:</strong> Standard lunch break is from <strong>{policyMap['StandardLunchStartTime'] || '13:30:00'} to {policyMap['StandardLunchEndTime'] || '14:30:00'}</strong>.</li>
-                      <li><strong>Auto {policyMap['LunchBreakDurationMinutes'] || '60'}-Minute Duration:</strong> If you punch Lunch Out at 2:00 PM, 3:00 PM, 4:00 PM, etc., the system auto-calculates exactly <strong>{policyMap['LunchBreakDurationMinutes'] || '60'} minutes break</strong> from your actual Lunch Out punch.</li>
-                      <li><strong>No Afternoon Grace:</strong> Free grace applies ONLY to Morning In. Late arrival beyond {policyMap['LunchBreakDurationMinutes'] || '60'} minutes auto-deducts from Permission balance or converts to Loss of Pay (LOP).</li>
+                  {/* Section 2 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🍱 2. Lunch Break &amp; Afternoon Rules
+                      </h4>
+                      <span className="rule-card-badge">Lunch Hours</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Lunch Window</span>
+                        <span className="rule-text">Standard lunch break is from <strong>{getPolVal('StandardLunchStartTime', '13:30:00')} to {getPolVal('StandardLunchEndTime', '14:30:00')}</strong>.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Auto {getPolVal('LunchBreakDurationMinutes', '60')}m</span>
+                        <span className="rule-text">If you punch Lunch Out at 2:00 PM, 3:00 PM, 4:00 PM, etc., the system auto-calculates exactly <strong>{getPolVal('LunchBreakDurationMinutes', '60')} minutes break</strong> from your actual Lunch Out punch.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>No PM Grace</span>
+                        <span className="rule-text">Free grace applies ONLY to Morning In. Late arrival beyond {getPolVal('LunchBreakDurationMinutes', '60')} minutes auto-deducts from Permission balance or converts to Loss of Pay (LOP).</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🌆 3. Evening Out &amp; Shift Defaults</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li>Standard checkout time: <strong>{policyMap['StandardEveningOutTime'] || '18:33:00'}</strong>. Register your punch before leaving.</li>
+                  {/* Section 3 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🌆 3. Evening Out &amp; Shift Defaults
+                      </h4>
+                      <span className="rule-card-badge">Evening Shift</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Checkout Threshold</span>
+                        <span className="rule-text">Standard checkout time: <strong>{getPolVal('StandardEveningOutTime', '18:33:00')}</strong>. Register your punch before leaving.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">⏱️ 4. Monthly Permission Quotas (P_Time)</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Technical Staff:</strong> {policyMap['TechnicalDefaultPermissionMinutes'] || '60'} minutes / month.</li>
-                      <li><strong>Non-Technical Staff:</strong> {policyMap['NonTechnicalDefaultPermissionMinutes'] || '90'} minutes / month.</li>
-                      <li><strong>Marketing Executives:</strong> {policyMap['MarketingDefaultPermissionMinutes'] || '240'} minutes / month.</li>
-                      <li><strong>Max Single Session:</strong> {policyMap['MaxSinglePermissionMinutes'] || '60'} minutes per permission.</li>
+                  {/* Section 4 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        ⏱️ 4. Monthly Permission Quotas &amp; Role Defaults (P_Time)
+                      </h4>
+                      <span className="rule-card-badge">Role Quotas</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Technical</span>
+                        <span className="rule-text"><strong>{getPolVal('TechnicalDefaultPermissionMinutes', '60')} minutes / month</strong> without LOP.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Non-Technical</span>
+                        <span className="rule-text"><strong>{getPolVal('NonTechnicalDefaultPermissionMinutes', '90')} minutes / month</strong> without LOP.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Marketing</span>
+                        <span className="rule-text"><strong>{getPolVal('MarketingDefaultPermissionMinutes', '240')} minutes / month</strong> without LOP.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Max Session</span>
+                        <span className="rule-text"><strong>{getPolVal('MaxSinglePermissionMinutes', '60')} minutes</strong> maximum per permission request.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">⚠️ 5. Excess Permission &amp; Double LOP Matrix</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Approved Excess (Up to {policyMap['ApprovedExcessPermissionMinutes'] || '180'} min):</strong> Allowed beyond allotted P_Time subject to available permission balance (procured via overtime or carryover).</li>
-                      <li><strong>Excess Up to {policyMap['SingleLopExcessMinutes'] || '120'} min Without Balance:</strong> Attracts <strong>Single Loss of Pay (1x LOP)</strong>.</li>
-                      <li><strong>Excess &gt; {policyMap['DoubleLopExcessMinutes'] || '120'} min Without Balance:</strong> Attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in total deduction).</li>
-                      <li><strong>Carry Forward:</strong> Surplus permission time carries forward monthly and can be encashed yearly with management approval.</li>
+                  {/* Section 5 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        ⚠️ 5. Excess Permission &amp; Double LOP Penalty Matrix
+                      </h4>
+                      <span className="rule-card-badge">LOP Deductions</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Approved Excess</span>
+                        <span className="rule-text">Allowed up to <strong>{getPolVal('ApprovedExcessPermissionMinutes', '180')} min</strong> beyond allotted P_Time subject to available permission balance (overtime/carryover).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}>1x LOP</span>
+                        <span className="rule-text">Excess up to <strong>{getPolVal('SingleLopExcessMinutes', '120')} min</strong> without balance attracts <strong>Single Loss of Pay (1x LOP)</strong>.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fee2e2', color: '#991b1b', borderColor: '#fca5a5' }}>2x Double LOP</span>
+                        <span className="rule-text">Excess &gt; <strong>{getPolVal('DoubleLopExcessMinutes', '120')} min</strong> without balance attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in deduction).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Carry Forward</span>
+                        <span className="rule-text">Surplus permission time carries forward monthly and can be encashed yearly with management approval.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Past LOP Finality</span>
+                        <span className="rule-text">Permission time procured after LOP calculation or slip issuance cannot reverse past LOPs or cancel issued slips.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🟨 6. Yellow Slip Issuance Triggers</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>+1 Yellow Slip:</strong> Issued automatically when exceeding {policyMap['TotalAllowedLateOccasions'] || '10'} total late occasions in a month.</li>
-                      <li><strong>+1 Yellow Slip:</strong> Issued for every <strong>{policyMap['YellowSlipExcessFrequency'] || '3'} excess permission sessions</strong> without available balance.</li>
+                  {/* Section 6 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🟨 6. Yellow Slip &amp; Disciplinary Triggers
+                      </h4>
+                      <span className="rule-card-badge">Disciplinary Slips</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef08a', color: '#854d0e', borderColor: '#fde047' }}>+1 Yellow Slip</span>
+                        <span className="rule-text">Issued automatically when exceeding <strong>{getPolVal('TotalAllowedLateOccasions', '10')} total late occasions</strong> in a month (total late time including 60m grace converts to LOP).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef08a', color: '#854d0e', borderColor: '#fde047' }}>+1 Yellow Slip</span>
+                        <span className="rule-text">Issued for every <strong>{getPolVal('YellowSlipExcessFrequency', '3')} excess permission sessions</strong> without available balance.</span>
+                      </li>
                     </ul>
                   </div>
                 </div>
-                <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
+
+                {/* 4. Footer */}
+                <div className="rules-modal-footer">
                   <button
+                    className="rules-btn-close"
                     onClick={() => setShowRulesModal(false)}
-                    style={{ padding: '8px 20px', background: '#8b5cf6', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                    type="button"
                   >
                     Close Policy Guide
                   </button>
@@ -2313,7 +2333,7 @@ const SecurityAttendanceScanner: React.FC = () => {
                           {scannedEmployee.gpsDetails.actualOfficeName || "Office Geofence"}
                         </span>
                         <span className="sc-modal-gps-coords">
-                          {scannedEmployee.gpsDetails.actualGps || "Lat/Lng"}
+                          {scannedEmployee.gpsDetails.actualGps || "HQ Geofence"}
                         </span>
                         {scannedEmployee.gpsDetails.allowedRadius && (
                           <span className="sc-modal-gps-subtag">
@@ -2325,14 +2345,21 @@ const SecurityAttendanceScanner: React.FC = () => {
                       {/* Device Present GPS */}
                       <div className="sc-modal-gps-col">
                         <span className="sc-modal-gps-label">📱 Present GPS</span>
-                        <span className="sc-modal-gps-value-bold" style={{ color: '#dc2626' }}>
+                        <span className="sc-modal-gps-value-bold" style={{ color: scannedEmployee.gpsDetails.gpsMatched ? '#047857' : '#dc2626' }}>
                           Device Location
                         </span>
                         <span className="sc-modal-gps-coords">
-                          {scannedEmployee.gpsDetails.presentGps || "Lat/Lng"}
+                          {scannedEmployee.gpsDetails.presentGps || "Locating..."}
                         </span>
-                        <span className="sc-modal-gps-subtag" style={{ color: '#b91c1c', background: '#fee2e2', borderColor: '#fca5a5' }}>
-                          Outside Geofence
+                        <span
+                          className="sc-modal-gps-subtag"
+                          style={{
+                            color: scannedEmployee.gpsDetails.gpsMatched ? '#047857' : '#b91c1c',
+                            background: scannedEmployee.gpsDetails.gpsMatched ? '#ecfdf5' : '#fee2e2',
+                            borderColor: scannedEmployee.gpsDetails.gpsMatched ? '#a7f3d0' : '#fca5a5'
+                          }}
+                        >
+                          {scannedEmployee.gpsDetails.gpsMatched ? 'Inside Geofence' : 'Outside Geofence'}
                         </span>
                       </div>
                     </div>

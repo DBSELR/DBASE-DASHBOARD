@@ -196,6 +196,8 @@ const AIAttendanceScanner: React.FC = () => {
   // Status Selector
   const [selectedStatus, setSelectedStatus] = useState<string>(getAutoStatus());
   const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
+  const [isSlotSelected, setIsSlotSelected] = useState<boolean>(false);
+  const [showSlotModal, setShowSlotModal] = useState<boolean>(true);
 
   // Grace & Rules Telemetry
   const [graceSummary, setGraceSummary] = useState<{
@@ -269,6 +271,35 @@ const AIAttendanceScanner: React.FC = () => {
     };
   } | null>(null);
 
+  const buildGpsTelemetry = (empData?: any, rootData?: any) => {
+    const actLat = empData?.actualLatitude ?? rootData?.actualLatitude;
+    const actLng = empData?.actualLongitude ?? rootData?.actualLongitude;
+    const presLat = empData?.presentLatitude ?? rootData?.presentLatitude ?? (latitudeRef.current !== 0 ? latitudeRef.current : undefined);
+    const presLng = empData?.presentLongitude ?? rootData?.presentLongitude ?? (longitudeRef.current !== 0 ? longitudeRef.current : undefined);
+    const offName = empData?.actualOfficeName ?? rootData?.actualOfficeName ?? empData?.officeName ?? rootData?.officeName ?? "Assigned Office";
+    const distM = empData?.distanceMeters ?? rootData?.distanceMeters;
+    const radM = empData?.allowedRadiusMeters ?? rootData?.allowedRadiusMeters ?? 100;
+    const btMatched = empData?.bluetoothMatched ?? rootData?.bluetoothMatched ?? bleVerifiedRef.current;
+    const btRequired = empData?.btRequired ?? rootData?.btRequired ?? true;
+    const gpsMatched = empData?.locationMatched ?? rootData?.locationMatched ?? (distM !== undefined && distM !== null ? distM <= radM : true);
+    const gpsRequired = empData?.gpsRequired ?? rootData?.gpsRequired ?? true;
+
+    if (actLat || actLng || presLat || presLng || offName) {
+      return {
+        actualOfficeName: offName,
+        actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
+        presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
+        distance: distM !== undefined && distM !== null ? `${Math.round(distM)}m away` : undefined,
+        allowedRadius: radM ? `${radM}m radius` : '100m radius',
+        bluetoothMatched: Boolean(btMatched),
+        bluetoothRequired: Boolean(btRequired),
+        gpsMatched: Boolean(gpsMatched),
+        gpsRequired: Boolean(gpsRequired)
+      };
+    }
+    return undefined;
+  };
+
   // Dynamic Live Biometric Guidance States & Voice Prompts
   const [guidanceState, setGuidanceState] = useState<'idle' | 'too-far' | 'too-close' | 'off-center' | 'aligned'>('idle');
   const [guidanceText, setGuidanceText] = useState<string>('🎯 Align your face in the circle');
@@ -321,6 +352,12 @@ const AIAttendanceScanner: React.FC = () => {
   useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
   const cityNameRef = useRef("");
   useEffect(() => { cityNameRef.current = cityName; }, [cityName]);
+
+  const isSlotSelectedRef = useRef(false);
+  const showSlotModalRef = useRef(true);
+
+  useEffect(() => { isSlotSelectedRef.current = isSlotSelected; }, [isSlotSelected]);
+  useEffect(() => { showSlotModalRef.current = showSlotModal; }, [showSlotModal]);
 
   useEffect(() => { isScannerPausedRef.current = isScannerPaused; }, [isScannerPaused]);
 
@@ -569,6 +606,10 @@ const AIAttendanceScanner: React.FC = () => {
 
   // ── Camera ────────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!isSlotSelected) {
+      setIsCameraReady(false);
+      return;
+    }
     let stream: MediaStream | null = null;
     const startVideo = async () => {
       try {
@@ -606,7 +647,7 @@ const AIAttendanceScanner: React.FC = () => {
     };
     startVideo();
     return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
-  }, [cameraMode]);
+  }, [cameraMode, isSlotSelected]);
 
   // Real-time Face Alignment Geometry Analysis & Guidance Loop (every 45ms)
   useEffect(() => {
@@ -619,7 +660,7 @@ const AIAttendanceScanner: React.FC = () => {
 
     let isMounted = true;
     const analyzeFacePosition = async () => {
-      if (!isMounted || !isCameraReady || !videoRef.current || isProcessing || scanSuccess) return;
+      if (!isMounted || !isCameraReady || !videoRef.current || isProcessing || scanSuccess || showSlotModalRef.current || !isSlotSelectedRef.current) return;
       const video = videoRef.current;
       if (video.readyState < 2) return;
 
@@ -792,6 +833,7 @@ const AIAttendanceScanner: React.FC = () => {
     setResultMessage("Align your face in the frame");
     setStatusColor("#6366f1");
     setCooldownCountdown(0);
+    setShowSlotModal(true);
     scheduleNextScan(150);
   };
 
@@ -799,6 +841,8 @@ const AIAttendanceScanner: React.FC = () => {
     setSelectedStatus(slot);
     selectedStatusRef.current = slot;
     setIsManualOverride(true);
+    setIsSlotSelected(true);
+    setShowSlotModal(false);
     logDebug(`Selected manually: ${slot}`);
 
     if (slot === "Permission Out" || slot === "Permission In") {
@@ -826,6 +870,10 @@ const AIAttendanceScanner: React.FC = () => {
   };
 
   const captureAndScan = async () => {
+    if (showSlotModalRef.current || !isSlotSelectedRef.current) {
+      scheduleNextScan(400);
+      return;
+    }
     if (isScannerPausedRef.current) { scheduleNextScan(1000); return; }
     if (isProcessingRef.current || scanSuccessRef.current || cooldownCountdownRef.current > 0) return;
     if (!isCameraReadyRef.current || !videoRef.current) { scheduleNextScan(500); return; }
@@ -903,26 +951,6 @@ const AIAttendanceScanner: React.FC = () => {
             scanSuccessRef.current = true;
             setStatusColor("#ef4444");
 
-            const actLat = data.actualLatitude;
-            const actLng = data.actualLongitude;
-            const presLat = data.presentLatitude || latitudeRef.current;
-            const presLng = data.presentLongitude || longitudeRef.current;
-            const offName = data.actualOfficeName || "Assigned Office";
-            const distM = data.distanceMeters;
-            const radM = data.allowedRadiusMeters || 100;
-
-            const gpsDetails = (actLat && actLng) || (presLat && presLng) ? {
-              actualOfficeName: offName,
-              actualGps: actLat && actLng ? `${Number(actLat).toFixed(6)}, ${Number(actLng).toFixed(6)}` : undefined,
-              presentGps: presLat && presLng ? `${Number(presLat).toFixed(6)}, ${Number(presLng).toFixed(6)}` : undefined,
-              distance: distM ? `${Math.round(distM)}m away` : undefined,
-              allowedRadius: `${radM}m radius`,
-              bluetoothMatched: data.bluetoothMatched,
-              bluetoothRequired: data.btRequired,
-              gpsMatched: data.locationMatched,
-              gpsRequired: data.gpsRequired
-            } : undefined;
-
             setAttendanceDetails({
               empName,
               empId,
@@ -931,7 +959,7 @@ const AIAttendanceScanner: React.FC = () => {
               customMessage: alertMsg,
               confidence: data.confidence || 95,
               time: formatTime12H(data.time12 || data.time || new Date()),
-              gpsDetails
+              gpsDetails: buildGpsTelemetry(data, data)
             });
             setResultMessage(`⛔ Outside Office Location: ${empName}`);
             speakText(data.message || "You are not in office location");
@@ -956,7 +984,8 @@ const AIAttendanceScanner: React.FC = () => {
             isDuplicate: true,
             customMessage: alertMsg,
             confidence: data.confidence || 95,
-            time: formatTime12H(data.time12 || data.time || new Date())
+            time: formatTime12H(data.time12 || data.time || new Date()),
+            gpsDetails: buildGpsTelemetry(data, data)
           });
           setResultMessage(`⛔ ${data.message}`);
           speakText(data.message);
@@ -980,7 +1009,8 @@ const AIAttendanceScanner: React.FC = () => {
             isDuplicate: true,
             customMessage: alertMsg,
             confidence: data.confidence || 90,
-            time: formatTime12H(data.time12 || data.time || new Date())
+            time: formatTime12H(data.time12 || data.time || new Date()),
+            gpsDetails: buildGpsTelemetry(data, data)
           });
           setResultMessage(`⛔ Permission Required: ${empName}`);
           speakText(alertMsg);
@@ -1010,7 +1040,8 @@ const AIAttendanceScanner: React.FC = () => {
             confidence: data.confidence || 98,
             time: displayTime,
             officeName: data.officeName || "",
-            presenceMethod: data.presenceMethod || "Face Only"
+            presenceMethod: data.presenceMethod || "Face Only",
+            gpsDetails: buildGpsTelemetry(data, data)
           });
           setResultMessage(`⚠️ ${slotName} Already Marked: ${empName}`);
           speakText(`${slotName} already marked for ${empName}`);
@@ -1044,7 +1075,8 @@ const AIAttendanceScanner: React.FC = () => {
             lateMinutes: data.lateMinutes ?? 0,
             date: data.date || new Date().toLocaleDateString('en-GB'),
             attendanceStatus: data.attendanceStatus || "",
-            confidence: data.confidence || 98
+            confidence: data.confidence || 98,
+            gpsDetails: buildGpsTelemetry(data, data)
           });
           setResultMessage(`✅ Welcome, ${empName}`);
           speakText(`${empName} attendance marked successfully`);
@@ -1556,71 +1588,6 @@ const AIAttendanceScanner: React.FC = () => {
           .type-perm { background: #e0e7ff; color: #4f46e5; }
           .type-lop { background: #fee2e2; color: #ef4444; }
 
-          /* Premium Rules info Modal */
-          .rules-modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 999999;
-            backdrop-filter: blur(5px);
-            padding: 16px;
-          }
-          .rules-modal-card {
-            width: 100%;
-            max-width: 480px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.08);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            animation: animate__animated animate__zoomIn animate__fast;
-          }
-          .rules-modal-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fafafb;
-          }
-          .rules-modal-title {
-            margin: 0;
-            font-size: 1.05rem;
-            font-weight: 850;
-            color: #0f172a;
-          }
-          .rules-modal-body {
-            padding: 24px;
-            overflow-y: auto;
-            max-height: 70vh;
-            font-size: 0.82rem;
-            color: #475569;
-            line-height: 1.5;
-          }
-          .rule-section {
-            margin-bottom: 18px;
-            padding-bottom: 14px;
-            border-bottom: 1px solid #f1f5f9;
-          }
-          .rule-section:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-          }
-          .rule-sec-title {
-            font-weight: 800;
-            color: #1e293b;
-            margin: 0 0 6px 0;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.88rem;
-          }
           @media (max-width: 480px) {
             .grace-summary-box {
               grid-template-columns: 1fr !important;
@@ -1639,322 +1606,91 @@ const AIAttendanceScanner: React.FC = () => {
           }
         `}</style>
 
-        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
+        <div className="sc-kiosk-page-container">
 
-          {/* ── Premium Header ── */}
-          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
-            <div className="page-wr-header-left">
-              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+          {/* ── Premium Native Header ── */}
+          <div className="sc-top-nav">
+            <div className="sc-top-nav-left">
+              <button className="sc-top-nav-back-btn" onClick={() => history.goBack()} title="Go Back">
                 <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
               </button>
-              <div>
-                <h1 className="page-wr-title">AI Face Attendance</h1>
-                <p className="page-wr-subtitle" style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>{userData?.EmpName || userData?.empName ? `👤 ${userData?.EmpName || userData?.empName} (#${userData?.empCode || userData?.EmpCode || ''})` : 'Biometric Check-In Portal'}</span>
+              <div className="sc-top-nav-title-wrap">
+                <h1 className="sc-top-nav-title">AI Attendance</h1>
+                <p className="sc-top-nav-subtitle">
+                  {userData?.EmpName || userData?.empName ? `👤 ${userData?.EmpName || userData?.empName} (#${userData?.empCode || userData?.EmpCode || ''})` : 'Biometric Face Verification'}
                 </p>
               </div>
             </div>
-            <div className="page-wr-header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="sc-top-nav-right">
               <button
+                className="sc-top-nav-kiosk-btn"
                 onClick={() => history.push('/security-attendance-scanner')}
-                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: isMobile ? '8px' : '8px 12px', borderRadius: isMobile ? '50%' : '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', width: isMobile ? '36px' : 'auto', height: isMobile ? '36px' : 'auto' }}
-                title="Switch to Kiosk Scanner for Multiple Employees"
+                title="Switch to Kiosk Mode"
               >
-                <IonIcon icon={fingerPrintOutline} style={{ fontSize: isMobile ? '20px' : '15px', margin: 0 }} />
-                {!isMobile && "Kiosk Mode"}
+                <IonIcon icon={fingerPrintOutline} />
+                <span>Kiosk</span>
               </button>
               <button
+                className="sc-top-nav-rules-btn"
                 onClick={() => setShowRulesModal(true)}
-                style={{ background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#ffffff', padding: isMobile ? '8px' : '8px 14px', borderRadius: isMobile ? '50%' : '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', width: isMobile ? '36px' : 'auto', height: isMobile ? '36px' : 'auto' }}
+                title="View Attendance Rules"
               >
-                <IonIcon icon={informationCircleOutline} style={{ fontSize: isMobile ? '20px' : '16px', margin: 0 }} />
-                {!isMobile && "View Rules"}
+                <IonIcon icon={informationCircleOutline} />
+                <span>Rules</span>
               </button>
-              {!isMobile && (
-                <div className="page-wr-header-icon-box" onClick={() => history.push('/ai-attendance-log/user')} style={{ cursor: 'pointer' }}>
-                  <IonIcon icon={calendarOutline} style={{ fontSize: '26px', color: 'var(--ion-color-primary)' }} />
-                </div>
-              )}
+              <button
+                className="sc-top-nav-log-btn"
+                onClick={() => history.push('/ai-attendance-log/user')}
+                title="View Attendance Logs"
+              >
+                <IonIcon icon={calendarOutline} />
+              </button>
             </div>
           </div>
 
-          {/* BODY */}
-          <div className="sc-body" style={{ height: 'calc(100vh - 120px)' }}>
+          {/* ── CENTERED KIOSK TERMINAL VIEW ── */}
+          <div className="sc-kiosk-wrapper">
 
-            {/* Target Attendance Slot on Mobile (Above Camera) */}
-            {isMobile && !scanSuccess && (
-              <div style={{ padding: '0 16px', marginBottom: '8px', zIndex: 10 }}>
-                {renderSlotSelector()}
-              </div>
-            )}
-
-            {/* LEFT: CAMERA WIDGET */}
-            <div className="sc-cam-area">
-              <div className="sc-cam-card clay">
-                <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
-
-                <div className="sc-hud">
-                  <div className={`sc-fixed-guide-target state-${scanSuccess ? 'success' : isProcessing ? 'aligned is-scanning' : guidanceState === 'aligned' ? 'aligned' : guidanceState === 'idle' ? 'idle' : 'warning'}`}>
-                    {/* Outer slow-rotating calibration dial */}
-                    <div className="sc-fixed-dial-outer" />
-
-                    {/* Fixed Biometric Frame */}
-                    <div className="sc-fixed-frame" />
-
-                    {/* 4 Precision Corner Brackets */}
-                    <div className="sc-guide-corner tl" />
-                    <div className="sc-guide-corner tr" />
-                    <div className="sc-guide-corner bl" />
-                    <div className="sc-guide-corner br" />
-
-                    {/* Subtle Face Silhouette Guide */}
-                    <svg className="sc-face-silhouette" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <ellipse cx="60" cy="72" rx="42" ry="54" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" />
-                      <circle cx="45" cy="62" r="3" fill="currentColor" opacity="0.6" />
-                      <circle cx="75" cy="62" r="3" fill="currentColor" opacity="0.6" />
-                      <path d="M52 82 Q60 88 68 82" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-
-                    {/* Active Laser Sweeper */}
-                    <div className="sc-guide-laser" />
-                  </div>
-
-                  {/* Live HUD Floating Guidance Pill */}
-                  {!scanSuccess && (
-                    <div className={`sc-hud-guidance-pill pill-${isProcessing ? 'aligned' : guidanceState}`}>
-                      <span>{isProcessing ? '⚡ Hold still, analyzing face...' : guidanceText}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="sc-ind-row">
-                  {/* GPS Indicator */}
-                  <div
-                    className={`sc-ind ${activeRule?.gpsRequired === false ? 'ind-ok' : locationReady ? 'ind-ok' : 'ind-wait'}`}
-                    style={activeRule?.gpsRequired === false ? { background: 'rgba(148, 163, 184, 0.1)', color: '#64748b', borderColor: '#cbd5e1' } : {}}
-                    title={activeRule?.gpsRequired === false ? "GPS Geofence is OFF for this profile" : "GPS Geofence Required"}
-                  >
-                    <IonIcon icon={pinOutline} />
-                    <span>
-                      {activeRule?.gpsRequired === false
-                        ? 'GPS: OFF'
-                        : locationReady
-                          ? 'GPS Verified'
-                          : 'GPS Fix… (Req)'}
+            {/* 1. Unified 2-Row Native Kiosk Toolbar */}
+            <div className="sc-kiosk-toolbar">
+              <div className="sc-kiosk-tb-row1">
+                <button
+                  className="sc-kiosk-slot-trigger"
+                  onClick={() => setShowSlotModal(true)}
+                  type="button"
+                  title="Click to Switch Attendance Slot"
+                >
+                  <div className="sc-kiosk-slot-left">
+                    <span className="sc-active-slot-dot" />
+                    <span className="sc-kiosk-slot-label">
+                      Target: <strong>{getSlotColorConfig(selectedStatus).label}</strong>
                     </span>
                   </div>
-
-                  {/* Bluetooth Beacon Indicator */}
-                  <div
-                    className={`sc-ind ${activeRule?.btRequired === false ? 'ind-ok' : bleVerified ? 'ind-ok' : 'ind-wait'}`}
-                    style={
-                      activeRule?.btRequired === false
-                        ? { background: 'rgba(148, 163, 184, 0.1)', color: '#64748b', borderColor: '#cbd5e1' }
-                        : !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
-                          ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
-                          : {}
-                    }
-                    title={activeRule?.btRequired === false ? "Bluetooth Beacon is OFF for this profile" : "Bluetooth Beacon Required"}
-                  >
-                    <IonIcon icon={bluetoothOutline} />
-                    <span>
-                      {activeRule?.btRequired === false
-                        ? 'BLE: OFF'
-                        : bleVerified
-                          ? 'Beacon OK'
-                          : bleSignalStrength !== null && bleSignalStrength < -80
-                            ? 'BLE Weak'
-                            : 'Beacon… (Req)'}
-                    </span>
-                  </div>
-                </div>
-
-                {!isCameraReady && (
-                  <div className="sc-cam-loader" style={{ background: '#f8fafc' }}>
-                    <div className="tech-loader">
-                      <div className="tech-ring-1" />
-                      <div className="tech-ring-2" />
-                      <div className="tech-ring-3" />
-                      <div className="tech-center" />
-                    </div>
-                    <p style={{ color: '#6366f1', marginTop: '16px', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.5px' }}>
-                      STARTING BIOMETRIC CAMERA…
-                    </p>
-                  </div>
-                )}
-
-                {capturedImg && (
-                  <div className="sc-last-capture-preview" onClick={() => setCapturedImg(null)} title="Clear Preview">
-                    <img src={capturedImg} alt="last scan preview" />
-                  </div>
-                )}
-
-                {isCameraReady && (
-                  <>
-                    <button
-                      className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`}
-                      onClick={toggleScannerPause}
-                      title={isScannerPaused ? "Start Scanner" : "Pause Scanner"}
-                    >
-                      <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
-                    </button>
-                    <button className="sc-cam-flip-btn" onClick={toggleCameraMode} title="Flip Camera">
-                      <IonIcon icon={cameraReverseOutline} />
-                    </button>
-                  </>
-                )}
-
-                {/* Debug Logs */}
-                <div className="sc-debug-logs" style={{
-                  position: 'absolute',
-                  bottom: '16px',
-                  left: '16px',
-                  zIndex: 100,
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  color: '#475569',
-                  padding: '6px 10px',
-                  borderRadius: '10px',
-                  fontSize: '9px',
-                  fontFamily: 'monospace',
-                  pointerEvents: 'none',
-                  maxWidth: '75%',
-                  lineHeight: '1.3',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                }}>
-                  {debugLogs.length === 0 ? "[DEBUG] Idle" : debugLogs.map((log, i) => (
-                    <div key={i}>{log}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT: CONTROL PANEL */}
-            <div
-              className="sc-panel-area"
-              style={
-                isMobile
-                  ? { transform: `translateY(${sheetY}px)`, transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }
-                  : { height: '100%', overflowY: 'auto', paddingRight: '8px' }
-              }
-            >
-              <div
-                className="sc-drag-zone"
-                onClick={toggleSheet}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-              >
-                <div className="sc-drag-handle" />
+                  <span className="sc-kiosk-change-badge">🔄 Switch Slot</span>
+                </button>
               </div>
 
-              {scanSuccess && attendanceDetails ? (
-
-                /* ── SUCCESS RESULT CARD ── */
-                <div className="stock-panel animate__animated animate__fadeInUp animate__fast">
-                  <div className="sc-res-top">
-                    <div className={`sc-res-avatar ${attendanceDetails.isDuplicate ? 'av-warn' : 'av-ok'}`} style={{ overflow: 'hidden', padding: 0 }}>
-                      {capturedImg ? (
-                        <img src={capturedImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        (attendanceDetails.empName || 'E').charAt(0)
-                      )}
-                    </div>
-                    <div className="sc-res-info">
-                      <div className="sc-res-name">{attendanceDetails.empName}</div>
-                      <div className="sc-res-id">ID #{attendanceDetails.empId}</div>
-                    </div>
-                    <div className={`sc-res-badge ${attendanceDetails.isDuplicate ? 'badge-warn' : 'badge-ok'}`}>
-                      {attendanceDetails.isDuplicate ? 'Already Marked' : 'Verified'}
-                    </div>
-                  </div>
-
-                  {attendanceDetails.isDuplicate ? (
-                    <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '14px', marginTop: '12px', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e11d48', fontWeight: 800, fontSize: '0.88rem', marginBottom: '6px' }}>
-                        <span>⚠️ ATTENDANCE ALREADY MARKED</span>
-                      </div>
-                      <div style={{ color: '#9f1239', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.4 }}>
-                        {attendanceDetails.customMessage || `${attendanceDetails.status} is already logged for today at ${attendanceDetails.time}.`}
-                      </div>
-                      <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#be123c', fontWeight: 700 }}>
-                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Slot: {attendanceDetails.status}</span>
-                        <span style={{ background: '#ffe4e6', padding: '4px 10px', borderRadius: '6px' }}>Time: {attendanceDetails.time}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <h3 style={{ margin: '0 0 16px 0', fontSize: '0.85rem', fontWeight: 800, color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                        Attendance Verification Details
-                      </h3>
-
-                      <div className="sc-res-chips">
-                        <div className="sc-chip ok-chip" style={{ background: getSlotColorConfig(attendanceDetails.status).bg, borderColor: getSlotColorConfig(attendanceDetails.status).border }}>
-                          <span className="chip-lbl" style={{ color: getSlotColorConfig(attendanceDetails.status).color }}>Shift Status</span>
-                          <span className="chip-val" style={{ color: getSlotColorConfig(attendanceDetails.status).color, fontWeight: 800 }}>{getSlotColorConfig(attendanceDetails.status).label}</span>
-                        </div>
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Time Registered</span>
-                          <span className="chip-val">{attendanceDetails.time}</span>
-                        </div>
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Face Match %</span>
-                          <span className="chip-val">🎯 {attendanceDetails.confidence || 98}%</span>
-                        </div>
-                        <div className="sc-chip ok-chip">
-                          <span className="chip-lbl">Identity Mode</span>
-                          <span className="chip-val">
-                            {attendanceDetails.presenceMethod === 'Bluetooth + GPS' ? '📶📍 BT + GPS' :
-                              attendanceDetails.presenceMethod === 'Bluetooth' ? '📶 BLE' :
-                                attendanceDetails.presenceMethod === 'GPS' ? '📍 GPS' :
-                                  '🎭 Face Rec'}
-                          </span>
-                        </div>
-
-                        {attendanceDetails.officeName && (
-                          <div className="sc-chip ok-chip chip-full">
-                            <span className="chip-lbl">Assigned Office Location</span>
-                            <span className="chip-val">📍 {attendanceDetails.officeName}</span>
-                          </div>
-                        )}
-
-                        {(attendanceDetails.lateMinutes ?? 0) > 0 && (
-                          <div className="sc-chip warn-chip chip-full">
-                            <span className="chip-lbl">Late warning status</span>
-                            <span className="chip-val">
-                              ⚠️ {attendanceDetails.graceType || attendanceDetails.attendanceStatus} — {attendanceDetails.lateMinutes}m late
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    className="stock-button stock-button--primary"
-                    onClick={resetScannerAndResume}
+              <div className="sc-kiosk-tb-row2">
+                <div
+                  className="sc-kiosk-status-pill"
+                  style={{
+                    color: statusColor,
+                    background: `${statusColor}14`,
+                    borderColor: `${statusColor}40`
+                  }}
+                >
+                  <span
                     style={{
-                      width: '100%',
-                      marginTop: '20px',
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: statusColor,
+                      display: 'inline-block'
                     }}
-                  >
-                    Clear Result & Scan Again
-                  </button>
-                </div>
-
-              ) : (
-
-                /* ── IDLE CONTROL PANEL ── */
-                <div className="stock-panel">
-
-                  {/* Shift Timing Window Selector Card (Desktop only) */}
-                  {!isMobile && renderSlotSelector()}
-
-                  {/* Status indicator */}
-                  <div className="sc-status-pill" style={{ background: cooldownCountdown > 0 ? '#f59e0b10' : `${statusColor}10`, color: cooldownCountdown > 0 ? '#f59e0b' : statusColor, borderColor: cooldownCountdown > 0 ? '#f59e0b25' : `${statusColor}25` }}>
-                    <span className="sc-dot" style={{ background: cooldownCountdown > 0 ? '#f59e0b' : statusColor }} />
-                    {cooldownCountdown > 0
-                      ? `RESUMING IN ${cooldownCountdown}S...`
+                  />
+                  <span>
+                    {isScannerPaused
+                      ? 'PAUSED'
                       : isProcessing
                         ? 'ANALYZING FACE...'
                         : guidanceState === 'aligned'
@@ -1965,433 +1701,470 @@ const AIAttendanceScanner: React.FC = () => {
                               ? 'MOVE BACK'
                               : guidanceState === 'off-center'
                                 ? 'CENTER FACE'
-                                : 'AWAITING BIOMETRICS'}
-                  </div>
-                  <div className="sc-msg" style={{ color: cooldownCountdown > 0 ? '#f59e0b' : (guidanceState !== 'idle' ? (guidanceState === 'aligned' ? '#10b981' : '#f59e0b') : statusColor) }}>
-                    {cooldownCountdown > 0
-                      ? 'Please step away from the camera'
-                      : isProcessing ? '⚡ Analyzing face biometrics...' : (guidanceText || resultMessage)}
-                  </div>
-
-                  {/* 2. Monthly Grace & Rules Tracker Widget */}
-                  {graceSummary && (
-                    <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '12px' }}>
-                      <h3
-                        className="grace-tracker-title"
-                        onClick={() => setShowGraceTrackerDetails(p => !p)}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', margin: '14px 0 8px 0' }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <IonIcon icon={fingerPrintOutline} style={{ color: '#6366f1' }} />
-                          <span>Monthly Grace Tracker</span>
-                        </div>
-                        <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: 700, background: 'rgba(99, 102, 241, 0.08)', padding: '4px 8px', borderRadius: '8px' }}>
-                          {showGraceTrackerDetails ? 'Collapse ▲' : 'Expand ▼'}
-                        </span>
-                      </h3>
-
-                      {showGraceTrackerDetails && (
-                        <div className="animate__animated animate__fadeIn animate__fast">
-                          <div className="grace-summary-box">
-                            <div className="circle-progress-container">
-                              {/* SVG circular progress indicator */}
-                              <svg width="74" height="74" viewBox="0 0 36 36">
-                                <path
-                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                  fill="none"
-                                  stroke="#f1f5f9"
-                                  strokeWidth="2.5"
-                                />
-                                <path
-                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                  fill="none"
-                                  stroke="#6366f1"
-                                  strokeWidth="2.5"
-                                  strokeDasharray={`${(graceSummary.gracesLeft / 4) * 100}, 100`}
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              <div className="progress-label-val">
-                                {graceSummary.gracesLeft}
-                              </div>
-                            </div>
-
-                            <div className="grace-details-panel">
-                              <div className="grace-stat-row">
-                                <span>🟢 Free Graces</span>
-                                <span className="val-high">{graceSummary.gracesLeft} / {graceSummary.freeGracesMax ?? 4} Left</span>
-                              </div>
-                              <div className="grace-stat-row">
-                                <span>🟡 Permission Sessions</span>
-                                <span className="val-high" style={{ color: '#d97706' }}>{graceSummary.permissionGraceUsed} / {graceSummary.permissionSessionsMax ?? 6} Used</span>
-                              </div>
-                              <div className="grace-stat-row">
-                                <span>🔴 Total Late Occasions</span>
-                                <span className="val-high" style={{ color: (graceSummary.totalLateOccasionsUsed ?? (graceSummary.freeGracesUsed + graceSummary.permissionGraceUsed)) >= 10 ? '#ef4444' : '#1e293b' }}>
-                                  {graceSummary.totalLateOccasionsUsed ?? (graceSummary.freeGracesUsed + graceSummary.permissionGraceUsed)} / {graceSummary.totalLateOccasionsMax ?? 10}
-                                </span>
-                              </div>
-                              <div className="grace-stat-row">
-                                <span>P_Time Balance</span>
-                                <span className="val-high">{graceSummary.permissionBalance} min</span>
-                              </div>
-                              <div className="grace-stat-row" style={{ alignItems: 'center' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  Remaining Balance
-                                  <button
-                                    onClick={() => setShowPermissionCalcModal(true)}
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#6366f1' }}
-                                    title="Click to view calculation breakdown"
-                                  >
-                                    <IonIcon icon={helpCircleOutline} style={{ fontSize: '1.05rem', color: '#6366f1' }} />
-                                  </button>
-                                </span>
-                                <span className="val-high">{graceSummary.permissionBalance} min</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* "Where it was Cut" history logs */}
-                          <div className="grace-history-container">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                Grace Usage History ("Where it was Cut")
-                              </span>
-                              {graceSummary.history && (
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#ef4444', background: '#fef2f2', padding: '2px 8px', borderRadius: '12px', border: '1px solid #fee2e2' }}>
-                                  Total Cut: {graceSummary.history.reduce((acc: number, r: any) => acc + (r.lateMinutes || 0) + (r.lunchLateMinutes || 0), 0)}m / P_Time: {graceSummary.pTime ?? 0}m
-                                </span>
-                              )}
-                            </div>
-
-                            {graceSummary.history && graceSummary.history.length > 0 && (() => {
-                              const categorizeGraceRow = (row: any) => {
-                                const gType = (row.graceType || '').toUpperCase();
-                                const status = (row.attendanceStatus || '').toUpperCase();
-
-                                if (gType === 'FREE_GRACE' || gType.includes('FREE') || gType.includes('GRACE') || status.includes('GRACE')) {
-                                  return {
-                                    category: 'GRACE',
-                                    classType: 'type-free',
-                                    labelType: 'Free Grace',
-                                    statusText: row.attendanceStatus || 'Grace'
-                                  };
-                                }
-                                if (gType === 'PERMISSION' || gType.includes('PERM') || status.includes('PERM') || status.includes('PERMISSION')) {
-                                  return {
-                                    category: 'PERMISSION',
-                                    classType: 'type-perm',
-                                    labelType: 'Permission Adjusted',
-                                    statusText: row.attendanceStatus || 'Permission Adjusted'
-                                  };
-                                }
-                                return {
-                                  category: 'LOP',
-                                  classType: 'type-lop',
-                                  labelType: 'LOP Deducted',
-                                  statusText: row.attendanceStatus || 'LOP'
-                                };
-                              };
-
-                              const allHist = graceSummary.history;
-                              const lopCount = allHist.filter((r: any) => categorizeGraceRow(r).category === 'LOP').length;
-                              const graceCount = allHist.filter((r: any) => categorizeGraceRow(r).category === 'GRACE').length;
-                              const permCount = allHist.filter((r: any) => categorizeGraceRow(r).category === 'PERMISSION').length;
-
-                              const filteredList = allHist.filter((r: any) => {
-                                if (graceHistoryFilter === 'ALL') return true;
-                                return categorizeGraceRow(r).category === graceHistoryFilter;
-                              });
-
-                              return (
-                                <>
-                                  <div className="grace-filter-btn-group">
-                                    <button
-                                      className={`grace-filter-btn ${graceHistoryFilter === 'ALL' ? 'active' : ''}`}
-                                      onClick={() => setGraceHistoryFilter('ALL')}
-                                    >
-                                      All ({allHist.length})
-                                    </button>
-                                    <button
-                                      className={`grace-filter-btn lop-btn ${graceHistoryFilter === 'LOP' ? 'active' : ''}`}
-                                      onClick={() => setGraceHistoryFilter('LOP')}
-                                    >
-                                      LOP ({lopCount})
-                                    </button>
-                                    <button
-                                      className={`grace-filter-btn grace-btn ${graceHistoryFilter === 'GRACE' ? 'active' : ''}`}
-                                      onClick={() => setGraceHistoryFilter('GRACE')}
-                                    >
-                                      Grace ({graceCount})
-                                    </button>
-                                    <button
-                                      className={`grace-filter-btn perm-btn ${graceHistoryFilter === 'PERMISSION' ? 'active' : ''}`}
-                                      onClick={() => setGraceHistoryFilter('PERMISSION')}
-                                    >
-                                      Permission Adjusted ({permCount})
-                                    </button>
-                                  </div>
-
-                                  <div className="grace-history-list">
-                                    {filteredList.length > 0 ? (
-                                      filteredList.map((row: any, i: number) => {
-                                        const catInfo = categorizeGraceRow(row);
-                                        const lateParts = [];
-                                        if ((row.lateMinutes || 0) > 0) lateParts.push(`${row.lateMinutes}m Morning`);
-                                        if ((row.lunchLateMinutes || 0) > 0) lateParts.push(`${row.lunchLateMinutes}m Lunch`);
-                                        const rowTotalMins = (row.lateMinutes || 0) + (row.lunchLateMinutes || 0);
-                                        const lateTime = lateParts.length > 0
-                                          ? `${rowTotalMins}m late (${lateParts.join(', ')})`
-                                          : 'On Time';
-
-                                        return (
-                                          <div key={i} className="grace-history-row">
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                              <span className="history-date" style={{ fontWeight: 800 }}>
-                                                {row.date} <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>({catInfo.statusText})</span>
-                                              </span>
-                                              <span style={{ color: '#475569', fontSize: '0.72rem', fontWeight: 600 }}>
-                                                {lateTime}
-                                              </span>
-                                            </div>
-                                            <span className={`history-type ${catInfo.classType}`}>
-                                              {catInfo.labelType}
-                                            </span>
-                                          </div>
-                                        );
-                                      })
-                                    ) : (
-                                      <div className="grace-history-empty">No entries found for this category filter.</div>
-                                    )}
-                                  </div>
-                                </>
-                              );
-                            })()}
-
-                            {(!graceSummary.history || graceSummary.history.length === 0) && (
-                              <div className="grace-history-empty">No graces or permissions deducted this month.</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Permission Calculation Breakdown Modal */}
-                  {showPermissionCalcModal && (
-                    <div className="rules-modal-overlay" onClick={() => setShowPermissionCalcModal(false)}>
-                      <div className="rules-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', borderRadius: '18px', padding: '20px', background: 'white' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>📊</span> Permission Balance Calculation
-                          </h3>
-                          <button onClick={() => setShowPermissionCalcModal(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <IonIcon icon={closeOutline} style={{ fontSize: '18px', color: '#64748b' }} />
-                          </button>
-                        </div>
-
-                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', marginBottom: '14px', border: '1px solid #e2e8f0', fontSize: '0.78rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <span style={{ color: '#475569' }}>Base Monthly Permission (P_Time):</span>
-                            <span style={{ fontWeight: 700, color: '#1e293b' }}>{graceSummary?.pTime ?? 0} min</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <span style={{ color: '#16a34a' }}>Approved Overtime Credits:</span>
-                            <span style={{ fontWeight: 700, color: '#16a34a' }}>+ {graceSummary?.approvedOvertime ?? 0} min</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', borderTop: '1px dashed #cbd5e1', paddingTop: '6px' }}>
-                            <span style={{ fontWeight: 700, color: '#334155' }}>Total Allowed Permission:</span>
-                            <span style={{ fontWeight: 800, color: '#0f172a' }}>{(graceSummary?.pTime ?? 0) + (graceSummary?.approvedOvertime ?? 0)} min</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#dc2626' }}>
-                            <span>Total Used Permissions (Deductions):</span>
-                            <span style={{ fontWeight: 700 }}>- {graceSummary?.usedPermission ?? 0} min</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #6366f1', paddingTop: '8px', marginTop: '4px' }}>
-                            <span style={{ fontWeight: 800, color: '#4f46e5' }}>Remaining Permission Balance:</span>
-                            <span style={{ fontWeight: 800, color: '#4f46e5', fontSize: '0.85rem' }}>{graceSummary?.permissionBalance ?? 0} min</span>
-                          </div>
-                        </div>
-
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
-                          Formula & Equation
-                        </div>
-                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 12px', borderRadius: '10px', fontSize: '0.74rem', color: '#1e40af', marginBottom: '16px', lineHeight: '1.5' }}>
-                          <strong>Balance</strong> = (P_Time + Overtime) - Used Deductions<br />
-                          <code style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1d4ed8' }}>
-                            {graceSummary?.permissionBalance ?? 0}m = ({graceSummary?.pTime ?? 0}m + {graceSummary?.approvedOvertime ?? 0}m) - {graceSummary?.usedPermission ?? 0}m
-                          </code>
-                        </div>
-
-                        <button onClick={() => setShowPermissionCalcModal(false)} style={{ width: '100%', padding: '10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. System Telemetry Checklist */}
-                  {(!isMobile || sheetState === "expanded") && (
-                    <div style={{ marginTop: '24px' }}>
-                      <h3 className="checklist-header">
-                        Telemetry Checklist
-                      </h3>
-
-                      <div className="checklist-widget">
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>📷</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>Live Video Stream</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {isCameraReady ? 'Connected (640x480)' : 'Awaiting stream...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${isCameraReady ? 'badge-verified' : 'badge-pending'}`}>
-                            {isCameraReady ? 'OK' : 'OFFLINE'}
-                          </span>
-                        </div>
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>📍</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>Office Geofence</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {locationReady ? `${cityName || 'Locked'}` : 'Resolving GPS...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${locationReady ? 'badge-verified' : 'badge-pending'}`}>
-                            {locationReady ? 'OK' : 'SYNCING'}
-                          </span>
-                        </div>
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>📶</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>EasyReach Beacon</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {bleVerified ? `${bleDeviceName}` : 'Scanning BLE...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${bleVerified ? 'badge-verified' : 'badge-pending'}`}
-                            style={
-                              !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
-                                ? { backgroundColor: '#ef4444', color: '#ffffff' }
-                                : {}
-                            }
-                          >
-                            {bleVerified
-                              ? 'OK'
-                              : bleSignalStrength !== null && bleSignalStrength < -80
-                                ? 'FAR'
-                                : 'SCAN'}
-                          </span>
-                        </div>
-
-                        <div className="check-item">
-                          <div className="check-label-wrap">
-                            <span style={{ fontSize: '18px' }}>👤</span>
-                            <div style={{ textAlign: 'left' }} className="hide-web">
-                              <div style={{ fontWeight: 700 }}>Biometric Profile</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                                {userData ? 'Loaded' : 'Resolving login...'}
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`check-status-badge ${userData ? 'badge-verified' : 'badge-pending'}`}>
-                            {userData ? 'OK' : 'AWAIT'}
-                          </span>
-                        </div>
-
-                      </div>
-                    </div>
-                  )}
-
+                                : 'ALIGN FACE'}
+                  </span>
                 </div>
-              )}
+
+                <div className="sc-kiosk-telem-group">
+                  <div
+                    className={`sc-ind ${activeRule?.gpsRequired === false ? 'ind-ok' : locationReady ? 'ind-ok' : 'ind-wait'}`}
+                    style={activeRule?.gpsRequired === false ? { background: 'rgba(148, 163, 184, 0.1)', color: '#64748b', borderColor: '#cbd5e1' } : {}}
+                  >
+                    <IonIcon icon={pinOutline} />
+                    <span>{activeRule?.gpsRequired === false ? 'GPS: OFF' : locationReady ? 'GPS OK' : 'GPS Fix…'}</span>
+                  </div>
+                  <div
+                    className={`sc-ind ${activeRule?.btRequired === false ? 'ind-ok' : bleVerified ? 'ind-ok' : 'ind-wait'}`}
+                    style={
+                      activeRule?.btRequired === false
+                        ? { background: 'rgba(148, 163, 184, 0.1)', color: '#64748b', borderColor: '#cbd5e1' }
+                        : !bleVerified && bleSignalStrength !== null && bleSignalStrength < -80
+                          ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }
+                          : {}
+                    }
+                  >
+                    <IonIcon icon={bluetoothOutline} />
+                    <span>{activeRule?.btRequired === false ? 'BLE: OFF' : bleVerified ? 'Beacon OK' : bleSignalStrength !== null && bleSignalStrength < -80 ? 'BLE Weak' : 'Beacon…'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-          </div>{/* sc-body */}
+            {/* 2. Centered Camera Viewport */}
+            <div className="sc-kiosk-camera-box">
+              <video ref={videoRef} autoPlay playsInline muted className="sc-video" />
+
+              <div className="sc-hud">
+                <div className={`sc-fixed-guide-target state-${scanSuccess ? 'success' : isProcessing ? 'aligned is-scanning' : guidanceState === 'aligned' ? 'aligned' : guidanceState === 'idle' ? 'idle' : 'warning'}`}>
+                  {/* Outer slow-rotating calibration dial */}
+                  <div className="sc-fixed-dial-outer" />
+
+                  {/* Fixed Biometric Frame */}
+                  <div className="sc-fixed-frame" />
+
+                  {/* 4 Precision Corner Brackets */}
+                  <div className="sc-guide-corner tl" />
+                  <div className="sc-guide-corner tr" />
+                  <div className="sc-guide-corner bl" />
+                  <div className="sc-guide-corner br" />
+
+                  {/* Subtle Face Silhouette Guide */}
+                  <svg className="sc-face-silhouette" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="60" cy="72" rx="42" ry="54" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" />
+                    <circle cx="45" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                    <circle cx="75" cy="62" r="3" fill="currentColor" opacity="0.6" />
+                    <path d="M52 82 Q60 88 68 82" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+
+                  {/* Active Laser Sweeper */}
+                  <div className="sc-guide-laser" />
+                </div>
+
+                {/* Live HUD Floating Guidance Pill */}
+                {!scanSuccess && (
+                  <div className={`sc-hud-guidance-pill pill-${isProcessing ? 'aligned' : guidanceState}`}>
+                    <span>{isProcessing ? '⚡ Hold still, analyzing face...' : guidanceText}</span>
+                  </div>
+                )}
+              </div>
+
+              {!isCameraReady && (
+                <div className="sc-cam-loader" style={{ background: '#090d16', color: '#ffffff' }}>
+                  <div className="tech-loader">
+                    <div className="tech-ring-1" />
+                    <div className="tech-ring-2" />
+                    <div className="tech-ring-3" />
+                    <div className="tech-center" />
+                  </div>
+                  <p style={{ color: '#818cf8', marginTop: '16px', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.5px' }}>
+                    INITIALIZING CAMERA…
+                  </p>
+                </div>
+              )}
+
+              {capturedImg && (
+                <div className="sc-last-capture-preview" onClick={() => setCapturedImg(null)} title="Clear Preview">
+                  <img src={capturedImg} alt="last scan preview" />
+                </div>
+              )}
+
+              {/* Floating Camera Control Buttons */}
+              {isCameraReady && (
+                <div className="sc-kiosk-cam-actions">
+                  <button
+                    className={`sc-cam-pause-btn ${isScannerPaused ? 'is-paused' : ''}`}
+                    onClick={toggleScannerPause}
+                    title={isScannerPaused ? "Resume Scanner" : "Pause Scanner"}
+                    type="button"
+                  >
+                    <IonIcon icon={isScannerPaused ? playOutline : pauseOutline} />
+                  </button>
+                  <button
+                    className="sc-cam-flip-btn"
+                    onClick={toggleCameraMode}
+                    title="Flip Camera"
+                    type="button"
+                  >
+                    <IonIcon icon={cameraReverseOutline} />
+                  </button>
+                </div>
+              )}
+
+              {/* Debug Logs */}
+              <div className="sc-debug-logs" style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '12px',
+                zIndex: 20,
+                background: 'rgba(15, 23, 42, 0.85)',
+                color: '#94a3b8',
+                padding: '4px 8px',
+                borderRadius: '8px',
+                fontSize: '8px',
+                fontFamily: 'monospace',
+                pointerEvents: 'none',
+                maxWidth: '65%',
+                lineHeight: '1.2',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
+              }}>
+                {debugLogs.length === 0 ? "[DEBUG] Scanner Active" : debugLogs.slice(0, 2).map((log, i) => (
+                  <div key={i}>{log}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Kiosk Bottom 3-Card Info Summary */}
+            <div className="sc-kiosk-footer-info">
+              <div className="sc-kiosk-info-card">
+                <div className="sc-kiosk-info-icon" style={{ background: '#eef2ff', borderColor: '#c7d2fe', color: '#4f46e5' }}>
+                  👤
+                </div>
+                <div className="sc-kiosk-info-text">
+                  <div className="sc-kiosk-info-title">{userData?.EmpName || userData?.empName || 'Employee'}</div>
+                  <div className="sc-kiosk-info-subtitle">ID #{userData?.empCode || userData?.EmpCode || ''} • {userData?.Department || 'Staff'}</div>
+                </div>
+              </div>
+
+              <div className="sc-kiosk-info-card">
+                <div className="sc-kiosk-info-icon" style={{ background: '#ecfdf5', borderColor: '#a7f3d0', color: '#059669' }}>
+                  📍
+                </div>
+                <div className="sc-kiosk-info-text">
+                  <div className="sc-kiosk-info-title">Office: {userData?.Branch || cityName || 'Geofence Active'}</div>
+                  <div className="sc-kiosk-info-subtitle">{locationReady ? 'GPS Geofence Verified' : 'GPS Locating…'}</div>
+                </div>
+              </div>
+
+              <div className="sc-kiosk-info-card">
+                <div className="sc-kiosk-info-icon" style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#d97706' }}>
+                  ⏱️
+                </div>
+                <div className="sc-kiosk-info-text">
+                  <div className="sc-kiosk-info-title">Graces: {graceSummary?.gracesLeft ?? 4} / {graceSummary?.freeGracesMax ?? 4} Left</div>
+                  <div className="sc-kiosk-info-subtitle">Perm Balance: {graceSummary?.permissionBalance ?? 0}m</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── TARGET ATTENDANCE SLOT POPUP MODAL ── */}
+          {showSlotModal && (
+            <div className="slot-hub-modal-overlay">
+              <div className="slot-hub-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="slot-hub-header">
+                  <div className="slot-hub-title-group">
+                    <div className="slot-hub-icon-wrap">🎯</div>
+                    <div>
+                      <h2 className="slot-hub-title">Target Attendance Slot</h2>
+                      <p className="slot-hub-subtitle">Select session to start camera scan</p>
+                    </div>
+                  </div>
+                  <button
+                    className="slot-hub-rules-btn"
+                    onClick={() => setShowRulesModal(true)}
+                    type="button"
+                  >
+                    <IonIcon icon={informationCircleOutline} style={{ fontSize: '17px' }} />
+                    <span>Rules</span>
+                  </button>
+                </div>
+
+                <div className="slot-hub-grid">
+                  {[
+                    { key: "Morning In", label: "Morning", icon: "🌅", desc: "Workday In" },
+                    { key: "Lunch Out", label: "Lunch Out", icon: "🍱", desc: "Break Exit" },
+                    { key: "Lunch In", label: "Lunch In", icon: "🥗", desc: "Break Return" },
+                    { key: "Evening Out", label: "Evening", icon: "🌇", desc: "Workday Exit" },
+                    { key: "Permission Out", label: "Perm Out", icon: "🚪", desc: "Short Exit" },
+                    { key: "Permission In", label: "Perm In", icon: "🏁", desc: "Office Return" }
+                  ].map(item => {
+                    const isAuto = item.key === getAutoStatus();
+                    const isSelected = selectedStatus === item.key;
+                    const slotClass =
+                      item.key === "Morning In" ? "slot-item-morning-in" :
+                      item.key === "Lunch Out" ? "slot-item-lunch-out" :
+                      item.key === "Lunch In" ? "slot-item-lunch-in" :
+                      item.key === "Evening Out" ? "slot-item-evening-out" :
+                      item.key === "Permission Out" ? "slot-item-permission-out" : "slot-item-permission-in";
+
+                    return (
+                      <button
+                        key={item.key}
+                        className={`slot-hub-item ${slotClass} ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleSlotSelect(item.key)}
+                        type="button"
+                      >
+                        <div className="slot-hub-item-icon">{item.icon}</div>
+                        <div className="slot-hub-item-info">
+                          <span className="slot-hub-item-title">{item.label}</span>
+                          <span className="slot-hub-item-desc">{item.desc}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {graceSummary && (
+                  <div className="slot-hub-grace-bar" style={{ marginTop: '14px' }}>
+                    <span>🎯 Free Graces Left: <strong>{graceSummary.gracesLeft ?? 4} / {graceSummary.freeGracesMax ?? 4}</strong></span>
+                    <span>🚪 Permission Balance: <strong>{graceSummary.permissionBalance ?? 0} mins</strong></span>
+                    {graceSummary.permissionSessionsLeft !== undefined && (
+                      <span>⏱️ Sessions Left: <strong>{graceSummary.permissionSessionsLeft} / {graceSummary.permissionSessionsMax ?? 6}</strong></span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* RULES INFO MODAL */}
           {showRulesModal && (
             <div className="rules-modal-overlay">
               <div className="rules-modal-card">
+                {/* 1. Header */}
                 <div className="rules-modal-header">
-                  <h3 className="rules-modal-title">Attendance Policy & Rules</h3>
+                  <div>
+                    <span className="rules-modal-badge">
+                      ⚡ Global Policy Master
+                    </span>
+                    <h3 className="rules-modal-title">
+                      Face Attendance Policy Master
+                    </h3>
+                    <p className="rules-modal-subtitle">
+                      Configure and dynamically control all Face Attendance, Free Grace, Permission, LOP &amp; Yellow Slip Rules
+                    </p>
+                  </div>
                   <button
+                    className="rules-modal-close-btn"
                     onClick={() => setShowRulesModal(false)}
-                    style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    type="button"
+                    title="Close"
                   >
                     <IonIcon icon={closeOutline} />
                   </button>
                 </div>
-                <div className="rules-modal-body" style={{ textAlign: 'left', maxHeight: '70vh', overflowY: 'auto' }}>
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🌅 1. Morning In Window &amp; Monthly Free Grace</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Dynamic In-Time:</strong> Reporting time is strictly read from your employee profile in <code>tbl_employee.InTime</code> (e.g. 09:00, 09:30, 10:00).</li>
-                      <li><strong>{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces:</strong> Allowed <strong>{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces</strong> per calendar month for late arrival up to <strong>{getPolVal('FreeGraceMaxMinutes', '15')} minutes</strong> each.</li>
-                      <li><strong>{getPolVal('MaxPermissionSessionsPerMonth', '6')} Permission Sessions:</strong> Subsequent late arrivals auto-deduct from your monthly allotted <code>P_Time</code> balance (up to <strong>{getPolVal('MaxPermissionSessionsPerMonth', '6')} permission sessions</strong>).</li>
-                      <li><strong>{getPolVal('TotalAllowedLateOccasions', '10')} Total Occasion Cap:</strong> Maximum <strong>{getPolVal('TotalAllowedLateOccasions', '10')} late occasions</strong> allowed per month ({getPolVal('FreeGraceMonthlyCount', '4')} free graces + {getPolVal('MaxPermissionSessionsPerMonth', '6')} permissions). After {getPolVal('MaxPermissionSessionsPerMonth', '6')} sessions, permission adjustment is stopped even if P_Time balance remains.</li>
-                      <li><strong>Beyond {getPolVal('TotalAllowedLateOccasions', '10')} Occasions Penalty:</strong> Exceeding {getPolVal('TotalAllowedLateOccasions', '10')} occasions OR having zero permission balance converts the total late time including the 60 min grace to <strong>Loss of Pay (LOP) + 1 Yellow Slip</strong>.</li>
+
+                {/* 2. Top Highlights Metrics Ribbon */}
+                <div className="rules-modal-ribbon">
+                  <div className="rules-ribbon-card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+                    <span className="rules-ribbon-icon">🛡️</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#1e40af' }}>{getPolVal('FreeGraceMonthlyCount', '4')} Graces</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#3b82f6' }}>Max {getPolVal('FreeGraceMaxMinutes', '15')}m / grace</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                    <span className="rules-ribbon-icon">⏱️</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#065f46' }}>{getPolVal('MaxPermissionSessionsPerMonth', '6')} Sessions</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#10b981' }}>Allotted P_Time</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#faf5ff', borderColor: '#e9d5ff' }}>
+                    <span className="rules-ribbon-icon">⚠️</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#6b21a8' }}>{getPolVal('TotalAllowedLateOccasions', '10')} Occasions</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#a855f7' }}>Monthly Late Cap</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#fffbeb', borderColor: '#fde68a' }}>
+                    <span className="rules-ribbon-icon">🍱</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#92400e' }}>{getPolVal('LunchBreakDurationMinutes', '60')}m Break</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#f59e0b' }}>Auto from Lunch Out</div>
+                    </div>
+                  </div>
+                  <div className="rules-ribbon-card" style={{ background: '#fff1f2', borderColor: '#fecdd3' }}>
+                    <span className="rules-ribbon-icon">🟨</span>
+                    <div className="rules-ribbon-text">
+                      <div className="rules-ribbon-val" style={{ color: '#9f1239' }}>Yellow Slips</div>
+                      <div className="rules-ribbon-sub" style={{ color: '#ef4444' }}>&gt; 10 Occ / 3 Excess</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Structured Policy Cards Body */}
+                <div className="rules-modal-body text-left">
+                  {/* Section 1 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🌅 1. Morning In Window &amp; Monthly Free Grace Rules
+                      </h4>
+                      <span className="rule-card-badge">Morning Reporting</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Dynamic In-Time</span>
+                        <span className="rule-text">Reporting time is strictly read from your employee profile in <code>tbl_employee.InTime</code> (e.g. 09:00, 09:30, 10:00).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces</span>
+                        <span className="rule-text">Allowed <strong>{getPolVal('FreeGraceMonthlyCount', '4')} Free Graces</strong> per calendar month for late arrival up to <strong>{getPolVal('FreeGraceMaxMinutes', '15')} minutes</strong> each.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">{getPolVal('MaxPermissionSessionsPerMonth', '6')} Sessions</span>
+                        <span className="rule-text">Subsequent late arrivals auto-deduct from your monthly allotted <code>P_Time</code> balance (up to <strong>{getPolVal('MaxPermissionSessionsPerMonth', '6')} permission sessions</strong>).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">{getPolVal('TotalAllowedLateOccasions', '10')} Cap</span>
+                        <span className="rule-text">Maximum <strong>{getPolVal('TotalAllowedLateOccasions', '10')} late occasions</strong> allowed per month ({getPolVal('FreeGraceMonthlyCount', '4')} free graces + {getPolVal('MaxPermissionSessionsPerMonth', '6')} permissions). After {getPolVal('MaxPermissionSessionsPerMonth', '6')} sessions, permission adjustment is stopped even if P_Time balance remains.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fee2e2', color: '#991b1b', borderColor: '#fca5a5' }}>Occasion Penalty</span>
+                        <span className="rule-text">Exceeding {getPolVal('TotalAllowedLateOccasions', '10')} occasions OR having zero permission balance converts the total late time including the 60 min grace to <strong>Loss of Pay (LOP) + 1 Yellow Slip</strong>.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🍱 2. Lunch Break &amp; Afternoon Rules</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Official Window:</strong> Standard lunch break is from <strong>{getPolVal('StandardLunchStartTime', '13:30:00')} to {getPolVal('StandardLunchEndTime', '14:30:00')}</strong>.</li>
-                      <li><strong>Auto {getPolVal('LunchBreakDurationMinutes', '60')}-Minute Duration:</strong> If you punch Lunch Out at 2:00 PM, 3:00 PM, 4:00 PM, etc., the system auto-calculates exactly <strong>{getPolVal('LunchBreakDurationMinutes', '60')} minutes break</strong> from your actual Lunch Out punch.</li>
-                      <li><strong>No Afternoon Grace:</strong> Free grace applies ONLY to Morning In. Late arrival beyond {getPolVal('LunchBreakDurationMinutes', '60')} minutes auto-deducts from Permission balance or converts to Loss of Pay (LOP).</li>
+                  {/* Section 2 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🍱 2. Lunch Break &amp; Afternoon Rules
+                      </h4>
+                      <span className="rule-card-badge">Lunch Hours</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Lunch Window</span>
+                        <span className="rule-text">Standard lunch break is from <strong>{getPolVal('StandardLunchStartTime', '13:30:00')} to {getPolVal('StandardLunchEndTime', '14:30:00')}</strong>.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Auto {getPolVal('LunchBreakDurationMinutes', '60')}m</span>
+                        <span className="rule-text">If you punch Lunch Out at 2:00 PM, 3:00 PM, 4:00 PM, etc., the system auto-calculates exactly <strong>{getPolVal('LunchBreakDurationMinutes', '60')} minutes break</strong> from your actual Lunch Out punch.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>No PM Grace</span>
+                        <span className="rule-text">Free grace applies ONLY to Morning In. Late arrival beyond {getPolVal('LunchBreakDurationMinutes', '60')} minutes auto-deducts from Permission balance or converts to Loss of Pay (LOP).</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🌆 3. Evening Out &amp; Shift Defaults</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li>Standard checkout time: <strong>{getPolVal('StandardEveningOutTime', '18:33:00')}</strong>. Register your punch before leaving.</li>
+                  {/* Section 3 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🌆 3. Evening Out &amp; Shift Defaults
+                      </h4>
+                      <span className="rule-card-badge">Evening Shift</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Checkout Threshold</span>
+                        <span className="rule-text">Standard checkout time: <strong>{getPolVal('StandardEveningOutTime', '18:33:00')}</strong>. Register your punch before leaving.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">⏱️ 4. Monthly Permission Quotas (P_Time)</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Technical Staff:</strong> {getPolVal('TechnicalDefaultPermissionMinutes', '60')} minutes / month.</li>
-                      <li><strong>Non-Technical Staff:</strong> {getPolVal('NonTechnicalDefaultPermissionMinutes', '90')} minutes / month.</li>
-                      <li><strong>Marketing Executives:</strong> {getPolVal('MarketingDefaultPermissionMinutes', '240')} minutes / month.</li>
-                      <li><strong>Max Single Session:</strong> {getPolVal('MaxSinglePermissionMinutes', '60')} minutes per permission.</li>
+                  {/* Section 4 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        ⏱️ 4. Monthly Permission Quotas &amp; Role Defaults (P_Time)
+                      </h4>
+                      <span className="rule-card-badge">Role Quotas</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Technical</span>
+                        <span className="rule-text"><strong>{getPolVal('TechnicalDefaultPermissionMinutes', '60')} minutes / month</strong> without LOP.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Non-Technical</span>
+                        <span className="rule-text"><strong>{getPolVal('NonTechnicalDefaultPermissionMinutes', '90')} minutes / month</strong> without LOP.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Marketing</span>
+                        <span className="rule-text"><strong>{getPolVal('MarketingDefaultPermissionMinutes', '240')} minutes / month</strong> without LOP.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Max Session</span>
+                        <span className="rule-text"><strong>{getPolVal('MaxSinglePermissionMinutes', '60')} minutes</strong> maximum per permission request.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">⚠️ 5. Excess Permission &amp; Double LOP Matrix</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>Approved Excess (Up to {getPolVal('ApprovedExcessPermissionLimitMinutes', '180')} min):</strong> Allowed beyond allotted P_Time subject to available permission balance (procured via overtime or carryover).</li>
-                      <li><strong>Excess Up to {getPolVal('SingleLopExcessPermissionLimitMinutes', '120')} min Without Balance:</strong> Attracts <strong>Single Loss of Pay (1x LOP)</strong>.</li>
-                      <li><strong>Excess &gt; {getPolVal('DoubleLopThresholdMinutes', '120')} min Without Balance:</strong> Attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in total deduction).</li>
-                      <li><strong>Carry Forward:</strong> Surplus permission time carries forward monthly and can be encashed yearly with management approval.</li>
+                  {/* Section 5 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        ⚠️ 5. Excess Permission &amp; Double LOP Penalty Matrix
+                      </h4>
+                      <span className="rule-card-badge">LOP Deductions</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag">Approved Excess</span>
+                        <span className="rule-text">Allowed up to <strong>{getPolVal('ApprovedExcessPermissionMinutes', getPolVal('ApprovedExcessPermissionLimitMinutes', '180'))} min</strong> beyond allotted P_Time subject to available permission balance (overtime/carryover).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' }}>1x LOP</span>
+                        <span className="rule-text">Excess up to <strong>{getPolVal('SingleLopExcessMinutes', getPolVal('SingleLopExcessPermissionLimitMinutes', '120'))} min</strong> without balance attracts <strong>Single Loss of Pay (1x LOP)</strong>.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fee2e2', color: '#991b1b', borderColor: '#fca5a5' }}>2x Double LOP</span>
+                        <span className="rule-text">Excess &gt; <strong>{getPolVal('DoubleLopExcessMinutes', getPolVal('DoubleLopThresholdMinutes', '120'))} min</strong> without balance attracts <strong>Double Loss of Pay (Double LOP / 2x LOP)</strong> (allotted permission time is also included in deduction).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Carry Forward</span>
+                        <span className="rule-text">Surplus permission time carries forward monthly and can be encashed yearly with management approval.</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag">Past LOP Finality</span>
+                        <span className="rule-text">Permission time procured after LOP calculation or slip issuance cannot reverse past LOPs or cancel issued slips.</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="rule-section">
-                    <h4 className="rule-sec-title">🟨 6. Yellow Slip Issuance Triggers</h4>
-                    <ul style={{ margin: '4px 0', paddingLeft: '18px', fontSize: '0.8rem', lineHeight: '1.5' }}>
-                      <li><strong>+1 Yellow Slip:</strong> Issued automatically when exceeding {getPolVal('TotalAllowedLateOccasions', '10')} total late occasions in a month.</li>
-                      <li><strong>+1 Yellow Slip:</strong> Issued for every <strong>{getPolVal('YellowSlipExcessPermissionInterval', '3')} excess permission sessions</strong> without available balance.</li>
+                  {/* Section 6 */}
+                  <div className="rule-card">
+                    <div className="rule-card-header">
+                      <h4 className="rule-card-title">
+                        🟨 6. Yellow Slip &amp; Disciplinary Triggers
+                      </h4>
+                      <span className="rule-card-badge">Disciplinary Slips</span>
+                    </div>
+                    <ul className="rule-list">
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef08a', color: '#854d0e', borderColor: '#fde047' }}>+1 Yellow Slip</span>
+                        <span className="rule-text">Issued automatically when exceeding <strong>{getPolVal('TotalAllowedLateOccasions', '10')} total late occasions</strong> in a month (total late time including 60m grace converts to LOP).</span>
+                      </li>
+                      <li className="rule-item">
+                        <span className="rule-tag" style={{ background: '#fef08a', color: '#854d0e', borderColor: '#fde047' }}>+1 Yellow Slip</span>
+                        <span className="rule-text">Issued for every <strong>{getPolVal('YellowSlipExcessFrequency', getPolVal('YellowSlipExcessPermissionInterval', '3'))} excess permission sessions</strong> without available balance.</span>
+                      </li>
                     </ul>
                   </div>
                 </div>
-                <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafb', textAlign: 'right' }}>
+
+                {/* 4. Footer */}
+                <div className="rules-modal-footer">
                   <button
+                    className="rules-btn-close"
                     onClick={() => setShowRulesModal(false)}
-                    style={{ padding: '8px 20px', background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                    type="button"
                   >
                     Close Policy Guide
                   </button>
@@ -2556,7 +2329,7 @@ const AIAttendanceScanner: React.FC = () => {
                           {attendanceDetails.gpsDetails.actualOfficeName || "Office Geofence"}
                         </span>
                         <span className="sc-modal-gps-coords">
-                          {attendanceDetails.gpsDetails.actualGps || "Lat/Lng"}
+                          {attendanceDetails.gpsDetails.actualGps || "HQ Geofence"}
                         </span>
                         {attendanceDetails.gpsDetails.allowedRadius && (
                           <span className="sc-modal-gps-subtag">
@@ -2568,14 +2341,21 @@ const AIAttendanceScanner: React.FC = () => {
                       {/* Device Present GPS */}
                       <div className="sc-modal-gps-col">
                         <span className="sc-modal-gps-label">📱 Present GPS</span>
-                        <span className="sc-modal-gps-value-bold" style={{ color: '#dc2626' }}>
+                        <span className="sc-modal-gps-value-bold" style={{ color: attendanceDetails.gpsDetails.gpsMatched ? '#047857' : '#dc2626' }}>
                           Device Location
                         </span>
                         <span className="sc-modal-gps-coords">
-                          {attendanceDetails.gpsDetails.presentGps || "Lat/Lng"}
+                          {attendanceDetails.gpsDetails.presentGps || "Locating..."}
                         </span>
-                        <span className="sc-modal-gps-subtag" style={{ color: '#b91c1c', background: '#fee2e2', borderColor: '#fca5a5' }}>
-                          Outside Geofence
+                        <span
+                          className="sc-modal-gps-subtag"
+                          style={{
+                            color: attendanceDetails.gpsDetails.gpsMatched ? '#047857' : '#b91c1c',
+                            background: attendanceDetails.gpsDetails.gpsMatched ? '#ecfdf5' : '#fee2e2',
+                            borderColor: attendanceDetails.gpsDetails.gpsMatched ? '#a7f3d0' : '#fca5a5'
+                          }}
+                        >
+                          {attendanceDetails.gpsDetails.gpsMatched ? 'Inside Geofence' : 'Outside Geofence'}
                         </span>
                       </div>
                     </div>
