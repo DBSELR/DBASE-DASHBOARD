@@ -51,13 +51,13 @@ import { useHistory } from "react-router-dom";
 const generateMonthList = () => {
   const months: string[] = [];
   const startYear = 2014;
-  const current = moment().add(1, 'month');
+  const current = moment().utcOffset("+05:30").add(1, 'month');
   const currentYear = current.year();
 
   for (let y = currentYear; y >= startYear; y--) {
     const endMonth = y === currentYear ? current.month() : 11;
     for (let m = endMonth; m >= 0; m--) {
-      months.push(moment().year(y).month(m).format("MMM-YYYY"));
+      months.push(moment().utcOffset("+05:30").year(y).month(m).format("MMM-YYYY"));
     }
   }
   return months;
@@ -103,8 +103,8 @@ const WorkReports: React.FC = () => {
 
   const [isTodayReportSubmitted, setIsTodayReportSubmitted] = useState<boolean>(() => {
     try {
-      const now = new Date();
-      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+      const now = moment().utcOffset("+05:30");
+      const todayKey = `${now.year()}-${now.month() + 1}-${now.date()}`;
       return localStorage.getItem(`work_report_submitted_${todayKey}`) === "true";
     } catch {
       return false;
@@ -113,9 +113,9 @@ const WorkReports: React.FC = () => {
 
   const markTodaySubmitted = () => {
     try {
-      const now = new Date();
-      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-      const slot = now.getMinutes() >= 20 ? "18_20" : "18_00";
+      const now = moment().utcOffset("+05:30");
+      const todayKey = `${now.year()}-${now.month() + 1}-${now.date()}`;
+      const slot = (now.hour() > 18 || (now.hour() === 18 && now.minute() >= 20)) ? "18_20" : "18_00";
       localStorage.setItem(`work_report_submitted_${todayKey}`, "true");
       localStorage.setItem("work_report_dismissed_time", `${todayKey}_${slot}`);
       setIsTodayReportSubmitted(true);
@@ -312,10 +312,7 @@ const WorkReports: React.FC = () => {
   };
 
   const getCurrentMonthYear = (): string => {
-    const now = new Date();
-    const month = now.toLocaleString("default", { month: "short" });
-    const year = now.getFullYear();
-    return `${month}-${year}`;
+    return moment().utcOffset("+05:30").format("MMM-YYYY");
   };
 
   const fetchMonths = async (empCode: string) => {
@@ -324,10 +321,14 @@ const WorkReports: React.FC = () => {
   };
 
   const fetchReports = async (empCode: string, month: string) => {
-    console.log("Fetching reports for:", { empCode, month });
+    let searchMonth = month || getCurrentMonthYear();
+    if (searchMonth && searchMonth.startsWith("Sept-")) {
+      searchMonth = searchMonth.replace("Sept-", "Sep-");
+    }
+    console.log("Fetching reports for:", { empCode, month: searchMonth });
     try {
       const res = await axios.get(`${baseUrl}/Workreport/Load_WorkReport`, {
-        params: new URLSearchParams({ EmpCode: empCode, SearchDate: month }),
+        params: new URLSearchParams({ EmpCode: empCode, SearchDate: searchMonth }),
         headers: getAuthHeaders(),
       });
       console.log("Fetch Reports Response:", res.data);
@@ -338,7 +339,7 @@ const WorkReports: React.FC = () => {
       if (reports.length > 0 && empCode === loginEmpCode) {
         const hasTodayReport = reports.some((r: any) => {
           const rDate = r[5];
-          return rDate && moment(rDate).isSame(moment(), 'day');
+          return rDate && moment(rDate, ["DD-MM-YYYY", "YYYY-MM-DD", "DD-MMM-YYYY", moment.ISO_8601]).isSame(moment().utcOffset("+05:30"), 'day');
         });
         if (hasTodayReport) {
           markTodaySubmitted();
@@ -346,7 +347,7 @@ const WorkReports: React.FC = () => {
       }
 
       if (reports.length === 0) {
-        setToastMessage(`No work reports found for ${month}`);
+        setToastMessage(`No work reports found for ${searchMonth}`);
         setToastType("danger");
         setShowToast(true);
       }
@@ -1017,10 +1018,12 @@ const WorkReports: React.FC = () => {
                                           e.stopPropagation();
                                           setSelectedEmployee(emp.empCode);
                                           setReportList([]);
-                                          setSelectedMonth(null);
+                                          const targetMonth = selectedMonth || getCurrentMonthYear();
+                                          setSelectedMonth(targetMonth);
                                           setIsEmployeeDropdownOpen(false);
                                           setEmpSearchTerm("");
                                           await fetchMonths(emp.empCode);
+                                          await fetchReports(emp.empCode, targetMonth);
                                         }}
                                       >
                                         <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`}>

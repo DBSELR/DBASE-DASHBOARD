@@ -43,13 +43,13 @@ const getAuthHeaders = () => {
 const generateMonthList = () => {
   const months: string[] = [];
   const startYear = 2014;
-  const current = moment().add(1, 'month');
+  const current = moment().utcOffset("+05:30").add(1, 'month');
   const currentYear = current.year();
 
   for (let y = currentYear; y >= startYear; y--) {
     const endMonth = y === currentYear ? current.month() : 11;
     for (let m = endMonth; m >= 0; m--) {
-      months.push(moment().year(y).month(m).format("MMM-YYYY"));
+      months.push(moment().utcOffset("+05:30").year(y).month(m).format("MMM-YYYY"));
     }
   }
   return months;
@@ -134,7 +134,7 @@ const AdminWorkReport: React.FC = () => {
   const [periodDropdownPos, setPeriodDropdownPos] = useState({ top: 0, left: 0, width: 240 });
   const periodTriggerRef = React.useRef<HTMLDivElement>(null);
 
-  const currentMY = useMemo(() => moment().format("MMM-YYYY"), []);
+  const currentMY = useMemo(() => moment().utcOffset("+05:30").format("MMM-YYYY"), []);
 
   useEffect(() => {
     if (isEmployeeDropdownOpen && empTriggerRef.current) {
