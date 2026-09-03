@@ -108,11 +108,35 @@ function MeetingMaster() {
   ];
 
   const frequencies = [
+    "One-time / Single",
     "Every Day",
     "Every Week",
     "Bi-monthly",
     "Monthly"
   ];
+
+  const FREQUENCY_DESCRIPTIONS: Record<string, { desc: string; badge: string }> = {
+    "One-time / Single": {
+      desc: "Single occurrence / instant meeting on selected date",
+      badge: "Instant / 1-Time"
+    },
+    "Every Day": {
+      desc: "Recurring daily across all working days of the month",
+      badge: "Daily"
+    },
+    "Every Week": {
+      desc: "Recurring once every week on the specified weekday",
+      badge: "Weekly"
+    },
+    "Bi-monthly": {
+      desc: "Recurring twice a month (every 2 weeks)",
+      badge: "2x / Month"
+    },
+    "Monthly": {
+      desc: "Recurring once a month on the specified date",
+      badge: "Monthly"
+    }
+  };
 
   const [raList, setRaList] = useState<string[]>(DEFAULT_RA_ROLES);
   const [raMembersMap, setRaMembersMap] = useState<Record<string, string[]>>({});
@@ -125,7 +149,7 @@ function MeetingMaster() {
     weekName: "",
     meetingType: "",
     participants: [] as string[],
-    frequencyType: "Every Day",
+    frequencyType: "One-time / Single",
     projectName: "", // Stores selected RA name for backend compatibility
     raName: "",      // Selected Reporting Authority
     meetingOwner: [] as string[],
@@ -138,6 +162,7 @@ function MeetingMaster() {
   };
 
   const [form, setForm] = useState(initialForm);
+  const [submittedAttempt, setSubmittedAttempt] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
 
   // ── Dropdown Open States ──────────────────────────────────────────
@@ -441,10 +466,14 @@ function MeetingMaster() {
   });
 
   const handleChange = (e: any) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    if (name === "meetingType" && value.trim()) {
+      setSubmittedAttempt(false);
+    }
   };
 
   const showToast = (
@@ -468,6 +497,59 @@ function MeetingMaster() {
     }
     return `${name} (${empId})`;
   };
+
+  // Dynamic context for schedule recurrence & meeting date display
+  const isDaily = form.frequencyType === "Every Day";
+  const isSingle = form.frequencyType === "One-time / Single";
+  const isWeekly = form.frequencyType === "Every Week";
+  const isMonthly = form.frequencyType === "Monthly";
+  const isBimonthly = form.frequencyType === "Bi-monthly";
+
+  // Dynamic schedule title for the date trigger
+  const scheduleDisplayTitle = useMemo(() => {
+    if (isDaily) {
+      return `Daily · Entire ${form.month} ${form.year}`;
+    }
+    if (isWeekly) {
+      const dayName = form.meetingDate ? moment(form.meetingDate).format("ddd") : "Day";
+      const dt = form.meetingDate ? moment(form.meetingDate).format("DD-MM-YYYY") : "";
+      return dt ? `Weekly (${dayName}s, from ${dt})` : "Pick Weekly Start Date";
+    }
+    if (isMonthly) {
+      const dNum = form.meetingDate ? moment(form.meetingDate).format("Do") : "";
+      return dNum ? `Monthly (Day ${dNum} of month)` : "Pick Monthly Date";
+    }
+    if (isBimonthly) {
+      const dt = form.meetingDate ? moment(form.meetingDate).format("DD-MM-YYYY") : "";
+      return dt ? `Bi-monthly (from ${dt})` : "Pick Start Date";
+    }
+    // Single / One-time
+    return form.meetingDate
+      ? moment(form.meetingDate).format("DD-MM-YYYY (ddd)")
+      : "Pick Meeting Date";
+  }, [isDaily, isWeekly, isMonthly, isBimonthly, form.meetingDate, form.month, form.year]);
+
+  // Helper note below the date trigger
+  const scheduleHelperNote = useMemo(() => {
+    if (isDaily) {
+      return `✓ Recurs every day across ${form.month} ${form.year} (controlled by Month & Fiscal Year below)`;
+    }
+    if (isWeekly) {
+      const dayName = form.meetingDate ? moment(form.meetingDate).format("dddd") : "specified day";
+      return `✓ Repeats every ${dayName} throughout ${form.month} ${form.year}`;
+    }
+    if (isMonthly) {
+      const dNum = form.meetingDate ? moment(form.meetingDate).format("Do") : "chosen date";
+      return `✓ Repeats once monthly on day ${dNum}`;
+    }
+    if (isBimonthly) {
+      return `✓ Repeats twice a month throughout ${form.month} ${form.year}`;
+    }
+    // Single
+    return form.meetingDate
+      ? `✓ Single instant meeting on ${moment(form.meetingDate).format("dddd, DD MMMM YYYY")}`
+      : "Select the date for this one-time meeting";
+  }, [isDaily, isWeekly, isMonthly, isBimonthly, form.meetingDate, form.month, form.year]);
 
   // Handle Changing RA from Dropdown (Auto-preselects that RA's team members & designated owner!)
   const handleSelectRA = (selectedRole: string) => {
@@ -635,6 +717,7 @@ function MeetingMaster() {
     const rKey = (form.raName || "").toLowerCase().trim();
     const defaultTeam = form.raName ? (raMembersMap[rKey] || []) : [];
     const leaderCode = RA_ROLE_TO_LEADER_CODE[rKey] || "";
+    setSubmittedAttempt(false);
     setForm({
       ...initialForm,
       raName: form.raName,
@@ -648,23 +731,19 @@ function MeetingMaster() {
   // Save Meeting Handler
   const saveMeeting = async () => {
     try {
-      if (!form.year) {
-        showToast("Please Select Year", "warning");
-        return;
-      }
-
-      if (!form.month) {
-        showToast("Please Select Month", "warning");
-        return;
-      }
-
-      if (!form.frequencyType) {
-        showToast("Please Select Frequency", "warning");
+      if (!form.meetingType || !form.meetingType.trim()) {
+        setSubmittedAttempt(true);
+        showToast("Please Enter Meeting Type / Subject", "warning");
         return;
       }
 
       if (!form.raName && !form.projectName) {
         showToast("Please Select Reporting Authority (RA)", "warning");
+        return;
+      }
+
+      if (!form.frequencyType) {
+        showToast("Please Select Frequency", "warning");
         return;
       }
 
@@ -676,11 +755,37 @@ function MeetingMaster() {
         return;
       }
 
+      if (!form.meetingStartTime) {
+        showToast("Please Select Meeting Start Time", "warning");
+        return;
+      }
+
+      if (!form.meetingEndTime) {
+        showToast("Please Select Meeting End Time", "warning");
+        return;
+      }
+
+      if (!form.year) {
+        showToast("Please Select Fiscal Year", "warning");
+        return;
+      }
+
+      if (!form.month) {
+        showToast("Please Select Month", "warning");
+        return;
+      }
+
       if (form.participants.length === 0) {
         showToast("Please Select At Least One Participant", "warning");
         return;
       }
 
+      if (form.meetingOwner.length === 0) {
+        showToast("Please Select Meeting Organizer / Owner", "warning");
+        return;
+      }
+
+      const isEveryDaySchedule = form.frequencyType === "Every Day";
       const baseDate = form.meetingDate || new Date().toISOString().split("T")[0];
       const payload = {
         ...form,
@@ -691,7 +796,7 @@ function MeetingMaster() {
         meetingOwner: Array.isArray(form.meetingOwner)
           ? form.meetingOwner.join(",")
           : form.meetingOwner,
-        meetingDate:      form.frequencyType === "Every Day" ? null : form.meetingDate,
+        meetingDate:      isEveryDaySchedule ? null : form.meetingDate,
         meetingStartTime: form.meetingStartTime ? `${baseDate}T${form.meetingStartTime}:00` : null,
         meetingEndTime:   form.meetingEndTime   ? `${baseDate}T${form.meetingEndTime}:00`   : null,
       };
@@ -780,7 +885,9 @@ function MeetingMaster() {
               {/* REPORTING AUTHORITY (RA) */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Reporting Authority (RA)</span>
+                  <span className="mm-label">
+                    Reporting Authority (RA) <span className="mm-required-star">*</span>
+                  </span>
                   {form.raName && (
                     <span className="mm-badge-tag">
                       {raMembersMap[form.raName.toLowerCase()]?.length || 0} Direct Members
@@ -802,7 +909,9 @@ function MeetingMaster() {
               {/* MEETING TYPE / TITLE */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Meeting Type / Subject</span>
+                  <span className="mm-label">
+                    Meeting Type / Subject <span className="mm-required-star">*</span>
+                  </span>
                 </div>
                 <input
                   type="text"
@@ -810,8 +919,11 @@ function MeetingMaster() {
                   placeholder="e.g. Daily Standup, Sprint Review, Project Sync"
                   value={form.meetingType}
                   onChange={handleChange}
-                  className="mm-input"
+                  className={`mm-input ${submittedAttempt && !form.meetingType.trim() ? 'error' : ''}`}
                 />
+                {submittedAttempt && !form.meetingType.trim() && (
+                  <span className="mm-field-error">Meeting Type / Subject is required</span>
+                )}
               </div>
             </div>
           </div>
@@ -832,7 +944,18 @@ function MeetingMaster() {
               {/* FREQUENCY */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Frequency</span>
+                  <span className="mm-label">
+                    Frequency <span className="mm-required-star">*</span>
+                  </span>
+                  <span
+                    className="mm-badge-tag"
+                    style={{
+                      background: isSingle ? "rgba(16, 185, 129, 0.12)" : "rgba(226, 113, 29, 0.08)",
+                      color: isSingle ? "#059669" : "var(--ion-color-primary, #e2711d)",
+                    }}
+                  >
+                    {isSingle ? "Single" : isDaily ? "Daily" : "Recurring"}
+                  </span>
                 </div>
                 <div
                   ref={freqTriggerRef}
@@ -844,33 +967,49 @@ function MeetingMaster() {
                   </span>
                   <IonIcon icon={timeOutline} className="mm-select-icon" />
                 </div>
+                <span className="mm-schedule-hint">
+                  {isSingle ? "1-time instant meeting" : isDaily ? "Daily recurrence" : "Scheduled recurrence"}
+                </span>
               </div>
 
-              {/* MEETING DATE */}
+              {/* MEETING DATE / SCHEDULE */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Meeting Date</span>
-                  {form.frequencyType === "Every Day" && (
-                    <span className="mm-badge-tag">Daily Recurring</span>
-                  )}
+                  <span className="mm-label">
+                    {isDaily ? "Meeting Schedule" : "Meeting Date"} {!isDaily && <span className="mm-required-star">*</span>}
+                  </span>
+                  <span
+                    className="mm-badge-tag"
+                    style={{
+                      background: isDaily ? "rgba(2, 132, 199, 0.1)" : isSingle ? "rgba(16, 185, 129, 0.12)" : "rgba(226, 113, 29, 0.08)",
+                      color: isDaily ? "#0284c7" : isSingle ? "#059669" : "var(--ion-color-primary, #e2711d)",
+                      border: isSingle ? "1px solid rgba(16, 185, 129, 0.25)" : isDaily ? "1px solid rgba(2, 132, 199, 0.25)" : undefined,
+                    }}
+                  >
+                    {isDaily ? "Daily Recurring" : isSingle ? "Single Event" : isWeekly ? "Weekly Recurring" : isMonthly ? "Monthly Recurring" : "Bi-monthly"}
+                  </span>
                 </div>
                 <div
                   ref={dateTriggerRef}
                   className={`mm-select-trigger ${isDateDropdownOpen ? 'active' : ''}`}
                   onClick={() => openDropdown('date')}
-                  style={{ opacity: form.frequencyType === "Every Day" ? 0.7 : 1 }}
                 >
-                  <span className={`mm-select-text ${!form.meetingDate ? 'placeholder' : ''}`}>
-                    {form.meetingDate ? moment(form.meetingDate).format("DD-MM-YYYY (ddd)") : "Pick Meeting Date"}
+                  <span className={`mm-select-text ${!form.meetingDate && !isDaily ? 'placeholder' : ''}`}>
+                    {scheduleDisplayTitle}
                   </span>
-                  <IonIcon icon={calendarOutline} className="mm-select-icon" />
+                  <IonIcon icon={isDaily ? refreshOutline : calendarOutline} className="mm-select-icon" />
                 </div>
+                <span className="mm-schedule-hint">
+                  {scheduleHelperNote}
+                </span>
               </div>
 
               {/* START TIME */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Start Time</span>
+                  <span className="mm-label">
+                    Start Time <span className="mm-required-star">*</span>
+                  </span>
                 </div>
                 <input
                   type="time"
@@ -884,7 +1023,9 @@ function MeetingMaster() {
               {/* END TIME */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">End Time</span>
+                  <span className="mm-label">
+                    End Time <span className="mm-required-star">*</span>
+                  </span>
                 </div>
                 <input
                   type="time"
@@ -901,7 +1042,9 @@ function MeetingMaster() {
               {/* YEAR */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Fiscal Year</span>
+                  <span className="mm-label">
+                    Fiscal Year <span className="mm-required-star">*</span>
+                  </span>
                 </div>
                 <div
                   ref={yearTriggerRef}
@@ -918,7 +1061,9 @@ function MeetingMaster() {
               {/* MONTH */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Month</span>
+                  <span className="mm-label">
+                    Month <span className="mm-required-star">*</span>
+                  </span>
                 </div>
                 <div
                   ref={monthTriggerRef}
@@ -950,7 +1095,9 @@ function MeetingMaster() {
               {/* PARTICIPANTS SELECTOR & CHIPS */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Participants List</span>
+                  <span className="mm-label">
+                    Participants List <span className="mm-required-star">*</span>
+                  </span>
                   <span className="mm-badge-tag">
                     {form.participants.length} Selected
                   </span>
@@ -993,7 +1140,9 @@ function MeetingMaster() {
               {/* MEETING OWNER SELECTOR & CHIPS */}
               <div className="mm-field">
                 <div className="mm-field-top">
-                  <span className="mm-label">Meeting Organizer / Owner</span>
+                  <span className="mm-label">
+                    Meeting Organizer / Owner <span className="mm-required-star">*</span>
+                  </span>
                   <span className="mm-badge-tag">
                     {form.meetingOwner.length} Designated Lead
                   </span>
@@ -1290,6 +1439,7 @@ function MeetingMaster() {
                 .filter((f) => f.toLowerCase().includes(freqSearchTerm.toLowerCase()))
                 .map((f, index) => {
                   const isSelected = form.frequencyType === f;
+                  const info = FREQUENCY_DESCRIPTIONS[f] || { desc: f, badge: "Schedule" };
                   return (
                     <div
                       key={index}
@@ -1301,10 +1451,14 @@ function MeetingMaster() {
                       }}
                     >
                       <div className={`dr-avatar grad-${index % 5}`}>
-                        {f.charAt(0)}
+                        {f === "One-time / Single" ? "1x" : f.charAt(0)}
                       </div>
                       <div className="dr-info">
-                        <span className="dr-name">{f}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span className="dr-name">{f}</span>
+                          <span className="dr-freq-badge">{info.badge}</span>
+                        </div>
+                        <span className="dr-freq-desc">{info.desc}</span>
                       </div>
                       {isSelected && <Check size={18} className="dr-check" />}
                     </div>
@@ -1418,6 +1572,25 @@ function MeetingMaster() {
             }}
           >
             <div className="dropdown-calendar-container">
+              {isDaily && (
+                <div className="dropdown-cal-banner daily">
+                  <IonIcon icon={refreshOutline} className="dropdown-cal-banner-icon" />
+                  <div>
+                    <strong>Daily Recurring Mode</strong>
+                    <p>Meeting recurs every day across <strong>{form.month} {form.year}</strong>. Selecting a date updates the active month & start reference date.</p>
+                  </div>
+                </div>
+              )}
+              {isSingle && (
+                <div className="dropdown-cal-banner single">
+                  <IonIcon icon={calendarOutline} className="dropdown-cal-banner-icon" />
+                  <div>
+                    <strong>One-Time Single Meeting</strong>
+                    <p>Select the exact calendar date for this single session.</p>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Presets */}
               <div className="dropdown-quick-presets">
                 <button

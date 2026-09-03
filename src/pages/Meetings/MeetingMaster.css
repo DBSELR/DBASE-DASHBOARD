@@ -685,3 +685,98 @@
     padding: 16px;
   }
 }
+
+/* ── Required Indicator & Error States ── */
+.mm-required-star {
+  color: #ef4444;
+  margin-left: 3px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.mm-input.error {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.mm-field-error {
+  font-size: 11px;
+  color: #ef4444;
+  font-weight: 600;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Schedule Context Hints ── */
+.mm-schedule-hint {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 4px;
+  line-height: 1.35;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Frequency Dropdown Info ── */
+.dr-freq-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+
+.dr-freq-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+/* ── Calendar Popup Context Banners ── */
+.dropdown-cal-banner {
+  margin: 10px 12px 6px 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dropdown-cal-banner strong {
+  display: block;
+  font-size: 11.5px;
+  margin-bottom: 2px;
+}
+
+.dropdown-cal-banner p {
+  margin: 0;
+  font-size: 11px;
+}
+
+.dropdown-cal-banner.daily {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+}
+
+.dropdown-cal-banner.single {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.dropdown-cal-banner-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}

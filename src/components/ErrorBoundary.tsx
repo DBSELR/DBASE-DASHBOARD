@@ -117,11 +117,32 @@ export class ErrorBoundary extends Component<Props, State> {
                     marginBottom: "24px",
                     wordBreak: "break-word",
                     textAlign: "left",
-                    maxHeight: "120px",
+                    maxHeight: "260px",
                     overflowY: "auto",
                   }}
                 >
-                  <strong>Error:</strong> {this.state.error.message || String(this.state.error)}
+                  <div style={{ marginBottom: "6px", color: "#1e293b", fontWeight: 700 }}>
+                    Route: {window.location.pathname}{window.location.search}
+                  </div>
+                  <div>
+                    <strong>Error:</strong> {this.state.error.message || String(this.state.error)}
+                  </div>
+                  {this.state.errorInfo?.componentStack && (
+                    <div style={{ marginTop: "8px", color: "#64748b", fontSize: "0.72rem" }}>
+                      <strong>Component Stack:</strong>
+                      <pre style={{ margin: "4px 0 0 0", whiteSpace: "pre-wrap", color: "#334155" }}>
+                        {this.state.errorInfo.componentStack}
+                      </pre>
+                    </div>
+                  )}
+                  {this.state.error.stack && (
+                    <div style={{ marginTop: "8px", color: "#64748b", fontSize: "0.72rem" }}>
+                      <strong>Stack Trace:</strong>
+                      <pre style={{ margin: "4px 0 0 0", whiteSpace: "pre-wrap", color: "#ef4444" }}>
+                        {this.state.error.stack}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
 

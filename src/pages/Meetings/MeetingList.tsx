@@ -58,16 +58,25 @@ const getUser = () => {
   }
 };
 
-function MeetingList() {
+const safeStr = (val: any, fallback = ""): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === "object") return fallback;
+  const s = String(val).trim();
+  return s === "" || s === "null" || s === "undefined" ? fallback : s;
+};
+
+const MeetingList: React.FC = () => {
   const history = useHistory();
-  const [meetings, setMeetings]   = useState<Meeting[]>([]);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [monthsList, setMonthsList] = useState<string[]>([]);
+  const [meetings, setMeetings]         = useState<Meeting[]>([]);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [monthsList, setMonthsList]     = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => moment().format("MMM-YYYY"));
-  const [editStates, setEditStates] = useState<Record<number, { status: string; remarks: string; file: File | null }>>({});
-  const [viewDetailId, setViewDetailId]       = useState<number | null>(null);
+  const [editStates, setEditStates]     = useState<Record<number, { status: string; remarks: string; file: File | null }>>({});
+  const [viewDetailId, setViewDetailId] = useState<number | null>(null);
   const [viewDetailMeeting, setViewDetailMeeting] = useState<Meeting | null>(null);
+
+  // Time editing modal state
   const [timeEditId, setTimeEditId]   = useState<number | null>(null);
   const [timeForm, setTimeForm]       = useState<{ startTime: string; endTime: string }>({ startTime: "", endTime: "" });
   const [timeSaving, setTimeSaving]   = useState(false);
@@ -102,14 +111,30 @@ function MeetingList() {
       const res   = await axios.get(`${base}/Meeting/GetMeetings`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      const data  = res?.data ?? [];
+      const rawData = res?.data ?? [];
+      const data: Meeting[] = (Array.isArray(rawData) ? rawData : []).map((m: any) => ({
+        ...m,
+        id: Number(m.id || m.Id) || 0,
+        meetingType: safeStr(m.meetingType || m.MeetingType, "-"),
+        financialYear: safeStr(m.financialYear || m.FinancialYear, ""),
+        monthName: safeStr(m.monthName || m.MonthName, ""),
+        frequencyType: safeStr(m.frequencyType || m.FrequencyType, "-"),
+        meetingStatus: safeStr(m.meetingStatus || m.MeetingStatus, "Pending"),
+        remarks: safeStr(m.remarks || m.Remarks, ""),
+        escalationRemarks: safeStr(m.escalationRemarks || m.EscalationRemarks, ""),
+        meetingOwner: safeStr(m.meetingOwner || m.MeetingOwner, "-"),
+        participants: safeStr(m.participants || m.Participants, "-"),
+        projectName: safeStr(m.projectName || m.ProjectName, ""),
+        weekName: safeStr(m.weekName || m.WeekName, ""),
+        teamsMeetingUrl: safeStr(m.teamsMeetingUrl || m.TeamsMeetingUrl, ""),
+      }));
       setMeetings(data);
       const init: Record<number, { status: string; remarks: string; file: File | null }> = {};
       data.forEach((m: Meeting) => {
         if (m.id) {
           init[m.id] = {
-            status: m.meetingStatus || (m as any).MeetingStatus || "Pending",
-            remarks: m.remarks || (m as any).Remarks || "",
+            status: safeStr(m.meetingStatus, "Pending"),
+            remarks: safeStr(m.remarks, ""),
             file: null,
           };
         }
@@ -353,16 +378,16 @@ function MeetingList() {
             {filteredMeetings.map((item, idx) => {
               const userIsOwner = isOwner(getMeetingOwner(item));
               const edit        = editStates[item.id] || { status: "", remarks: "", file: null };
-              const mYear       = item.financialYear || (item as any).FinancialYear || "";
-              const mMonth      = item.monthName     || (item as any).MonthName     || "";
-              const mFrequency  = item.frequencyType || (item as any).FrequencyType || "-";
-              const mMeetingType = item.meetingType  || (item as any).MeetingType   || "-";
-              const mStatus     = item.meetingStatus || (item as any).MeetingStatus || "Pending";
-              const mRemarks    = item.remarks       || (item as any).Remarks       || "";
+              const mYear       = safeStr(item.financialYear || (item as any).FinancialYear);
+              const mMonth      = safeStr(item.monthName     || (item as any).MonthName);
+              const mFrequency  = safeStr(item.frequencyType || (item as any).FrequencyType, "-");
+              const mMeetingType = safeStr(item.meetingType  || (item as any).MeetingType, "-");
+              const mStatus     = safeStr(item.meetingStatus || (item as any).MeetingStatus, "Pending");
+              const mRemarks    = safeStr(item.remarks       || (item as any).Remarks, "");
               const mAttachment = item.attachment    || (item as any).Attachment;
-              const mOwnerRaw   = getMeetingOwner(item) || "-";
-              const mPartRaw    = getParticipants(item) || "-";
-              const teamsUrl    = item.teamsMeetingUrl || (item as any).TeamsMeetingUrl || "";
+              const mOwnerRaw   = safeStr(getMeetingOwner(item), "-");
+              const mPartRaw    = safeStr(getParticipants(item), "-");
+              const teamsUrl    = safeStr(item.teamsMeetingUrl || (item as any).TeamsMeetingUrl, "");
               const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
               const dateInfo    = parseMeetingDate(rawDate);
               const mApproved   = mStatus.toLowerCase() === 'completed';
@@ -421,7 +446,7 @@ function MeetingList() {
                         <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600, flexShrink: 0 }}>People</span>
                         <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600, lineHeight: 1.3 }}>{mPartRaw}</span>
                       </div>
-                      {mRemarks && mRemarks !== "-" && (
+                      {Boolean(mRemarks && mRemarks !== "-") && (
                         <div style={{ display: "flex", alignItems: "flex-start", gap: "6px", marginTop: "4px", paddingTop: "8px", borderTop: "1px dashed #e2e8f0" }}>
                           <IonIcon icon={chatbubbleEllipsesOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px", flexShrink: 0 }} />
                           <span style={{ fontSize: "12px", color: "#475569", fontStyle: "italic", lineHeight: 1.3 }}>"{mRemarks}"</span>

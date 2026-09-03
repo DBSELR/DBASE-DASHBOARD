@@ -82,6 +82,13 @@ function statusBadgeClass(status?: string) {
   return "mdash-status-badge mdash-status-default";
 }
 
+const safeStr = (val: any, fallback = ""): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === "object") return fallback;
+  const s = String(val).trim();
+  return s === "" || s === "null" || s === "undefined" ? fallback : s;
+};
+
 function MeetingDashboard() {
   const history = useHistory();
   const [meetings, setMeetings]             = useState<Meeting[]>([]);
@@ -122,7 +129,24 @@ function MeetingDashboard() {
         axios.get(`${base}/Meeting/GetAttendanceCounts`, { headers }),
       ]);
 
-      setMeetings(meetingsRes?.data ?? []);
+      const rawMeetings = meetingsRes?.data ?? [];
+      const safeMeetings: Meeting[] = (Array.isArray(rawMeetings) ? rawMeetings : []).map((m: any) => ({
+        ...m,
+        id: Number(m.id || m.Id) || 0,
+        meetingType: safeStr(m.meetingType || m.MeetingType, "-"),
+        financialYear: safeStr(m.financialYear || m.FinancialYear, ""),
+        monthName: safeStr(m.monthName || m.MonthName, ""),
+        frequencyType: safeStr(m.frequencyType || m.FrequencyType, "-"),
+        meetingStatus: safeStr(m.meetingStatus || m.MeetingStatus, "Pending"),
+        remarks: safeStr(m.remarks || m.Remarks, ""),
+        escalationRemarks: safeStr(m.escalationRemarks || m.EscalationRemarks, ""),
+        meetingOwner: safeStr(m.meetingOwner || m.MeetingOwner, "-"),
+        participants: safeStr(m.participants || m.Participants, "-"),
+        projectName: safeStr(m.projectName || m.ProjectName, ""),
+        weekName: safeStr(m.weekName || m.WeekName, ""),
+        teamsMeetingUrl: safeStr(m.teamsMeetingUrl || m.TeamsMeetingUrl, ""),
+      }));
+      setMeetings(safeMeetings);
 
       const countsMap: Record<number, number> = {};
       (countsRes?.data ?? []).forEach((c: any) => {
@@ -376,13 +400,13 @@ function MeetingDashboard() {
               <div className="mdash-meeting-grid">
                 {displayedMeetings.map((item, idx) => {
                   const mAttachment = item.attachment || (item as any).Attachment;
-                  const mYear       = item.financialYear || (item as any).FinancialYear || "";
-                  const mMonth      = item.monthName     || (item as any).MonthName     || "";
-                  const mFrequency  = item.frequencyType || (item as any).FrequencyType || "-";
-                  const mMeetingType = item.meetingType  || (item as any).MeetingType   || "-";
-                  const mOwnerRaw   = item.meetingOwner || "-";
-                  const mPartRaw    = item.participants || (item as any).Participants || "-";
-                  const teamsUrl    = item.teamsMeetingUrl || (item as any).TeamsMeetingUrl || "";
+                  const mYear       = safeStr(item.financialYear || (item as any).FinancialYear);
+                  const mMonth      = safeStr(item.monthName     || (item as any).MonthName);
+                  const mFrequency  = safeStr(item.frequencyType || (item as any).FrequencyType, "-");
+                  const mMeetingType = safeStr(item.meetingType  || (item as any).MeetingType, "-");
+                  const mOwnerRaw   = safeStr(item.meetingOwner || (item as any).MeetingOwner, "-");
+                  const mPartRaw    = safeStr(item.participants || (item as any).Participants, "-");
+                  const teamsUrl    = safeStr(item.teamsMeetingUrl || (item as any).TeamsMeetingUrl, "");
                   const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
                   const dateInfo    = parseMeetingDate(rawDate);
                   
@@ -391,7 +415,7 @@ function MeetingDashboard() {
                   const attBadge    = STATUS_BADGE[attStatus] ?? null;
                   const txBadge     = STATUS_BADGE[txStatus]  ?? null;
                   
-                  const mStatus     = item.meetingStatus || "Pending";
+                  const mStatus     = safeStr(item.meetingStatus, "Pending");
                   const mStatusLower = mStatus.toLowerCase();
                   const statusVariant = mStatusLower === 'completed' ? 'completed' : mStatusLower === 'escalated' ? 'escalated' : 'pending';
 
@@ -433,7 +457,7 @@ function MeetingDashboard() {
                             <span className="mdash-meta-label">People</span>
                             <span className="mdash-meta-value mdash-meta-people">{mPartRaw}</span>
                           </div>
-                          {item.projectName && (
+                          {Boolean(item.projectName && typeof item.projectName === "string") && (
                             <div className="mdash-meta-project-row">
                               <IonIcon icon={layersOutline} className="mdash-meta-icon" />
                               <span className="mdash-meta-project-text">Project: <strong>{item.projectName}</strong></span>
