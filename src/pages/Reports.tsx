@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import moment from "moment";
 import { API_BASE } from "../config";
 import { useHistory } from "react-router-dom";
-import { ChevronLeft, Search, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Check } from "lucide-react";
 import { IonPage, IonContent, IonIcon } from "@ionic/react";
 import {
   documentTextOutline,
@@ -19,6 +19,7 @@ import { createPortal } from "react-dom";
 import "./Stock.css";
 import "./Meetings/MeetingMaster.css";
 import "../components/requests/RequestList.css";
+import "./Reports.css";
 
 const LOG = (...args: any[]) => console.log("[Reports]", ...args);
 const GROUP = (title: string) => console.group("[Reports]", title);
@@ -97,7 +98,7 @@ const Reports: React.FC = () => {
 
   // Position calculation
   useEffect(() => {
-    const calcPos = (ref: React.RefObject<HTMLDivElement>, minWidth = 280, height = 390) => {
+    const calcPos = (ref: React.RefObject<HTMLDivElement>, targetWidth = 320, height = 390, matchTriggerWidth = false) => {
       if (!ref.current) return { top: 0, left: 0, width: 0 };
       const rect = ref.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
@@ -105,19 +106,22 @@ const Reports: React.FC = () => {
       if (spaceBelow < 260 && rect.top > height) {
         top = Math.max(10, rect.top - height - 6);
       }
+      const width = matchTriggerWidth
+        ? Math.max(rect.width, targetWidth)
+        : Math.min(targetWidth, window.innerWidth - 20);
       return {
         top,
-        left: Math.max(10, Math.min(rect.left, window.innerWidth - Math.max(rect.width, minWidth) - 10)),
-        width: Math.max(rect.width, minWidth)
+        left: Math.max(10, Math.min(rect.left, window.innerWidth - width - 10)),
+        width
       };
     };
 
     const updatePositions = () => {
-      if (isReportDropdownOpen) setReportDropdownPos(calcPos(reportTriggerRef, 280, 320));
-      if (isFromDateOpen) setFromDateDropdownPos(calcPos(fromDateTriggerRef, 310, 390));
-      if (isToDateOpen) setToDateDropdownPos(calcPos(toDateTriggerRef, 310, 390));
-      if (isMonthYearOpen) setMonthYearDropdownPos(calcPos(monthYearTriggerRef, 300, 300));
-      if (isStatusOpen) setStatusDropdownPos(calcPos(statusTriggerRef, 280, 200));
+      if (isReportDropdownOpen) setReportDropdownPos(calcPos(reportTriggerRef, 280, 320, true));
+      if (isFromDateOpen) setFromDateDropdownPos(calcPos(fromDateTriggerRef, 320, 380, false));
+      if (isToDateOpen) setToDateDropdownPos(calcPos(toDateTriggerRef, 320, 380, false));
+      if (isMonthYearOpen) setMonthYearDropdownPos(calcPos(monthYearTriggerRef, 320, 340, false));
+      if (isStatusOpen) setStatusDropdownPos(calcPos(statusTriggerRef, 280, 200, true));
     };
 
     updatePositions();
@@ -713,16 +717,19 @@ const Reports: React.FC = () => {
                     });
                   }}
                 >
-                  <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
 
-              {/* Days Grid */}
-              <div className="dropdown-cal-grid">
+              {/* Weekdays Row */}
+              <div className="dropdown-cal-weekdays">
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(day => (
-                  <div key={day} className="dropdown-cal-day-name">{day}</div>
+                  <span key={day} className="dropdown-cal-weekday">{day}</span>
                 ))}
+              </div>
 
+              {/* Days Grid */}
+              <div className="dropdown-cal-days-grid">
                 {Array.from({ length: getFirstDayOfMonth(fromCalViewDate.getFullYear(), fromCalViewDate.getMonth()) }).map((_, i) => (
                   <div key={`empty-${i}`} className="dropdown-cal-day-cell empty" />
                 ))}
@@ -735,8 +742,9 @@ const Reports: React.FC = () => {
                   const isToday = moment().format("YYYY-MM-DD") === dayDateStr;
 
                   return (
-                    <div
+                    <button
                       key={dayNum}
+                      type="button"
                       className={`dropdown-cal-day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
                       onClick={() => {
                         setFromDate(dayDateStr);
@@ -744,7 +752,7 @@ const Reports: React.FC = () => {
                       }}
                     >
                       {dayNum}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -871,16 +879,19 @@ const Reports: React.FC = () => {
                     });
                   }}
                 >
-                  <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
 
-              {/* Days Grid */}
-              <div className="dropdown-cal-grid">
+              {/* Weekdays Row */}
+              <div className="dropdown-cal-weekdays">
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(day => (
-                  <div key={day} className="dropdown-cal-day-name">{day}</div>
+                  <span key={day} className="dropdown-cal-weekday">{day}</span>
                 ))}
+              </div>
 
+              {/* Days Grid */}
+              <div className="dropdown-cal-days-grid">
                 {Array.from({ length: getFirstDayOfMonth(toCalViewDate.getFullYear(), toCalViewDate.getMonth()) }).map((_, i) => (
                   <div key={`empty-${i}`} className="dropdown-cal-day-cell empty" />
                 ))}
@@ -893,8 +904,9 @@ const Reports: React.FC = () => {
                   const isToday = moment().format("YYYY-MM-DD") === dayDateStr;
 
                   return (
-                    <div
+                    <button
                       key={dayNum}
+                      type="button"
                       className={`dropdown-cal-day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
                       onClick={() => {
                         setToDate(dayDateStr);
@@ -902,7 +914,7 @@ const Reports: React.FC = () => {
                       }}
                     >
                       {dayNum}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1007,7 +1019,7 @@ const Reports: React.FC = () => {
                   className="dropdown-cal-nav-btn"
                   onClick={() => setMonthYearViewYear(prev => prev + 1)}
                 >
-                  <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
 

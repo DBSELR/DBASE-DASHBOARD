@@ -18,6 +18,7 @@ import {
   IonIcon,
   IonDatetimeButton,
   IonToast,
+  IonLoading,
   IonTextarea,
   IonSegment,
   IonSegmentButton,
@@ -37,6 +38,8 @@ import {
   refreshOutline,
 } from "ionicons/icons";
 import axios from "axios";
+import { Capacitor } from "@capacitor/core";
+import { Camera as CapCamera, CameraResultType, CameraSource } from "@capacitor/camera";
 import "./OnDuties.css";
 import "../components/requests/RequestList.css";
 import { createPortal } from "react-dom";
@@ -72,6 +75,7 @@ import {
   MessageSquare,
   Download,
   ZoomIn,
+  Loader2,
 } from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
@@ -711,14 +715,451 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   // photo is picked.
   const confirmedReadingUploadsRef = useRef<Set<string>>(new Set());
 
+  type CameraTarget =
+    | { type: "readingFrom" }
+    | { type: "readingTo" }
+    | { type: "fuel" }
+    | { type: "visitSlip"; visitIndex: number }
+    | { type: "localTransport"; visitIndex: number };
+
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
+  const [activeCameraTarget, setActiveCameraTarget] = useState<CameraTarget | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  // Keep active stream attached to video element
+  useEffect(() => {
+    if (cameraOpen && cameraStream && cameraVideoRef.current) {
+      const vid = cameraVideoRef.current;
+      if (vid.srcObject !== cameraStream) {
+        vid.srcObject = cameraStream;
+      }
+      vid.play().catch((err) => console.log("[OnDuty Camera] Play error:", err));
+    }
+  }, [cameraOpen, cameraStream]);
+
+  const base64ToFile = (base64Data: string, filename: string, mimeType = "image/jpeg"): File => {
+    const cleanBase64 = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
+    const byteString = atob(cleanBase64);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ab], { type: mimeType });
+    return new File([blob], filename, { type: mimeType });
+  };
+
+  const applyCapturedFile = (target: CameraTarget, file: File) => {
+    if (editingTripIndex === null || editingTripIndex === undefined) return;
+    const trip = (tripDaysByDuty[selectedDutyId] || [])[editingTripIndex];
+    if (!trip) return;
+
+    if (target.type === "readingFrom") {
+      if (readingLockRef.current[readingLockKey(trip.dutyDate, "from")] === undefined) {
+        readingLockRef.current[readingLockKey(trip.dutyDate, "from")] = Date.now();
+      }
+      updateTripDay(editingTripIndex, "readingFromImage", file);
+      if (tripModalMode === "add") {
+        updateTripDay(editingTripIndex, "readingTo", trip.readingFrom);
+      }
+    } else if (target.type === "readingTo") {
+      if (readingLockRef.current[readingLockKey(trip.dutyDate, "to")] === undefined) {
+        readingLockRef.current[readingLockKey(trip.dutyDate, "to")] = Date.now();
+      }
+      updateTripDay(editingTripIndex, "readingToImage", file);
+    } else if (target.type === "fuel") {
+      updateTripDay(editingTripIndex, "fuelImage", file);
+    } else if (target.type === "visitSlip") {
+      updateTripVisit(editingTripIndex, target.visitIndex, "visitSlipImage", file);
+    } else if (target.type === "localTransport") {
+      updateTripVisit(editingTripIndex, target.visitIndex, "localTransportImage", file);
+    }
+  };
+
+  const openCameraCapture = async (
+    target: CameraTarget,
+    facing: "user" | "environment" = "environment"
+  ) => {
+    setActiveCameraTarget(target);
+    setCameraFacing(facing);
+
+    let filenamePrefix = "od_photo";
+    if (target.type === "readingFrom") filenamePrefix = "start_reading";
+    else if (target.type === "readingTo") filenamePrefix = "closing_reading";
+    else if (target.type === "fuel") filenamePrefix = "fuel_bill";
+    else if (target.type === "visitSlip") filenamePrefix = `visit_${target.visitIndex + 1}_slip`;
+    else if (target.type === "localTransport") filenamePrefix = `visit_${target.visitIndex + 1}_transport`;
+
+    const filename = `${filenamePrefix}_${Date.now()}.jpg`;
+
+    // 1. Native Capacitor (Android / iOS app)
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const image = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Base64,
+          source: CameraSource.Camera,
+        });
+
+        if (image && image.base64String) {
+          const file = base64ToFile(image.base64String, filename, "image/jpeg");
+          applyCapturedFile(target, file);
+          notify("Photo captured successfully!", "success");
+          return;
+        }
+      } catch (capErr: any) {
+        console.log("[OnDuty Camera] Native Capacitor getPhoto error:", capErr);
+        if (capErr?.message && !capErr.message.toLowerCase().includes("cancel")) {
+          notify("Could not open camera on device.", "warning");
+        }
+        return;
+      }
+    }
+
+    // 2. Web / Browser WebRTC Stream
+    if (navigator?.mediaDevices?.getUserMedia) {
+      try {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+        }
+        if (cameraStreamRef.current) {
+          cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+          cameraStreamRef.current = null;
+        }
+
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: facing ? { ideal: facing } : "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          });
+        } catch (err1) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            },
+            audio: false,
+          });
+        }
+
+        cameraStreamRef.current = stream;
+        setCameraStream(stream);
+        setCameraOpen(true);
+
+        setTimeout(() => {
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current.srcObject = stream;
+            cameraVideoRef.current.play().catch((e) => console.log("[OnDuty Camera] Play error:", e));
+          }
+        }, 40);
+        return;
+      } catch (mediaErr) {
+        console.warn("[OnDuty Camera] WebRTC getUserMedia failed:", mediaErr);
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          setCameraStream(null);
+        }
+        setCameraOpen(false);
+        notify("Camera access unavailable. Opening file selector...", "warning");
+      }
+    }
+
+    triggerTargetFileInput(target);
+  };
+
+  const switchWebCamera = async () => {
+    try {
+      const newFacing = cameraFacing === "environment" ? "user" : "environment";
+
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+      }
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+        cameraStreamRef.current = null;
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: newFacing },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (e) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+      }
+
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+      setCameraFacing(newFacing);
+
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        cameraVideoRef.current.play().catch((e) => console.log("[OnDuty Camera] Switch play error:", e));
+      }
+    } catch (err) {
+      console.error("[OnDuty Camera] Error switching camera:", err);
+      notify("Could not switch camera.", "warning");
+    }
+  };
+
+  const captureWebCameraPhoto = () => {
+    if (!cameraVideoRef.current || !activeCameraTarget) return;
+    const video = cameraVideoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    let filenamePrefix = "od_photo";
+    if (activeCameraTarget.type === "readingFrom") filenamePrefix = "start_reading";
+    else if (activeCameraTarget.type === "readingTo") filenamePrefix = "closing_reading";
+    else if (activeCameraTarget.type === "fuel") filenamePrefix = "fuel_bill";
+    else if (activeCameraTarget.type === "visitSlip") filenamePrefix = `visit_${activeCameraTarget.visitIndex + 1}_slip`;
+    else if (activeCameraTarget.type === "localTransport") filenamePrefix = `visit_${activeCameraTarget.visitIndex + 1}_transport`;
+
+    const filename = `${filenamePrefix}_${Date.now()}.jpg`;
+
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const file = new File([blob], filename, { type: "image/jpeg" });
+          applyCapturedFile(activeCameraTarget, file);
+          notify("Photo captured successfully!", "success");
+        }
+        closeWebCamera();
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
+
+  const closeWebCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+    }
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+    setCameraStream(null);
+    setCameraOpen(false);
+    setActiveCameraTarget(null);
+  };
+
+  const triggerTargetFileInput = (target: CameraTarget) => {
+    closeWebCamera();
+    if (target.type === "readingFrom") {
+      readingUploadBypassRef.current.from = true;
+      readingFromInputRef.current?.click();
+    } else if (target.type === "readingTo") {
+      readingUploadBypassRef.current.to = true;
+      readingToInputRef.current?.click();
+    } else if (target.type === "fuel") {
+      document.getElementById("dt-fuel-file-input")?.click();
+    } else if (target.type === "visitSlip") {
+      document.getElementById(`dt-visit-slip-${target.visitIndex}`)?.click();
+    } else if (target.type === "localTransport") {
+      document.getElementById(`dt-loc-trans-${target.visitIndex}`)?.click();
+    }
+  };
+
+  const triggerReadingCamera = (which: "from" | "to") => {
+    if (editingTripIndex === null || editingTripIndex === undefined) return;
+    const trip = (tripDaysByDuty[selectedDutyId] || [])[editingTripIndex];
+    if (!trip) return;
+
+    const hasImage = which === "from" ? !!trip.readingFromImage : !!trip.readingToImage;
+
+    if (isReadingLocked(trip.dutyDate, which, hasImage)) {
+      notify(
+        `The ${which === "from" ? "starting" : "closing"} reading photo for this day has already been uploaded and can no longer be changed. It could only be replaced within 5 minutes of the first upload.`,
+        "warning"
+      );
+      return;
+    }
+
+    const firstAt = readingLockRef.current[readingLockKey(trip.dutyDate, which)];
+    if (firstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|${which}`)) {
+      if (!confirmReadingUpload(trip.dutyDate, which, hasImage)) {
+        return;
+      }
+      saveModalScroll();
+      openCameraCapture({ type: which === "from" ? "readingFrom" : "readingTo" }, "environment");
+      return;
+    }
+
+    const dutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+    const isDailyShuttle = dutyTypeLower === "daily shuttle";
+    const campAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
+
+    if (which === "from") {
+      const needsConfirm = isDailyShuttle || !campAlreadyActive;
+      if (!needsConfirm) {
+        if (!confirmReadingUpload(trip.dutyDate, "from", hasImage)) {
+          return;
+        }
+        saveModalScroll();
+        openCameraCapture({ type: "readingFrom" }, "environment");
+        return;
+      }
+
+      setReadingUploadConfirm({
+        open: true,
+        which: "from",
+        actionType: "camera",
+        dutyDate: trip.dutyDate,
+        title: isDailyShuttle ? "Start today's camp?" : "Start this trip's camp?",
+        text: isDailyShuttle
+          ? "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+          : "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it.",
+        secondsLeft: 5,
+      });
+    } else {
+      const isSameDay =
+        !!selectedDutyRow?.DateFrom &&
+        !!selectedDutyRow?.DateTo &&
+        String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
+      const isSameDayRoundTrip = !isDailyShuttle && isSameDay;
+      const needsConfirm = isDailyShuttle || isSameDayRoundTrip;
+
+      if (!needsConfirm) {
+        if (!confirmReadingUpload(trip.dutyDate, "to", hasImage)) {
+          return;
+        }
+        saveModalScroll();
+        openCameraCapture({ type: "readingTo" }, "environment");
+        return;
+      }
+
+      setReadingUploadConfirm({
+        open: true,
+        which: "to",
+        actionType: "camera",
+        dutyDate: trip.dutyDate,
+        title: isDailyShuttle ? "End today's camp?" : "End this trip's camp?",
+        text: isDailyShuttle
+          ? "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+          : "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it.",
+        secondsLeft: 5,
+      });
+    }
+  };
+
+  const triggerReadingFileUpload = (which: "from" | "to") => {
+    if (editingTripIndex === null || editingTripIndex === undefined) return;
+    const trip = (tripDaysByDuty[selectedDutyId] || [])[editingTripIndex];
+    if (!trip) return;
+
+    const hasImage = which === "from" ? !!trip.readingFromImage : !!trip.readingToImage;
+
+    if (isReadingLocked(trip.dutyDate, which, hasImage)) {
+      notify(
+        `The ${which === "from" ? "starting" : "closing"} reading photo for this day has already been uploaded and can no longer be changed. It could only be replaced within 5 minutes of the first upload.`,
+        "warning"
+      );
+      return;
+    }
+
+    const firstAt = readingLockRef.current[readingLockKey(trip.dutyDate, which)];
+    if (firstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|${which}`)) {
+      if (!confirmReadingUpload(trip.dutyDate, which, hasImage)) {
+        return;
+      }
+      saveModalScroll();
+      (which === "from" ? readingFromInputRef : readingToInputRef).current?.click();
+      return;
+    }
+
+    const dutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
+    const isDailyShuttle = dutyTypeLower === "daily shuttle";
+    const campAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
+
+    if (which === "from") {
+      const needsConfirm = isDailyShuttle || !campAlreadyActive;
+      if (!needsConfirm) {
+        if (!confirmReadingUpload(trip.dutyDate, "from", hasImage)) {
+          return;
+        }
+        saveModalScroll();
+        readingFromInputRef.current?.click();
+        return;
+      }
+
+      setReadingUploadConfirm({
+        open: true,
+        which: "from",
+        actionType: "file",
+        dutyDate: trip.dutyDate,
+        title: isDailyShuttle ? "Start today's camp?" : "Start this trip's camp?",
+        text: isDailyShuttle
+          ? "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+          : "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it.",
+        secondsLeft: 5,
+      });
+    } else {
+      const isSameDay =
+        !!selectedDutyRow?.DateFrom &&
+        !!selectedDutyRow?.DateTo &&
+        String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
+      const isSameDayRoundTrip = !isDailyShuttle && isSameDay;
+      const needsConfirm = isDailyShuttle || isSameDayRoundTrip;
+
+      if (!needsConfirm) {
+        if (!confirmReadingUpload(trip.dutyDate, "to", hasImage)) {
+          return;
+        }
+        saveModalScroll();
+        readingToInputRef.current?.click();
+        return;
+      }
+
+      setReadingUploadConfirm({
+        open: true,
+        which: "to",
+        actionType: "file",
+        dutyDate: trip.dutyDate,
+        title: isDailyShuttle ? "End today's camp?" : "End this trip's camp?",
+        text: isDailyShuttle
+          ? "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
+          : "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it.",
+        secondsLeft: 5,
+      });
+    }
+  };
+
   const [readingUploadConfirm, setReadingUploadConfirm] = useState<{
     open: boolean;
     which: "from" | "to" | null;
+    actionType: "camera" | "file";
     dutyDate: string;
     title: string;
     text: string;
     secondsLeft: number;
-  }>({ open: false, which: null, dutyDate: "", title: "", text: "", secondsLeft: 5 });
+  }>({ open: false, which: null, actionType: "file", dutyDate: "", title: "", text: "", secondsLeft: 5 });
 
   useEffect(() => {
     if (!readingUploadConfirm.open || readingUploadConfirm.secondsLeft <= 0) return;
@@ -729,23 +1170,20 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   }, [readingUploadConfirm.open, readingUploadConfirm.secondsLeft]);
 
   const closeReadingUploadConfirm = () => {
-    setReadingUploadConfirm({ open: false, which: null, dutyDate: "", title: "", text: "", secondsLeft: 5 });
+    setReadingUploadConfirm({ open: false, which: null, actionType: "file", dutyDate: "", title: "", text: "", secondsLeft: 5 });
   };
 
   const confirmReadingUploadAction = () => {
-    const { which, dutyDate } = readingUploadConfirm;
+    const { which, dutyDate, actionType } = readingUploadConfirm;
     closeReadingUploadConfirm();
     if (!which) return;
-    // Answering "Yes" only records that the camp question was already
-    // asked for this upload (so saveDayTripModal/the next click don't ask
-    // it again) - the actual 5 minute replace clock starts only once a
-    // photo is really chosen (see the onChange handlers below), not here.
-    // Starting it on "Yes" would mean cancelling the native picker with no
-    // photo picked still burned part - or all - of the 5 minutes on a
-    // photo that was never actually uploaded.
     confirmedReadingUploadsRef.current.add(`${dutyDate}|${which}`);
     readingUploadBypassRef.current[which] = true;
-    (which === "from" ? readingFromInputRef : readingToInputRef).current?.click();
+    if (actionType === "camera") {
+      openCameraCapture({ type: which === "from" ? "readingFrom" : "readingTo" }, "environment");
+    } else {
+      (which === "from" ? readingFromInputRef : readingToInputRef).current?.click();
+    }
   };
 
   const confirmCampAction = async () => {
@@ -1714,26 +2152,27 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     }
   };
 
-  const isSavingTrip = useRef(false);
+  const [isSavingTrip, setIsSavingTrip] = useState<boolean>(false);
+  const isSavingTripRef = useRef<boolean>(false);
+
+  const setSavingTrip = (saving: boolean) => {
+    isSavingTripRef.current = saving;
+    setIsSavingTrip(saving);
+  };
 
   const saveDayTripModal = async (skipReadingConfirm: boolean = false) => {
-    if (isSavingTrip.current) return;
-    isSavingTrip.current = true;
+    if (isSavingTripRef.current) return;
     try {
       // Everything below is wrapped in this outer try so that ANY
       // unexpected/uncaught exception (not just the API call itself,
       // which already has its own inner try/catch below) always shows
-      // the user a toast and always resets isSavingTrip.current - a
-      // silent throw here used to leave the ref stuck true forever,
-      // which looks exactly like "nothing happens" on every future
-      // click of Save Trip with zero error/success feedback.
+      // the user a toast and always resets saving state.
       if (
         !selectedDutyId ||
         editingTripIndex === null ||
         editingTripIndex === undefined
       ) {
         notify("Invalid trip state", "warning");
-        isSavingTrip.current = false;
         return;
       }
 
@@ -1747,7 +2186,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
       if (!trip) {
         notify("Trip data missing", "danger");
-        isSavingTrip.current = false;
         return;
       }
 
@@ -1760,7 +2198,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         String(trip.dutyDate).slice(0, 10) > nowIST().format("YYYY-MM-DD")
       ) {
         notify("Visit entries are not allowed for future dates", "warning");
-        isSavingTrip.current = false;
         return;
       }
 
@@ -1770,7 +2207,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       if (isPublicTransport) {
         if (!trip.distance || Number(trip.distance) <= 0) {
           notify("Distance is required for Public Transport", "warning");
-          isSavingTrip.current = false;
           return;
         }
       }
@@ -1782,7 +2218,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           !trip.readingFromImage
         ) {
           notify("Reading values and images are required", "warning");
-          isSavingTrip.current = false;
           return;
         }
       }
@@ -1816,7 +2251,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
               `Visit From Time must be ${campStart.format("HH:mm")} or later (On Duty start time)`,
               "warning"
             );
-            isSavingTrip.current = false;
             return;
           }
         }
@@ -1829,7 +2263,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         });
         if (backwardsVisit) {
           notify("Visit To Time must be at or after Visit From Time", "warning");
-          isSavingTrip.current = false;
           return;
         }
 
@@ -1854,7 +2287,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
               `Visit To Time must be ${nowIST().format("HH:mm")} or earlier (current time)`,
               "warning"
             );
-            isSavingTrip.current = false;
             return;
           }
         }
@@ -1886,7 +2318,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         }
         if (overlapFound) {
           notify("Visit times must not overlap with another visit on the same day", "warning");
-          isSavingTrip.current = false;
           return;
         }
 
@@ -1902,7 +2333,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         });
         if (visitWithNoEmployees) {
           notify("Select at least one employee for every visit", "warning");
-          isSavingTrip.current = false;
           return;
         }
       }
@@ -1977,7 +2407,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
             !Number.isNaN(Number(endRf)) &&
             Number(endRf) === Number(endRt)
           ) {
-            isSavingTrip.current = false;
             notify(
               `Start and end reading are both ${endRf} - no distance recorded. Please re-check ` +
               `and update the closing reading before saving.`,
@@ -1994,7 +2423,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         const needsEndConfirm = endReadingApplies && !alreadyConfirmedEnd;
 
         if (needsStartConfirm || needsEndConfirm) {
-          isSavingTrip.current = false;
           setDayTripCampConfirm({
             open: true,
             kind: needsStartConfirm && needsEndConfirm ? "both" : needsStartConfirm ? "start" : "end",
@@ -2006,6 +2434,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           return;
         }
       }
+
+      setSavingTrip(true);
 
       const formData = new FormData();
 
@@ -2134,7 +2564,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
             "success"
           );
         } else {
-          notify("Trip Saved Successfully", "success");
+          notify("Trip Saved Successfully! 🎉", "success");
         }
         await loadDuties();
 
@@ -2191,7 +2621,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
         notify(errorMsg, "danger");
       } finally {
-        isSavingTrip.current = false;
+        setSavingTrip(false);
       }
     } catch (outerErr: any) {
       console.error("saveDayTripModal unexpected error", outerErr);
@@ -2201,7 +2631,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           : "Unexpected error while saving. Please try again.",
         "danger"
       );
-      isSavingTrip.current = false;
+      setSavingTrip(false);
     }
   };
   useEffect(() => {
@@ -6652,7 +7082,14 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           </div>
         </IonModal>
 
-        <IonModal isOpen={showDayTripModal} onDidDismiss={closeDayTripModal} className="daytrip-modal">
+        <IonModal
+          isOpen={showDayTripModal}
+          onDidDismiss={() => {
+            if (!isSavingTrip) closeDayTripModal();
+          }}
+          backdropDismiss={!isSavingTrip}
+          className="daytrip-modal"
+        >
           <IonContent className="ion-padding" ref={modalContentRef}>
             {editingTripIndex !== null && currentModalTrip && (() => {
               const trip = currentModalTrip;
@@ -6758,7 +7195,10 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                     <button
                       type="button"
                       className="daytrip-close-btn"
-                      onClick={closeDayTripModal}
+                      disabled={isSavingTrip}
+                      onClick={() => {
+                        if (!isSavingTrip) closeDayTripModal();
+                      }}
                       title="Close Modal"
                     >
                       <X size={18} />
@@ -6843,53 +7283,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                 saveModalScroll();
                                 return;
                               }
-
-                              if (isReadingLocked(trip.dutyDate, "from", !!trip.readingFromImage)) {
-                                e.preventDefault();
-                                notify(
-                                  "The starting reading photo for this day has already been uploaded " +
-                                  "and can no longer be changed. It could only be replaced within " +
-                                  "5 minutes of the first upload.",
-                                  "warning"
-                                );
-                                return;
-                              }
-
-                              const rfFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "from")];
-                              if (rfFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|from`)) {
-                                if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
-                                  e.preventDefault();
-                                  return;
-                                }
-                                saveModalScroll();
-                                return;
-                              }
-
-                              const rfDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
-                              const rfIsDailyShuttle = rfDutyTypeLower === "daily shuttle";
-                              const rfCampAlreadyActive = !!campStatusByDuty[String(selectedDutyId)]?.active;
-                              const rfNeedsConfirm = rfIsDailyShuttle || !rfCampAlreadyActive;
-
-                              if (!rfNeedsConfirm) {
-                                if (!confirmReadingUpload(trip.dutyDate, "from", !!trip.readingFromImage)) {
-                                  e.preventDefault();
-                                  return;
-                                }
-                                saveModalScroll();
-                                return;
-                              }
-
                               e.preventDefault();
-                              setReadingUploadConfirm({
-                                open: true,
-                                which: "from",
-                                dutyDate: trip.dutyDate,
-                                title: rfIsDailyShuttle ? "Start today's camp?" : "Start this trip's camp?",
-                                text: rfIsDailyShuttle
-                                  ? "This opening reading will start today's camp and switch on live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
-                                  : "This opening reading will start the camp for this whole trip and switch on live location tracking for it. Later days' readings will not ask again. The photo can only be replaced within 5 minutes of uploading it.",
-                                secondsLeft: 5,
-                              });
+                              triggerReadingFileUpload("from");
                             }}
                             onChange={(e) => {
                               const file = e.target.files?.[0] || null;
@@ -6912,23 +7307,39 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                 );
                               }
                               restoreModalScroll();
+                              e.target.value = "";
                             }}
                           />
 
                           {!hasReadingFromImage ? (
-                            <div
-                              className={`daytrip-upload-box ${isReadingLocked(trip.dutyDate, "from", false) ? "disabled" : ""}`}
-                              onClick={() => {
-                                if (!isReadingLocked(trip.dutyDate, "from", false)) {
-                                  readingFromInputRef.current?.click();
-                                }
-                              }}
-                            >
-                              <div className="daytrip-upload-icon-circle">
-                                <Camera size={20} />
+                            <div className={`daytrip-upload-dual-box ${isReadingLocked(trip.dutyDate, "from", false) ? "disabled" : ""}`}>
+                              <div className="daytrip-upload-dual-header">
+                                <div className="daytrip-upload-dual-icon">
+                                  <Camera size={20} />
+                                </div>
+                                <div className="daytrip-upload-dual-text">
+                                  <div className="daytrip-upload-title">Start Meter Photo</div>
+                                  <div className="daytrip-upload-sub">Take photo with camera or browse file</div>
+                                </div>
                               </div>
-                              <div className="daytrip-upload-title">Upload Start Meter Photo</div>
-                              <div className="daytrip-upload-sub">Tap here to capture or choose photo</div>
+                              <div className="daytrip-upload-dual-actions">
+                                <button
+                                  type="button"
+                                  className="daytrip-dual-btn cam"
+                                  disabled={isReadingLocked(trip.dutyDate, "from", false)}
+                                  onClick={() => triggerReadingCamera("from")}
+                                >
+                                  <Camera size={14} /> Open Camera
+                                </button>
+                                <button
+                                  type="button"
+                                  className="daytrip-dual-btn file"
+                                  disabled={isReadingLocked(trip.dutyDate, "from", false)}
+                                  onClick={() => triggerReadingFileUpload("from")}
+                                >
+                                  <Upload size={14} /> Upload File
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <div className="daytrip-attached-card">
@@ -6956,14 +7367,24 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                   <Eye size={12} /> View
                                 </button>
                                 {!isReadingLocked(trip.dutyDate, "from", true) && (
-                                  <button
-                                    type="button"
-                                    className="daytrip-btn-replace"
-                                    onClick={() => readingFromInputRef.current?.click()}
-                                    title="Replace within 5 mins"
-                                  >
-                                    <RotateCw size={12} /> Replace
-                                  </button>
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="daytrip-btn-camera"
+                                      onClick={() => triggerReadingCamera("from")}
+                                      title="Retake with camera"
+                                    >
+                                      <Camera size={12} /> Camera
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="daytrip-btn-replace"
+                                      onClick={() => triggerReadingFileUpload("from")}
+                                      title="Replace with file"
+                                    >
+                                      <RotateCw size={12} /> Replace
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -7051,57 +7472,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                   saveModalScroll();
                                   return;
                                 }
-
-                                if (isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)) {
-                                  e.preventDefault();
-                                  notify(
-                                    "The closing reading photo for this day has already been uploaded " +
-                                    "and can no longer be changed. It could only be replaced within " +
-                                    "5 minutes of the first upload.",
-                                    "warning"
-                                  );
-                                  return;
-                                }
-
-                                const rtFirstAt = readingLockRef.current[readingLockKey(trip.dutyDate, "to")];
-                                if (rtFirstAt !== undefined || confirmedReadingUploadsRef.current.has(`${trip.dutyDate}|to`)) {
-                                  if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
-                                    e.preventDefault();
-                                    return;
-                                  }
-                                  saveModalScroll();
-                                  return;
-                                }
-
-                                const rtDutyTypeLower = String(selectedDutyRow?.TripType || "").trim().toLowerCase();
-                                const rtIsDailyShuttle = rtDutyTypeLower === "daily shuttle";
-                                const rtIsSameDay =
-                                  !!selectedDutyRow?.DateFrom &&
-                                  !!selectedDutyRow?.DateTo &&
-                                  String(selectedDutyRow.DateFrom).slice(0, 10) === String(selectedDutyRow.DateTo).slice(0, 10);
-                                const rtIsSameDayRoundTrip = !rtIsDailyShuttle && rtIsSameDay;
-                                const rtNeedsConfirm = rtIsDailyShuttle || rtIsSameDayRoundTrip;
-
-                                if (!rtNeedsConfirm) {
-                                  if (!confirmReadingUpload(trip.dutyDate, "to", !!trip.readingToImage)) {
-                                    e.preventDefault();
-                                    return;
-                                  }
-                                  saveModalScroll();
-                                  return;
-                                }
-
                                 e.preventDefault();
-                                setReadingUploadConfirm({
-                                  open: true,
-                                  which: "to",
-                                  dutyDate: trip.dutyDate,
-                                  title: rtIsDailyShuttle ? "End today's camp?" : "End this trip's camp?",
-                                  text: rtIsDailyShuttle
-                                    ? "This closing reading will end today's camp and stop live location tracking for it. The photo can only be replaced within 5 minutes of uploading it."
-                                    : "This closing reading will permanently end this trip's camp and lock the duty - no more visits, reading uploads, or team changes will be possible afterwards. The photo can only be replaced within 5 minutes of uploading it.",
-                                  secondsLeft: 5,
-                                });
+                                triggerReadingFileUpload("to");
                               }}
                               onChange={(e) => {
                                 const toFile = e.target.files?.[0] || null;
@@ -7116,23 +7488,39 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                   toFile
                                 );
                                 restoreModalScroll();
+                                e.target.value = "";
                               }}
                             />
 
                             {!trip.readingToImage ? (
-                              <div
-                                className={`daytrip-upload-box ${isReadingLocked(trip.dutyDate, "to", false) ? "disabled" : ""}`}
-                                onClick={() => {
-                                  if (!isReadingLocked(trip.dutyDate, "to", false)) {
-                                    readingToInputRef.current?.click();
-                                  }
-                                }}
-                              >
-                                <div className="daytrip-upload-icon-circle">
-                                  <Camera size={20} />
+                              <div className={`daytrip-upload-dual-box ${isReadingLocked(trip.dutyDate, "to", false) ? "disabled" : ""}`}>
+                                <div className="daytrip-upload-dual-header">
+                                  <div className="daytrip-upload-dual-icon">
+                                    <Camera size={20} />
+                                  </div>
+                                  <div className="daytrip-upload-dual-text">
+                                    <div className="daytrip-upload-title">Closing Meter Photo</div>
+                                    <div className="daytrip-upload-sub">Take photo with camera or browse file</div>
+                                  </div>
                                 </div>
-                                <div className="daytrip-upload-title">Upload Closing Meter Photo</div>
-                                <div className="daytrip-upload-sub">Tap here to capture or choose photo</div>
+                                <div className="daytrip-upload-dual-actions">
+                                  <button
+                                    type="button"
+                                    className="daytrip-dual-btn cam"
+                                    disabled={isReadingLocked(trip.dutyDate, "to", false)}
+                                    onClick={() => triggerReadingCamera("to")}
+                                  >
+                                    <Camera size={14} /> Open Camera
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="daytrip-dual-btn file"
+                                    disabled={isReadingLocked(trip.dutyDate, "to", false)}
+                                    onClick={() => triggerReadingFileUpload("to")}
+                                  >
+                                    <Upload size={14} /> Upload File
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <div className="daytrip-attached-card">
@@ -7160,14 +7548,24 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                     <Eye size={12} /> View
                                   </button>
                                   {!isReadingLocked(trip.dutyDate, "to", true) && (
-                                    <button
-                                      type="button"
-                                      className="daytrip-btn-replace"
-                                      onClick={() => readingToInputRef.current?.click()}
-                                      title="Replace within 5 mins"
-                                    >
-                                      <RotateCw size={12} /> Replace
-                                    </button>
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="daytrip-btn-camera"
+                                        onClick={() => triggerReadingCamera("to")}
+                                        title="Retake with camera"
+                                      >
+                                        <Camera size={12} /> Camera
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="daytrip-btn-replace"
+                                        onClick={() => triggerReadingFileUpload("to")}
+                                        title="Replace with file"
+                                      >
+                                        <RotateCw size={12} /> Replace
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -7273,7 +7671,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                           {/* FUEL (Office Vehicles) */}
                           {isOfficeVehicle && (
                             <div className="daytrip-input-group">
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
                                 <label className="daytrip-input-label">
                                   <Fuel size={14} color="#d97706" />
                                   <span>Fuel Amount (₹)</span>
@@ -7291,36 +7689,55 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                       e.target.files?.[0] || null
                                     );
                                     restoreModalScroll();
+                                    e.target.value = "";
                                   }}
                                 />
                                 {trip.fuelImage ? (
-                                  <span
-                                    style={{
-                                      fontSize: "11px",
-                                      color: "#15803d",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      textDecoration: "underline",
-                                    }}
-                                    onClick={() => openFilePreview(trip.fuelImage)}
-                                  >
-                                    View Bill ({getFileLabel(trip.fuelImage)})
-                                  </span>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <span
+                                      style={{
+                                        fontSize: "11px",
+                                        color: "#15803d",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                      }}
+                                      onClick={() => openFilePreview(trip.fuelImage)}
+                                    >
+                                      View Bill ({getFileLabel(trip.fuelImage)})
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="daytrip-action-pill-btn cam"
+                                      onClick={() => openCameraCapture({ type: "fuel" }, "environment")}
+                                      title="Retake fuel bill photo"
+                                    >
+                                      <Camera size={11} /> Camera
+                                    </button>
+                                    <label
+                                      htmlFor="dt-fuel-file-input"
+                                      className="daytrip-action-pill-btn upload"
+                                      title="Change fuel bill file"
+                                    >
+                                      <RotateCw size={11} /> Change
+                                    </label>
+                                  </div>
                                 ) : (
-                                  <label
-                                    htmlFor="dt-fuel-file-input"
-                                    style={{
-                                      fontSize: "11px",
-                                      color: "#d97706",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px",
-                                    }}
-                                  >
-                                    <Upload size={12} /> Upload Bill
-                                  </label>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <button
+                                      type="button"
+                                      className="daytrip-action-pill-btn cam"
+                                      onClick={() => openCameraCapture({ type: "fuel" }, "environment")}
+                                    >
+                                      <Camera size={12} /> Camera
+                                    </button>
+                                    <label
+                                      htmlFor="dt-fuel-file-input"
+                                      className="daytrip-action-pill-btn upload"
+                                    >
+                                      <Upload size={12} /> Upload Bill
+                                    </label>
+                                  </div>
                                 )}
                               </div>
                               <div className="daytrip-input-field-wrapper">
@@ -7451,6 +7868,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                       e.target.files?.[0] || null
                                     );
                                     restoreModalScroll();
+                                    e.target.value = "";
                                   }}
                                 />
 
@@ -7468,32 +7886,38 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                     >
                                       ✓ Slip Attached ({getFileLabel(visit.visitSlipImage)})
                                     </span>
+                                    <button
+                                      type="button"
+                                      className="daytrip-action-pill-btn cam"
+                                      onClick={() => openCameraCapture({ type: "visitSlip", visitIndex }, "environment")}
+                                      title="Retake visit slip photo"
+                                    >
+                                      <Camera size={11} /> Camera
+                                    </button>
                                     <label
                                       htmlFor={`dt-visit-slip-${visitIndex}`}
-                                      style={{ fontSize: "11px", color: "#64748b", cursor: "pointer", textDecoration: "underline" }}
+                                      className="daytrip-action-pill-btn upload"
+                                      title="Change visit slip file"
                                     >
-                                      Change
+                                      <RotateCw size={11} /> Change
                                     </label>
                                   </div>
                                 ) : (
-                                  <label
-                                    htmlFor={`dt-visit-slip-${visitIndex}`}
-                                    style={{
-                                      fontSize: "11.5px",
-                                      color: "#b45309",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px",
-                                      background: "#fef3c7",
-                                      padding: "4px 8px",
-                                      borderRadius: "6px",
-                                      border: "1px solid #fde68a",
-                                    }}
-                                  >
-                                    <Camera size={13} /> Upload Visit Slip / Photo
-                                  </label>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <button
+                                      type="button"
+                                      className="daytrip-action-pill-btn cam"
+                                      onClick={() => openCameraCapture({ type: "visitSlip", visitIndex }, "environment")}
+                                    >
+                                      <Camera size={12} /> Take Photo
+                                    </button>
+                                    <label
+                                      htmlFor={`dt-visit-slip-${visitIndex}`}
+                                      className="daytrip-action-pill-btn upload"
+                                    >
+                                      <Upload size={12} /> Upload Slip
+                                    </label>
+                                  </div>
                                 )}
                               </div>
 
@@ -7581,7 +8005,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
                               {/* Local Transport */}
                               <div className="daytrip-input-group">
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
                                   <label className="daytrip-input-label">
                                     <Car size={14} color="#d97706" />
                                     <span>Local Transport (₹)</span>
@@ -7600,36 +8024,55 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                         e.target.files?.[0] || null
                                       );
                                       restoreModalScroll();
+                                      e.target.value = "";
                                     }}
                                   />
                                   {visit.localTransportImage ? (
-                                    <span
-                                      style={{
-                                        fontSize: "11px",
-                                        color: "#15803d",
-                                        fontWeight: 700,
-                                        cursor: "pointer",
-                                        textDecoration: "underline",
-                                      }}
-                                      onClick={() => openFilePreview(visit.localTransportImage)}
-                                    >
-                                      View Bill
-                                    </span>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                      <span
+                                        style={{
+                                          fontSize: "11px",
+                                          color: "#15803d",
+                                          fontWeight: 700,
+                                          cursor: "pointer",
+                                          textDecoration: "underline",
+                                        }}
+                                        onClick={() => openFilePreview(visit.localTransportImage)}
+                                      >
+                                        View Bill ({getFileLabel(visit.localTransportImage)})
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="daytrip-action-pill-btn cam"
+                                        onClick={() => openCameraCapture({ type: "localTransport", visitIndex }, "environment")}
+                                        title="Retake transport bill photo"
+                                      >
+                                        <Camera size={11} /> Camera
+                                      </button>
+                                      <label
+                                        htmlFor={`dt-loc-trans-${visitIndex}`}
+                                        className="daytrip-action-pill-btn upload"
+                                        title="Change transport bill file"
+                                      >
+                                        <RotateCw size={11} /> Change
+                                      </label>
+                                    </div>
                                   ) : (
-                                    <label
-                                      htmlFor={`dt-loc-trans-${visitIndex}`}
-                                      style={{
-                                        fontSize: "11px",
-                                        color: "#d97706",
-                                        fontWeight: 700,
-                                        cursor: "pointer",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                      }}
-                                    >
-                                      <Upload size={12} /> Upload Bill
-                                    </label>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                      <button
+                                        type="button"
+                                        className="daytrip-action-pill-btn cam"
+                                        onClick={() => openCameraCapture({ type: "localTransport", visitIndex }, "environment")}
+                                      >
+                                        <Camera size={12} /> Camera
+                                      </button>
+                                      <label
+                                        htmlFor={`dt-loc-trans-${visitIndex}`}
+                                        className="daytrip-action-pill-btn upload"
+                                      >
+                                        <Upload size={12} /> Upload Bill
+                                      </label>
+                                    </div>
                                   )}
                                 </div>
                                 <div className="daytrip-input-field-wrapper">
@@ -7871,11 +8314,12 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
                           <button
                             type="button"
-                            disabled={!!gate}
+                            disabled={!!gate || isSavingTrip}
                             className="daytrip-btn-add-party"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              if (isSavingTrip) return;
                               if (gate) {
                                 notify(gate, "warning");
                                 return;
@@ -7897,15 +8341,24 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                     <button
                       type="button"
                       className="daytrip-btn-save"
-                      disabled={isSavingTrip.current}
+                      disabled={isSavingTrip}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         saveDayTripModal();
                       }}
                     >
-                      <CheckCircle2 size={18} />
-                      {isSavingTrip.current ? "Saving Trip..." : "Save Trip"}
+                      {isSavingTrip ? (
+                        <>
+                          <Loader2 size={18} className="daytrip-spin" />
+                          <span>Saving Trip...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={18} />
+                          <span>Save Trip</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -8342,11 +8795,109 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
             })()}
           </div>
         </IonModal>
+
+        {/* Live Camera Viewfinder Overlay Portal */}
+        {cameraOpen && createPortal(
+          <div className="onduty-camera-overlay-backdrop" onClick={closeWebCamera}>
+            <div className="onduty-camera-modal-container" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="onduty-camera-header">
+                <div className="onduty-camera-header-title">
+                  <Camera size={18} color="#d97706" />
+                  <span>
+                    {activeCameraTarget?.type === "readingFrom"
+                      ? "Start Meter Reading Photo"
+                      : activeCameraTarget?.type === "readingTo"
+                        ? "Closing Meter Reading Photo"
+                        : activeCameraTarget?.type === "fuel"
+                          ? "Fuel Bill Photo"
+                          : activeCameraTarget?.type === "visitSlip"
+                            ? `Client Visit Slip #${(activeCameraTarget.visitIndex ?? 0) + 1}`
+                            : "Local Transport Bill"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="onduty-camera-close-icon-btn"
+                  onClick={closeWebCamera}
+                  title="Close Camera"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Viewport with viewfinder guide */}
+              <div className="onduty-camera-viewport">
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="onduty-camera-video-stream"
+                />
+                <div className="onduty-camera-guide-box">
+                  <div className="guide-corner top-left" />
+                  <div className="guide-corner top-right" />
+                  <div className="guide-corner bottom-left" />
+                  <div className="guide-corner bottom-right" />
+                  <span className="guide-text">Align meter / receipt inside frame</span>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="onduty-camera-controls">
+                <button
+                  type="button"
+                  className="onduty-cam-btn switch"
+                  onClick={switchWebCamera}
+                  title="Flip Camera"
+                >
+                  <RotateCw size={18} />
+                  <span>Flip</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="onduty-cam-btn capture"
+                  onClick={captureWebCameraPhoto}
+                  title="Capture Photo"
+                >
+                  <div className="capture-ring">
+                    <div className="capture-inner" />
+                  </div>
+                  <span>Capture</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="onduty-cam-btn browse"
+                  onClick={() => {
+                    if (activeCameraTarget) {
+                      triggerTargetFileInput(activeCameraTarget);
+                    }
+                  }}
+                  title="Browse File from Device"
+                >
+                  <Upload size={18} />
+                  <span>Browse</span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        <IonLoading
+          isOpen={isSavingTrip}
+          message="Saving trip details & uploading attachments... Please wait"
+          spinner="crescent"
+        />
+
         <IonToast
           isOpen={!!toast}
           message={toast?.msg}
           color={toast?.color as any}
-          duration={2500}
+          duration={3000}
           onDidDismiss={() => setToast(null)}
           position="top"
         />

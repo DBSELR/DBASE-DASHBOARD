@@ -357,17 +357,20 @@ const AIAttendanceRegister: React.FC = () => {
           'x-api-key': AI_API_KEY
         },
         body: formData,
-      });
-
+      });                                             
       const data = await response.json();
+      console.log("[AIAttendanceRegister] UploadModel response:", data);
       if (response.ok && data.success) {
-        setSuccessMessage("Your biometric profile has been successfully registered with 5 multi-angle references.");
+        setSuccessMessage(data.message || "Your biometric profile has been successfully registered with 5 multi-angle references.");
         setShowSuccessPopup(true);
       } else {
-        showPopup(data.message || "Face registration failed");
+        const errorMsg = (data.errors && data.errors.length > 0)
+          ? data.errors.join("; ")
+          : (data.message || "Face registration failed");
+        showPopup(errorMsg);
       } 
     } catch (error: any) {
-      console.error(error);
+      console.error("[AIAttendanceRegister] UploadModel error:", error);
       showPopup(error.message || 'Server connection failed');
     } finally {
       setIsProcessing(false);

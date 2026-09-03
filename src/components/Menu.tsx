@@ -32,6 +32,8 @@ import {
   person,
   calendarClear,
   chatbox,
+  people,
+  peopleOutline,
   chevronBackOutline,
   chevronForwardOutline,
 } from "ionicons/icons";
@@ -346,7 +348,6 @@ const Menu: React.FC = () => {
                   No menu items found.
                 </p>
               )}
-
               {/* Logout Button */}
               <IonItem
                 button
@@ -391,6 +392,13 @@ const getIcon = (iconName: string | null) => {
     "Emp Profile": person,
     "employee-outline": person,
     "subway-outline": calendar,
+    "people-outline": peopleOutline,
+    "people": people,
+    "RA,s": people,
+    "RA's": people,
+    "RAs": people,
+    "RA Management": people,
+    "Reporting Authority": people,
   };
   return iconName && icons[iconName] ? icons[iconName] : documentText;
 };

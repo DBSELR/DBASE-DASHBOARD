@@ -97,6 +97,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
 import FieldDutyStatusPage from "./pages/FieldDutyStatusPage";
+import RAManagement from "./pages/RAManagement";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -268,11 +269,14 @@ const App: React.FC = () => {
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />
                   <Route exact path="/account-deletion" component={AccountDeletion} />
+                 
+                  <Route exact path="/ras" component={RAManagement} />
+
 
                   <Redirect from="*" to="/home" />
                 </Switch>
               </ErrorBoundary>
-            </IonRouterOutlet>
+            </IonRouterOutlet> 
           </IonSplitPane>
         )}
         {user && <FloatingTabBar />}

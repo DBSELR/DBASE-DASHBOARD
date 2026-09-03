@@ -37,14 +37,20 @@ import {
   ChevronRight,
   Gauge,
   Battery,
+  Crown,
+  Filter,
+  User,
 } from "lucide-react";
 import axios from "axios";
 import * as signalR from "@microsoft/signalr";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { API_BASE } from "../config";
+import { apiService } from "../utils/apiService";
 import "./OnDutyLiveTracking.css";
 import ErrorBoundary from "../components/ErrorBoundary";
+
+const ADMIN_EMPCODES = ["1501", "1509", "1601", "1508", "1541", "1635"];
 
 // Modular dashboard components imports
 import { MapManager } from "./OnDutyLiveTracking/MapManager";
@@ -146,11 +152,190 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
   const [followUser, setFollowUser] = useState<boolean>(true);
   const [mapStyle, setMapStyle] = useState<"streets" | "voyager" | "satellite">("streets");
 
-  // Compute current selected session dynamically from active sessions list
+  // Current logged in user context
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const currentEmpCode = String(currentUser?.empCode || currentUser?.EmpCode || "").trim();
+  const currentDesignation = String(currentUser?.designation || currentUser?.Designation || "").trim();
+  const currentUserType = String(currentUser?.userType || currentUser?.UserType || "").trim().toLowerCase();
+
+  // Superadmins (Director / Top Admin) can view all officers across all RAs
+  const isSuperAdmin = useMemo(() => {
+    return (
+      ADMIN_EMPCODES.includes(currentEmpCode) ||
+      currentUserType === "admin" ||
+      currentDesignation.toLowerCase() === "director"
+    );
+  }, [currentEmpCode, currentUserType, currentDesignation]);
+
+  // RA Team Members State
+  const [teamMembersSet, setTeamMembersSet] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (currentEmpCode) s.add(currentEmpCode.toLowerCase());
+    return s;
+  });
+  const [availableRAs, setAvailableRAs] = useState<string[]>([]);
+  const [selectedRAFilter, setSelectedRAFilter] = useState<string>("All");
+  const [raToEmpCodesMap, setRaToEmpCodesMap] = useState<Record<string, Set<string>>>({});
+
+  // Known RA Leader mappings (Role -> Leader EmpCode)
+  const RA_LEADER_ROLES_MAP: Record<string, string[]> = {
+    "1501": ["director"],
+    "1524": ["team. manager", "team manager"],
+    "1520": ["team leader-unicode"],
+    "1532": ["team leader-au"],
+    "1513": ["tech. manager (onsite)", "tech. manager(onsite)"],
+    "1539": ["team leader-beat"],
+    "1633": ["business manager"],
+    "1531": ["network administrator", "admin"],
+    "1616": ["digital marketing manager"],
+    "1543": ["team leader-aku"],
+    "1596": ["product manager icampus"],
+    "1509": ["tech. manager"],
+    "1542": ["team leader-ausde"],
+    "1547": ["team leader-boat"],
+    "1615": ["head administration"],
+    "1601": ["hr"],
+    "1538": ["hr"],
+  };
+
+  // Resolve RA reporting hierarchy to isolate team members for logged-in RA
+  useEffect(() => {
+    const resolveRATeams = async () => {
+      try {
+        const teamSet = new Set<string>();
+        if (currentEmpCode) teamSet.add(currentEmpCode.toLowerCase());
+
+        const normDesig = currentDesignation.toLowerCase().trim();
+        const normName = String(currentUser?.empName || currentUser?.EmpName || "").toLowerCase().trim();
+        const normCode = currentEmpCode.toLowerCase().trim();
+
+        // Determine all roles that this RA user leads
+        const userLeadRoles = new Set<string>();
+        if (
+          normDesig &&
+          normDesig !== "employee" &&
+          normDesig !== "user" &&
+          normDesig !== "staff" &&
+          normDesig !== "developer" &&
+          normDesig !== "senior developer"
+        ) {
+          userLeadRoles.add(normDesig);
+        }
+        if (RA_LEADER_ROLES_MAP[normCode]) {
+          RA_LEADER_ROLES_MAP[normCode].forEach((r) => userLeadRoles.add(r));
+        }
+
+        const raMap: Record<string, Set<string>> = {};
+        const allRAs = new Set<string>();
+
+        // 1. Try reading from cached RA matrix
+        const cached =
+          localStorage.getItem("dbase_ra_matrix_cache_v3") ||
+          localStorage.getItem("dbase_ra_matrix_cache_v2");
+        let cachedEmployees: any[] = [];
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              cachedEmployees = parsed;
+            }
+          } catch (e) {
+            console.warn("Cache parse error in OnDutyLiveTracking:", e);
+          }
+        }
+
+        // 2. If no cache, fetch active employees and resolve RA1 in parallel
+        if (cachedEmployees.length === 0) {
+          try {
+            const empRes = await apiService.loadEmployees("Active");
+            const rawList = Array.isArray(empRes) ? empRes : empRes?.data || [];
+            if (Array.isArray(rawList) && rawList.length > 0) {
+              cachedEmployees = await Promise.all(
+                rawList.map(async (row: any) => {
+                  const code = String(Array.isArray(row) ? row[0] : row.EmpCode || row.empCode || "").trim();
+                  const name = String(Array.isArray(row) ? row[1] : row.EmpName || row.empName || "").trim();
+                  let reqTo = "";
+                  try {
+                    const empData = await apiService.getEmployee(code);
+                    const r = Array.isArray(empData) ? empData[0] : empData?.data?.[0] || empData;
+                    if (Array.isArray(r)) reqTo = String(r[15] || "").trim();
+                    else if (typeof r === "object" && r !== null) reqTo = String(r.RequestTo || r._RequestTo || r.RA1 || "").trim();
+                  } catch {}
+                  return { empCode: code, empName: name, requestTo: reqTo };
+                })
+              );
+            }
+          } catch (err) {
+            console.warn("[OnDutyLiveTracking] loadEmployees error:", err);
+          }
+        }
+
+        // Process resolved employees with strict exact matching
+        cachedEmployees.forEach((emp: any) => {
+          const code = String(emp.empCode || emp.EmpCode || "").trim().toLowerCase();
+          const reqToRaw = String(emp.requestTo || emp.RequestTo || "").trim();
+          if (!code || !reqToRaw || reqToRaw === "NULL" || reqToRaw === "null" || reqToRaw === "undefined") {
+            return;
+          }
+
+          allRAs.add(reqToRaw);
+          const rKey = reqToRaw.toLowerCase();
+          if (!raMap[rKey]) raMap[rKey] = new Set();
+          raMap[rKey].add(code);
+
+          // Check if this employee reports to the current RA using strict exact comparison
+          const isDirectReport =
+            userLeadRoles.has(rKey) ||
+            (normCode && rKey === normCode) ||
+            (normName && rKey === normName);
+
+          if (isDirectReport) {
+            teamSet.add(code);
+          }
+        });
+
+        if (isComponentMounted.current) {
+          setTeamMembersSet(teamSet);
+          setAvailableRAs(Array.from(allRAs).sort());
+          setRaToEmpCodesMap(raMap);
+        }
+      } catch (err) {
+        console.error("[OnDutyLiveTracking] resolveRATeams error:", err);
+      }
+    };
+
+    resolveRATeams();
+  }, [currentEmpCode, currentDesignation]);
+
+  // Determine Visible Sessions (Scoped to RA's team members or selected superadmin view)
+  const visibleSessions = useMemo(() => {
+    if (isSuperAdmin) {
+      if (selectedRAFilter === "All") {
+        return sessions;
+      }
+      const targetTeam = raToEmpCodesMap[selectedRAFilter.toLowerCase()] || new Set();
+      return sessions.filter((s) => targetTeam.has(String(s.EmpCode).trim().toLowerCase()));
+    }
+
+    // For an RA: filter to only show their direct team members
+    return sessions.filter((s) => {
+      const codeKey = String(s.EmpCode || "").trim().toLowerCase();
+      return teamMembersSet.has(codeKey);
+    });
+  }, [sessions, isSuperAdmin, selectedRAFilter, raToEmpCodesMap, teamMembersSet]);
+
+  // Compute current selected session dynamically from visible active sessions list
   const currentSelectedSession = useMemo(() => {
     if (!selectedSession) return null;
-    return sessions.find((s) => s.EmpCode === selectedSession.EmpCode) || selectedSession;
-  }, [sessions, selectedSession]);
+    return visibleSessions.find((s) => s.EmpCode === selectedSession.EmpCode) || selectedSession;
+  }, [visibleSessions, selectedSession]);
   const [drawerCollapsed, setDrawerCollapsed] = useState<boolean>(false);
   const [showLayerPicker, setShowLayerPicker] = useState<boolean>(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState<boolean>(false);
@@ -412,7 +597,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
 
   // Resolve human-readable reverse-geocoded location address names for active officers
   useEffect(() => {
-    sessions.forEach(async (s) => {
+    visibleSessions.forEach(async (s) => {
       if (s.Latitude && s.Longitude && (s.Latitude !== 0 || s.Longitude !== 0)) {
         const name = await LocationNameCache.getLocationName(s.Latitude, s.Longitude);
         if (name && isComponentMounted.current) {
@@ -423,7 +608,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
         }
       }
     });
-  }, [sessions]);
+  }, [visibleSessions]);
 
   // Map Tile Sources
   const tileUrls = useMemo(
@@ -761,7 +946,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
   // Filtered Sessions List (Safely guarded against null/undefined)
   const filteredSessions = useMemo(() => {
     const searchLower = (searchTerm || "").toLowerCase().trim();
-    return sessions.filter((s) => {
+    return visibleSessions.filter((s) => {
       if (!s) return false;
 
       const empName = (s.EmpName || "").toLowerCase();
@@ -791,7 +976,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
 
       return matchSearch && statusMatch;
     });
-  }, [sessions, searchTerm, statusFilter]);
+  }, [visibleSessions, searchTerm, statusFilter]);
 
   // Statistics Summary
   const stats = useMemo(() => {
@@ -799,7 +984,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
       stationary = 0,
       lastKnown = 0,
       pendingSync = 0;
-    sessions.forEach((s) => {
+    visibleSessions.forEach((s) => {
       if (!s) return;
       const statusStr = s.MovementStatus || "Stationary";
       if (statusStr === "Moving") moving++;
@@ -807,8 +992,8 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
       else if (statusStr === "LastKnown" || statusStr === "Offline") lastKnown++;
       else pendingSync++;
     });
-    return { total: sessions.length, moving, stationary, lastKnown, pendingSync };
-  }, [sessions]);
+    return { total: visibleSessions.length, moving, stationary, lastKnown, pendingSync };
+  }, [visibleSessions]);
 
   // System Health Dashboard statistics calculated dynamically
   const healthStats = useMemo(() => {
@@ -818,7 +1003,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
     let batteryLow = 0;
     let onlineCount = 0;
 
-    sessions.forEach((s) => {
+    visibleSessions.forEach((s) => {
       if (!s) return;
       const secAgo = typeof s.SecondsSinceLastUpdate === "number" ? s.SecondsSinceLastUpdate : 0;
       const statusStr = (s.MovementStatus || "").toLowerCase();
@@ -845,7 +1030,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
 
     return {
       online: onlineCount,
-      offline: sessions.length - onlineCount,
+      offline: visibleSessions.length - onlineCount,
       gpsDisabled,
       permissionMissing,
       backgroundStopped,
@@ -853,7 +1038,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
       apiResponseTime: 120, // ms avg
       packetSuccess: 99.8, // %
     };
-  }, [sessions]);
+  }, [visibleSessions]);
 
   // Render & Update Markers & Live Route Trails
   useEffect(() => {
@@ -873,7 +1058,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
     const bounds: [number, number][] = [];
     const currentEmpCodes = new Set<string>();
 
-    sessions.forEach((s) => {
+    visibleSessions.forEach((s) => {
       if (!s || !s.Latitude || !s.Longitude || (s.Latitude === 0 && s.Longitude === 0)) return;
 
       const empCodeKey = s.EmpCode || String(s.SessionId || Math.random());
@@ -968,7 +1153,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
       mapRef.current.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [60, 60], maxZoom: 15 });
       hasInitiallyFittedRef.current = true;
     }
-  }, [sessions, selectedSession, isReplaying]);
+  }, [visibleSessions, selectedSession, isReplaying]);
 
   // Center on Employee
   const focusOnEmployee = (s: ActiveSessionItem) => {
@@ -999,7 +1184,7 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
   // Fit All Markers
   const fitAllMarkers = () => {
     if (!mapRef.current) return;
-    const pts = sessions
+    const pts = visibleSessions
       .filter((s) => s && s.Latitude && s.Longitude)
       .map((s) => [s.Latitude!, s.Longitude!] as [number, number]);
 
@@ -1319,7 +1504,11 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
             <div className="drawer-handle-bar" onClick={() => setDrawerCollapsed(!drawerCollapsed)}>
               <div className="handle-title">
                 <Users size={16} />
-                <span>Today's Officers ({filteredSessions.length})</span>
+                <span>
+                  {!isSuperAdmin && currentDesignation
+                    ? `My Team Officers (${filteredSessions.length})`
+                    : `Today's Officers (${filteredSessions.length})`}
+                </span>
               </div>
               <button className="collapse-toggle-btn">
                 {drawerCollapsed ? <Compass size={18} /> : <X size={18} />}
@@ -1327,21 +1516,80 @@ export const OnDutyLiveTrackingContent: React.FC = () => {
             </div>
 
             {!drawerCollapsed && (
-              <div className="drawer-inline-search" onClick={(e) => e.stopPropagation()}>
-                <Search size={14} className="drawer-search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search officer, ID, role..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="drawer-search-input"
-                />
-                {searchTerm && (
-                  <button className="drawer-clear-btn" onClick={() => setSearchTerm("")}>
-                    <X size={12} />
-                  </button>
+              <>
+                {/* Superadmin RA Team Filter Dropdown */}
+                {isSuperAdmin && availableRAs.length > 0 && (
+                  <div style={{ padding: "8px 12px 0 12px" }}>
+                    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                      <Filter size={13} style={{ position: "absolute", left: "10px", color: "#64748b", pointerEvents: "none" }} />
+                      <select
+                        value={selectedRAFilter}
+                        onChange={(e) => setSelectedRAFilter(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "6px 10px 6px 30px",
+                          borderRadius: "8px",
+                          border: "1px solid #e2e8f0",
+                          background: "#f8fafc",
+                          fontSize: "12px",
+                          color: "#1e293b",
+                          fontWeight: 600,
+                          outline: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="All">🌐 All Teams ({sessions.length} Officers)</option>
+                        {availableRAs.map((ra) => {
+                          const count = (raToEmpCodesMap[ra.toLowerCase()]?.size) || 0;
+                          return (
+                            <option key={ra} value={ra}>
+                              👤 {ra} ({count} members)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
                 )}
-              </div>
+
+                {/* RA Role Context Sub-badge for Non-Superadmin RAs */}
+                {!isSuperAdmin && currentDesignation && (
+                  <div style={{ padding: "6px 12px 2px 12px" }}>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: "#4f46e5",
+                        background: "#eef2ff",
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <User size={12} />
+                      <span>Reporting Authority: {currentDesignation}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="drawer-inline-search" onClick={(e) => e.stopPropagation()}>
+                  <Search size={14} className="drawer-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search officer, ID, role..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="drawer-search-input"
+                  />
+                  {searchTerm && (
+                    <button className="drawer-clear-btn" onClick={() => setSearchTerm("")}>
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </>
             )}
 
             {/* Filter Pills */}

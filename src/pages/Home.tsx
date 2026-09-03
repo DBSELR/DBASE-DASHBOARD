@@ -63,6 +63,55 @@ const Home: React.FC = () => {
     }
   })();
 
+  const [isRAUser, setIsRAUser] = useState<boolean>(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      const empCode = String(u.empCode || u.EmpCode || '').trim();
+      const desig = String(u.designation || u.Designation || '').trim().toLowerCase();
+      const uType = String(u.userType || u.UserType || '').trim().toLowerCase();
+      return (
+        Live_Tracking_Engine.includes(empCode) ||
+        ADMIN_EMPCODES.includes(empCode) ||
+        uType === 'admin' ||
+        uType === 'director' ||
+        uType === 'hr' ||
+        uType === 'manager' ||
+        desig.includes('director') ||
+        desig.includes('manager') ||
+        desig.includes('head') ||
+        desig.includes('leader') ||
+        desig.includes('lead') ||
+        desig.includes('in-charge') ||
+        desig.includes('administrator')
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const checkRAAccess = async () => {
+      try {
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        const desig = String(u.designation || u.Designation || '').trim().toLowerCase();
+        if (!desig) return;
+
+        const rasRes = await apiService.loadRAS();
+        if (Array.isArray(rasRes)) {
+          const allowed = rasRes.map((r: any) =>
+            (typeof r === 'string' ? r : r.name || r.Name || r.designation || '').trim().toLowerCase()
+          );
+          if (allowed.includes(desig)) {
+            setIsRAUser(true);
+          }
+        }
+      } catch (e) {
+        console.warn('[Home] Check RA access error:', e);
+      }
+    };
+    checkRAAccess();
+  }, [currentEmpCode]);
+
   useEffect(() => {
     // Extract dynamic theme colors from Ionic CSS variables
     const getThemeColors = () => {
@@ -253,7 +302,7 @@ const Home: React.FC = () => {
       colorClass: "home-card-payment-reminders"
     }] : []),
 
-    ...(Live_Tracking_Engine.includes(currentEmpCode) ? [{
+    ...((Live_Tracking_Engine.includes(currentEmpCode) || isRAUser) ? [{
       id: "live-tracking-engine",
       label: "Live Tracking Engine",
       icon: "https://cdn.lordicon.com/zzcwywzv.json",
