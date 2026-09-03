@@ -28,7 +28,9 @@ import {
   documentTextOutline,
   alertCircleOutline,
   busOutline,
-  hardwareChipOutline
+  hardwareChipOutline,
+  businessOutline,
+  callOutline
 } from "ionicons/icons";
 
 import { createPortal } from "react-dom";
@@ -2363,27 +2365,30 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                         <div className="lr-grid-item"><span className="lr-grid-label">Applied On</span><span className="lr-grid-value">{item.AppliedOn}</span></div>
                         {item?.ltype?.toLowerCase() === 'permission' ? (
                           <>
-                            <div className="lr-row">
-                              <div className="lr-grid-item">
-                                <span className="lr-grid-label">Permission Time</span>
-                                <span className="lr-grid-value permission-time">
-                                  {cleanDate(item.lfrom)}
-                                  {item.InTime ? ` (${formatTime(item.InTime)})` : ""}
-                                  {item.ptime ? ` (${item.ptime})` : ""}
-                                </span>
-                              </div>
-
-                              {typeof item.Slip === "string" &&
-                                item.Slip.trim() !== "" && (
-                                  <div className="lr-grid-item">
-                                    <span className="lr-grid-label">Slip</span>
-                                    <span className="lr-grid-value">{item.Slip}</span>
-                                  </div>
-                                )}
+                            <div className="lr-grid-item permission-time-box">
+                              <span className="lr-grid-label">Permission Time</span>
+                              <span className="lr-grid-value permission-time">
+                                {cleanDate(item.lfrom)}
+                                {item.InTime ? ` (${formatTime(item.InTime)})` : ""}
+                                {item.ptime ? ` (${item.ptime})` : ""}
+                              </span>
                             </div>
+
+                            {typeof item.Slip === "string" &&
+                              item.Slip.trim() !== "" && (
+                                <div className="lr-grid-item">
+                                  <span className="lr-grid-label">Slip</span>
+                                  <span className="lr-grid-value">{item.Slip}</span>
+                                </div>
+                              )}
                           </>
                         ) : (
-                          <div className="lr-grid-item"><span className="lr-grid-label">Leave Dates</span><span className="lr-grid-value">{cleanDate(item.lfrom)} {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom) ? `- ${cleanDate(item.lto)}` : ''}</span></div>
+                          <div className="lr-grid-item leave-dates-box">
+                            <span className="lr-grid-label">Leave Dates</span>
+                            <span className="lr-grid-value">
+                              {cleanDate(item.lfrom)} {cleanDate(item.lto) && cleanDate(item.lto) !== cleanDate(item.lfrom) ? `- ${cleanDate(item.lto)}` : ''}
+                            </span>
+                          </div>
                         )}
                       </>
                     )}
@@ -2709,188 +2714,269 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
               {(selectedDuty.dayTrips || []).map((trip: any, index: number) => {
                 const isDayExpanded = expandedTripDays.has(index);
                 return (
-                <div key={trip.dayTrip_Id || index} className="trip-card">
-
-                  <div
-                    className="trip-header"
-                    onClick={() => toggleTripDay(index)}
-                    style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <b>{moment(trip.dutyDate).format("DD-MM-YYYY")}</b>
-                    <span style={{ fontSize: "12px", color: "#64748b" }}>
-                      {(trip.visits || []).length} visit{(trip.visits || []).length === 1 ? "" : "s"}{" "}
-                      {isDayExpanded ? "▲" : "▼"}
-                    </span>
-                  </div>
-
-                  {isDayExpanded && (
-                  <div className="trip-body">
-                    <p>
-                      <b>Reading:</b>{" "}
-                      {trip.readingFromImagePath ? (
-                        <span
-                          style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
-                          onClick={() =>
-                            window.open(getUploadedImageUrl(trip.readingFromImagePath), "_blank")
-                          }
-                        >
-                          {trip.readingFrom}
-                        </span>
-                      ) : (
-                        trip.readingFrom
-                      )}
-                      {" → "}
-                      {trip.readingToImagePath ? (
-                        <span
-                          style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
-                          onClick={() =>
-                            window.open(getUploadedImageUrl(trip.readingToImagePath), "_blank")
-                          }
-                        >
-                          {trip.readingTo}
-                        </span>
-                      ) : (
-                        trip.readingTo
-                      )}
-                      {" "}({trip.distance} Km)
-                    </p>
-                    {(trip.readingFromUploadedOn || trip.readingToUploadedOn) && (
-                      <p className="upload-time-note" style={{ fontSize: "11px", color: "#64748b", margin: "-6px 0 8px" }}>
-                        {trip.readingFromUploadedOn && (
-                          <>Reading From uploaded {formatUploadedOn(trip.readingFromUploadedOn)}</>
-                        )}
-                        {trip.readingFromUploadedOn && trip.readingToUploadedOn && " · "}
-                        {trip.readingToUploadedOn && (
-                          <>Reading To uploaded {formatUploadedOn(trip.readingToUploadedOn)}</>
-                        )}
-                      </p>
-                    )}
-
-                    {trip.fuelAmount ? (
-                      <p>
-                        <b>Fuel:</b>{" "}
-                        {trip.fuelImagePath ? (
-                          <span
-                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
-                            onClick={() =>
-                              window.open(getUploadedImageUrl(trip.fuelImagePath), "_blank")
-                            }
-                          >
-                            ₹{trip.fuelAmount}
-                          </span>
-                        ) : (
-                          `₹${trip.fuelAmount}`
-                        )}
-                      </p>
-                    ) : null}
-                  </div>
-                  )}
-
-                  {isDayExpanded && (trip.visits || []).map((visit: any, vIndex: number) => (
-                    <div key={vIndex} className="visit-card">
-
-                      <div className="visit-card-grid">
-                      <p>
-                        <b>Client:</b>{" "}
-                        {visit.visit_ImagePath ? (
-                          <span
-                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
-                            onClick={() =>
-                              window.open(getUploadedImageUrl(visit.visit_ImagePath), "_blank")
-                            }
-                          >
-                            {visit.client_Name}
-                          </span>
-                        ) : (
-                          visit.client_Name
-                        )}
-                      </p>
-
-                      {visit.visit_ImagePathUploadedOn && (
-                        <p className="upload-time-note" style={{ fontSize: "11px", color: "#64748b", margin: "-6px 0 8px" }}>
-                          Client slip uploaded {formatUploadedOn(visit.visit_ImagePathUploadedOn)}
-                        </p>
-                      )}
-
-                      <p>
-                        <b>Location:</b>{" "}
-                        {visit.latitude && visit.longitude ? (
-                          <span
-                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
-                            onClick={() =>
-                              window.open(
-                                `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`
-                              )
-                            }
-                          >
-                            {visit.location || "View Map"}
-                          </span>
-                        ) : (
-                          visit.location
-                        )}
-                      </p>
-
-                      <p>
-                        <b>Time:</b> {visit.visit_FromTime} → {visit.visit_ToTime}
-                      </p>
-
-                      {visit.projects && (
-                        <p>
-                          <b>Demo Project:</b>{" "}
-                          {String(visit.projects)
-                            .split(",")
-                            .map((p: string) => p.trim())
-                            .filter(Boolean)
-                            .join(", ")}
-                        </p>
-                      )}
-
-                      {visit.empCodes && (
-                        <p>
-                          <b>Employees:</b>{" "}
-                          {(() => {
-                            const codes = String(visit.empCodes)
-                              .split(",")
-                              .map((c: string) => c.trim())
-                              .filter(Boolean);
-                            if (codes.length === 0) return "-";
-                            const names = parseEmpNames(selectedDuty?.empNames)
-                              .filter((e: any) => codes.includes(e.code))
-                              .map((e: any) => e.name);
-                            return names.length > 0 ? names.join(", ") : codes.join(", ");
-                          })()}
-                        </p>
-                      )}
-
-                      {(visit.contact_Person || visit.mobile_Number) && (
-                        <p>
-                          <b>Contact:</b> {visit.contact_Person}
-                          {visit.mobile_Number ? ` (${visit.mobile_Number})` : ""}
-                        </p>
-                      )}
-
-                      <p>
-                        <b>Remarks:</b> {visit.remarks}
-                      </p>
-
-                      {visit.localTransportImagePath && (
-                        <p>
-                          <b>Local Transport:</b>{" "}
-                          <span
-                            style={{ color: "blue", cursor: "pointer", textDecoration: "underline" }}
-                            onClick={() =>
-                              window.open(getUploadedImageUrl(visit.localTransportImagePath), "_blank")
-                            }
-                          >
-                            {visit.localTransportAmount ? `₹${visit.localTransportAmount}` : "View"}
-                          </span>
-                        </p>
-                      )}
+                  <div key={trip.dayTrip_Id || index} className="trip-card">
+                    {/* TRIP HEADER */}
+                    <div
+                      className="trip-header"
+                      onClick={() => toggleTripDay(index)}
+                    >
+                      <div className="trip-header-date">
+                        <IonIcon icon={calendarOutline} className="trip-hdr-icon" />
+                        <span className="trip-date-text">{moment(trip.dutyDate).format("DD-MM-YYYY")}</span>
                       </div>
-
+                      <div className="trip-header-badge-group">
+                        <span className="trip-visits-pill">
+                          {(trip.visits || []).length} visit{(trip.visits || []).length === 1 ? "" : "s"}
+                        </span>
+                        <span className="trip-collapse-indicator">
+                          {isDayExpanded ? "▲" : "▼"}
+                        </span>
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    {isDayExpanded && (
+                      <div className="trip-body">
+                        {/* STATS METRICS ROW */}
+                        <div className="trip-metrics-row">
+                          {/* ODOMETER READING */}
+                          <div className="trip-stat-card">
+                            <div className="trip-stat-header">
+                              <span className="trip-stat-label">Odometer Reading</span>
+                              <span className="trip-distance-badge">{trip.distance || 0} Km</span>
+                            </div>
+                            <div className="trip-stat-value">
+                              <span className="reading-val">
+                                {trip.readingFromImagePath ? (
+                                  <button
+                                    type="button"
+                                    className="reading-link-btn"
+                                    onClick={() =>
+                                      window.open(getUploadedImageUrl(trip.readingFromImagePath), "_blank")
+                                    }
+                                    title="View Start Reading Image"
+                                  >
+                                    📷 {trip.readingFrom}
+                                  </button>
+                                ) : (
+                                  trip.readingFrom || "0"
+                                )}
+                              </span>
+                              <span className="reading-arrow">➔</span>
+                              <span className="reading-val">
+                                {trip.readingToImagePath ? (
+                                  <button
+                                    type="button"
+                                    className="reading-link-btn"
+                                    onClick={() =>
+                                      window.open(getUploadedImageUrl(trip.readingToImagePath), "_blank")
+                                    }
+                                    title="View End Reading Image"
+                                  >
+                                    📷 {trip.readingTo}
+                                  </button>
+                                ) : (
+                                  trip.readingTo || "0"
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* FUEL EXPENSE */}
+                          {trip.fuelAmount ? (
+                            <div className="trip-stat-card fuel">
+                              <div className="trip-stat-header">
+                                <span className="trip-stat-label">Fuel Expense</span>
+                                {trip.fuelImagePath && (
+                                  <button
+                                    type="button"
+                                    className="fuel-receipt-btn"
+                                    onClick={() =>
+                                      window.open(getUploadedImageUrl(trip.fuelImagePath), "_blank")
+                                    }
+                                  >
+                                    🧾 Receipt
+                                  </button>
+                                )}
+                              </div>
+                              <div className="trip-fuel-value">
+                                ₹{Number(trip.fuelAmount).toLocaleString()}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {(trip.readingFromUploadedOn || trip.readingToUploadedOn) && (
+                          <div className="upload-time-note">
+                            {trip.readingFromUploadedOn && (
+                              <span>Start reading uploaded {formatUploadedOn(trip.readingFromUploadedOn)}</span>
+                            )}
+                            {trip.readingFromUploadedOn && trip.readingToUploadedOn && <span> · </span>}
+                            {trip.readingToUploadedOn && (
+                              <span>End reading uploaded {formatUploadedOn(trip.readingToUploadedOn)}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* VISITS LIST */}
+                        {(trip.visits || []).map((visit: any, vIndex: number) => (
+                          <div key={vIndex} className="visit-card">
+                            {/* VISIT HEADER */}
+                            <div className="visit-header-row">
+                              <div className="visit-client-info">
+                                <div className="visit-client-name">
+                                  <IonIcon icon={businessOutline} className="visit-client-icon" />
+                                  <span>{visit.client_Name}</span>
+                                </div>
+                                {visit.location && (
+                                  <div className="visit-location-badge">
+                                    {visit.latitude && visit.longitude ? (
+                                      <button
+                                        type="button"
+                                        className="visit-map-btn"
+                                        onClick={() =>
+                                          window.open(
+                                            `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
+                                            "_blank"
+                                          )
+                                        }
+                                      >
+                                        <IonIcon icon={locationOutline} />
+                                        <span>{visit.location}</span>
+                                        <span className="map-tag">Map ↗</span>
+                                      </button>
+                                    ) : (
+                                      <span className="visit-loc-text">
+                                        <IonIcon icon={locationOutline} />
+                                        <span>{visit.location}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {visit.visit_ImagePath && (
+                                <button
+                                  type="button"
+                                  className="visit-slip-btn"
+                                  onClick={() =>
+                                    window.open(getUploadedImageUrl(visit.visit_ImagePath), "_blank")
+                                  }
+                                >
+                                  📄 Client Slip
+                                </button>
+                              )}
+                            </div>
+
+                            {visit.visit_ImagePathUploadedOn && (
+                              <div className="upload-time-note" style={{ margin: "2px 0 10px 0" }}>
+                                Client slip uploaded {formatUploadedOn(visit.visit_ImagePathUploadedOn)}
+                              </div>
+                            )}
+
+                            {/* VISIT PROPS GRID */}
+                            <div className="visit-props-grid">
+                              {/* Time */}
+                              <div className="visit-prop-item">
+                                <span className="visit-prop-label">Time</span>
+                                <span className="visit-prop-val">
+                                  <IonIcon icon={timeOutline} />
+                                  {visit.visit_FromTime} ➔ {visit.visit_ToTime}
+                                </span>
+                              </div>
+
+                              {/* Demo Project */}
+                              {visit.projects && (
+                                <div className="visit-prop-item">
+                                  <span className="visit-prop-label">Demo Project</span>
+                                  <span className="visit-prop-val highlight">
+                                    <IonIcon icon={pricetagOutline} />
+                                    {String(visit.projects)
+                                      .split(",")
+                                      .map((p: string) => p.trim())
+                                      .filter(Boolean)
+                                      .join(", ")}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Employees */}
+                              {visit.empCodes && (
+                                <div className="visit-prop-item full-span">
+                                  <span className="visit-prop-label">Employees</span>
+                                  <div className="visit-emp-chips">
+                                    {(() => {
+                                      const codes = String(visit.empCodes)
+                                        .split(",")
+                                        .map((c: string) => c.trim())
+                                        .filter(Boolean);
+                                      if (codes.length === 0) return <span>-</span>;
+                                      const parsed = parseEmpNames(selectedDuty?.empNames);
+                                      return codes.map((c: string, idx: number) => {
+                                        const matched = parsed.find((e: any) => e.code === c);
+                                        const name = matched ? matched.name : c;
+                                        return (
+                                          <span key={idx} className="visit-emp-pill">
+                                            <IonIcon icon={personOutline} />
+                                            {name}
+                                          </span>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Contact */}
+                              {(visit.contact_Person || visit.mobile_Number) && (
+                                <div className="visit-prop-item">
+                                  <span className="visit-prop-label">Contact Person</span>
+                                  <span className="visit-prop-val">
+                                    <IonIcon icon={callOutline} />
+                                    {visit.contact_Person}
+                                    {visit.mobile_Number && (
+                                      <a href={`tel:${visit.mobile_Number}`} className="visit-phone-link">
+                                        ({visit.mobile_Number})
+                                      </a>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Local Transport */}
+                              {visit.localTransportImagePath && (
+                                <div className="visit-prop-item">
+                                  <span className="visit-prop-label">Local Transport</span>
+                                  <button
+                                    type="button"
+                                    className="visit-slip-btn transport"
+                                    onClick={() =>
+                                      window.open(getUploadedImageUrl(visit.localTransportImagePath), "_blank")
+                                    }
+                                  >
+                                    <IonIcon icon={busOutline} />
+                                    {visit.localTransportAmount
+                                      ? `₹${visit.localTransportAmount} Receipt`
+                                      : "View Receipt"}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Remarks Box */}
+                            {visit.remarks && (
+                              <div className="visit-remarks-box">
+                                <IonIcon icon={documentTextOutline} className="remarks-icon" />
+                                <div>
+                                  <span className="remarks-label">Remarks: </span>
+                                  <span className="remarks-text">{visit.remarks}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
 
