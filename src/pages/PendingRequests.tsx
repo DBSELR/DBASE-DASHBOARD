@@ -598,7 +598,7 @@ const PendingRequests: React.FC = () => {
                           <div className="pr-detail-item">
                             <span className="pr-detail-label">Duration</span>
                             <span className="pr-detail-value">
-                              {item.minutes > 0 ? `${item.minutes} Mins` : `${item.days} Day(s)`}
+                              {activeType === "permission" && item.minutes > 0 ? `${item.minutes} Mins` : `${item.days} Day(s)`}
                             </span>
                           </div>
                         </>

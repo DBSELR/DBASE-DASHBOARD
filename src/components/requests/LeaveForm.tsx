@@ -305,36 +305,36 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         const isHalfDayRequest = leaveMode === "Forenoon" || leaveMode === "Afternoon";
 
         // Check for existing permissions on the same date
-        const existingPermission = matchingLeaves.find(
-          (item: any) => item.leaveMode === "Permission" || item.lType === "Permission"
-        );
+        // const existingPermission = matchingLeaves.find(
+        //   (item: any) => item.leaveMode === "Permission" || item.lType === "Permission"
+        // );
 
-        if (existingPermission) {
-          const isMorningPermission = (pOut: string | null) => {
-            if (!pOut) return true; // Default to morning if no time is specified
-            const parts = pOut.split(":");
-            if (parts.length > 0) {
-              const hour = parseInt(parts[0], 10);
-              if (!isNaN(hour)) {
-                return hour < 13; // Before 1:00 PM is morning/Forenoon
-              }
-            }
-            return true;
-          };
+        // if (existingPermission) {
+        //   const isMorningPermission = (pOut: string | null) => {
+        //     if (!pOut) return true; // Default to morning if no time is specified
+        //     const parts = pOut.split(":");
+        //     if (parts.length > 0) {
+        //       const hour = parseInt(parts[0], 10);
+        //       if (!isNaN(hour)) {
+        //         return hour < 13; // Before 1:00 PM is morning/Forenoon
+        //       }
+        //     }
+        //     return true;
+        //   };
 
-          if (isHalfDayRequest) {
-            const isMorningPerm = isMorningPermission(existingPermission.pOut);
-            if (leaveMode === "Forenoon" && isMorningPerm) {
-              return "Permission already applied for forenoon on this date";
-            }
-            if (leaveMode === "Afternoon" && !isMorningPerm) {
-              return "Permission already applied for afternoon on this date";
-            }
-          } else {
-            // Full day leave request conflicts with any permission
-            return "Permission already applied for this date";
-          }
-        }
+        //   if (isHalfDayRequest) {
+        //     const isMorningPerm = isMorningPermission(existingPermission.pOut);
+        //     if (leaveMode === "Forenoon" && isMorningPerm) {
+        //       return "Permission already applied for forenoon on this date";
+        //     }
+        //     if (leaveMode === "Afternoon" && !isMorningPerm) {
+        //       return "Permission already applied for afternoon on this date";
+        //     }
+        //   } else {
+        //     // Full day leave request conflicts with any permission
+        //     return "Permission already applied for this date";
+        //   }
+        // }
 
         if (isHalfDayRequest) {
           // Block if the exact same half-day leave exists
@@ -549,9 +549,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       _PermTime:
         requestType === "Permission"
           ? permTime
-          : overrideDays !== undefined
-            ? String(overrideDays)
-            : "",
+          : "",
       _InTime:
         requestType === "Permission"
           ? moment(inTime, "HH:mm").format("HH:mm")
