@@ -682,6 +682,59 @@ const LeaveDashboard: React.FC = () => {
         console.error("Error fetching grace from matrix", err);
       }
 
+      // Calculate LOP Leave Days strictly from actual LEAVES (exclude permissions and face attendance)
+      let calculatedLeaveLopDays = 0;
+      rawLeaves.forEach((item) => {
+        const r = normalizeRow(item);
+        if (!r) return;
+
+        // Skip rejected records
+        if (r.statusClass === "rejected" || (r.status && r.status.toLowerCase().includes("reject"))) {
+          return;
+        }
+
+        // Strictly ensure this is a Leave, not a Permission
+        const isPerm = (r.typeDisp || "").toLowerCase().includes("permission") || (r.leaveCategory || "").toLowerCase().includes("permission");
+        if (isPerm) {
+          return;
+        }
+
+        const cat = (r.leaveCategory || "").trim().toLowerCase();
+        const typeStr = (r.typeDisp || "").trim().toLowerCase();
+        const isLop =
+          cat.includes("lop") ||
+          cat.includes("loss of pay") ||
+          cat.includes("lossofpay") ||
+          typeStr.includes("lop") ||
+          typeStr.includes("loss of pay");
+
+        if (isLop) {
+          const isHalfDay =
+            typeStr.includes("forenoon") ||
+            typeStr.includes("afternoon") ||
+            cat.includes("forenoon") ||
+            cat.includes("afternoon") ||
+            typeStr.includes("half");
+
+          const parsedDays = parseFloat(String(r.days));
+          if (!isNaN(parsedDays) && parsedDays > 0) {
+            calculatedLeaveLopDays += isHalfDay && parsedDays > 0.5 ? 0.5 : parsedDays;
+          } else if (isHalfDay) {
+            calculatedLeaveLopDays += 0.5;
+          } else if (r.from && r.to && r.from !== r.to) {
+            const d1 = moment(r.from);
+            const d2 = moment(r.to);
+            if (d1.isValid() && d2.isValid()) {
+              calculatedLeaveLopDays += Math.max(1, d2.diff(d1, "days") + 1);
+            } else {
+              calculatedLeaveLopDays += 1;
+            }
+          } else {
+            calculatedLeaveLopDays += 1;
+          }
+        }
+      });
+
       extractedLateLogs.sort((a, b) => b.date.localeCompare(a.date));
       setLateLogs(extractedLateLogs);
       setLateSummary({
@@ -707,7 +760,7 @@ const LeaveDashboard: React.FC = () => {
         },
         lop: { 
           balance: lopBalance, 
-          used: Math.max(lopUsed, lopCount) 
+          used: calculatedLeaveLopDays 
         },
         grace: { used: graceUsed, max: graceMax, usedMins: graceUsedMins, todayUsed: todayGraceUsed, todayMins: todayGraceMins }
       });
@@ -727,10 +780,29 @@ const LeaveDashboard: React.FC = () => {
     const status = deduceStatus(x, fallbackManager);
     const ptime = safeStr(x.PTime || x.ptime || x.Ptime || (Array.isArray(x) ? x[5] : ""));
     const remarks = safeStr(x.Remarks || x.remarks || (Array.isArray(x) ? x[9] : ""));
-    const days = x.Days || x.days || (Array.isArray(x) ? x[8] : 0);
+    let days = x.Days || x.days || (Array.isArray(x) ? x[8] : 0);
     const leaveCategory = safeStr(x.LeaveCategory || x.leaveCategory || (Array.isArray(x) ? (x.length === 32 ? x[25] : x[11]) : ""));
 
     const isSameDay = !to || from === to;
+
+    const typeLower = (typeDisp || "").toLowerCase();
+    const catLower = (leaveCategory || "").toLowerCase();
+    const isPerm = typeLower.includes("permission") || catLower.includes("permission");
+
+    if (!isPerm) {
+      const parsedDays = parseFloat(String(days));
+      if (typeLower.includes("forenoon") || typeLower.includes("afternoon") || catLower.includes("forenoon") || catLower.includes("afternoon") || typeLower.includes("half")) {
+        days = (!isNaN(parsedDays) && parsedDays > 0) ? (parsedDays > 0.5 ? 0.5 : parsedDays) : 0.5;
+      } else if (isNaN(parsedDays) || parsedDays === 0) {
+        if (from && to && from !== to) {
+          const d1 = moment(from);
+          const d2 = moment(to);
+          days = (d1.isValid() && d2.isValid()) ? Math.max(1, d2.diff(d1, "days") + 1) : 1;
+        } else if (from) {
+          days = 1;
+        }
+      }
+    }
 
     let statusClass = "pending";
     const lStatus = status.toLowerCase();
@@ -740,12 +812,12 @@ const LeaveDashboard: React.FC = () => {
       statusClass = "rejected";
     }
 
-    const catLower = (leaveCategory || typeDisp || "").toLowerCase();
+    const fullCatLower = (leaveCategory || typeDisp || "").toLowerCase();
     let typeClass = "default";
-    if (catLower.includes("casual")) typeClass = "casual";
-    else if (catLower.includes("sick")) typeClass = "sick";
-    else if (catLower.includes("permission") || catLower.includes("perm")) typeClass = "perm";
-    else if (catLower.includes("lop") || catLower.includes("loss")) typeClass = "lop";
+    if (fullCatLower.includes("casual")) typeClass = "casual";
+    else if (fullCatLower.includes("sick")) typeClass = "sick";
+    else if (fullCatLower.includes("permission") || fullCatLower.includes("perm")) typeClass = "perm";
+    else if (fullCatLower.includes("lop") || fullCatLower.includes("loss")) typeClass = "lop";
 
     return {
       id: x.lid || (Array.isArray(x) ? x[0] : ""),
@@ -759,7 +831,8 @@ const LeaveDashboard: React.FC = () => {
       days,
       statusClass,
       typeClass,
-      leaveCategory
+      leaveCategory,
+      isPerm
     };
   };
 
@@ -956,7 +1029,7 @@ const LeaveDashboard: React.FC = () => {
       const normalized = normalizeRow(r);
       if (!normalized) return [];
       const pVal = parseInt(normalized.ptime, 10);
-      const duration = (!isNaN(pVal) && pVal > 0) ? `${pVal} Mins` : `${normalized.days} Day(s)`;
+      const duration = (normalized.isPerm && !isNaN(pVal) && pVal > 0) ? `${pVal} Mins` : `${normalized.days} Day(s)`;
       return [
         normalized.from === normalized.to ? normalized.from : `${normalized.from} to ${normalized.to}`,
         getCategoryTypeDisplay(normalized.typeDisp, normalized.leaveCategory) || "-",
@@ -1417,7 +1490,7 @@ const LeaveDashboard: React.FC = () => {
                     if (!r) return null;
 
                     const pVal = parseInt(r.ptime, 10);
-                    const durationText = !isNaN(pVal) && pVal > 0 ? `${pVal} Mins` : `${r.days} Day(s)`;
+                    const durationText = (r.isPerm && !isNaN(pVal) && pVal > 0) ? `${pVal} Mins` : `${r.days} Day(s)`;
 
                     return (
                       <tr key={r.id || idx}>
