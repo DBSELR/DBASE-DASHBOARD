@@ -57,6 +57,22 @@ interface VisitTicket {
   Visit_ID?: string | number;
   visitId?: string | number;
   id?: string | number;
+  feedback_ID?: number | null;
+  Feedback_ID?: number | null;
+  coursesList?: string | null;
+  CoursesList?: string | null;
+  count01?: number | string | null;
+  Count01?: number | string | null;
+  eventRequirements?: string | null;
+  EventRequirements?: string | null;
+  eventDate?: string | null;
+  EventDate?: string | null;
+  count02?: number | string | null;
+  Count02?: number | string | null;
+  clientRemarks?: string | null;
+  ClientRemarks?: string | null;
+  nextFollowupDate?: string | null;
+  NextFollowupDate?: string | null;
   [key: string]: any;
 }
 
@@ -222,6 +238,7 @@ const VisitTickets: React.FC = () => {
   } | null>(null);
 
   const [courseSearch, setCourseSearch] = useState("");
+  const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
 
   const getHeaders = (isGet = false) => {
     const token = localStorage.getItem("token")?.replace(/"/g, "");
@@ -453,6 +470,52 @@ const VisitTickets: React.FC = () => {
 
       if (Array.isArray(data) && data.length > 0) {
         console.log("[VisitTickets] loadTickets (Visits FeedBack) Sample Visit [0]:", data[0]);
+
+        setFeedbackStore((prev) => {
+          const updated: Record<string, VisitFeedbackRowData> = { ...prev };
+
+          data.forEach((item: any, index: number) => {
+            const vKey = getVisitKey(item, index);
+            const existing = updated[vKey];
+
+            // Parse server courses
+            let serverCourses: string[] = [];
+            if (item.coursesList || item.CoursesList) {
+              const raw = String(item.coursesList || item.CoursesList);
+              serverCourses = raw.split(",").map((s: string) => s.trim()).filter(Boolean);
+            }
+
+            // Parse server event requirements
+            let serverEvents: string[] = [];
+            if (item.eventRequirements || item.EventRequirements) {
+              const raw = String(item.eventRequirements || item.EventRequirements);
+              serverEvents = raw.split(",").map((s: string) => s.trim()).filter(Boolean);
+            }
+
+            const c1 = item.count01 !== undefined && item.count01 !== null ? String(item.count01) : (item.Count01 !== undefined && item.Count01 !== null ? String(item.Count01) : "");
+            const c2 = item.count02 !== undefined && item.count02 !== null ? String(item.count02) : (item.Count02 !== undefined && item.Count02 !== null ? String(item.Count02) : "");
+            const eDate = item.eventDate || item.EventDate ? moment(item.eventDate || item.EventDate).format("YYYY-MM-DD") : "";
+            const fDate = item.nextFollowupDate || item.NextFollowupDate ? moment(item.nextFollowupDate || item.NextFollowupDate).format("YYYY-MM-DD") : "";
+            const remarks = item.clientRemarks || item.ClientRemarks || "";
+            const hasServerData = Boolean(serverCourses.length > 0 || c1 || serverEvents.length > 0 || eDate || c2 || remarks || fDate);
+
+            updated[vKey] = {
+              courses: serverCourses.length > 0 ? serverCourses : (existing?.courses || []),
+              count1: c1 || existing?.count1 || "",
+              eventRequirements: serverEvents.length > 0 ? serverEvents : (existing?.eventRequirements || []),
+              eventDate: eDate || existing?.eventDate || "",
+              count2: c2 || existing?.count2 || "",
+              clientRemarks: remarks || existing?.clientRemarks || "",
+              nextFollowupDate: fDate || existing?.nextFollowupDate || "",
+              saved: hasServerData || Boolean(existing?.saved),
+            };
+          });
+
+          try {
+            localStorage.setItem("visits_feedback_store", JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
       }
 
       setTickets(Array.isArray(data) ? data : []);
@@ -593,14 +656,15 @@ const VisitTickets: React.FC = () => {
   };
 
   // Unique key for visit row feedback storage
-  const getVisitKey = (item: VisitTicket, index: number): string => {
-    return String(
-      item.visit_ID ||
-      item.Visit_ID ||
-      item.visitId ||
-      item.id ||
-      `${item.client_Name || "client"}_${item.duty_Date || "date"}_${index}`
-    );
+  const getVisitKey = (item: VisitTicket, index?: number): string => {
+    const vId = item.visit_ID ?? item.Visit_ID ?? item.visitId ?? item.id;
+    if (vId && String(vId) !== "0" && String(vId) !== "undefined") {
+      return `visit_${vId}`;
+    }
+    const cleanClient = (item.client_Name || "client").trim().toLowerCase().replace(/\s+/g, "_");
+    const cleanDate = (item.duty_Date || "date").trim();
+    const cleanFromTime = (item.visit_FromTime || "").trim().replace(/:/g, "");
+    return `${cleanClient}_${cleanDate}_${cleanFromTime || (index !== undefined ? index : 0)}`;
   };
 
   const getRowFeedback = (visitKey: string): VisitFeedbackRowData => {
@@ -677,41 +741,82 @@ const VisitTickets: React.FC = () => {
     updateFeedbackField(visitKey, "eventRequirements", updatedEvents, rowInfo);
   };
 
-  const handleSaveRowFeedback = (visitKey: string, item: VisitTicket) => {
+  const handleSaveRowFeedback = async (visitKey: string, item: VisitTicket) => {
     const row = getRowFeedback(visitKey);
+    const visitId = Number(item.visit_ID || item.Visit_ID || 0);
+
     const payload = {
-      visitKey,
-      clientName: item.client_Name,
-      dutyDate: item.duty_Date,
-      location: item.location,
-      project: item.projects,
-      contactPerson: item.contact_Person,
-      mobileNumber: item.mobile_Number,
-      coursesList: row.courses,
-      count01: row.count1,
-      eventRequirements: row.eventRequirements,
-      eventDate: row.eventDate,
-      count02: row.count2,
-      clientRemarks: row.clientRemarks,
-      nextFollowupDate: row.nextFollowupDate,
-      timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
+      Visit_ID: visitId,
+      CoursesList: row.courses.join(", "),
+      Count01: row.count1 ? parseInt(row.count1, 10) : null,
+      EventRequirements: row.eventRequirements.join(", "),
+      EventDate: row.eventDate ? moment(row.eventDate).format("YYYY-MM-DD") : null,
+      Count02: row.count2 ? parseInt(row.count2, 10) : null,
+      ClientRemarks: row.clientRemarks || null,
+      NextFollowupDate: row.nextFollowupDate ? moment(row.nextFollowupDate).format("YYYY-MM-DD") : null,
     };
 
-    console.log("%c[VisitTickets] Save Visit Feedback Payload:", "color: #10b981; font-weight: bold;", payload);
-
-    setFeedbackStore((prev) => {
-      const updated = {
-        ...prev,
-        [visitKey]: {
-          ...row,
-          saved: true,
-        },
-      };
-      try {
-        localStorage.setItem("visits_feedback_store", JSON.stringify(updated));
-      } catch {}
-      return updated;
+    console.log("%c[VisitTickets] Save Visit Feedback API Request:", "color: #10b981; font-weight: bold;", {
+      endpoint: "Tickets/Save_VisitFeedback",
+      payload,
+      visitKey,
+      clientName: item.client_Name,
+      hasVisitId: visitId > 0,
     });
+
+    setSavingRows((prev) => ({ ...prev, [visitKey]: true }));
+
+    try {
+      if (visitId > 0) {
+        const headers = getHeaders(false);
+        const res = await fetch(`${API_BASE}Tickets/Save_VisitFeedback`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        console.log("[VisitTickets] Save_VisitFeedback HTTP Status:", res.status, res.statusText);
+        const resJson = await res.json().catch(() => null);
+        console.log("[VisitTickets] Save_VisitFeedback Response:", resJson);
+
+        if (!res.ok) {
+          console.warn("[VisitTickets] Server returned error, saving locally:", resJson);
+        }
+      } else {
+        console.warn("[VisitTickets] No Visit_ID found for row, persisting locally in localStorage.");
+      }
+
+      setFeedbackStore((prev) => {
+        const updated = {
+          ...prev,
+          [visitKey]: {
+            ...row,
+            saved: true,
+          },
+        };
+        try {
+          localStorage.setItem("visits_feedback_store", JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    } catch (err) {
+      console.error("[VisitTickets] Error calling Save_VisitFeedback API:", err);
+      setFeedbackStore((prev) => {
+        const updated = {
+          ...prev,
+          [visitKey]: {
+            ...row,
+            saved: true,
+          },
+        };
+        try {
+          localStorage.setItem("visits_feedback_store", JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    } finally {
+      setSavingRows((prev) => ({ ...prev, [visitKey]: false }));
+    }
   };
 
   return (
@@ -1103,10 +1208,23 @@ const VisitTickets: React.FC = () => {
                           type="button"
                           className={`visit-save-btn ${rowFeedback.saved ? "saved" : ""}`}
                           onClick={() => handleSaveRowFeedback(visitKey, item)}
+                          disabled={savingRows[visitKey]}
                           title="Save visit feedback"
+                          style={{ opacity: savingRows[visitKey] ? 0.7 : 1 }}
                         >
-                          {rowFeedback.saved ? <Check size={14} /> : <Save size={14} />}
-                          <span>{rowFeedback.saved ? "Saved" : "Save"}</span>
+                          {savingRows[visitKey] ? (
+                            <span>Saving...</span>
+                          ) : rowFeedback.saved ? (
+                            <>
+                              <Check size={14} />
+                              <span>Saved</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save size={14} />
+                              <span>Save</span>
+                            </>
+                          )}
                         </button>
                       </td>
 
