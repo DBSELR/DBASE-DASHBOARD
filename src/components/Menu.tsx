@@ -36,6 +36,7 @@ import {
   peopleOutline,
   chevronBackOutline,
   chevronForwardOutline,
+  grid,
 } from "ionicons/icons";
 
 import "../theme/Common.css";
@@ -398,7 +399,10 @@ const getIcon = (iconName: string | null) => {
     "RA's": people,
     "RAs": people,
     "RA Management": people,
-    "Reporting Authority": people,
+    "grid": grid,
+    "grid-outline": grid,
+    "menu-management": grid,
+    "Menu Management": grid,
   };
   return iconName && icons[iconName] ? icons[iconName] : documentText;
 };

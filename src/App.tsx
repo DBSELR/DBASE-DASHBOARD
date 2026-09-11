@@ -93,6 +93,7 @@ import LeaveAction from "./pages/LeaveAction";
 import OnDutyAction from "./pages/OnDutyAction";
 import VisitTickets from "./pages/Tickets/components/VisitTickets";
 import LeaveReport from "./pages/AIAttendance/LeaveReport";
+import MenuManagement from "./pages/MenuManagement";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
@@ -266,6 +267,7 @@ const App: React.FC = () => {
                   <Route exact path="/field-duty" component={FieldDutyStatusPage} />
                   <Route exact path="/field-status" component={FieldDutyStatusPage} />
                   <Route exact path="/stock" component={Stock} />
+                  <Route exact path="/menu-management" component={MenuManagement} />
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />
                   <Route exact path="/account-deletion" component={AccountDeletion} />
