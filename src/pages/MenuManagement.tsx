@@ -274,7 +274,7 @@ const MenuManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isAuthorized) {
+    if (isAuthorized) { 
       loadData();
     }
   }, [isAuthorized, callerEmpCode]);

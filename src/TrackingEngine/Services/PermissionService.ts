@@ -8,6 +8,20 @@ export class PermissionService {
    * Returns 'granted', 'prompt', or 'denied'
    */
   public static async checkGPSPermissions(): Promise<'granted' | 'prompt' | 'denied'> {
+    if (!Capacitor.isNativePlatform()) {
+      if (typeof navigator !== 'undefined' && 'permissions' in navigator && navigator.permissions.query) {
+        try {
+          const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          if (status.state === 'granted') return 'granted';
+          if (status.state === 'denied') return 'denied';
+          return 'prompt';
+        } catch {
+          return 'granted';
+        }
+      }
+      return typeof navigator !== 'undefined' && 'geolocation' in navigator ? 'granted' : 'denied';
+    }
+
     try {
       const status = await Geolocation.checkPermissions();
       if (status.location === 'granted') return 'granted';
@@ -23,13 +37,38 @@ export class PermissionService {
    * Requests foreground location permission.
    */
   public static async requestGPSPermissions(): Promise<'granted' | 'prompt' | 'denied'> {
+    if (!Capacitor.isNativePlatform()) {
+      if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+        return 'denied';
+      }
+      try {
+        if ('permissions' in navigator && navigator.permissions.query) {
+          const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          if (status.state === 'granted') return 'granted';
+          if (status.state === 'denied') return 'denied';
+        }
+      } catch {
+        // Permissions query not supported or failed
+      }
+      return new Promise<'granted' | 'prompt' | 'denied'>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => resolve('granted'),
+          (err) => {
+            if (err.code === 1) resolve('denied'); // PERMISSION_DENIED
+            else resolve('granted'); // TIMEOUT or POSITION_UNAVAILABLE still means permission was granted
+          },
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 10000 }
+        );
+      });
+    }
+
     try {
       const status = await Geolocation.requestPermissions();
       if (status.location === 'granted') return 'granted';
       if (status.location === 'denied') return 'denied';
       return 'prompt';
     } catch (e) {
-      console.error('[PermissionService] Geolocation requestPermissions failed:', e);
+      console.warn('[PermissionService] Geolocation requestPermissions failed:', e);
       return 'denied';
     }
   }

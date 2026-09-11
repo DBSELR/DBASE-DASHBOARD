@@ -119,8 +119,17 @@ const registerNative = async (empCode: string) => {
   }
 };
 
+// Guard to avoid duplicate registrations or infinite retry spam on network tunnel failures
+let webRegistrationInProgress = false;
+let webRegistrationAttempted = false;
+
 // Register Web Push Notifications (FCM Web SDK)
 const registerWeb = async (empCode: string) => {
+  if (webRegistrationInProgress || webRegistrationAttempted) {
+    return;
+  }
+  webRegistrationInProgress = true;
+
   try {
     console.log("🚀 [Push] Registering Web Push for:", empCode);
 
@@ -161,6 +170,7 @@ const registerWeb = async (empCode: string) => {
 
     console.log("✅ [Push] Web Token Generated:", webToken);
     await savePushTokenToBackend(empCode, webToken, false);
+    webRegistrationAttempted = true;
 
     if (!webListenerRegistered) {
       webListenerRegistered = true;
@@ -215,8 +225,15 @@ const registerWeb = async (empCode: string) => {
         }
       });
     }
-  } catch (error) {
-    console.error("❌ [Push] Web registration failed:", error);
+  } catch (error: any) {
+    webRegistrationAttempted = true;
+    if (error?.message?.includes("Failed to fetch") || error?.name === "TypeError" || String(error).includes("Failed to fetch")) {
+      console.warn("⚠️ [Push] Firebase Installations endpoint is unreachable (network proxy or firewall blocking firebaseinstallations.googleapis.com). Skipping web push.");
+    } else {
+      console.error("❌ [Push] Web registration failed:", error);
+    }
+  } finally {
+    webRegistrationInProgress = false;
   }
 };
 
