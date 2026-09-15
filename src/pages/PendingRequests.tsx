@@ -63,12 +63,30 @@ const safeStr = (v: any) => {
   return String(v);
 };
 
+const parseValidDate = (...dates: any[]) => {
+  for (const d of dates) {
+    if (!d) continue;
+    const m = moment(d);
+    if (m.isValid() && m.year() > 1900) {
+      return m.format("DD-MM-YYYY");
+    }
+  }
+  return "-";
+};
+
 const TYPES = [
   { value: "leave", label: "Pending Leaves", icon: calendarOutline },
   { value: "permission", label: "Pending Permissions", icon: timeOutline },
   { value: "workreport", label: "Pending WorkReports", icon: documentTextOutline },
   { value: "onduty", label: "Pending OnDuty", icon: locationOutline },
   { value: "overtime", label: "Pending Overtime", icon: alarmOutline },
+];
+
+const STATUS_OPTIONS = [
+  { value: "All", label: "All" },
+  { value: "Pending", label: "Pending" },
+  { value: "Accepted", label: "Accepted" },
+  { value: "Rejected", label: "Rejected" },
 ];
 
 const PendingRequests: React.FC = () => {
@@ -96,10 +114,23 @@ const PendingRequests: React.FC = () => {
       setDropdownOpen(false);
     } else {
       const rect = e.currentTarget.getBoundingClientRect();
+      const minWidth = 190;
+      const targetWidth = Math.max(rect.width, minWidth);
+      let left = rect.left + window.scrollX;
+
+      // If it would overflow the right edge of viewport, align with right edge of the trigger element
+      if (rect.left + targetWidth > window.innerWidth - 12) {
+        left = rect.right + window.scrollX - targetWidth;
+      }
+
+      if (left < 12) {
+        left = 12;
+      }
+
       setDropdownPos({
         top: rect.bottom + window.scrollY + 6,
-        left: rect.left + window.scrollX,
-        width: rect.width
+        left: left,
+        width: targetWidth
       });
       setDropdownOpen(true);
     }
@@ -119,7 +150,7 @@ const PendingRequests: React.FC = () => {
   // Load pending approvals when filters change
   useEffect(() => {
     loadPendingRequests();
-  }, [selectedMonth, activeType]);
+  }, [selectedMonth, activeType, statusFilter]);
 
   const loadPendingRequests = async () => {
     setLoading(true);
@@ -138,17 +169,17 @@ const PendingRequests: React.FC = () => {
       else if (activeType === "overtime") flag = "OVERTIME";
       else if (activeType === "workreport") flag = "WORKREPORTS";
 
-      let url = `${baseUrl}ApprovalRequest/GetPendingApprovals?monthYear=${selectedMonth}&flag=${flag}`;
-      if (activeType === "overtime") {
-        url = `${baseUrl}OverTime/load_team_overtime_duties?EmpCode=${empCode}`;
-      }
+      const statusParam = statusFilter.toUpperCase(); // ALL, PENDING, ACCEPTED, REJECTED
+      const url = `${baseUrl}ApprovalRequest/GetPendingApprovals?monthYear=${encodeURIComponent(
+        selectedMonth
+      )}&flag=${encodeURIComponent(flag)}&status=${encodeURIComponent(statusParam)}`;
 
       const res = await axios.get(url, { headers: getAuthHeaders() });
       const dataList = Array.isArray(res.data) ? res.data : [];
       setRequests(dataList);
     } catch (err) {
       console.error("Error loading pending requests:", err);
-      showToast("Failed to load pending requests.", "danger");
+      showToast("Failed to load requests.", "danger");
       setRequests([]);
     } finally {
       setLoading(false);
@@ -160,26 +191,30 @@ const PendingRequests: React.FC = () => {
     if (!x) return null;
 
     if (activeType === "leave" || activeType === "permission") {
-      // Keys from SP: EMPCODE, EMPNAME, Designation, LFrom, LTo, Days, PTime, LType, AppliedOn, L_Status, LID, PendingRA, etc.
-      // Or keys from standard Load_Leave_Permission API mapping
-      const id = x.LID || x.lid || (Array.isArray(x) ? x[0] : "");
-      const empCode = x.EMPCODE || x.empcode || (Array.isArray(x) ? x[1] : "");
-      const empName = x.EMPNAME || x.Empname || (Array.isArray(x) ? x[12] : "Unknown");
+      // Keys from SP: EMPCODE, EMPNAME, Designation, LFrom, LTo, Days, PTime, LType, AppliedOn, L_Status, CurrentLevel, MaxLevel, RA1..4, RA1_Status..4, PendingRA, PendingAt
+      const id = x.LID || x.lid || x.id || (Array.isArray(x) ? x[0] : "");
+      const empCode = x.EMPCODE || x.empcode || x.empCode || (Array.isArray(x) ? x[1] : "");
+      const empName = x.EMPNAME || x.Empname || x.empName || (Array.isArray(x) ? x[12] : "Unknown");
       const designation = x.Designation || x.designation || "";
-      const from = moment(x.LFrom || x.lfrom || (Array.isArray(x) ? x[2] : "")).format("DD-MM-YYYY");
-      const to = moment(x.LTo || x.lto || (Array.isArray(x) ? x[3] : "")).format("DD-MM-YYYY");
+      const rawFrom = x.LFrom || x.lfrom || (Array.isArray(x) ? x[2] : "");
+      const rawTo = x.LTo || x.lto || (Array.isArray(x) ? x[3] : "");
+      const rawApplied = x.AppliedOn || x.appliedOn || x.CreatedDate || x.createdDate || (Array.isArray(x) ? x[13] : "");
+
+      const from = parseValidDate(rawFrom, rawApplied, rawTo);
+      const to = parseValidDate(rawTo, rawFrom, rawApplied);
       const days = x.Days || x.days || (Array.isArray(x) ? x[8] : 0);
       const minutes = x.PTime || x.ptime || (Array.isArray(x) ? x[5] : 0);
-      const typeDisp = x.LType || x.ltype || (Array.isArray(x) ? x[6] : "");
-      const status = safeStr(x.L_Status || x.L_status || (Array.isArray(x) ? x[7] : "Pending"));
-      const remarks = safeStr(x.Remarks || x.remarks || (Array.isArray(x) ? x[9] : ""));
-      const pendingRA = x.PendingAt || x.pendingAt || x.PendingRA || x.pendingRA || "";
+      const typeDisp = x.LType || x.ltype || (activeType === "permission" ? "Permission" : "Leave");
+      const status = safeStr(x.L_Status || x.l_status || x.Status || x.status || (Array.isArray(x) ? x[7] : "Pending"));
+      const remarks = safeStr(x.Remarks || x.remarks || x.Description || x.description || (Array.isArray(x) ? x[9] : ""));
+      const rawPending = x.PendingAt || x.pendingAt || x.PENDINGAT || x.PendingRA || x.pendingRA || x.CurrentRA || x.currentRA;
+      const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
 
       let statusClass = "pending";
       const lStatus = status.toLowerCase();
-      if (lStatus.includes("accepted") || lStatus.includes("approved")) {
+      if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
-      } else if (lStatus.includes("rejected")) {
+      } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
       }
 
@@ -204,21 +239,23 @@ const PendingRequests: React.FC = () => {
 
     if (activeType === "workreport") {
       // Keys from SP: STAFFID, EMPNAME, DESIGNATION, WDATE, CLIENT_NAME, PROJECT_NAME, CLIENT_PROJECT, SERVICE_TYPE, WDESCRIPTION, WSTATUS, PENDINGAT, WorkId
-      const id = x.WorkId || x.workId || x.wrid || (Array.isArray(x) ? x[0] : "");
-      const empCode = x.STAFFID || x.staffId || (Array.isArray(x) ? x[1] : "");
+      const id = x.WorkId || x.workId || x.wrid || x.id || (Array.isArray(x) ? x[0] : "");
+      const empCode = x.STAFFID || x.staffId || x.EMPCODE || x.empCode || (Array.isArray(x) ? x[1] : "");
       const empName = x.EMPNAME || x.empName || (Array.isArray(x) ? x[1] : "Unknown");
       const designation = x.DESIGNATION || x.designation || "";
-      const date = moment(x.WDATE || x.wdate || (Array.isArray(x) ? x[5] : "")).format("DD-MM-YYYY");
-      const clientProject = x.CLIENT_PROJECT || x.client_Project || (Array.isArray(x) ? x[3] : "");
-      const description = x.WDESCRIPTION || x.wDescription || (Array.isArray(x) ? x[4] : "");
-      const status = safeStr(x.WSTATUS || x.wStatus || (Array.isArray(x) ? x[6] : "Pending"));
-      const pendingAt = x.PENDINGAT || x.pendingAt || "";
+      const date = parseValidDate(x.WDATE, x.wdate, x.wDate, Array.isArray(x) ? x[5] : "");
+      const clientProject = x.CLIENT_PROJECT || x.client_Project || (x.CLIENT_NAME && x.PROJECT_NAME ? `${x.CLIENT_NAME} - ${x.PROJECT_NAME}` : x.CLIENT_NAME || x.PROJECT_NAME || (Array.isArray(x) ? x[3] : ""));
+      const description = x.WDESCRIPTION || x.wDescription || x.description || (Array.isArray(x) ? x[4] : "");
+      const status = safeStr(x.WSTATUS || x.wStatus || x.status || (Array.isArray(x) ? x[6] : "Pending"));
+      const rawPending = x.PENDINGAT || x.pendingAt || x.PendingAt || x.REQUESTTO || x.requestTo;
+      const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
+      const serviceType = x.SERVICE_TYPE || x.service_Type || "Work Report";
 
       let statusClass = "pending";
       const lStatus = status.toLowerCase();
-      if (lStatus.includes("approved") || lStatus.includes("accepted")) {
+      if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
-      } else if (lStatus.includes("rejected")) {
+      } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
       }
 
@@ -232,38 +269,39 @@ const PendingRequests: React.FC = () => {
         isSameDay: true,
         days: 1,
         minutes: 0,
-        typeDisp: "Work Report",
+        typeDisp: serviceType,
         status,
         remarks: description,
         statusClass,
-        pendingRA: pendingAt,
+        pendingRA,
         clientProject,
         raw: x
       };
     }
 
     if (activeType === "onduty") {
-      // Format matching On Duties Team card
-      const id = x.id || x.lid || "";
-      const empCode = x.EMPCODE || x.empcode || "";
-      const mainName = x.EMPNAME || x.empname || "Unknown";
+      // Keys from SP: EMPCODE, EMPNAME, Designation, EMPCODES, EmpNames, Date, College, Description, Mode_of_trans, Kms, Start_Time, End_Time, Vehicle_No, Status, DateFrom, DateTo, Location, CurrentLevel, MaxLevel, RA1..4, RA1_Status..4, PendingRA, PendingAt
+      const id = x.id || x.Id || x.lid || "";
+      const empCode = x.EMPCODE || x.empcode || x.empCode || "";
+      const mainName = x.EMPNAME || x.empname || x.empName || "Unknown";
       const groupNames = x.EmpNames || x.empNames || "";
       const empName = groupNames ? `${mainName} (${groupNames})` : mainName;
-      const from = moment(x.DateFrom || x.dateFrom).format("DD-MM-YYYY");
-      const to = moment(x.DateTo || x.dateTo).format("DD-MM-YYYY");
+      const from = parseValidDate(x.DateFrom, x.dateFrom, x.Date, x.date);
+      const to = parseValidDate(x.DateTo, x.dateTo, x.Date, x.date, x.DateFrom, x.dateFrom);
       const college = x.College || x.college || "";
       const description = x.Description || x.description || "";
       const mode = x.Mode_of_trans || x.mode || x.Mode_of_Trans || "";
-      const vehicle = x.Vehicle_No || x.vehicle_No || "";
+      const vehicle = x.Vehicle_No || x.vehicle_No || x.vehicle_no || "";
       const location = x.Location || x.location || "";
       const status = safeStr(x.Status || x.status || x.L_status || "Pending");
-      const pendingRA = x.PendingAt || x.PendingRA || x.CurrentRA || "";
+      const rawPending = x.PendingAt || x.pendingAt || x.PendingRA || x.pendingRA || x.CurrentRA || x.currentRA;
+      const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
 
       let statusClass = "pending";
       const lStatus = status.toLowerCase();
-      if (lStatus.includes("approved") || lStatus.includes("accepted")) {
+      if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
-      } else if (lStatus.includes("rejected")) {
+      } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
       }
 
@@ -271,15 +309,15 @@ const PendingRequests: React.FC = () => {
         id,
         empCode,
         empName,
-        designation: x.Designation || "Team Member",
+        designation: x.Designation || x.designation || "Team Member",
         from,
         to,
         isSameDay: from === to,
         days: 1,
         minutes: 0,
-        typeDisp: `On Duty - ${location}`,
+        typeDisp: location ? `On Duty - ${location}` : "On Duty",
         status,
-        remarks: `${college ? "[" + college + "] " : ""}${description} (Via ${mode} ${vehicle ? "#" + vehicle : ""})`,
+        remarks: `${college ? "[" + college + "] " : ""}${description}${mode ? ` (Via ${mode}${vehicle ? " #" + vehicle : ""})` : ""}`,
         statusClass,
         pendingRA,
         raw: x
@@ -287,29 +325,30 @@ const PendingRequests: React.FC = () => {
     }
 
     if (activeType === "overtime") {
-      // When fetched from load_team_overtime_duties, indices are:
-      // [0]=id, [1]=empCode, [2]=Date, [3]=College, [4]=Fromtime, [5]=Totime, [6]=Desc, [11]=MinDiff, [13]=CurrentRA, [14]=Status, [15]=EmpName
+      // Keys from SP: EMPCODE, EMPNAME, Designation, Date, College, Description, Fromtime, Totime, OT_MIN, OT_TYPE, MinDiff, FinMinDiff, Status, CurrentLevel, MaxLevel, RA1..4, RA1_Status..4, PendingRA, PendingAt
       const isArr = Array.isArray(x);
-      
-      const isTeamDuties = isArr && !!(x[2] && String(x[2]).includes("-")); // x[2] is Date in load_team_overtime_duties
+      const isTeamDuties = isArr && !!(x[2] && String(x[2]).includes("-"));
 
-      const id = isArr ? x[0] : (x.Id || x.id || x.lid || "");
-      const empCode = isArr ? x[1] : (x.EMPCODE || x.empcode || "");
+      const id = isArr ? x[0] : (x.Id || x.id || x.ID || "");
+      const empCode = isArr ? x[1] : (x.EMPCODE || x.empcode || x.empCode || "");
       const empName = isArr ? (isTeamDuties ? x[15] : x[2]) : (x.EMPNAME || x.Empname || x.empName || "Unknown");
-      const from = moment(isArr ? (isTeamDuties ? x[2] : x[3]) : (x.Date || x.date || x.lfrom)).format("DD-MM-YYYY");
+      const rawDate = isArr ? (isTeamDuties ? x[2] : x[3]) : (x.Date || x.date || x.lfrom);
+      const from = parseValidDate(rawDate);
       const college = isArr ? (isTeamDuties ? x[3] : x[4]) : (x.College || x.college || "");
       const fromTime = isArr ? (isTeamDuties ? x[4] : x[5]) : (x.Fromtime || x.fromTime || "");
       const toTime = isArr ? (isTeamDuties ? x[5] : x[6]) : (x.Totime || x.toTime || "");
       const remarks = isArr ? (isTeamDuties ? x[6] : x[7]) : (x.Description || x.description || x.Remarks || x.remarks || "");
-      const durationMin = isArr ? (isTeamDuties ? x[11] : x[8]) : (x.OT_MIN || x.MinDiff || x.duration || 0);
+      const durationMin = isArr ? (isTeamDuties ? x[11] : x[8]) : (x.OT_MIN ?? x.ot_min ?? x.OT_Min ?? x.MinDiff ?? x.minDiff ?? x.FinMinDiff ?? x.duration ?? 0);
+      const otType = isArr ? "" : (x.OT_TYPE || x.ot_type || "");
       const status = safeStr(isArr ? (isTeamDuties ? x[14] : x[23]) : (x.Status || x.status || x.L_status || "Pending"));
-      const pendingRA = isArr ? x[13] : (x.PendingAt || x.PendingRA || x.CurrentRA || "");
+      const rawPending = isArr ? x[13] : (x.PendingAt || x.pendingAt || x.PendingRA || x.pendingRA || x.CurrentRA || x.currentRA);
+      const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
 
       let statusClass = "pending";
       const lStatus = status.toLowerCase();
-      if (lStatus.includes("approved") || lStatus.includes("accepted")) {
+      if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
-      } else if (lStatus.includes("rejected")) {
+      } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
       }
 
@@ -317,15 +356,15 @@ const PendingRequests: React.FC = () => {
         id,
         empCode,
         empName,
-        designation: x.Designation || "Team Member",
+        designation: x.Designation || x.designation || "Team Member",
         from,
         to: from,
         isSameDay: true,
         days: 0,
         minutes: durationMin,
-        typeDisp: `Overtime - ${college}`,
+        typeDisp: college ? `Overtime - ${college}` : (otType ? `Overtime (${otType})` : "Overtime"),
         status,
-        remarks: `${remarks} (${fromTime} to ${toTime})`,
+        remarks: `${remarks}${(fromTime || toTime) ? ` (${fromTime} to ${toTime})` : ""}`,
         statusClass,
         pendingRA,
         raw: x
@@ -415,24 +454,15 @@ const PendingRequests: React.FC = () => {
   const filteredRequests = useMemo(() => {
     let list = requests.map(normalizeRow).filter(Boolean);
 
-    // 0. Fallback Month Filter for Overtime (backend ignores monthYear for flag=OVERTIME)
-    if (activeType === "overtime") {
-      list = list.filter((r: any) => {
-        if (!r.from) return true;
-        // r.from is DD-MM-YYYY
-        return moment(r.from, "DD-MM-YYYY").format("MMM-YYYY") === selectedMonth;
-      });
-    }
-
-    // 1. Status Filter
+    // 1. Status Filter (Client-side safety)
     if (statusFilter !== "All") {
       list = list.filter((r: any) => {
-        const s = r.status.toLowerCase();
+        const s = (r.status || "").toLowerCase();
         const filter = statusFilter.toLowerCase();
         
         if (filter === "pending") return s.includes("pending");
-        if (filter === "accepted") return s.includes("accepted") || s.includes("approved");
-        if (filter === "rejected") return s.includes("rejected");
+        if (filter === "accepted") return s.includes("accept") || s.includes("approv");
+        if (filter === "rejected") return s.includes("reject");
         return true;
       });
     }
@@ -479,20 +509,34 @@ const PendingRequests: React.FC = () => {
 
         {/* Category switcher tabs and inline date picker */}
         <div className="pr-tabs-filter-bar">
-          {/* Row 1: Leaves, Pending Permissions, Pending Work Reports, Pending On Duty + Period Selector */}
+          {/* Row 1: All Request Type Tabs (Leaves, Permissions, Work Reports, On Duty, Overtime) */}
           <div className="pr-tabs-row-1">
-            <div className="pr-tabs-row-1-left">
-              {TYPES.slice(0, 4).map((t) => (
+            {TYPES.map((t) => (
+              <button
+                key={t.value}
+                className={`pr-tab${activeType === t.value ? " active" : ""}`}
+                onClick={() => {
+                  setActiveType(t.value);
+                  setSearchQuery("");
+                }}
+              >
+                <IonIcon icon={t.icon} className="pr-tab-icon" />
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Row 2: Left = Status Filter Pills (All, Pending, Accepted, Rejected), Right = Month Period Card */}
+          <div className="pr-tabs-row-2">
+            <div className="pr-status-filter-pills">
+              {STATUS_OPTIONS.map((s) => (
                 <button
-                  key={t.value}
-                  className={`pr-tab${activeType === t.value ? " active" : ""}`}
-                  onClick={() => {
-                    setActiveType(t.value);
-                    setSearchQuery("");
-                  }}
+                  key={s.value}
+                  className={`pr-status-pill${statusFilter === s.value ? " active" : ""}`}
+                  onClick={() => setStatusFilter(s.value)}
                 >
-                  <IonIcon icon={t.icon} className="pr-tab-icon" />
-                  <span>{t.label}</span>
+                  <IonIcon icon={layersOutline} className="pr-status-pill-icon" />
+                  <span>{s.label}</span>
                 </button>
               ))}
             </div>
@@ -513,23 +557,6 @@ const PendingRequests: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Row 2: Pending Overtime */}
-          <div className="pr-tabs-row-2">
-            {TYPES.slice(4).map((t) => (
-              <button
-                key={t.value}
-                className={`pr-tab${activeType === t.value ? " active" : ""}`}
-                onClick={() => {
-                  setActiveType(t.value);
-                  setSearchQuery("");
-                }}
-              >
-                <IonIcon icon={t.icon} className="pr-tab-icon" />
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
 
@@ -539,12 +566,11 @@ const PendingRequests: React.FC = () => {
           {loading ? (
             <div className="pr-loader-container">
               <IonSpinner name="crescent" color="primary" />
-              <span>Loading pending requests...</span>
+              <span>Loading requests...</span>
             </div>
           ) : filteredRequests.length > 0 ? (
             filteredRequests.map((item: any, idx: number) => {
               const initials = (item.empName.charAt(0) || "?").toUpperCase();
-              const showActions = item.status.toLowerCase().includes("pending");
 
               return (
                 <div key={idx} className={`pr-history-card ${item.statusClass}`}>
@@ -598,7 +624,9 @@ const PendingRequests: React.FC = () => {
                           <div className="pr-detail-item">
                             <span className="pr-detail-label">Duration</span>
                             <span className="pr-detail-value">
-                              {activeType === "permission" && item.minutes > 0 ? `${item.minutes} Mins` : `${item.days} Day(s)`}
+                              {activeType === "permission" || activeType === "overtime"
+                                ? `${item.minutes} Mins`
+                                : `${item.days} Day(s)`}
                             </span>
                           </div>
                         </>
@@ -622,14 +650,25 @@ const PendingRequests: React.FC = () => {
                     )}
 
                     {/* Pending at info */}
-                    {item.pendingRA && (
-                      <div className="pr-pending-info">
-                        <IonIcon icon={informationCircleOutline} />
-                        <span>Pending Approval At: <strong>{item.pendingRA}</strong></span>
-                      </div>
-                    )}
-
-
+                    <div className={`pr-pending-info ${item.statusClass}`}>
+                      <IonIcon
+                        icon={
+                          item.statusClass === "approved"
+                            ? checkmarkCircle
+                            : item.statusClass === "rejected"
+                            ? closeCircle
+                            : informationCircleOutline
+                        }
+                      />
+                      <span>
+                        {item.statusClass === "approved"
+                          ? "Approved At: "
+                          : item.statusClass === "rejected"
+                          ? "Rejected At: "
+                          : "Pending Approval At: "}
+                        <strong>{item.pendingRA || "null"}</strong>
+                      </span>
+                    </div>
 
                   </div>
                 </div>

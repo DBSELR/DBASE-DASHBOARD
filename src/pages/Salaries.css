@@ -399,26 +399,73 @@ ion-grid ion-row {
 }
 
 .sal-generate-btn {
-  background: linear-gradient(135deg, #ff8c00, #e65100);
-  color: #ffffff;
+  background: linear-gradient(135deg, #ff8c00, #e65100) !important;
+  color: #ffffff !important;
   border: none;
   border-radius: 12px;
   padding: 0 20px;
   height: 40px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.25) !important;
   transition: all 0.2s ease;
+}
+
+.sal-generate-btn span {
+  font-weight: 700;
+}
+
+.sal-generate-btn span,
+.sal-generate-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .sal-generate-btn:hover {
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(230, 81, 0, 0.35);
+  box-shadow: 0 6px 16px rgba(230, 81, 0, 0.35) !important;
+}
+
+.sal-excel-btn {
+  background: linear-gradient(135deg, var(--ion-color-primary, #ff8c00), var(--ion-color-secondary, #e65100)) !important;
+  color: #ffffff !important;
+  border: none;
+  border-radius: 12px;
+  padding: 0 18px;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb, 230, 81, 0), 0.25);
+  transition: all 0.2s ease;
+}
+
+.sal-excel-btn span {
+  font-weight: 700;
+}
+
+.sal-excel-btn span,
+.sal-excel-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.sal-excel-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(var(--ion-color-primary-rgb, 230, 81, 0), 0.35);
+}
+
+.sal-excel-btn:active {
+  transform: translateY(0);
 }
 
 .sal-toolbar-right {
@@ -524,6 +571,120 @@ ion-grid ion-row {
   position: absolute;
   top: 1px;
   left: 35px;
+}
+
+/* ── Auto Theme / Dark Mode Support ── */
+.dark .sal-toolbar-card,
+body.dark .sal-toolbar-card,
+[data-theme="dark"] .sal-toolbar-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.dark .sal-date-field .MuiOutlinedInput-root,
+body.dark .sal-date-field .MuiOutlinedInput-root,
+[data-theme="dark"] .sal-date-field .MuiOutlinedInput-root {
+  background-color: #0f172a;
+  border-color: #334155;
+}
+
+.dark .sal-date-field input,
+body.dark .sal-date-field input,
+[data-theme="dark"] .sal-date-field input {
+  color: #f8fafc !important;
+}
+
+.dark .sal-date-field .MuiSvgIcon-root,
+body.dark .sal-date-field .MuiSvgIcon-root,
+[data-theme="dark"] .sal-date-field .MuiSvgIcon-root {
+  color: #94a3b8 !important;
+}
+
+.dark .sal-reset-pill,
+body.dark .sal-reset-pill,
+[data-theme="dark"] .sal-reset-pill {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark .sal-reset-pill.active,
+body.dark .sal-reset-pill.active,
+[data-theme="dark"] .sal-reset-pill.active {
+  background: rgba(234, 88, 12, 0.15);
+  border-color: #ea580c;
+  color: #fb923c;
+}
+
+.dark .sal-excel-btn,
+body.dark .sal-excel-btn,
+[data-theme="dark"] .sal-excel-btn {
+  background: linear-gradient(135deg, var(--ion-color-primary, #ff8c00), var(--ion-color-secondary, #e65100)) !important;
+  box-shadow: 0 4px 14px rgba(var(--ion-color-primary-rgb, 230, 81, 0), 0.4);
+}
+
+.dark .sal-excel-btn:hover,
+body.dark .sal-excel-btn:hover,
+[data-theme="dark"] .sal-excel-btn:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 6px 18px rgba(var(--ion-color-primary-rgb, 230, 81, 0), 0.5);
+}
+
+.dark .sal-helper-banner,
+body.dark .sal-helper-banner,
+[data-theme="dark"] .sal-helper-banner {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark .sal-helper-banner-left,
+body.dark .sal-helper-banner-left,
+[data-theme="dark"] .sal-helper-banner-left {
+  color: #f8fafc;
+}
+
+.dark .sal-banner-icon,
+body.dark .sal-banner-icon,
+[data-theme="dark"] .sal-banner-icon {
+  background: rgba(234, 88, 12, 0.2);
+  color: #fb923c;
+}
+
+.dark .adjustment-list-container,
+body.dark .adjustment-list-container,
+[data-theme="dark"] .adjustment-list-container {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark .ion-grid-heading-row,
+body.dark .ion-grid-heading-row,
+[data-theme="dark"] .ion-grid-heading-row {
+  background-color: #0f172a !important;
+  border-bottom-color: #334155 !important;
+}
+
+.dark .ion-grid-heading-row ion-col,
+body.dark .ion-grid-heading-row ion-col,
+[data-theme="dark"] .ion-grid-heading-row ion-col {
+  border-right-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark .adjustment-row,
+body.dark .adjustment-row,
+[data-theme="dark"] .adjustment-row {
+  border-bottom-color: #334155 !important;
+}
+
+.dark .adjustment-input,
+body.dark .adjustment-input,
+[data-theme="dark"] .adjustment-input {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
 }
 
 /* Ionic Overrides */

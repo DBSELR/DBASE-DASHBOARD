@@ -10,6 +10,7 @@ import {
   IonPage,
   IonIcon,
   IonHeader,
+  IonToast,
 } from "@ionic/react";
 
 import {
@@ -19,7 +20,7 @@ import {
 } from "@mui/material";
 
 import { useHistory } from "react-router-dom";
-import { ChevronLeft, Calculator, Clock, Plus, Minus, Sparkles } from "lucide-react";
+import { ChevronLeft, Calculator, Clock, Plus, Minus, Sparkles, FileSpreadsheet } from "lucide-react";
 import { documentTextOutline } from "ionicons/icons";
 import { LateAdjustmentModal, LateAdjustmentData } from "../components/salaries/LateAdjustmentModal";
 
@@ -118,6 +119,24 @@ const Salaries: React.FC = () => {
   // Late Minutes & Days Adjustment Assistant Modal state
   const [selectedAdjEmp, setSelectedAdjEmp] = useState<LateAdjustmentData | null>(null);
   const [isAdjModalOpen, setIsAdjModalOpen] = useState(false);
+
+  // Toast Notification state
+  const [toast, setToast] = useState<{
+    open: boolean;
+    msg: string;
+    color: "success" | "danger" | "warning" | "primary";
+  }>({
+    open: false,
+    msg: "",
+    color: "warning",
+  });
+
+  const showToast = (
+    msg: string,
+    color: "success" | "danger" | "warning" | "primary" = "warning"
+  ) => {
+    setToast({ open: true, msg, color });
+  };
 
   const months = moment.months();
 
@@ -423,10 +442,10 @@ const Salaries: React.FC = () => {
 
       setSomeSelectEmp(false);
       setSelectEmp(false);
-      alert("Employees Holidays Updated Successfully");
+      showToast("Employees Holidays Updated Successfully", "success");
     } catch (err: any) {
       console.error("Error in UpdateEmpHoliday:", err?.response?.data || err?.message || err);
-      alert("Error While Updating: " + (err?.response?.data?.message || err?.response?.data || err?.message || "Unknown error"));
+      showToast("Error While Updating: " + (err?.response?.data?.message || err?.response?.data || err?.message || "Unknown error"), "danger");
     } finally {
       setLoading(false);
     }
@@ -448,9 +467,90 @@ const Salaries: React.FC = () => {
 
       await axios.post(`${API_BASE}Salaries/GenerateSal`, payload);
       await LoadAdjustments();
-      alert("Salaries Generated Successfully");
+      showToast("Salaries Generated Successfully", "success");
     } catch (err) {
       console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================
+  // API: DOWNLOAD SALARY ADJUSTMENTS EXCEL
+  // ==========================
+  const downloadSalAdjustmentsExcel = async () => {
+    if (!SalMY) return;
+    const tmpMY = moment(SalMY).format("MMM-YYYY");
+
+    try {
+      setLoading(true);
+
+      const res = await axios.get(
+        `${API_BASE}Salaries/sal-adjustments?MonthYear=${tmpMY}`,
+        {
+          responseType: "blob",
+          headers: {
+            accept: "*/*",
+            ...(localStorage.getItem("token")
+              ? { Authorization: `Bearer ${localStorage.getItem("token")}` }
+              : {}),
+          },
+        }
+      );
+
+      let fileName = `Sal_Adjustments_${tmpMY}.xlsx`;
+      const disposition =
+        res.headers["content-disposition"] || res.headers["Content-Disposition"];
+      if (disposition) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          fileName = match[1].replace(/['"]/g, "").trim();
+        }
+      }
+
+      const blob = new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast(`Salary Adjustments for ${tmpMY} downloaded successfully!`, "success");
+    } catch (err: any) {
+      console.error("Error downloading salary adjustments excel:", err);
+      let errorMsg = `Salaries not generated for ${tmpMY}.`;
+
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          if (text) {
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed?.message) errorMsg = parsed.message;
+              else if (parsed?.title) errorMsg = parsed.title;
+              else errorMsg = text;
+            } catch {
+              errorMsg = text;
+            }
+          }
+        } catch {
+          // keep fallback errorMsg
+        }
+      } else if (typeof err?.response?.data === "string" && err.response.data) {
+        errorMsg = err.response.data;
+      } else if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err?.response?.status === 400 || err?.response?.status === 404) {
+        errorMsg = `Salaries not generated for ${tmpMY}.`;
+      } else {
+        errorMsg = "Error downloading salary adjustments: " + (err?.message || "Failed to download");
+      }
+
+      showToast(errorMsg, "warning");
     } finally {
       setLoading(false);
     }
@@ -851,9 +951,20 @@ const UpdateAdjustmentField = async (
                     <button
                       className="sal-generate-btn"
                       onClick={Generate_Sal}
+                      style={{ color: "#ffffff", fontWeight: 700 }}
                     >
-                      <Sparkles size={16} />
-                      <span>Generate Salaries</span>
+                      <Sparkles size={16} color="#ffffff" />
+                      <span style={{ color: "#ffffff", fontWeight: 700 }}>Generate Salaries</span>
+                    </button>
+
+                    <button
+                      className="sal-excel-btn"
+                      onClick={downloadSalAdjustmentsExcel}
+                      title="Download Salary Adjustments Excel"
+                      style={{ color: "#ffffff", fontWeight: 700 }}
+                    >
+                      <FileSpreadsheet size={16} color="#ffffff" />
+                      <span style={{ color: "#ffffff", fontWeight: 700 }}>Sal-Adjustment</span>
                     </button>
                   </div>
 
@@ -1002,6 +1113,15 @@ const UpdateAdjustmentField = async (
             />
 
             <IonLoading isOpen={loading} message="Processing..." />
+
+            <IonToast
+              isOpen={toast.open}
+              onDidDismiss={() => setToast((prev) => ({ ...prev, open: false }))}
+              message={toast.msg}
+              duration={3000}
+              color={toast.color}
+              position="top"
+            />
             
             </div>
           </IonContent>
