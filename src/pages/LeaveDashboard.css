@@ -504,12 +504,17 @@
 .ld-card-footer {
   font-size: 10px;
   font-weight: 600;
-  border-top: 1px dashed var(--ld-border);
-  padding-top: 5px;
+  border-top: 1.5px solid #cbd5e1;
+  margin-top: 6px;
+  padding-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   color: var(--ld-text-muted);
+}
+
+.dark-theme .ld-card-footer {
+  border-top: 1.5px solid rgba(255, 255, 255, 0.18);
 }
 
 .ld-footer-row {

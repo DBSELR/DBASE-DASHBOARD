@@ -428,6 +428,7 @@ const LeaveDashboard: React.FC = () => {
       let lopBalance = 0, lopUsed = 0;
       let graceUsed = 0, graceMax = 4, graceUsedMins = 0;
       let todayGraceUsed = false, todayGraceMins = 0;
+      let aiGracesUsed = 0, aiGraceMins = 0;
       const todayStr = moment().format("YYYY-MM-DD");
 
       if (isYearly && targetMonths.length > 0) {
@@ -476,7 +477,18 @@ const LeaveDashboard: React.FC = () => {
           }).catch(() => ({ data: null }))
         );
 
-        const [clRes, slRes, permRes, lopRes] = await Promise.all(balancePromises);
+        // Fetch dynamic AI Attendance Grace & Permission Summary in parallel
+        const isCurrentMonth = month === moment().format("MMM-YYYY");
+        const graceSummaryPromise = axios
+          .get(`${API_BASE}Checkin/GetEmployeeGraceSummary?empId=${encodeURIComponent(empCode)}`, {
+            headers: getAuthHeaders()
+          })
+          .catch(() => ({ data: null }));
+
+        const [clRes, slRes, permRes, lopRes, graceSummaryRes] = await Promise.all([
+          ...balancePromises,
+          graceSummaryPromise
+        ]);
 
         clBalance = clRes.data?.balance ?? 0;
         clUsed = clRes.data?.used ?? 0;
@@ -489,6 +501,57 @@ const LeaveDashboard: React.FC = () => {
         permUsedSessions = permMaxSessions > 0 && rawUsedSessions > permMaxSessions ? permMaxSessions : rawUsedSessions;
         lopBalance = lopRes.data?.balance ?? 0;
         lopUsed = lopRes.data?.used ?? 0;
+
+        // Merge dynamic AI Attendance telemetry (permissions, negative balances, dynamic sessions & free graces)
+        const graceData = graceSummaryRes?.data?.success ? graceSummaryRes.data : graceSummaryRes?.data;
+        aiGracesUsed = 0;
+        aiGraceMins = 0;
+
+        if (graceData) {
+          if (isCurrentMonth) {
+            if (graceData.permissionBalance !== undefined && graceData.permissionBalance !== null) {
+              permBalance = Number(graceData.permissionBalance);
+            }
+            if (graceData.usedPermission !== undefined && Number(graceData.usedPermission) > 0) {
+              permUsed = Math.max(permUsed, Number(graceData.usedPermission));
+            }
+          }
+
+          const aiPermUsed = Number(
+            graceData.permissionGraceUsed ??
+              (graceData.permissionSessionsMax !== undefined && graceData.permissionSessionsLeft !== undefined
+                ? graceData.permissionSessionsMax - graceData.permissionSessionsLeft
+                : 0)
+          ) || 0;
+
+          if (aiPermUsed > 0) {
+            permUsedSessions = Math.max(permUsedSessions, aiPermUsed);
+          }
+
+          if (graceData.permissionSessionsMax) {
+            permMaxSessions = Number(graceData.permissionSessionsMax);
+          }
+
+          aiGracesUsed = Number(
+            graceData.freeGracesUsed ??
+              (graceData.freeGracesMax !== undefined && graceData.gracesLeft !== undefined
+                ? graceData.freeGracesMax - graceData.gracesLeft
+                : 0)
+          ) || 0;
+
+          if (graceData.freeGracesMax) {
+            graceMax = Number(graceData.freeGracesMax);
+          }
+
+          if (Array.isArray(graceData.history)) {
+            graceData.history.forEach((h: any) => {
+              const gt = (h.graceType || h.GraceType || h.status || "").toLowerCase();
+              if (gt.includes("grace")) {
+                aiGraceMins += (Number(h.lateMinutes || h.lateMin || h.LateMinutes || h.mins || 0) || 0);
+              }
+            });
+          }
+        }
       }
 
       // ==========================================
@@ -547,12 +610,16 @@ const LeaveDashboard: React.FC = () => {
                 const gtLower = graceType.toLowerCase();
                 const stLower = attStatus.toLowerCase();
 
-                if (gtLower.includes("grace") && graceType !== "-") {
+                const isGraceCandidate = (gtLower.includes("grace") && graceType !== "-") ||
+                  (mLate > 0 && mLate <= 15 && lLate === 0 && pOverstay === 0 && graceUsed < graceMax);
+
+                if (isGraceCandidate) {
                   graceUsed++;
-                  graceUsedMins += tLate;
+                  const gMins = mLate > 0 ? mLate : tLate;
+                  graceUsedMins += gMins;
                   if (fullDateStr === todayStr) {
                     todayGraceUsed = true;
-                    todayGraceMins = tLate;
+                    todayGraceMins = gMins;
                   }
                 }
 
@@ -735,6 +802,21 @@ const LeaveDashboard: React.FC = () => {
         }
       });
 
+      // Calculate Applied Permissions & Sessions directly from loaded permission records
+      let appliedPermSessions = 0;
+      let appliedPermMins = 0;
+      rawPerms.forEach((item) => {
+        const r = normalizeRow(item);
+        if (!r) return;
+        // Skip rejected records
+        if (r.statusClass === "rejected" || (r.status && r.status.toLowerCase().includes("reject"))) {
+          return;
+        }
+        appliedPermSessions++;
+        const pMins = parseInt(String(r.ptime || 0), 10) || 0;
+        appliedPermMins += pMins;
+      });
+
       extractedLateLogs.sort((a, b) => b.date.localeCompare(a.date));
       setLateLogs(extractedLateLogs);
       setLateSummary({
@@ -749,20 +831,29 @@ const LeaveDashboard: React.FC = () => {
         onTimeDays: onTimeCount
       });
 
+      const calculatedMaxPermSessions = permMaxSessions > 0 ? permMaxSessions : (isYearly ? 6 * targetMonths.length : 6);
+      const calculatedUsedPermSessions = Math.min(
+        calculatedMaxPermSessions,
+        Math.max(permUsedSessions, pCount, appliedPermSessions)
+      );
+
+      const finalGraceUsed = Math.min(graceMax, Math.max(graceUsed, aiGracesUsed));
+      const finalGraceUsedMins = Math.max(graceUsedMins, aiGraceMins);
+
       setBalances({
         cl: { balance: clBalance, used: clUsed },
         sl: { balance: slBalance, used: slUsed },
         perm: { 
           balance: permBalance, 
-          used: permUsed, 
-          usedSessions: Math.max(permUsedSessions, pCount), 
-          maxSessions: permMaxSessions > 0 ? permMaxSessions : (isYearly ? 6 * targetMonths.length : 6) 
+          used: Math.max(permUsed, appliedPermMins), 
+          usedSessions: calculatedUsedPermSessions, 
+          maxSessions: calculatedMaxPermSessions 
         },
         lop: { 
           balance: lopBalance, 
           used: calculatedLeaveLopDays 
         },
-        grace: { used: graceUsed, max: graceMax, usedMins: graceUsedMins, todayUsed: todayGraceUsed, todayMins: todayGraceMins }
+        grace: { used: finalGraceUsed, max: graceMax, usedMins: finalGraceUsedMins, todayUsed: todayGraceUsed, todayMins: todayGraceMins }
       });
     } catch (err) {
       console.error("Error loading report details:", err);
@@ -1211,15 +1302,26 @@ const LeaveDashboard: React.FC = () => {
               </div>
             </div>
             <div className="ld-card-body">
-              <div className="ld-card-value">
+              <div
+                className="ld-card-value"
+                style={balances.perm.balance < 0 ? { color: "#ef4444" } : undefined}
+              >
                 {balances.perm.balance} <span className="ld-card-unit">Min</span>
               </div>
-              <span className="ld-card-subvalue">Remaining</span>
+              <span
+                className="ld-card-subvalue"
+                style={balances.perm.balance < 0 ? { color: "#ef4444", fontWeight: 600 } : undefined}
+              >
+                {balances.perm.balance < 0 ? "Deficit (Exceeded)" : "Remaining"}
+              </span>
             </div>
             <div className="ld-card-footer">
               <div className="ld-footer-row">
                 <span>Sessions</span>
-                <span className="ld-footer-highlight">
+                <span
+                  className="ld-footer-highlight"
+                  style={balances.perm.usedSessions >= balances.perm.maxSessions ? { color: "#ef4444" } : undefined}
+                >
                   {balances.perm.usedSessions}/{balances.perm.maxSessions} ({balances.perm.used}m)
                 </span>
               </div>
