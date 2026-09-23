@@ -27,10 +27,11 @@ import "./RequestsPage.css";
 import "./Stock.css";
 import "./PenaltyAssignment.css";
 import "./WorkReportDashboard.css";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 
 function PenaltyAssignment() {
   const history = useHistory();
+  const location = useLocation<{ preselectedEmpCode?: string }>();
 
   const [employees, setEmployees] = useState<any[]>([]);
   const [penalties, setPenalties] = useState<any[]>([]);
@@ -43,7 +44,7 @@ function PenaltyAssignment() {
     penaltyId: "",
     penaltyDate: "",
     violationTime: "",
-    employeeCodes: [] as string[],
+    employeeCodes: (location.state?.preselectedEmpCode ? [location.state.preselectedEmpCode] : []) as string[],
     remarks: "",
     appliedBy: currentUserCode
   });
@@ -64,6 +65,15 @@ function PenaltyAssignment() {
     loadEmployees();
     loadPenalties();
   }, []);
+
+  useEffect(() => {
+    if (location.state?.preselectedEmpCode) {
+      setForm((prev) => ({
+        ...prev,
+        employeeCodes: [location.state.preselectedEmpCode!]
+      }));
+    }
+  }, [location.state]);
 
   const loadEmployees = async () => {
     try {

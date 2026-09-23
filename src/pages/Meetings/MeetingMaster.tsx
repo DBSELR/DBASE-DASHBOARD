@@ -20,7 +20,27 @@ import {
   refreshOutline,
 } from "ionicons/icons";
 import { createPortal } from "react-dom";
-import { Search, X, Check, ChevronLeft, Calendar, Shield, Users, User, Clock, FileText } from "lucide-react";
+import {
+  Search,
+  X,
+  Check,
+  ChevronLeft,
+  Calendar,
+  Shield,
+  Users,
+  User,
+  Clock,
+  FileText,
+  CalendarCheck,
+  CheckCircle2,
+  AlertCircle,
+  Video,
+  Copy,
+  ExternalLink,
+  ArrowRight,
+  Sparkles,
+  RefreshCw,
+} from "lucide-react";
 import moment from "moment";
 import { apiService } from "../../utils/apiService";
 
@@ -164,6 +184,19 @@ function MeetingMaster() {
   const [form, setForm] = useState(initialForm);
   const [submittedAttempt, setSubmittedAttempt] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
+
+  // ── Confirmation & Success Popup State ───────────────────────────
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isSubmittingMeeting, setIsSubmittingMeeting] = useState(false);
+  const [saveSuccessData, setSaveSuccessData] = useState<{
+    teamsUrl?: string;
+    message?: string;
+    meetingSubject?: string;
+    dateStr?: string;
+    timeStr?: string;
+    participantCount?: number;
+  } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // ── Dropdown Open States ──────────────────────────────────────────
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
@@ -713,77 +746,84 @@ function MeetingMaster() {
   };
 
   // Reset Form
-  const resetForm = () => {
-    const rKey = (form.raName || "").toLowerCase().trim();
-    const defaultTeam = form.raName ? (raMembersMap[rKey] || []) : [];
-    const leaderCode = RA_ROLE_TO_LEADER_CODE[rKey] || "";
+  const resetForm = (showToastMsg: boolean = true) => {
     setSubmittedAttempt(false);
     setForm({
       ...initialForm,
-      raName: form.raName,
-      projectName: form.raName,
-      participants: defaultTeam,
-      meetingOwner: leaderCode ? [leaderCode] : [],
+      year: String(new Date().getFullYear()),
+      month: months[new Date().getMonth()],
+      meetingDate: moment().format("YYYY-MM-DD"),
     });
-    showToast("Form reset to defaults", "primary");
+    if (showToastMsg) {
+      showToast("Form reset to defaults", "primary");
+    }
   };
 
-  // Save Meeting Handler
-  const saveMeeting = async () => {
+  // Pre-Save Form Validation & Open Confirmation Modal
+  const handleSaveClick = () => {
+    if (!form.meetingType || !form.meetingType.trim()) {
+      setSubmittedAttempt(true);
+      showToast("Please Enter Meeting Type / Subject", "warning");
+      return;
+    }
+
+    if (!form.raName && !form.projectName) {
+      showToast("Please Select Reporting Authority (RA)", "warning");
+      return;
+    }
+
+    if (!form.frequencyType) {
+      showToast("Please Select Frequency", "warning");
+      return;
+    }
+
+    if (
+      form.frequencyType !== "Every Day" &&
+      !form.meetingDate
+    ) {
+      showToast("Please Select Meeting Date", "warning");
+      return;
+    }
+
+    if (!form.meetingStartTime) {
+      showToast("Please Select Meeting Start Time", "warning");
+      return;
+    }
+
+    if (!form.meetingEndTime) {
+      showToast("Please Select Meeting End Time", "warning");
+      return;
+    }
+
+    if (!form.year) {
+      showToast("Please Select Fiscal Year", "warning");
+      return;
+    }
+
+    if (!form.month) {
+      showToast("Please Select Month", "warning");
+      return;
+    }
+
+    if (form.participants.length === 0) {
+      showToast("Please Select At Least One Participant", "warning");
+      return;
+    }
+
+    if (form.meetingOwner.length === 0) {
+      showToast("Please Select Meeting Organizer / Owner", "warning");
+      return;
+    }
+
+    // Form is valid! Open Confirmation Modal
+    setSaveSuccessData(null);
+    setShowConfirmModal(true);
+  };
+
+  // Execute Save Meeting (API Call)
+  const executeSaveMeeting = async () => {
     try {
-      if (!form.meetingType || !form.meetingType.trim()) {
-        setSubmittedAttempt(true);
-        showToast("Please Enter Meeting Type / Subject", "warning");
-        return;
-      }
-
-      if (!form.raName && !form.projectName) {
-        showToast("Please Select Reporting Authority (RA)", "warning");
-        return;
-      }
-
-      if (!form.frequencyType) {
-        showToast("Please Select Frequency", "warning");
-        return;
-      }
-
-      if (
-        form.frequencyType !== "Every Day" &&
-        !form.meetingDate
-      ) {
-        showToast("Please Select Meeting Date", "warning");
-        return;
-      }
-
-      if (!form.meetingStartTime) {
-        showToast("Please Select Meeting Start Time", "warning");
-        return;
-      }
-
-      if (!form.meetingEndTime) {
-        showToast("Please Select Meeting End Time", "warning");
-        return;
-      }
-
-      if (!form.year) {
-        showToast("Please Select Fiscal Year", "warning");
-        return;
-      }
-
-      if (!form.month) {
-        showToast("Please Select Month", "warning");
-        return;
-      }
-
-      if (form.participants.length === 0) {
-        showToast("Please Select At Least One Participant", "warning");
-        return;
-      }
-
-      if (form.meetingOwner.length === 0) {
-        showToast("Please Select Meeting Organizer / Owner", "warning");
-        return;
-      }
+      setIsSubmittingMeeting(true);
 
       const isEveryDaySchedule = form.frequencyType === "Every Day";
       const baseDate = form.meetingDate || new Date().toISOString().split("T")[0];
@@ -819,17 +859,29 @@ function MeetingMaster() {
         console.log("[MeetingMaster] Teams URL created:", teamsUrl);
       }
 
-      showToast(
-        teamsUrl
-          ? "Meeting scheduled! Teams meeting created with all participants."
-          : resMessage || "Meeting Saved Successfully",
-        teamsUrl ? "success" : "warning"
-      );
+      // Capture details for success popup before reset
+      const savedSubject = form.meetingType;
+      const savedDate = isEveryDaySchedule
+        ? "Daily (All Working Days)"
+        : moment(form.meetingDate).format("ddd, DD MMM YYYY");
+      const savedTime = `${form.meetingStartTime} – ${form.meetingEndTime}`;
+      const savedCount = form.participants.length;
 
-      resetForm();
+      // Reset the form completely as requested
+      resetForm(false);
+
+      // Transition modal to success confirmation view
+      setSaveSuccessData({
+        teamsUrl,
+        message: resMessage || "Meeting Scheduled Successfully",
+        meetingSubject: savedSubject,
+        dateStr: savedDate,
+        timeStr: savedTime,
+        participantCount: savedCount,
+      });
 
     } catch (err: any) {
-      console.log(err);
+      console.error(err);
       let errorMessage = "API Error";
 
       if (typeof err?.response?.data === "string") {
@@ -843,7 +895,37 @@ function MeetingMaster() {
       }
 
       showToast(errorMessage, "danger");
+    } finally {
+      setIsSubmittingMeeting(false);
     }
+  };
+
+  const copyTeamsUrl = (url: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2500);
+      }).catch(() => {
+        fallbackCopyText(url);
+      });
+    } else {
+      fallbackCopyText(url);
+    }
+  };
+
+  const fallbackCopyText = (text: string) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand("copy");
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch (e) {
+      console.error(e);
+    }
+    document.body.removeChild(textArea);
   };
 
   return (
@@ -1213,7 +1295,7 @@ function MeetingMaster() {
             <button
               type="button"
               className="mm-reset-btn"
-              onClick={resetForm}
+              onClick={() => resetForm(true)}
             >
               <IonIcon icon={refreshOutline} />
               <span>Reset</span>
@@ -1221,7 +1303,7 @@ function MeetingMaster() {
             <button
               type="button"
               className="mm-submit-btn"
-              onClick={saveMeeting}
+              onClick={handleSaveClick}
             >
               <IonIcon icon={saveOutline} />
               <span>Save & Schedule Meeting</span>
@@ -1988,6 +2070,309 @@ function MeetingMaster() {
             </div>
           </div>
         </>,
+        document.body
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          CONFIRMATION & SUCCESS POPUP MODAL
+          ══════════════════════════════════════════════════════════════════════════ */}
+      {showConfirmModal && createPortal(
+        <div
+          className="mm-confirm-overlay"
+          onClick={() => {
+            if (!isSubmittingMeeting) {
+              setShowConfirmModal(false);
+              setSaveSuccessData(null);
+            }
+          }}
+        >
+          <div className="mm-confirm-card" onClick={(e) => e.stopPropagation()}>
+            
+            {!saveSuccessData ? (
+              /* ── Phase 1: Confirmation Before Scheduling ── */
+              <>
+                <div className="mm-confirm-header">
+                  <div className="mm-confirm-header-icon">
+                    <CalendarCheck size={22} />
+                  </div>
+                  <div className="mm-confirm-header-text">
+                    <h3>Confirm Meeting Schedule</h3>
+                    <p>Review meeting details before scheduling and creating invite</p>
+                  </div>
+                  {!isSubmittingMeeting && (
+                    <button
+                      type="button"
+                      className="mm-confirm-close-btn"
+                      onClick={() => setShowConfirmModal(false)}
+                      title="Close"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="mm-confirm-body">
+                  {/* Subject Box */}
+                  <div className="mm-confirm-subject-box">
+                    <div className="mm-confirm-subject-label">Meeting Subject / Purpose</div>
+                    <div className="mm-confirm-subject-val">{form.meetingType}</div>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="mm-confirm-details-grid">
+                    <div className="mm-confirm-detail-item">
+                      <div className="mm-cd-icon"><Shield size={15} /></div>
+                      <div>
+                        <span className="mm-cd-label">Reporting Authority</span>
+                        <span className="mm-cd-value">{form.raName || form.projectName || "General"}</span>
+                      </div>
+                    </div>
+
+                    <div className="mm-confirm-detail-item">
+                      <div className="mm-cd-icon"><Calendar size={15} /></div>
+                      <div>
+                        <span className="mm-cd-label">Schedule Date</span>
+                        <span className="mm-cd-value">
+                          {form.frequencyType === "Every Day"
+                            ? "Daily (All Working Days)"
+                            : moment(form.meetingDate).format("ddd, DD MMM YYYY")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mm-confirm-detail-item">
+                      <div className="mm-cd-icon"><Clock size={15} /></div>
+                      <div>
+                        <span className="mm-cd-label">Time Window</span>
+                        <span className="mm-cd-value">{form.meetingStartTime} – {form.meetingEndTime}</span>
+                      </div>
+                    </div>
+
+                    <div className="mm-confirm-detail-item">
+                      <div className="mm-cd-icon"><Sparkles size={15} /></div>
+                      <div>
+                        <span className="mm-cd-label">Frequency</span>
+                        <span className="mm-cd-value">{form.frequencyType}</span>
+                      </div>
+                    </div>
+
+                    <div className="mm-confirm-detail-item">
+                      <div className="mm-cd-icon"><User size={15} /></div>
+                      <div>
+                        <span className="mm-cd-label">Meeting Organizer</span>
+                        <span className="mm-cd-value">
+                          {form.meetingOwner.length > 0
+                            ? getEmpDisplayName(form.meetingOwner[0])
+                            : "Not selected"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mm-confirm-detail-item">
+                      <div className="mm-cd-icon"><Users size={15} /></div>
+                      <div>
+                        <span className="mm-cd-label">Total Participants</span>
+                        <span className="mm-cd-value">
+                          {form.participants.length} Participant{form.participants.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Participants Preview Chips */}
+                  {form.participants.length > 0 && (
+                    <div className="mm-confirm-part-preview">
+                      <div className="mm-confirm-part-title">
+                        Selected Participants ({form.participants.length})
+                      </div>
+                      <div className="mm-confirm-chips-list">
+                        {form.participants.slice(0, 8).map((pId) => (
+                          <span key={pId} className="mm-confirm-chip">
+                            {getEmpDisplayName(pId)}
+                          </span>
+                        ))}
+                        {form.participants.length > 8 && (
+                          <span className="mm-confirm-chip more">
+                            +{form.participants.length - 8} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Remarks Preview */}
+                  {form.remarks && form.remarks.trim() && (
+                    <div className="mm-confirm-remarks-box">
+                      <span className="mm-cd-label">Agenda / Instructions:</span>
+                      <p>{form.remarks}</p>
+                    </div>
+                  )}
+
+                  {/* Notification Notice */}
+                  <div className="mm-confirm-notice">
+                    <AlertCircle size={16} className="mm-notice-icon" />
+                    <span>
+                      Saving will record this meeting in the master database and generate a Microsoft Teams invitation link with attendees.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mm-confirm-footer">
+                  <button
+                    type="button"
+                    className="mm-modal-btn mm-btn-secondary"
+                    onClick={() => setShowConfirmModal(false)}
+                    disabled={isSubmittingMeeting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="mm-modal-btn mm-btn-primary"
+                    onClick={executeSaveMeeting}
+                    disabled={isSubmittingMeeting}
+                  >
+                    {isSubmittingMeeting ? (
+                      <>
+                        <div className="mm-btn-spinner" />
+                        <span>Scheduling Meeting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <IonIcon icon={saveOutline} />
+                        <span>Yes, Schedule Meeting</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ── Phase 2: Success Confirmation Popup ── */
+              <>
+                <div className="mm-confirm-header success">
+                  <div className="mm-success-badge-icon">
+                    <CheckCircle2 size={32} color="#16a34a" />
+                  </div>
+                  <div className="mm-confirm-header-text">
+                    <h3>Meeting Scheduled Successfully!</h3>
+                    <p>{saveSuccessData.message || "Meeting recorded and calendar invitations ready."}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="mm-confirm-close-btn"
+                    onClick={() => {
+                      setShowConfirmModal(false);
+                      setSaveSuccessData(null);
+                    }}
+                    title="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="mm-confirm-body success-body">
+                  <div className="mm-success-summary-box">
+                    <div className="mm-success-subject">
+                      {saveSuccessData.meetingSubject || "Meeting"}
+                    </div>
+                    <div className="mm-success-meta">
+                      <span>{saveSuccessData.dateStr}</span>
+                      <span>•</span>
+                      <span>{saveSuccessData.timeStr}</span>
+                      <span>•</span>
+                      <span>{saveSuccessData.participantCount} Participants</span>
+                    </div>
+                  </div>
+
+                  {/* Teams Card if teamsUrl available */}
+                  {saveSuccessData.teamsUrl && (
+                    <div className="mm-teams-card">
+                      <div className="mm-teams-badge-row">
+                        <div className="mm-teams-logo">
+                          <Video size={18} />
+                        </div>
+                        <div className="mm-teams-info">
+                          <strong>Microsoft Teams Meeting Ready</strong>
+                          <span>Invited participants can join using the link below</span>
+                        </div>
+                      </div>
+
+                      <div className="mm-teams-url-preview">
+                        <input
+                          type="text"
+                          readOnly
+                          value={saveSuccessData.teamsUrl}
+                          className="mm-teams-input"
+                        />
+                        <button
+                          type="button"
+                          className={`mm-teams-copy-btn ${linkCopied ? "copied" : ""}`}
+                          onClick={() => copyTeamsUrl(saveSuccessData.teamsUrl || "")}
+                          title="Copy Link"
+                        >
+                          {linkCopied ? (
+                            <>
+                              <Check size={14} />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="mm-teams-actions">
+                        <a
+                          href={saveSuccessData.teamsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mm-teams-join-btn"
+                        >
+                          <span>Join Microsoft Teams Meeting</span>
+                          <ExternalLink size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mm-form-reset-badge">
+                    <RefreshCw size={14} />
+                    <span>The form has been reset for you. You can schedule another meeting below.</span>
+                  </div>
+                </div>
+
+                <div className="mm-confirm-footer">
+                  <button
+                    type="button"
+                    className="mm-modal-btn mm-btn-secondary"
+                    onClick={() => {
+                      setShowConfirmModal(false);
+                      setSaveSuccessData(null);
+                      history.push("/meeting-list");
+                    }}
+                  >
+                    <span>View Meetings List</span>
+                    <ArrowRight size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="mm-modal-btn mm-btn-primary"
+                    onClick={() => {
+                      setShowConfirmModal(false);
+                      setSaveSuccessData(null);
+                    }}
+                  >
+                    <span>Schedule Another Meeting</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+          </div>
+        </div>,
         document.body
       )}
     </IonPage>

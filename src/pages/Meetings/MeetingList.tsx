@@ -1,11 +1,31 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Search,
+  Clock,
+  User,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Paperclip,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Video,
+  FileText,
+  Sparkles,
+  Check,
+  X
+} from "lucide-react";
 import axios from "axios";
 import moment from "moment";
 import { API_BASE } from "../../config";
 import { IonIcon, IonSelect, IonSelectOption, IonPage, IonContent } from "@ionic/react";
-import { calendarOutline, documentTextOutline, layersOutline, personOutline, syncOutline, peopleOutline, chatbubbleEllipsesOutline } from "ionicons/icons";
+import { layersOutline } from "ionicons/icons";
 import "./MeetingList.css";
 import MeetingDetailModal from "../../components/MeetingDetailModal";
 
@@ -41,7 +61,6 @@ interface Meeting {
   graphMeetingId?: string;
   transcriptSyncStatus?: string;
   attendanceSyncStatus?: string;
-  // Phase A/E/F
   attendancePercent?: number | null;
   aiSummaryAvailable?: boolean;
   autoCompleted?: boolean;
@@ -67,16 +86,22 @@ const safeStr = (val: any, fallback = ""): string => {
 
 const MeetingList: React.FC = () => {
   const history = useHistory();
-  const [meetings, setMeetings]         = useState<Meeting[]>([]);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState<string | null>(null);
-  const [monthsList, setMonthsList]     = useState<string[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => moment().format("MMM-YYYY"));
-  const [editStates, setEditStates]     = useState<Record<number, { status: string; remarks: string; file: File | null }>>({});
-  const [viewDetailId, setViewDetailId] = useState<number | null>(null);
+  const [meetings, setMeetings]                   = useState<Meeting[]>([]);
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState<string | null>(null);
+  const [monthsList, setMonthsList]               = useState<string[]>([]);
+  const [selectedMonth, setSelectedMonth]         = useState<string>(() => moment().format("MMM-YYYY"));
+  const [selectedDate, setSelectedDate]           = useState<string>(() => moment().format("YYYY-MM-DD"));
+  const [showAllDates, setShowAllDates]           = useState<boolean>(false);
+  const [searchQuery, setSearchQuery]             = useState<string>("");
+  const [statusFilter, setStatusFilter]           = useState<string>("ALL");
+  const [editStates, setEditStates]               = useState<Record<number, { status: string; remarks: string; file: File | null }>>({});
+  const [expandedOwnerEdit, setExpandedOwnerEdit] = useState<Record<number, boolean>>({});
+  const [expandedAttendees, setExpandedAttendees] = useState<Record<number, boolean>>({});
+  const [viewDetailId, setViewDetailId]           = useState<number | null>(null);
   const [viewDetailMeeting, setViewDetailMeeting] = useState<Meeting | null>(null);
 
-  // Time editing modal state
+  // Time editing state
   const [timeEditId, setTimeEditId]   = useState<number | null>(null);
   const [timeForm, setTimeForm]       = useState<{ startTime: string; endTime: string }>({ startTime: "", endTime: "" });
   const [timeSaving, setTimeSaving]   = useState(false);
@@ -100,7 +125,9 @@ const MeetingList: React.FC = () => {
     if (!selectedMonth) setSelectedMonth(list[0]);
   }, [selectedMonth]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -115,10 +142,10 @@ const MeetingList: React.FC = () => {
       const data: Meeting[] = (Array.isArray(rawData) ? rawData : []).map((m: any) => ({
         ...m,
         id: Number(m.id || m.Id) || 0,
-        meetingType: safeStr(m.meetingType || m.MeetingType, "-"),
+        meetingType: safeStr(m.meetingType || m.MeetingType, "Meeting"),
         financialYear: safeStr(m.financialYear || m.FinancialYear, ""),
         monthName: safeStr(m.monthName || m.MonthName, ""),
-        frequencyType: safeStr(m.frequencyType || m.FrequencyType, "-"),
+        frequencyType: safeStr(m.frequencyType || m.FrequencyType, "One-time"),
         meetingStatus: safeStr(m.meetingStatus || m.MeetingStatus, "Pending"),
         remarks: safeStr(m.remarks || m.Remarks, ""),
         escalationRemarks: safeStr(m.escalationRemarks || m.EscalationRemarks, ""),
@@ -127,6 +154,9 @@ const MeetingList: React.FC = () => {
         projectName: safeStr(m.projectName || m.ProjectName, ""),
         weekName: safeStr(m.weekName || m.WeekName, ""),
         teamsMeetingUrl: safeStr(m.teamsMeetingUrl || m.TeamsMeetingUrl, ""),
+        meetingDate: m.meetingDate || m.MeetingDate || null,
+        meetingStartTime: m.meetingStartTime || m.MeetingStartTime || null,
+        meetingEndTime: m.meetingEndTime || m.MeetingEndTime || null,
       }));
       setMeetings(data);
       const init: Record<number, { status: string; remarks: string; file: File | null }> = {};
@@ -171,6 +201,14 @@ const MeetingList: React.FC = () => {
     setEditStates(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
   };
 
+  const toggleOwnerEdit = (id: number) => {
+    setExpandedOwnerEdit(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleAttendees = (id: number) => {
+    setExpandedAttendees(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const handleJoinMeeting = async (meetingId: number, teamsUrl: string) => {
     try {
       const base  = API_BASE ? API_BASE.replace(/\/$/, "") : "";
@@ -203,7 +241,8 @@ const MeetingList: React.FC = () => {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      alert("Updated successfully!");
+      alert("Meeting status updated successfully!");
+      setExpandedOwnerEdit(prev => ({ ...prev, [meetingId]: false }));
       loadData();
     } catch (err: any) {
       const msg = typeof err.response?.data === "string"
@@ -272,7 +311,15 @@ const MeetingList: React.FC = () => {
     });
   };
 
-  const filteredMeetings = useMemo(() => {
+  const getMeetingDateStr = (m: Meeting): string | null => {
+    const raw = m.meetingDate || (m as any).MeetingDate || m.meetingStartTime || (m as any).MeetingStartTime;
+    if (!raw) return null;
+    const mObj = moment(raw);
+    return mObj.isValid() ? mObj.format("YYYY-MM-DD") : null;
+  };
+
+  // Base list filtered by role and selected month
+  const monthMeetings = useMemo(() => {
     let result = meetings;
     if (!isAdmin) {
       result = result.filter(m => isOwner(getMeetingOwner(m)) || isParticipant(getParticipants(m)));
@@ -283,386 +330,790 @@ const MeetingList: React.FC = () => {
       result = result.filter(m => {
         const mMonth = m.monthName || (m as any).MonthName;
         const mYear  = m.financialYear || (m as any).FinancialYear;
+        const dateStr = getMeetingDateStr(m);
+        if (dateStr) {
+          return moment(dateStr).format("MMM-YYYY").toLowerCase() === selectedMonth.toLowerCase();
+        }
         return mMonth?.toLowerCase() === fullFilterMonth && mYear === filterYear;
       });
     }
     return result;
   }, [meetings, selectedMonth, empCode, isAdmin]);
 
-  const hasOwnerMeeting = filteredMeetings.some(m => isOwner(getMeetingOwner(m)));
+  // KPI Counters for Month
+  const kpiStats = useMemo(() => {
+    const total = monthMeetings.length;
+    const completed = monthMeetings.filter(m => m.meetingStatus?.toLowerCase() === "completed").length;
+    const pending = monthMeetings.filter(m => m.meetingStatus?.toLowerCase() === "pending").length;
+    const escalated = monthMeetings.filter(m => m.meetingStatus?.toLowerCase() === "escalated").length;
+    const mine = monthMeetings.filter(m => isOwner(getMeetingOwner(m))).length;
+    return { total, completed, pending, escalated, mine };
+  }, [monthMeetings, empCode]);
 
-  /* ── badge class helper ── */
-  const badgeClass = (status: string) => {
-    const s = status.toLowerCase();
-    if (s === "completed") return "mlist-badge mlist-badge-completed";
-    if (s === "escalated") return "mlist-badge mlist-badge-escalated";
-    if (s === "pending")   return "mlist-badge mlist-badge-pending";
-    return "mlist-badge mlist-badge-default";
+  // Final Filtered Meetings with Date, Status Tab & Search
+  const filteredMeetings = useMemo(() => {
+    let result = monthMeetings;
+
+    // 1. Date filter
+    if (!showAllDates && selectedDate) {
+      result = result.filter(m => {
+        const dStr = getMeetingDateStr(m);
+        return dStr === selectedDate;
+      });
+    }
+
+    // 2. Status Filter
+    if (statusFilter === "COMPLETED") {
+      result = result.filter(m => m.meetingStatus?.toLowerCase() === "completed");
+    } else if (statusFilter === "PENDING") {
+      result = result.filter(m => m.meetingStatus?.toLowerCase() === "pending");
+    } else if (statusFilter === "ESCALATED") {
+      result = result.filter(m => m.meetingStatus?.toLowerCase() === "escalated");
+    } else if (statusFilter === "MINE") {
+      result = result.filter(m => isOwner(getMeetingOwner(m)));
+    }
+
+    // 3. Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(m => {
+        const type = (m.meetingType || "").toLowerCase();
+        const owner = (m.meetingOwner || "").toLowerCase();
+        const parts = (m.participants || "").toLowerCase();
+        const remarks = (m.remarks || "").toLowerCase();
+        const id = String(m.id);
+        return type.includes(q) || owner.includes(q) || parts.includes(q) || remarks.includes(q) || id.includes(q);
+      });
+    }
+
+    return result;
+  }, [monthMeetings, showAllDates, selectedDate, statusFilter, searchQuery, empCode]);
+
+  /* ── Time & Duration Calculator ── */
+  const getTimeInfo = (start?: string | null, end?: string | null) => {
+    if (!start && !end) return null;
+    const formatSingle = (val?: string | null) => {
+      if (!val) return "";
+      try {
+        if (val.includes("T") || val.includes("-")) {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+          }
+        }
+        const m = moment(val, ["HH:mm:ss", "HH:mm", "hh:mm A"]);
+        if (m.isValid()) return m.format("hh:mm A");
+      } catch { }
+      return val;
+    };
+
+    const sStr = formatSingle(start);
+    const eStr = formatSingle(end);
+
+    let duration: string | null = null;
+    if (start && end) {
+      try {
+        const mStart = moment(start);
+        const mEnd = moment(end);
+        if (mStart.isValid() && mEnd.isValid()) {
+          const diffMins = mEnd.diff(mStart, "minutes");
+          if (diffMins > 0) {
+            if (diffMins < 60) duration = `${diffMins}m`;
+            else {
+              const hrs = Math.floor(diffMins / 60);
+              const mins = diffMins % 60;
+              duration = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+            }
+          }
+        }
+      } catch { }
+    }
+
+    let slotText = "";
+    if (sStr && eStr) slotText = `${sStr} – ${eStr}`;
+    else if (sStr) slotText = `Starts at ${sStr}`;
+    else if (eStr) slotText = `Ends at ${eStr}`;
+
+    return { slotText, duration };
   };
 
-  /* ── parse date for cards ── */
-  const parseMeetingDate = (rawDate?: string | null) => {
-    if (!rawDate) return null;
-    const d = new Date(rawDate);
-    if (isNaN(d.getTime())) return null;
-    return {
-      day: d.toLocaleDateString("en-GB", { day: "2-digit" }),
-      mon: d.toLocaleDateString("en-GB", { month: "short" }),
-      fmt: d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" }),
-    };
+  /* ── Parse Attendees into individual badge tokens ── */
+  const parseAttendees = (raw?: string) => {
+    if (!raw || raw === "-") return [];
+    return raw.split(",").map(s => s.trim()).filter(Boolean);
   };
 
   return (
     <IonPage>
       <IonContent>
-        <div className="mlist-page" style={{ padding: "16px", paddingBottom: "100px", maxWidth: "1200px", margin: "0 auto" }}>
-      {/* ── Custom Premium Header ── */}
-      <div className="page-wr-header" style={{ marginBottom: '16px' }}>
-        <div className="page-wr-header-left">
-          <button className="page-wr-back-btn" onClick={() => history.goBack()}>
-            <ChevronLeft size={22} color="white" />
-          </button>
-          <div>
-            <h1 className="page-wr-title">Meeting List</h1>
-            <p className="page-wr-subtitle">View and manage scheduled meetings</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Period Selector Below Header ── */}
-      <div style={{ marginBottom: '20px', display: 'flex', overflowX: 'auto', paddingBottom: '4px' }}>
-        <div className="custom-dropdown-container" style={{ minWidth: '180px' }}>
-          <div className="premium-filter-trigger">
-            <div className="trigger-content">
-              <div className="trigger-icon-box">
-                <IonIcon icon={calendarOutline} />
-              </div>
-              <div className="trigger-text-sec">
-                <span className="trigger-sub">PERIOD</span>
-                <span className="trigger-main">{selectedMonth || "Select Month"}</span>
+        <div className="mlist-page" style={{ padding: "16px 20px 100px", maxWidth: "1300px", margin: "0 auto" }}>
+          
+          {/* ── Custom Header ── */}
+          <div className="page-wr-header">
+            <div className="page-wr-header-left">
+              <button className="page-wr-back-btn" onClick={() => history.goBack()} title="Go Back">
+                <ChevronLeft size={22} color="white" />
+              </button>
+              <div>
+                <h1 className="page-wr-title">Meeting List</h1>
+                <p className="page-wr-subtitle">View, schedule, and track organizational meetings</p>
               </div>
             </div>
-            <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
-            <IonSelect
-              className="hidden-select-overlay"
-              interface="popover"
-              value={selectedMonth}
-              onIonChange={e => { if (e.detail.value) setSelectedMonth(e.detail.value); }}
-            >
-              {monthsList.map(m => (
-                <IonSelectOption key={m} value={m}>{m}</IonSelectOption>
-              ))}
-            </IonSelect>
-          </div>
-        </div>
-      </div>
-
-      {/* ── States ── */}
-      {loading && <div className="mlist-loading">Loading meetings…</div>}
-      {error   && <div className="mlist-error">{error}</div>}
-
-      {!loading && !error && filteredMeetings.length === 0 && (
-        <div className="mlist-empty">
-          <span className="mlist-empty-icon">📅</span>
-          <span className="mlist-empty-title">No meetings found</span>
-        </div>
-      )}
-
-      {!loading && !error && filteredMeetings.length > 0 && (
-        <>
-          <div className="mlist-count">
-            Showing <strong>{filteredMeetings.length}</strong> meeting{filteredMeetings.length !== 1 ? "s" : ""} for <strong>{selectedMonth}</strong>
           </div>
 
-          <div className="meeting-list-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px', paddingBottom: '80px' }}>
-            {filteredMeetings.map((item, idx) => {
-              const userIsOwner = isOwner(getMeetingOwner(item));
-              const edit        = editStates[item.id] || { status: "", remarks: "", file: null };
-              const mYear       = safeStr(item.financialYear || (item as any).FinancialYear);
-              const mMonth      = safeStr(item.monthName     || (item as any).MonthName);
-              const mFrequency  = safeStr(item.frequencyType || (item as any).FrequencyType, "-");
-              const mMeetingType = safeStr(item.meetingType  || (item as any).MeetingType, "-");
-              const mStatus     = safeStr(item.meetingStatus || (item as any).MeetingStatus, "Pending");
-              const mRemarks    = safeStr(item.remarks       || (item as any).Remarks, "");
-              const mAttachment = item.attachment    || (item as any).Attachment;
-              const mOwnerRaw   = safeStr(getMeetingOwner(item), "-");
-              const mPartRaw    = safeStr(getParticipants(item), "-");
-              const teamsUrl    = safeStr(item.teamsMeetingUrl || (item as any).TeamsMeetingUrl, "");
-              const rawDate     = item.meetingDate || (item as any).MeetingDate || null;
-              const dateInfo    = parseMeetingDate(rawDate);
-              const mApproved   = mStatus.toLowerCase() === 'completed';
-              const mRejected   = mStatus.toLowerCase() === 'escalated';
+          {/* ── KPI Summary Counter Ribbon ── */}
+          <div className="mlist-kpi-bar">
+            <div className="mlist-kpi-card kpi-total">
+              <span>Total Month Meetings</span>
+              <span className="mlist-kpi-badge">{kpiStats.total}</span>
+            </div>
+            <div className="mlist-kpi-card kpi-completed">
+              <span>Completed</span>
+              <span className="mlist-kpi-badge">{kpiStats.completed}</span>
+            </div>
+            <div className="mlist-kpi-card kpi-pending">
+              <span>Pending</span>
+              <span className="mlist-kpi-badge">{kpiStats.pending}</span>
+            </div>
+            {kpiStats.escalated > 0 && (
+              <div className="mlist-kpi-card kpi-escalated">
+                <span>Escalated</span>
+                <span className="mlist-kpi-badge">{kpiStats.escalated}</span>
+              </div>
+            )}
+            {kpiStats.mine > 0 && (
+              <div className="mlist-kpi-card">
+                <span>Created by You</span>
+                <span className="mlist-kpi-badge" style={{ background: "#e0e7ff", color: "#3730a3" }}>{kpiStats.mine}</span>
+              </div>
+            )}
+          </div>
 
-              return (
-                <div key={`${item.id}-${idx}`} style={{ padding: "12px", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: mApproved ? "#10b981" : mRejected ? "#ef4444" : "#f59e0b" }} />
-                  
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingLeft: "6px" }}>
-                    <div style={{ flex: 1, paddingRight: "8px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                        <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.2px" }}>{mMeetingType}</h3>
-                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", background: "#f1f5f9", padding: "2px 5px", borderRadius: "4px" }}>#{item.id}</span>
-                      </div>
-                      <div style={{ fontSize: "12px", color: "#64748b", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px" }}>
-                        <IonIcon icon={calendarOutline} style={{ fontSize: "12px", color: "#94a3b8" }} />
-                        {dateInfo ? dateInfo.fmt : `${mMonth} ${mYear}`}
-                      </div>
-                    </div>
+          {/* ── Unified Command Toolbar (Fixed 44px Height & Alignments) ── */}
+          <div className="mlist-command-toolbar">
+            <div className="mlist-toolbar-row">
+              {/* 1. Date Picker Card */}
+              <div className="mlist-picker-card" title="Click to choose a date">
+                <div className="mlist-picker-icon date-icon">
+                  <Calendar size={16} />
+                </div>
+                <div className="mlist-picker-info">
+                  <span className="mlist-picker-label">Meeting Date</span>
+                  <span className="mlist-picker-value">
+                    {showAllDates
+                      ? "All Dates in Month"
+                      : (selectedDate ? moment(selectedDate).format("ddd, DD MMM YYYY") : "Select Date")}
+                  </span>
+                </div>
+                <input
+                  type="date"
+                  className="mlist-native-input"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setSelectedDate(val);
+                      setShowAllDates(false);
+                      const mStr = moment(val).format("MMM-YYYY");
+                      if (mStr !== selectedMonth) setSelectedMonth(mStr);
+                    }
+                  }}
+                />
+              </div>
 
-                    <span
-                      style={{
-                        fontSize: "10px", fontWeight: 700, textTransform: "uppercase", padding: "4px 8px", borderRadius: "12px",
-                        background: mApproved ? "#dcfce7" : mRejected ? "#fee2e2" : "#fef9c3",
-                        color: mApproved ? "#059669" : mRejected ? "#dc2626" : "#b45309",
-                        letterSpacing: "0.3px", flexShrink: 0
-                      }}
-                    >
-                      {mStatus}
-                    </span>
-                  </div>
-                  
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                      alignItems: "stretch",
-                      paddingLeft: "6px"
-                    }}
+              {/* 2. Unified Stepper / Navigation Group */}
+              <div className="mlist-stepper-group">
+                <button
+                  type="button"
+                  className="mlist-step-btn"
+                  title="Previous Day"
+                  onClick={() => {
+                    const prev = moment(selectedDate || undefined).subtract(1, "day").format("YYYY-MM-DD");
+                    setSelectedDate(prev);
+                    setShowAllDates(false);
+                    const mStr = moment(prev).format("MMM-YYYY");
+                    if (mStr !== selectedMonth) setSelectedMonth(mStr);
+                  }}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Prev</span>
+                </button>
+
+                <div className="mlist-stepper-divider" />
+
+                <button
+                  type="button"
+                  className={`mlist-step-btn ${!showAllDates && selectedDate === moment().format("YYYY-MM-DD") ? 'is-active-today' : ''}`}
+                  onClick={() => {
+                    const todayStr = moment().format("YYYY-MM-DD");
+                    setSelectedDate(todayStr);
+                    setShowAllDates(false);
+                    const mStr = moment(todayStr).format("MMM-YYYY");
+                    if (mStr !== selectedMonth) setSelectedMonth(mStr);
+                  }}
+                >
+                  Today
+                </button>
+
+                <div className="mlist-stepper-divider" />
+
+                <button
+                  type="button"
+                  className="mlist-step-btn"
+                  title="Next Day"
+                  onClick={() => {
+                    const next = moment(selectedDate || undefined).add(1, "day").format("YYYY-MM-DD");
+                    setSelectedDate(next);
+                    setShowAllDates(false);
+                    const mStr = moment(next).format("MMM-YYYY");
+                    if (mStr !== selectedMonth) setSelectedMonth(mStr);
+                  }}
+                >
+                  <span>Next</span>
+                  <ChevronRight size={16} />
+                </button>
+
+                <div className="mlist-stepper-divider" />
+
+                <button
+                  type="button"
+                  className={`mlist-step-btn ${showAllDates ? 'is-active-all' : ''}`}
+                  onClick={() => setShowAllDates(prev => !prev)}
+                >
+                  {showAllDates ? "Filtered by Day" : "Show All Month"}
+                </button>
+              </div>
+
+              {/* 3. Period / Month Selector */}
+              <div className="mlist-picker-card" style={{ flex: "0 1 200px", minWidth: "180px" }}>
+                <div className="mlist-picker-icon period-icon">
+                  <IonIcon icon={layersOutline} />
+                </div>
+                <div className="mlist-picker-info">
+                  <span className="mlist-picker-label">Period</span>
+                  <span className="mlist-picker-value">{selectedMonth || "Select Month"}</span>
+                </div>
+                <IonSelect
+                  className="mlist-native-input"
+                  interface="popover"
+                  value={selectedMonth}
+                  onIonChange={e => {
+                    const newMonth = e.detail.value;
+                    if (newMonth) {
+                      setSelectedMonth(newMonth);
+                      const currentMonthFormat = moment(selectedDate).format("MMM-YYYY");
+                      if (currentMonthFormat !== newMonth) {
+                        const firstDay = moment(newMonth, "MMM-YYYY").startOf("month").format("YYYY-MM-DD");
+                        setSelectedDate(firstDay);
+                      }
+                    }
+                  }}
+                >
+                  {monthsList.map(m => (
+                    <IonSelectOption key={m} value={m}>{m}</IonSelectOption>
+                  ))}
+                </IonSelect>
+              </div>
+
+              {/* 4. Instant Search Bar */}
+              <div className="mlist-search-container">
+                <Search size={16} color="#94a3b8" />
+                <input
+                  type="text"
+                  className="mlist-search-input"
+                  placeholder="Search meeting, host, attendees..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    style={{ background: "transparent", border: "none", cursor: "pointer", padding: 2, display: "flex" }}
                   >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <IonIcon icon={personOutline} style={{ color: "#64748b", fontSize: "14px" }} />
-                        <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600 }}>Owner</span>
-                        <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 700 }}>{mOwnerRaw}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <IonIcon icon={syncOutline} style={{ color: "#64748b", fontSize: "14px" }} />
-                        <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600 }}>Freq</span>
-                        <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600 }}>{mFrequency}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
-                        <IonIcon icon={peopleOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px" }} />
-                        <span style={{ fontSize: "12px", color: "#64748b", width: "65px", fontWeight: 600, flexShrink: 0 }}>People</span>
-                        <span style={{ fontSize: "12px", color: "#0f172a", fontWeight: 600, lineHeight: 1.3 }}>{mPartRaw}</span>
-                      </div>
-                      {Boolean(mRemarks && mRemarks !== "-") && (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: "6px", marginTop: "4px", paddingTop: "8px", borderTop: "1px dashed #e2e8f0" }}>
-                          <IonIcon icon={chatbubbleEllipsesOutline} style={{ color: "#64748b", fontSize: "14px", marginTop: "1px", flexShrink: 0 }} />
-                          <span style={{ fontSize: "12px", color: "#475569", fontStyle: "italic", lineHeight: 1.3 }}>"{mRemarks}"</span>
-                        </div>
-                      )}
-                    </div>
+                    <X size={15} color="#94a3b8" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-                    {((item.attendancePercent != null && item.attendanceSyncStatus === "Completed") || item.transcriptSyncStatus === "Completed" || item.aiSummaryAvailable) && (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "4px 0" }}>
-                        {item.attendancePercent != null && item.attendanceSyncStatus === "Completed" && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                            background: item.attendancePercent >= 75 ? "#dcfce7" : item.attendancePercent >= 50 ? "#fef9c3" : "#fee2e2",
-                            color:      item.attendancePercent >= 75 ? "#15803d" : item.attendancePercent >= 50 ? "#92400e" : "#b91c1c",
-                          }}>
-                            {item.attendancePercent}% attended
-                          </span>
-                        )}
-                        {item.transcriptSyncStatus === "Completed" && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#ede9fe", color: "#7c3aed" }}>📝 Transcript</span>
-                        )}
-                        {item.aiSummaryAvailable && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#fef3c7", color: "#92400e" }}>🤖 AI Ready</span>
-                        )}
-                      </div>
-                    )}
+            {/* Status Filter Tab Pills */}
+            <div className="mlist-filter-ribbon">
+              <button
+                type="button"
+                className={`mlist-filter-tab ${statusFilter === "ALL" ? "active" : ""}`}
+                onClick={() => setStatusFilter("ALL")}
+              >
+                All Meetings
+                <span className="mlist-filter-count">{monthMeetings.length}</span>
+              </button>
 
-                    {(isAdmin || isTeamLeader) && (
-                      <div style={{ padding: "4px 0 2px" }}>
-                        {timeEditId !== item.id ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            {(item.meetingStartTime || item.meetingEndTime) && (
-                              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-                                🕐 {item.meetingStartTime ? new Date(item.meetingStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
-                                {" – "}
-                                {item.meetingEndTime ? new Date(item.meetingEndTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?"}
-                              </span>
-                            )}
-                            <button onClick={() => openTimeEdit(item)}
-                              style={{
-                                padding: "5px 12px", background: "#fff7ed", color: "#c2410c",
-                                border: "1px solid #fed7aa", borderRadius: 7, cursor: "pointer",
-                                fontWeight: 700, fontSize: 12, fontFamily: "inherit",
-                              }}>
-                              🕐 Edit Time
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                              <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", width: 40 }}>Start</label>
-                              <input type="time" value={timeForm.startTime}
-                                onChange={e => setTimeForm(f => ({ ...f, startTime: e.target.value }))}
-                                style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }} />
-                            </div>
-                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                              <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", width: 40 }}>End</label>
-                              <input type="time" value={timeForm.endTime}
-                                onChange={e => setTimeForm(f => ({ ...f, endTime: e.target.value }))}
-                                style={{ flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }} />
-                            </div>
-                            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                              <button onClick={() => handleUpdateTime(item)} disabled={timeSaving}
-                                style={{ flex: 1, padding: "8px 0", background: "#059669", color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                                {timeSaving ? "Saving…" : "Save Time"}
-                              </button>
-                              <button onClick={() => setTimeEditId(null)}
-                                style={{ padding: "8px 16px", background: "#f1f5f9", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+              <button
+                type="button"
+                className={`mlist-filter-tab ${statusFilter === "COMPLETED" ? "active" : ""}`}
+                onClick={() => setStatusFilter("COMPLETED")}
+              >
+                <span className="mlist-pulse-dot" style={{ background: "#10b981", width: 6, height: 6 }} />
+                Completed
+                <span className="mlist-filter-count">{kpiStats.completed}</span>
+              </button>
 
-                    <div
-                      style={{
-                        paddingTop: "14px",
-                        borderTop: "1px solid #f1f5f9",
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {mAttachment && (
-                        <a
-                          href={getFileUrl(mAttachment)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: "6px",
-                            padding: "10px 14px", background: "#f8fafc", color: "#334155",
-                            border: "1px solid #e2e8f0", borderRadius: "10px",
-                            fontWeight: 700, fontSize: "13px", textDecoration: "none"
-                          }}
-                        >
-                          <IonIcon icon={documentTextOutline} />
-                          File
-                        </a>
-                      )}
-                      {teamsUrl && (
-                        <button
-                          style={{
-                            flex: 1, padding: "10px 16px", background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-                            color: "#fff", border: "none", borderRadius: "10px",
-                            fontWeight: 700, fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
-                          }}
-                          onClick={() => handleJoinMeeting(item.id, teamsUrl)}
-                        >
-                          🔗 Join
-                        </button>
-                      )}
-                      <button
-                        onClick={() => openDetail(item)}
-                        style={{
-                          padding: "10px 16px",
-                          background: "#eff6ff",
-                          color: "#2563eb",
-                          border: "1px solid #bfdbfe",
-                          borderRadius: "10px",
-                          fontWeight: 700,
-                          fontSize: "13px",
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                          flex: teamsUrl ? "0 0 auto" : 1,
-                        }}
-                      >
-                        👁 Details
-                      </button>
-                    </div>
+              <button
+                type="button"
+                className={`mlist-filter-tab ${statusFilter === "PENDING" ? "active" : ""}`}
+                onClick={() => setStatusFilter("PENDING")}
+              >
+                <span className="mlist-pulse-dot" style={{ background: "#f59e0b", width: 6, height: 6 }} />
+                Pending
+                <span className="mlist-filter-count">{kpiStats.pending}</span>
+              </button>
 
-                    {userIsOwner && (
-                      <div
-                        style={{
-                          padding: "14px",
-                          background: "#f8fafc",
-                          borderRadius: "12px",
-                          border: "1px dashed #cbd5e1",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "10px",
-                        }}
-                      >
-                        <div>
-                          <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Status</label>
-                          <select
-                            style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", background: "#fff", fontSize: "14px", color: "#0f172a", fontFamily: "inherit" }}
-                            value={edit.status}
-                            onChange={e => handleEditChange(item.id, "status", e.target.value)}
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Escalated">Escalated</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Remarks</label>
-                          <input
-                            type="text"
-                            style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", background: "#fff", fontSize: "14px", color: "#0f172a", fontFamily: "inherit", boxSizing: "border-box" }}
-                            value={edit.remarks}
-                            onChange={e => handleEditChange(item.id, "remarks", e.target.value)}
-                            placeholder="Add remark…"
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "block", marginBottom: "4px", textTransform: "uppercase" }}>Attachment</label>
-                          <input
-                            type="file"
-                            style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid #e2e8f0", background: "#fff", fontSize: "12px" }}
-                            onChange={e => {
-                              if (e.target.files?.[0]) handleEditChange(item.id, "file", e.target.files[0]);
-                            }}
-                          />
-                        </div>
-                        <button
-                          style={{ padding: "10px", background: "#059669", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
-                          onClick={() => handleSave(item.id)}
-                        >
-                          ✓ Save
-                        </button>
-                      </div>
-                    )}
+              {kpiStats.escalated > 0 && (
+                <button
+                  type="button"
+                  className={`mlist-filter-tab ${statusFilter === "ESCALATED" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("ESCALATED")}
+                >
+                  <span className="mlist-pulse-dot" style={{ background: "#ef4444", width: 6, height: 6 }} />
+                  Escalated
+                  <span className="mlist-filter-count">{kpiStats.escalated}</span>
+                </button>
+              )}
+
+              {kpiStats.mine > 0 && (
+                <button
+                  type="button"
+                  className={`mlist-filter-tab ${statusFilter === "MINE" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("MINE")}
+                >
+                  <User size={13} />
+                  My Meetings
+                  <span className="mlist-filter-count">{kpiStats.mine}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Loading Skeleton State ── */}
+          {loading && (
+            <div className="mlist-skeleton-grid">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="mlist-skeleton-card">
+                  <div className="mlist-shimmer-bar" style={{ height: "24px", width: "65%" }} />
+                  <div className="mlist-shimmer-bar" style={{ height: "36px", width: "100%", borderRadius: "8px" }} />
+                  <div className="mlist-shimmer-bar" style={{ height: "80px", width: "100%", borderRadius: "8px" }} />
+                  <div style={{ marginTop: "auto", display: "flex", gap: "8px" }}>
+                    <div className="mlist-shimmer-bar" style={{ height: "40px", flex: 1, borderRadius: "8px" }} />
+                    <div className="mlist-shimmer-bar" style={{ height: "40px", flex: 1, borderRadius: "8px" }} />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-      {/* ── Meeting Detail Modal ── */}
-      <MeetingDetailModal
-        meetingId={viewDetailId}
-        meeting={viewDetailMeeting ? {
-          id: viewDetailMeeting.id,
-          meetingType:          viewDetailMeeting.meetingType          || (viewDetailMeeting as any).MeetingType,
-          financialYear:        viewDetailMeeting.financialYear        || (viewDetailMeeting as any).FinancialYear,
-          monthName:            viewDetailMeeting.monthName            || (viewDetailMeeting as any).MonthName,
-          frequencyType:        viewDetailMeeting.frequencyType        || (viewDetailMeeting as any).FrequencyType,
-          meetingStatus:        viewDetailMeeting.meetingStatus        || (viewDetailMeeting as any).MeetingStatus,
-          transcriptSyncStatus: viewDetailMeeting.transcriptSyncStatus || (viewDetailMeeting as any).TranscriptSyncStatus,
-          attendanceSyncStatus: viewDetailMeeting.attendanceSyncStatus || (viewDetailMeeting as any).AttendanceSyncStatus,
-          graphMeetingId:       viewDetailMeeting.graphMeetingId       || (viewDetailMeeting as any).GraphMeetingId,
-          aiSummaryAvailable:   viewDetailMeeting.aiSummaryAvailable   ?? (viewDetailMeeting as any).AiSummaryAvailable ?? false,
-          attendancePercent:    viewDetailMeeting.attendancePercent    ?? (viewDetailMeeting as any).AttendancePercent ?? null,
-        } : null}
-        onClose={closeDetail}
-        onSyncAttendance={isAdmin ? handleSyncAttendance : undefined}
-        onSyncTranscript={isAdmin ? handleSyncTranscript : undefined}
-      />
-      </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Error State ── */}
+          {!loading && error && (
+            <div className="mlist-empty-state">
+              <div className="mlist-empty-icon-circle" style={{ background: "#fef2f2", color: "#dc2626" }}>
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="mlist-empty-title">Failed to load meetings</h3>
+              <p className="mlist-empty-desc">{error}</p>
+              <button
+                type="button"
+                className="mlist-btn-save-status"
+                style={{ width: "auto", padding: "8px 20px" }}
+                onClick={loadData}
+              >
+                <RefreshCw size={15} style={{ marginRight: 6 }} />
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* ── Empty State ── */}
+          {!loading && !error && filteredMeetings.length === 0 && (
+            <div className="mlist-empty-state">
+              <div className="mlist-empty-icon-circle">
+                <Calendar size={32} />
+              </div>
+              <h3 className="mlist-empty-title">
+                {!showAllDates && selectedDate
+                  ? `No meetings on ${moment(selectedDate).format("ddd, DD MMM YYYY")}`
+                  : `No meetings found for ${selectedMonth}`}
+              </h3>
+              <p className="mlist-empty-desc">
+                {searchQuery
+                  ? `No meetings match "${searchQuery}". Try searching with another keyword or reset filters.`
+                  : "There are no scheduled meetings for this view."}
+              </p>
+              <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+                {!showAllDates && (
+                  <button
+                    type="button"
+                    className="mlist-btn-details"
+                    style={{ padding: "0 18px", height: "38px" }}
+                    onClick={() => setShowAllDates(true)}
+                  >
+                    View All for {selectedMonth}
+                  </button>
+                )}
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="mlist-btn-details"
+                    style={{ padding: "0 18px", height: "38px" }}
+                    onClick={() => setSearchQuery("")}
+                  >
+                    Clear Search
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Meeting Cards Grid ── */}
+          {!loading && !error && filteredMeetings.length > 0 && (
+            <div className="mlist-cards-grid">
+              {filteredMeetings.map((item, idx) => {
+                const userIsOwner = isOwner(getMeetingOwner(item));
+                const edit        = editStates[item.id] || { status: "", remarks: "", file: null };
+                const mFrequency  = safeStr(item.frequencyType || (item as any).FrequencyType, "One-time");
+                const mMeetingType = safeStr(item.meetingType  || (item as any).MeetingType, "Meeting");
+                const mStatus     = safeStr(item.meetingStatus || (item as any).MeetingStatus, "Pending");
+                const mRemarks    = safeStr(item.remarks       || (item as any).Remarks, "");
+                const mAttachment = item.attachment            || (item as any).Attachment;
+                const mOwnerRaw   = safeStr(getMeetingOwner(item), "-");
+                const teamsUrl    = safeStr(item.teamsMeetingUrl || (item as any).TeamsMeetingUrl, "");
+                const isCompleted = mStatus.toLowerCase() === "completed";
+                const isEscalated = mStatus.toLowerCase() === "escalated";
+                const isPending   = !isCompleted && !isEscalated;
+                
+                const timeInfo = getTimeInfo(
+                  item.meetingStartTime || (item as any).MeetingStartTime,
+                  item.meetingEndTime   || (item as any).MeetingEndTime
+                );
+
+                const attendeesList = parseAttendees(getParticipants(item));
+                const isAttendeesExpanded = Boolean(expandedAttendees[item.id]);
+                const displayedAttendees = isAttendeesExpanded ? attendeesList : attendeesList.slice(0, 4);
+                const remainingCount = attendeesList.length - 4;
+                const isOwnerDrawerOpen = Boolean(expandedOwnerEdit[item.id]);
+
+                return (
+                  <div key={`${item.id}-${idx}`} className="mlist-card">
+                    {/* Visual Status Stripe */}
+                    <div className={`mlist-status-stripe ${isCompleted ? 'completed' : isEscalated ? 'escalated' : 'pending'}`} />
+
+                    <div className="mlist-card-inner">
+                      {/* 1. Header: Title, ID & Status Badge */}
+                      <div className="mlist-card-head">
+                        <div className="mlist-title-section">
+                          <div className="mlist-title-row">
+                            <h3 className="mlist-title">{mMeetingType}</h3>
+                            <span className="mlist-id-tag">#{item.id}</span>
+                            <span className="mlist-type-chip">{mFrequency}</span>
+                          </div>
+                        </div>
+
+                        <span className={`mlist-status-badge ${isCompleted ? 'completed' : isEscalated ? 'escalated' : 'pending'}`}>
+                          <span className="mlist-pulse-dot" />
+                          {mStatus}
+                        </span>
+                      </div>
+
+                      {/* 2. Schedule Banner (Single Non-Redundant Time Capsule) */}
+                      <div className="mlist-schedule-capsule">
+                        <div className="mlist-schedule-left">
+                          <Clock size={15} />
+                          <span>
+                            {timeInfo?.slotText || "Time not specified"}
+                          </span>
+                        </div>
+                        {timeInfo?.duration && (
+                          <span className="mlist-schedule-duration">
+                            {timeInfo.duration}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 3. Metadata Tile */}
+                      <div className="mlist-meta-box">
+                        <div className="mlist-meta-row">
+                          <div className="mlist-meta-label">
+                            <User size={14} />
+                            <span>Host / Owner</span>
+                          </div>
+                          <span className="mlist-meta-val">
+                            Emp #{mOwnerRaw} {userIsOwner ? <strong style={{ color: "#2563eb" }}>(You)</strong> : ""}
+                          </span>
+                        </div>
+
+                        {/* Smart Attendee Avatars */}
+                        <div className="mlist-attendees-box">
+                          <div className="mlist-attendees-header">
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <Users size={13} />
+                              <span>Attendees ({attendeesList.length})</span>
+                            </div>
+                            {attendeesList.length > 4 && (
+                              <button
+                                type="button"
+                                className="mlist-avatar-more-btn"
+                                onClick={() => toggleAttendees(item.id)}
+                              >
+                                {isAttendeesExpanded ? "Show Less" : `+${remainingCount} more`}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="mlist-avatar-cluster">
+                            {displayedAttendees.map((att, aIdx) => {
+                              const isCurUser = att.toLowerCase() === empCode.toLowerCase();
+                              return (
+                                <span
+                                  key={aIdx}
+                                  className={`mlist-avatar-bubble ${isCurUser ? 'is-user' : ''}`}
+                                  title={`Employee Code: ${att}`}
+                                >
+                                  {att} {isCurUser ? "★" : ""}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Remarks */}
+                        {Boolean(mRemarks && mRemarks !== "-") && (
+                          <div className="mlist-remarks-quote">
+                            "{mRemarks}"
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. Feature & AI Badges */}
+                      {((item.attendancePercent != null && item.attendanceSyncStatus === "Completed") || item.transcriptSyncStatus === "Completed" || item.aiSummaryAvailable) && (
+                        <div className="mlist-feature-ribbon">
+                          {item.attendancePercent != null && item.attendanceSyncStatus === "Completed" && (
+                            <span className="mlist-feature-chip attendance">
+                              <CheckCircle2 size={12} />
+                              {item.attendancePercent}% Attended
+                            </span>
+                          )}
+                          {item.transcriptSyncStatus === "Completed" && (
+                            <span className="mlist-feature-chip transcript">
+                              <FileText size={12} />
+                              Transcript Ready
+                            </span>
+                          )}
+                          {item.aiSummaryAvailable && (
+                            <span className="mlist-feature-chip ai">
+                              <Sparkles size={12} />
+                              AI Summary Ready
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 5. Aligned Push-Bottom Container */}
+                      <div className="mlist-card-bottom">
+                        {/* Admin Time Editing */}
+                        {(isAdmin || isTeamLeader) && (
+                          <div style={{ width: "100%" }}>
+                            {timeEditId !== item.id ? (
+                              <div className="mlist-time-row">
+                                <span style={{ fontSize: "11.5px", color: "#64748b" }}>Schedule Settings</span>
+                                <button
+                                  type="button"
+                                  className="mlist-edit-time-btn"
+                                  onClick={() => openTimeEdit(item)}
+                                >
+                                  <Clock size={13} />
+                                  Edit Time
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="mlist-time-form">
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                  <div style={{ flex: 1 }}>
+                                    <label className="mlist-form-label">Start</label>
+                                    <input
+                                      type="time"
+                                      className="mlist-form-input"
+                                      value={timeForm.startTime}
+                                      onChange={e => setTimeForm(f => ({ ...f, startTime: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <label className="mlist-form-label">End</label>
+                                    <input
+                                      type="time"
+                                      className="mlist-form-input"
+                                      value={timeForm.endTime}
+                                      onChange={e => setTimeForm(f => ({ ...f, endTime: e.target.value }))}
+                                    />
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <button
+                                    type="button"
+                                    className="mlist-btn-save-status"
+                                    onClick={() => handleUpdateTime(item)}
+                                    disabled={timeSaving}
+                                    style={{ flex: 1 }}
+                                  >
+                                    {timeSaving ? "Saving…" : "Save Time"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="mlist-btn-details"
+                                    style={{ padding: "0 12px", height: "36px" }}
+                                    onClick={() => setTimeEditId(null)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Primary Action Buttons */}
+                        <div className="mlist-action-deck">
+                          {teamsUrl && (
+                            <button
+                              type="button"
+                              className="mlist-btn-join"
+                              onClick={() => handleJoinMeeting(item.id, teamsUrl)}
+                              title="Join Microsoft Teams Meeting"
+                            >
+                              <Video size={16} />
+                              <span>Join Teams</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            className="mlist-btn-details"
+                            onClick={() => openDetail(item)}
+                            title="View full meeting details and transcript"
+                          >
+                            <Eye size={16} />
+                            <span>Details</span>
+                          </button>
+
+                          {mAttachment && (
+                            <a
+                              href={getFileUrl(mAttachment)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mlist-btn-file"
+                              title="Download attached meeting file"
+                            >
+                              <Paperclip size={15} />
+                            </a>
+                          )}
+                        </div>
+
+                        {/* 6. Collapsible Status Drawer for Owners (Solves Height Distortion) */}
+                        {userIsOwner && (
+                          <div style={{ width: "100%", marginTop: "4px" }}>
+                            <button
+                              type="button"
+                              className="mlist-owner-toggle-btn"
+                              onClick={() => toggleOwnerEdit(item.id)}
+                            >
+                              <span>Update Meeting Status</span>
+                              {isOwnerDrawerOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                            </button>
+
+                            {isOwnerDrawerOpen && (
+                              <div className="mlist-owner-drawer">
+                                <div className="mlist-form-group">
+                                  <label className="mlist-form-label">Status</label>
+                                  <select
+                                    className="mlist-form-select"
+                                    value={edit.status}
+                                    onChange={e => handleEditChange(item.id, "status", e.target.value)}
+                                  >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Escalated">Escalated</option>
+                                  </select>
+                                </div>
+
+                                <div className="mlist-form-group">
+                                  <label className="mlist-form-label">Remarks</label>
+                                  <input
+                                    type="text"
+                                    className="mlist-form-input"
+                                    value={edit.remarks}
+                                    onChange={e => handleEditChange(item.id, "remarks", e.target.value)}
+                                    placeholder="Add meeting notes or outcome…"
+                                  />
+                                </div>
+
+                                <div className="mlist-form-group">
+                                  <label className="mlist-form-label">Attachment</label>
+                                  <div className="mlist-custom-file-box">
+                                    <Paperclip size={14} color="#64748b" />
+                                    <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                                      {edit.file ? edit.file.name : "Choose file (minutes, doc, pdf)..."}
+                                    </span>
+                                    <input
+                                      type="file"
+                                      className="mlist-custom-file-input"
+                                      onChange={e => {
+                                        if (e.target.files?.[0]) handleEditChange(item.id, "file", e.target.files[0]);
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="mlist-btn-save-status"
+                                  onClick={() => handleSave(item.id)}
+                                >
+                                  <Check size={14} style={{ marginRight: 5, verticalAlign: "middle" }} />
+                                  Save Status
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Meeting Detail Modal ── */}
+          <MeetingDetailModal
+            meetingId={viewDetailId}
+            meeting={viewDetailMeeting ? {
+              id: viewDetailMeeting.id,
+              meetingType:          viewDetailMeeting.meetingType          || (viewDetailMeeting as any).MeetingType,
+              financialYear:        viewDetailMeeting.financialYear        || (viewDetailMeeting as any).FinancialYear,
+              monthName:            viewDetailMeeting.monthName            || (viewDetailMeeting as any).MonthName,
+              frequencyType:        viewDetailMeeting.frequencyType        || (viewDetailMeeting as any).FrequencyType,
+              meetingStatus:        viewDetailMeeting.meetingStatus        || (viewDetailMeeting as any).MeetingStatus,
+              transcriptSyncStatus: viewDetailMeeting.transcriptSyncStatus || (viewDetailMeeting as any).TranscriptSyncStatus,
+              attendanceSyncStatus: viewDetailMeeting.attendanceSyncStatus || (viewDetailMeeting as any).AttendanceSyncStatus,
+              graphMeetingId:       viewDetailMeeting.graphMeetingId       || (viewDetailMeeting as any).GraphMeetingId,
+              aiSummaryAvailable:   viewDetailMeeting.aiSummaryAvailable   ?? (viewDetailMeeting as any).AiSummaryAvailable ?? false,
+              attendancePercent:    viewDetailMeeting.attendancePercent    ?? (viewDetailMeeting as any).AttendancePercent ?? null,
+            } : null}
+            onClose={closeDetail}
+            onSyncAttendance={isAdmin ? handleSyncAttendance : undefined}
+            onSyncTranscript={isAdmin ? handleSyncTranscript : undefined}
+          />
+        </div>
       </IonContent>
     </IonPage>
   );
-}
+};
 
 export default MeetingList;

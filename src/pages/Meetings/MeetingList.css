@@ -1,0 +1,1063 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MeetingList.css — High-End SaaS Enterprise Meeting Dashboard
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --mlist-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mlist-bg: #f8fafc;
+  --mlist-card-bg: #ffffff;
+  --mlist-border: #e2e8f0;
+  --mlist-border-subtle: #f1f5f9;
+  --mlist-text-primary: #0f172a;
+  --mlist-text-secondary: #475569;
+  --mlist-text-muted: #94a3b8;
+  
+  --mlist-primary: #2563eb;
+  --mlist-primary-hover: #1d4ed8;
+  --mlist-primary-light: #eff6ff;
+  --mlist-primary-border: #bfdbfe;
+  
+  --mlist-success: #10b981;
+  --mlist-success-light: #ecfdf5;
+  --mlist-success-border: #a7f3d0;
+  --mlist-success-text: #047857;
+
+  --mlist-warning: #f59e0b;
+  --mlist-warning-light: #fffbeb;
+  --mlist-warning-border: #fde68a;
+  --mlist-warning-text: #b45309;
+
+  --mlist-danger: #ef4444;
+  --mlist-danger-light: #fef2f2;
+  --mlist-danger-border: #fecaca;
+  --mlist-danger-text: #b91c1c;
+
+  --mlist-teams: #4f46e5;
+  --mlist-teams-gradient: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  --mlist-teams-hover: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
+
+  --mlist-radius-sm: 8px;
+  --mlist-radius-md: 12px;
+  --mlist-radius-lg: 16px;
+  --mlist-radius-xl: 20px;
+
+  --mlist-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+  --mlist-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
+  --mlist-shadow-hover: 0 16px 32px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
+}
+
+.mlist-page {
+  font-family: var(--mlist-font);
+  color: var(--mlist-text-primary);
+  box-sizing: border-box;
+}
+
+/* ── KPI STATS SUMMARY BAR ─────────────────────────────────────── */
+.mlist-kpi-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.mlist-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid var(--mlist-border);
+  box-shadow: var(--mlist-shadow-sm);
+  color: var(--mlist-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.mlist-kpi-badge {
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 12px;
+}
+
+.mlist-kpi-card.kpi-total .mlist-kpi-badge {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.mlist-kpi-card.kpi-completed {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+.mlist-kpi-card.kpi-completed .mlist-kpi-badge {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.mlist-kpi-card.kpi-pending {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.mlist-kpi-card.kpi-pending .mlist-kpi-badge {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.mlist-kpi-card.kpi-escalated {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.mlist-kpi-card.kpi-escalated .mlist-kpi-badge {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+/* ── UNIFIED COMMAND TOOLBAR ───────────────────────────────────── */
+.mlist-command-toolbar {
+  background: #ffffff;
+  border: 1px solid var(--mlist-border);
+  border-radius: var(--mlist-radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--mlist-shadow-sm);
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mlist-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 1. Date Picker Box */
+.mlist-picker-card {
+  height: 44px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: #f8fafc;
+  border: 1.5px solid var(--mlist-border);
+  border-radius: var(--mlist-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 220px;
+  flex: 1 1 240px;
+}
+
+.mlist-picker-card:hover {
+  background: #ffffff;
+  border-color: #94a3b8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.mlist-picker-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.mlist-picker-icon.date-icon {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+}
+
+.mlist-picker-icon.period-icon {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.mlist-picker-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.mlist-picker-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.mlist-picker-value {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--mlist-text-primary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.mlist-native-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* 2. Unified Stepper / Navigation Group */
+.mlist-stepper-group {
+  display: inline-flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid var(--mlist-border);
+  border-radius: var(--mlist-radius-md);
+  padding: 3px;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.mlist-step-btn {
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--mlist-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.mlist-step-btn:hover {
+  background: #ffffff;
+  color: var(--mlist-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mlist-step-btn.is-active-today {
+  background: #ffffff;
+  color: var(--mlist-primary);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+}
+
+.mlist-step-btn.is-active-all {
+  background: var(--mlist-primary);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.mlist-stepper-divider {
+  width: 1px;
+  height: 18px;
+  background: #cbd5e1;
+  margin: 0 2px;
+}
+
+/* 3. Search Box */
+.mlist-search-container {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1.5px solid var(--mlist-border);
+  border-radius: var(--mlist-radius-md);
+  padding: 0 12px;
+  flex: 1 1 200px;
+  min-width: 180px;
+  transition: all 0.2s ease;
+}
+
+.mlist-search-container:focus-within {
+  background: #ffffff;
+  border-color: var(--mlist-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.mlist-search-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-size: 13.5px;
+  color: var(--mlist-text-primary);
+  outline: none;
+  font-family: inherit;
+}
+
+.mlist-search-input::placeholder {
+  color: #94a3b8;
+}
+
+/* ── STATUS FILTER PILLS BAR ───────────────────────────────────── */
+.mlist-filter-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.mlist-filter-ribbon::-webkit-scrollbar {
+  display: none;
+}
+
+.mlist-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #ffffff;
+  border: 1px solid var(--mlist-border);
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mlist-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.mlist-filter-tab:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: var(--mlist-text-primary);
+}
+
+.mlist-filter-tab.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.mlist-filter-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.mlist-filter-tab.active .mlist-filter-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* ── GRID SYSTEM WITH EQUAL HEIGHT CARDS ───────────────────────── */
+.mlist-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  padding-bottom: 80px;
+  align-items: stretch;
+}
+
+/* ── MODERN MEETING CARD ───────────────────────────────────────── */
+.mlist-card {
+  background: var(--mlist-card-bg);
+  border-radius: var(--mlist-radius-lg);
+  border: 1px solid var(--mlist-border);
+  box-shadow: var(--mlist-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.25s ease;
+}
+
+.mlist-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--mlist-shadow-hover);
+  border-color: #cbd5e1;
+}
+
+/* Left Status Stripe Indicator */
+.mlist-status-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.mlist-status-stripe.completed {
+  background: linear-gradient(to bottom, #10b981, #059669);
+}
+
+.mlist-status-stripe.pending {
+  background: linear-gradient(to bottom, #f59e0b, #d97706);
+}
+
+.mlist-status-stripe.escalated {
+  background: linear-gradient(to bottom, #ef4444, #dc2626);
+}
+
+/* Card Body */
+.mlist-card-inner {
+  padding: 16px 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 12px;
+}
+
+/* Header Area */
+.mlist-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mlist-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.mlist-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mlist-title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--mlist-text-primary);
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+}
+
+.mlist-id-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.mlist-type-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+
+/* Status Pill with Pulsing Dot */
+.mlist-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.mlist-status-badge.completed {
+  background: var(--mlist-success-light);
+  color: var(--mlist-success-text);
+  border: 1px solid var(--mlist-success-border);
+}
+
+.mlist-status-badge.pending {
+  background: var(--mlist-warning-light);
+  color: var(--mlist-warning-text);
+  border: 1px solid var(--mlist-warning-border);
+}
+
+.mlist-status-badge.escalated {
+  background: var(--mlist-danger-light);
+  color: var(--mlist-danger-text);
+  border: 1px solid var(--mlist-danger-border);
+}
+
+/* Pulsing Status Dot */
+.mlist-pulse-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+}
+
+.mlist-status-badge.completed .mlist-pulse-dot {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.mlist-status-badge.pending .mlist-pulse-dot {
+  background: #f59e0b;
+  animation: mlistPulse 2s infinite ease-in-out;
+}
+
+.mlist-status-badge.escalated .mlist-pulse-dot {
+  background: #ef4444;
+}
+
+@keyframes mlistPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+/* ── SCHEDULE TIME BANNER ──────────────────────────────────────── */
+.mlist-schedule-capsule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+.mlist-schedule-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #0369a1;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mlist-schedule-date {
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.mlist-schedule-duration {
+  font-size: 11px;
+  font-weight: 700;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* ── METADATA TILES BOX ────────────────────────────────────────── */
+.mlist-meta-box {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mlist-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.mlist-meta-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.mlist-meta-val {
+  color: var(--mlist-text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ── SMART ATTENDEE AVATAR STACK ───────────────────────────────── */
+.mlist-attendees-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.mlist-attendees-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.mlist-avatar-cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.mlist-avatar-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.mlist-avatar-bubble.is-user {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.mlist-avatar-more-btn {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 14px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.mlist-avatar-more-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Remarks Quote Box */
+.mlist-remarks-quote {
+  font-size: 12px;
+  color: #475569;
+  font-style: italic;
+  line-height: 1.35;
+  background: #ffffff;
+  border-left: 3px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 0 6px 6px 0;
+  margin-top: 2px;
+}
+
+/* ── FEATURE & AI BADGES ───────────────────────────────────────── */
+.mlist-feature-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mlist-feature-chip {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mlist-feature-chip.attendance {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.mlist-feature-chip.transcript {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.mlist-feature-chip.ai {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* ── PUSH BOTTOM CONTAINER (Keeps All Card Action Decks Aligned) ── */
+.mlist-card-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+/* Time Edit Trigger Row */
+.mlist-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+
+.mlist-edit-time-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.mlist-edit-time-btn:hover {
+  background: #ffedd5;
+  border-color: #fdba74;
+}
+
+/* Time Form Box */
+.mlist-time-form {
+  background: #f8fafc;
+  border: 1px solid var(--mlist-border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Action Deck Buttons */
+.mlist-action-deck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mlist-btn-join {
+  flex: 1;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--mlist-teams-gradient);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+  font-family: inherit;
+}
+
+.mlist-btn-join:hover {
+  background: var(--mlist-teams-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+}
+
+.mlist-btn-details {
+  flex: 1;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f8fafc;
+  color: #334155;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.mlist-btn-details:hover {
+  background: #ffffff;
+  color: var(--mlist-primary);
+  border-color: var(--mlist-primary);
+}
+
+.mlist-btn-file {
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.mlist-btn-file:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* ── COLLAPSIBLE OWNER DRAWER (Solves Grid Height Distortion) ── */
+.mlist-owner-toggle-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.mlist-owner-toggle-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.mlist-owner-drawer {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: mlistSlideDown 0.22s ease-out;
+}
+
+@keyframes mlistSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mlist-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mlist-form-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.mlist-form-select,
+.mlist-form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 13px;
+  color: var(--mlist-text-primary);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.mlist-form-select:focus,
+.mlist-form-input:focus {
+  outline: none;
+  border-color: var(--mlist-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.mlist-custom-file-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #64748b;
+  overflow: hidden;
+}
+
+.mlist-custom-file-box:hover {
+  border-color: var(--mlist-primary);
+  color: var(--mlist-primary);
+}
+
+.mlist-custom-file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.mlist-btn-save-status {
+  width: 100%;
+  padding: 9px 0;
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.mlist-btn-save-status:hover {
+  background: #047857;
+}
+
+/* ── SKELETON SHIMMER LOADING ─────────────────────────────────── */
+.mlist-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  padding-bottom: 80px;
+}
+
+.mlist-skeleton-card {
+  background: #ffffff;
+  border-radius: var(--mlist-radius-lg);
+  border: 1px solid var(--mlist-border);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 280px;
+}
+
+.mlist-shimmer-bar {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: mlistShimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes mlistShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── EMPTY STATE ──────────────────────────────────────────────── */
+.mlist-empty-state {
+  background: #ffffff;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: var(--mlist-radius-lg);
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.mlist-empty-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #64748b;
+}
+
+.mlist-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mlist-text-primary);
+  margin: 0;
+}
+
+.mlist-empty-desc {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+  max-width: 360px;
+}
+
+/* ── RESPONSIVE RULES ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mlist-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .mlist-command-toolbar {
+    padding: 10px;
+  }
+  .mlist-picker-card {
+    min-width: 100%;
+    width: 100%;
+  }
+  .mlist-stepper-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .mlist-step-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .mlist-search-container {
+    width: 100%;
+  }
+}

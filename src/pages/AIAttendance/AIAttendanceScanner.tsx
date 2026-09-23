@@ -187,7 +187,15 @@ const AIAttendanceScanner: React.FC = () => {
   const [bleDeviceName, setBleDeviceName] = useState("");
   const [isBleScanning, setIsBleScanning] = useState(false);
   const [bleSignalStrength, setBleSignalStrength] = useState<number | null>(null);
-  const [allowedBeacons, setAllowedBeacons] = useState<{ name: string, mac: string }[]>([]);
+  const getCachedBeacons = (): { name: string, mac: string }[] => {
+    try {
+      const cached = localStorage.getItem("dbs_active_bluetooth_beacons");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  };
+
+  const [allowedBeacons, setAllowedBeacons] = useState<{ name: string, mac: string }[]>(getCachedBeacons);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [capturedImg, setCapturedImg] = useState<string | null>(null);
   const [cityName, setCityName] = useState<string>("");
@@ -327,7 +335,7 @@ const AIAttendanceScanner: React.FC = () => {
   const bleVerifiedRef = useRef(false);
   const bleDeviceNameRef = useRef("");
   const bleDeviceIdRef = useRef("");
-  const allowedBeaconsRef = useRef<{ name: string, mac: string }[]>([]);
+  const allowedBeaconsRef = useRef<{ name: string, mac: string }[]>(getCachedBeacons());
   const userDataRef = useRef<any>(null);
   const userProfileRef = useRef<any>(null);
   const isCameraReadyRef = useRef(false);
@@ -406,7 +414,12 @@ const AIAttendanceScanner: React.FC = () => {
           const data = await response.json();
           if (data.success && Array.isArray(data.devices)) {
             setAllowedBeacons(data.devices);
-            logDebug(`Loaded ${data.devices.length} beacons from DB`);
+            allowedBeaconsRef.current = data.devices;
+            try { localStorage.setItem("dbs_active_bluetooth_beacons", JSON.stringify(data.devices)); } catch {}
+            logDebug(`Loaded ${data.devices.length} dynamic beacons from DB`);
+            if (data.devices.length > 0 && !bleVerifiedRef.current && Capacitor.isNativePlatform()) {
+              verifyEasyReach();
+            }
           }
         }
       } catch (err) {
@@ -1135,20 +1148,14 @@ const AIAttendanceScanner: React.FC = () => {
 
           let matchedBeacon: { name: string, mac: string } | null = null;
 
-          if (allowedBeaconsRef.current.length > 0) {
-            for (const b of allowedBeaconsRef.current) {
-              const dbName = b.name.trim().toUpperCase();
-              const dbMac = b.mac.replace(/[:-]/g, "").trim().toUpperCase();
-              const macMatch = dbMac.length > 0 && mac === dbMac;
-              const nameMatch = dbName.length > 0 && name === dbName;
-              if (macMatch || (isUuid && nameMatch) || (nameMatch && !dbMac)) {
-                matchedBeacon = b;
-                break;
-              }
-            }
-          } else {
-            if (name === "ER2650001F" || mac === "EA2658F0001F" || mac === "DD8800003DAB" || name.startsWith("BCPRO")) {
-              matchedBeacon = { name: name || "BCPro_22733", mac: mac || "DD8800003DAB" };
+          for (const b of allowedBeaconsRef.current) {
+            const dbName = (b.name || "").trim().toUpperCase();
+            const dbMac = (b.mac || "").replace(/[:-]/g, "").trim().toUpperCase();
+            const macMatch = dbMac.length > 0 && mac === dbMac;
+            const nameMatch = dbName.length > 0 && (name === dbName || name.replace(/[-_]/g, "") === dbName.replace(/[-_]/g, ""));
+            if (macMatch || (isUuid && nameMatch) || (nameMatch && !dbMac)) {
+              matchedBeacon = b;
+              break;
             }
           }
 
@@ -1158,10 +1165,10 @@ const AIAttendanceScanner: React.FC = () => {
 
             if (isCloseEnough) {
               found = true; setBleVerified(true); bleVerifiedRef.current = true;
-              const finalName = name || matchedBeacon.name || "Bluetooth Beacon";
+              const finalName = matchedBeacon.name || name || "Bluetooth Beacon";
               setBleDeviceName(finalName);
-              setBleDeviceId(result.device.deviceId);
-              logDebug(`Beacon verified: ${finalName} (${mac || result.device.deviceId}) at ${rssi} dBm`);
+              setBleDeviceId(result.device.deviceId || matchedBeacon.mac);
+              logDebug(`Beacon verified dynamically: ${finalName} (${mac || result.device.deviceId}) at ${rssi} dBm`);
               await BleClient.stopLEScan();
             } else {
               logDebug(`Beacon found but too far: ${name || matchedBeacon.name} (${rssi} dBm)`);
