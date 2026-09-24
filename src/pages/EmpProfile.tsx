@@ -1113,7 +1113,29 @@ const EmpProfile: React.FC = () => {
         // ROW_NUMBER over distinct values and are not stable), so no lookup
         _BranchDept: (formData._BranchDept ?? "").trim(),
         _Doj: formatToDDMMYYYY(formData._Doj),
-        _Dob: formatToDDMMYYYY(formData._Dob),
+        _UpdatedBy: (() => {
+          try {
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            return user.empCode || user.EmpCode || user.username || user.Username || "";
+          } catch { return ""; }
+        })(),
+        _UpdatedFromDevice: (() => {
+          const ua = navigator.userAgent;
+          let os = "Desktop";
+          if (/android/i.test(ua)) os = "Android Device";
+          else if (/iphone|ipad|ipod/i.test(ua)) os = "iOS Device";
+          else if (/windows/i.test(ua)) os = "Windows PC";
+          else if (/macintosh/i.test(ua)) os = "Mac";
+          else if (/linux/i.test(ua)) os = "Linux";
+
+          let browser = "Web";
+          if (/edg/i.test(ua)) browser = "Edge";
+          else if (/chrome/i.test(ua)) browser = "Chrome";
+          else if (/firefox/i.test(ua)) browser = "Firefox";
+          else if (/safari/i.test(ua)) browser = "Safari";
+
+          return `${os} - ${browser}`;
+        })(),
       };
 
       console.log("FINAL POST PAYLOAD (Formatted):", payload);

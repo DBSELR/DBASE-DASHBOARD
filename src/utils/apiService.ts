@@ -454,4 +454,9 @@ export const apiService = {
         console.log("API: Get Task Tags", tid);
         return apiService.get(`/Tickets/Get_Task_Tags?TID=${tid}`);
     },
+
+    getEmployeeRegistrationLogs: async (empCode: string = "", limit: number = 100) => {
+        const query = empCode ? `?empCode=${encodeURIComponent(empCode)}&limit=${limit}` : `?limit=${limit}`;
+        return apiService.get(`/Employee/GetEmployeeRegistrationLogs${query}`);
+    },
 };
