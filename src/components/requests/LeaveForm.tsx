@@ -32,7 +32,8 @@ const fmtDMY = (iso: string | null) =>
   iso ? moment(iso).format("DD-MM-YYYY") : "";
 
 const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
-  const [requestType, setRequestType] = useState("Leave");
+  const isDefaultPerm = (defaultType || "").toLowerCase() === "permission";
+  const [requestType, setRequestType] = useState(isDefaultPerm ? "Permission" : "Leave");
   const [leaveMode, setLeaveMode] = useState("");
   const [leaveCategory, setLeaveCategory] = useState("");
   const [startDate, setStartDate] = useState<string | null>(null);
@@ -141,7 +142,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     }
   };
   useEffect(() => {
-    setRequestType(defaultType === "permission" ? "Permission" : "Leave");
+    const isPerm = (defaultType || "").toLowerCase() === "permission";
+    setRequestType(isPerm ? "Permission" : "Leave");
     loadExistingLeaves();
   }, [defaultType]);
 
@@ -152,6 +154,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     setEndDate(null);
     setRemarks("");
     setPermTime("");
+    setInTime("");
     setLeaveCategory("");
     setLeaveMode("Leave");
     setBalance(null);
@@ -173,7 +176,19 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         if (typeof item === "string") {
           return { date: item, leaveMode: "", leaveCategory: "", lType: "", pOut: "" };
         }
-        return item;
+        const lType = String(item.lType || item.LType || item.ltype || item.requestType || item.RequestType || "").trim();
+        const leaveMode = String(item.leaveMode || item.LeaveMode || item.leavemode || "").trim();
+        const leaveCategory = String(item.leaveCategory || item.LeaveCategory || item.leavecategory || "").trim();
+        const rawDate = item.date || item.Date || item.lfrom || item.LFrom || item.lFrom;
+        const formattedDate = rawDate ? moment(rawDate).format("YYYY-MM-DD") : "";
+
+        return {
+          date: formattedDate,
+          leaveMode,
+          leaveCategory,
+          lType,
+          pOut: item.pOut || item.P_Out || item.p_out || ""
+        };
       });
 
       setExistingDates(data);
@@ -286,98 +301,79 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       return showToast("Select leave category");
     }
 
-    const getDuplicateConflict = (date: string | null): string | null => {
-      if (!date) return null;
-      const formattedDate = moment(date).format("YYYY-MM-DD");
+    const getDuplicateConflict = (fromDate: string | null, toDate: string | null): string | null => {
+      if (!fromDate) return null;
+      const start = moment(fromDate);
+      const end = (!singleDateMode && toDate) ? moment(toDate) : start.clone();
 
-      const matchingLeaves = existingDates.filter(
-        (item: any) => item.date === formattedDate
-      );
-
-      if (matchingLeaves.length === 0) return null;
-
-      // Permissions are handled via separate backend checks, don't block on frontend duplicate dates
+      // ✅ Permissions are completely independent: allow multiple permissions on same day and allow permission alongside leaves
       if (requestType === "Permission") {
         return null;
       }
 
-      if (requestType === "Leave") {
-        const isHalfDayRequest = leaveMode === "Forenoon" || leaveMode === "Afternoon";
+      // Check every date in the selected range (for Leaves only)
+      const curr = start.clone();
+      while (curr.isSameOrBefore(end, "day")) {
+        const formattedDate = curr.format("YYYY-MM-DD");
 
-        // Check for existing permissions on the same date
-        // const existingPermission = matchingLeaves.find(
-        //   (item: any) => item.leaveMode === "Permission" || item.lType === "Permission"
-        // );
+        // Filter for existing LEAVE records only on that date (ignore permission records completely)
+        const matchingLeaves = existingDates.filter((item: any) => {
+          if (item.date !== formattedDate) return false;
+          const isPerm =
+            String(item.leaveMode).toLowerCase() === "permission" ||
+            String(item.lType).toLowerCase() === "permission" ||
+            String(item.leaveCategory).toLowerCase() === "permission";
+          return !isPerm;
+        });
 
-        // if (existingPermission) {
-        //   const isMorningPermission = (pOut: string | null) => {
-        //     if (!pOut) return true; // Default to morning if no time is specified
-        //     const parts = pOut.split(":");
-        //     if (parts.length > 0) {
-        //       const hour = parseInt(parts[0], 10);
-        //       if (!isNaN(hour)) {
-        //         return hour < 13; // Before 1:00 PM is morning/Forenoon
-        //       }
-        //     }
-        //     return true;
-        //   };
+        if (matchingLeaves.length > 0) {
+          const isHalfDayRequest = leaveMode === "Forenoon" || leaveMode === "Afternoon";
 
-        //   if (isHalfDayRequest) {
-        //     const isMorningPerm = isMorningPermission(existingPermission.pOut);
-        //     if (leaveMode === "Forenoon" && isMorningPerm) {
-        //       return "Permission already applied for forenoon on this date";
-        //     }
-        //     if (leaveMode === "Afternoon" && !isMorningPerm) {
-        //       return "Permission already applied for afternoon on this date";
-        //     }
-        //   } else {
-        //     // Full day leave request conflicts with any permission
-        //     return "Permission already applied for this date";
-        //   }
-        // }
+          if (isHalfDayRequest) {
+            // Block if the exact same half-day leave exists
+            const sameHalfDay = matchingLeaves.find(
+              (item: any) => item.leaveMode === leaveMode
+            );
+            if (sameHalfDay) {
+              return `Same half-day leave already applied for ${curr.format("DD-MM-YYYY")}`;
+            }
 
-        if (isHalfDayRequest) {
-          // Block if the exact same half-day leave exists
-          const sameHalfDay = matchingLeaves.find(
-            (item: any) => item.leaveMode === leaveMode
-          );
-          if (sameHalfDay) {
-            return "Same half-day leave already applied";
-          }
-
-          // Block if a full-day leave already exists
-          const fullDay = matchingLeaves.find(
-            (item: any) =>
-              item.leaveMode !== "Forenoon" &&
-              item.leaveMode !== "Afternoon" &&
-              item.leaveMode !== "Permission"
-          );
-          if (fullDay) {
-            return "Full-day leave already exists for this date";
-          }
-        } else {
-          // Block if any leave exists on this date for a full-day request
-          // (Filtering out permission since we checked it above)
-          const nonPermissionLeaves = matchingLeaves.filter(
-            (item: any) => item.leaveMode !== "Permission" && item.lType !== "Permission"
-          );
-          if (nonPermissionLeaves.length > 0) {
-            return "Leave already applied for this date";
+            // Block if a full-day leave already exists
+            const fullDay = matchingLeaves.find(
+              (item: any) =>
+                item.leaveMode !== "Forenoon" &&
+                item.leaveMode !== "Afternoon"
+            );
+            if (fullDay) {
+              return `Full-day leave already exists for ${curr.format("DD-MM-YYYY")}`;
+            }
+          } else {
+            // Full day leave request conflicts only with ANY existing leave on that date (NOT permissions)
+            const existingLeave = matchingLeaves.find(
+              (item: any) => item.leaveMode !== "Permission" && item.lType !== "Permission"
+            );
+            if (existingLeave) {
+              return `Leave already applied for ${curr.format("DD-MM-YYYY")}`;
+            }
           }
         }
+        curr.add(1, "day");
       }
 
       return null;
     };
 
-    const conflictMessage = getDuplicateConflict(startDate);
+    const conflictMessage = getDuplicateConflict(startDate, endDate);
     if (conflictMessage) {
-      clearForm();
       return showToast(conflictMessage);
     }
 
     let finalCategory =
-      leaveMode === "Leave" ? leaveCategory : leaveMode;
+      requestType === "Permission"
+        ? "Permission"
+        : leaveMode === "Leave"
+        ? leaveCategory
+        : leaveMode;
 
     let requestedDays = 1;
     if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
@@ -437,12 +433,37 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   const submitSplitLeave = async () => {
     if (loading) return;
 
-    const available = Number(balance?.balance ?? 0);
-    const effEndDate = (!singleDateMode && endDate) ? endDate : startDate;
-    if (available <= 0 || !startDate || !effEndDate) {
-      submitToServer("LOP");
+    // 🔥 DEDICATED PERMISSION SUBMISSION
+    if (requestType === "Permission") {
+      const avail = Number(balance?.balance ?? 0);
+      const isSessionExceeded = balance && balance.usedSessions >= balance.maxSessions;
+
+      if (avail <= 0 || isSessionExceeded) {
+        // Balance is 0 or sessions exhausted - submit directly as single LOP record without split text
+        await submitToServer(
+          "LOP",
+          startDate || undefined,
+          undefined,
+          remarks,
+          false,
+          "Permission",
+          undefined,
+          permTime,
+          inTime,
+          false
+        );
+        return;
+      }
+
+      // If available > 0, backend SP will split into (avail min Permission) + (excess min LOP), both > 0
+      await submitToServer("Permission");
       return;
     }
+
+    // --- LEAVE SPLIT LOGIC ---
+    const available = Number(balance?.balance ?? 0);
+    const effEndDate = (!singleDateMode && endDate) ? endDate : startDate;
+    if (!startDate || !effEndDate) return;
 
     let originalCategory = leaveMode === "Leave" ? leaveCategory : leaveMode;
     if (originalCategory === "Forenoon" || originalCategory === "Afternoon") {
@@ -451,9 +472,23 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
     const requestedDays = moment(effEndDate).diff(moment(startDate), "days") + 1;
 
+    if (available <= 0) {
+      // Entire leave is LOP - submit as clean single record without split text
+      await submitToServer(
+        "LOP",
+        startDate,
+        effEndDate,
+        remarks,
+        false,
+        leaveMode || "Leave",
+        requestedDays
+      );
+      return;
+    }
+
     // If available balance covers all requested days, submit as single request
     if (available >= requestedDays) {
-      submitToServer(originalCategory);
+      await submitToServer(originalCategory);
       return;
     }
 
@@ -502,10 +537,11 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       for (let i = 0; i < groups.length; i++) {
         const group = groups[i];
         const isLast = i === groups.length - 1;
+        const dayWord = group.count === 1 ? "Day" : "Days";
         const remarkText =
           group.cat === "LOP"
-            ? `(${group.count} Days Converted to LOP)`
-            : `(${group.count} Days ${group.cat})`;
+            ? `(${group.count} ${dayWord} Converted to LOP)`
+            : `(${group.count} ${dayWord} ${group.cat})`;
         await submitToServer(
           group.cat,
           group.start,
@@ -516,9 +552,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           group.count
         );
       }
+      showToast("Submitted Successfully");
+      clearForm();
+      loadExistingLeaves();
+      checkBalance();
     } catch (error) {
       console.error("Split leave submission failed:", error);
-      showToast("Error submitting split leave request");
     } finally {
       setLoading(false);
     }
@@ -531,44 +570,57 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     overrideRemarks?: string,
     skipClear?: boolean,
     overrideMode?: string,
-    overrideDays?: number
+    overrideDays?: number,
+    overridePermTime?: string,
+    overrideInTime?: string,
+    forceLeaveEndpoint?: boolean
   ) => {
-    if (loading && !overrideFrom) return;
+    if (loading && !overrideFrom && !overridePermTime) return;
 
-    if (!overrideFrom) setLoading(true);
+    if (!overrideFrom && !overridePermTime) setLoading(true);
 
     const empCode = getUser()?.empCode;
 
+    const isSingle =
+      requestType === "Permission" ||
+      singleDateMode ||
+      overrideMode === "Forenoon" ||
+      overrideMode === "Afternoon";
+
+    const fromFormatted = fmtDMY(overrideFrom || startDate);
+    const toFormatted = isSingle
+      ? fromFormatted
+      : fmtDMY(overrideTo || (overrideFrom || startDate));
+
+    const finalPermTime =
+      requestType === "Permission"
+        ? (overridePermTime !== undefined ? overridePermTime : permTime)
+        : "";
+
+    const activeInTime = overrideInTime !== undefined ? overrideInTime : inTime;
+
     const payload = {
-      _fromdate: fmtDMY(overrideFrom || startDate),
-      _todate: singleDateMode
-        ? fmtDMY(overrideFrom || startDate)
-        : fmtDMY(overrideTo || endDate),
+      _fromdate: fromFormatted,
+      _todate: toFormatted,
 
       _remarks: overrideRemarks || remarks,
-      _PermTime:
-        requestType === "Permission"
-          ? permTime
-          : "",
+      _PermTime: finalPermTime,
       _InTime:
         requestType === "Permission"
-          ? moment(inTime, "HH:mm").format("HH:mm")
+          ? (activeInTime ? moment(activeInTime, "HH:mm").format("HH:mm") : null)
           : null,
-      _requesttype: requestType,
+      _requesttype: (requestType === "Permission" && forceLeaveEndpoint) ? "Leave" : requestType,
       _empcode: empCode,
       _leaveMode:
         requestType === "Permission"
-          ? "Permission"
+          ? (overrideMode || "Permission")
           : overrideMode || leaveMode,
 
-      _leaveCategory:
-        requestType === "Permission"
-          ? "Permission"
-          : category,
+      _leaveCategory: category,
     };
 
     try {
-      const saveUrl = requestType === "Permission"
+      const saveUrl = (requestType === "Permission" && !forceLeaveEndpoint)
         ? `${API_BASE}Permission/savepermissionrequest`
         : `${API_BASE}Leave/saveleaverequest`;
       const res = await axios.post(
@@ -587,14 +639,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       window.dispatchEvent(new Event("refreshRequests"));
       window.dispatchEvent(new CustomEvent("leaveRequestAdded"));
 
-      showToast("Submitted Successfully");
-
       if (!skipClear) {
+        showToast("Submitted Successfully");
         clearForm();
         loadExistingLeaves();
+        checkBalance();
       }
-
-
 
       // ── Send WhatsApp template to RA1 ──
       if (newLid) {
@@ -702,13 +752,16 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           console.error("====================================");
         }
       }
+      return res.data;
     }
     catch (err: any) {
-      showToast(
-        err?.response?.data ||
+      const errorMsg =
         err?.response?.data?.message ||
-        "Error submitting request"
-      );
+        err?.response?.data ||
+        err?.message ||
+        "Error submitting request";
+      showToast(typeof errorMsg === "string" ? errorMsg : "Error submitting request");
+      throw err;
     } finally {
       if (!skipClear) setLoading(false);
     }

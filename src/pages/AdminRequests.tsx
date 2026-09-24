@@ -229,7 +229,7 @@ const AdminRequests: React.FC = () => {
       // Local filtering for Tab/Segment
       if (tab === "permissions") {
         result = result.filter(
-          (entry: any) => renderSafe(entry.ltype) === "Permission"
+          (entry: any) => renderSafe(entry.ltype) === "Permission" && String(entry.ptime).trim() !== "0"
         );
       } else {
         result = result.filter(
