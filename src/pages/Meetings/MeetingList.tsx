@@ -314,7 +314,10 @@ const MeetingList: React.FC = () => {
   const getMeetingDateStr = (m: Meeting): string | null => {
     const raw = m.meetingDate || (m as any).MeetingDate || m.meetingStartTime || (m as any).MeetingStartTime;
     if (!raw) return null;
-    const mObj = moment(raw);
+    let mObj = moment(raw, ["YYYY-MM-DD", "YYYY-MM-DDTHH:mm:ss", "DD-MM-YYYY", "DD-MM-YYYY HH:mm:ss", moment.ISO_8601]);
+    if (!mObj.isValid()) {
+      mObj = moment(raw);
+    }
     return mObj.isValid() ? mObj.format("YYYY-MM-DD") : null;
   };
 
@@ -800,6 +803,24 @@ const MeetingList: React.FC = () => {
                 const remainingCount = attendeesList.length - 4;
                 const isOwnerDrawerOpen = Boolean(expandedOwnerEdit[item.id]);
 
+                // Date checks for Join Teams button (enabled on current date, disabled for prev/next dates)
+                const mDateStr = getMeetingDateStr(item);
+                const todayStr = moment().format("YYYY-MM-DD");
+                const isToday = Boolean(mDateStr && mDateStr === todayStr);
+                const isPastDate = Boolean(mDateStr && mDateStr < todayStr);
+                const isFutureDate = Boolean(mDateStr && mDateStr > todayStr);
+                const isJoinEnabled = Boolean(teamsUrl && isToday);
+
+                const joinButtonTitle = !teamsUrl
+                  ? "No Teams meeting link available"
+                  : isToday
+                  ? "Join Microsoft Teams Meeting"
+                  : isPastDate
+                  ? `Meeting date has passed (${mDateStr ? moment(mDateStr, ["YYYY-MM-DD", "DD-MM-YYYY"]).format("DD MMM YYYY") : "Past"})`
+                  : isFutureDate
+                  ? `Meeting is scheduled for ${mDateStr ? moment(mDateStr, ["YYYY-MM-DD", "DD-MM-YYYY"]).format("DD MMM YYYY") : "Upcoming"} (Available on meeting date)`
+                  : "Join Microsoft Teams Meeting";
+
                 return (
                   <div key={`${item.id}-${idx}`} className="mlist-card">
                     {/* Visual Status Stripe */}
@@ -983,9 +1004,14 @@ const MeetingList: React.FC = () => {
                           {teamsUrl && (
                             <button
                               type="button"
-                              className="mlist-btn-join"
-                              onClick={() => handleJoinMeeting(item.id, teamsUrl)}
-                              title="Join Microsoft Teams Meeting"
+                              className={`mlist-btn-join ${!isJoinEnabled ? "is-disabled" : ""}`}
+                              disabled={!isJoinEnabled}
+                              onClick={() => {
+                                if (isJoinEnabled) {
+                                  handleJoinMeeting(item.id, teamsUrl);
+                                }
+                              }}
+                              title={joinButtonTitle}
                             >
                               <Video size={16} />
                               <span>Join Teams</span>
