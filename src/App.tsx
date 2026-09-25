@@ -58,7 +58,7 @@ import OverTime from "./pages/OverTime";
 import RequestsPage from "./pages/RequestsPage";
 import PendingRequests from "./pages/PendingRequests";
 import Policies from "./pages/Policies";
-import AIAttendanceAdminDashboard from "./pages/AIAttendance/AIAttendanceAdminDashboard";
+import ControlPanel from "./pages/AIAttendance/ControlPanel";
 import AIAttendanceRegister from "./pages/AIAttendance/AIAttendanceRegister";
 import AIAttendanceScanner from "./pages/AIAttendance/AIAttendanceScanner";
 import SecurityAttendanceScanner from "./pages/AIAttendance/SecurityAttendanceScanner";
@@ -232,7 +232,8 @@ const App: React.FC = () => {
                   <Route exact path="/OverTime" component={OverTime} />
                   <Route path="/requests" component={RequestsPage} exact />
                   <Route path="/pending-requests" component={PendingRequests} exact />
-                  <Route exact path="/ai-attendance-admin-dashboard" component={AIAttendanceAdminDashboard} />
+                  <Route exact path="/ai-attendance-admin-dashboard" component={ControlPanel} />
+                  <Route exact path="/control-panel" component={ControlPanel} />
                   <Route exact path="/ai-attendance-register" component={AIAttendanceRegister} />
                   <Route exact path="/ai-attendance-scanner" component={AIAttendanceScanner} />
                   <Route exact path="/security-attendance" component={SecurityAttendanceScanner} />

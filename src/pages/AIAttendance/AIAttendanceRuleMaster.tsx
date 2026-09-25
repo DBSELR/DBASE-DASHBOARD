@@ -136,6 +136,19 @@ interface AutoOverride {
   liveLocation?: boolean;
 }
 
+interface EmployeeBranchMapping {
+  id: number;
+  empCode: string;
+  empName: string;
+  designation: string;
+  homeBranch: string;
+  homeDept: string;
+  branch: string;
+  branchDept: string;
+  isActive: boolean;
+  createdOn: string;
+}
+
 interface BluetoothDevice {
   id: number;
   deviceName: string;
@@ -231,6 +244,15 @@ const AIAttendanceRuleMaster: React.FC = () => {
   // label in their place.
   const autoFromInputRef = useRef<HTMLInputElement>(null);
   const autoToInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Employee Branch Mapping State ---
+  const [branchMappings, setBranchMappings] = useState<EmployeeBranchMapping[]>([]);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
+  const [mapFormEmpCode, setMapFormEmpCode] = useState('');
+  const [mapFormBranch, setMapFormBranch] = useState('');
+  const [mapFormDept, setMapFormDept] = useState('');
+  const [mapSaving, setMapSaving] = useState(false);
 
   // --- Bluetooth tab state ---
   const [btDevices, setBtDevices] = useState<BluetoothDevice[]>([]);
@@ -435,6 +457,86 @@ const AIAttendanceRuleMaster: React.FC = () => {
   }, []);
 
   useEffect(() => { if (activeTab === 'directory') loadBranchDirectory(); }, [activeTab, loadBranchDirectory]);
+
+  const loadBranchMappings = useCallback(async () => {
+    setMappingLoading(true);
+    try {
+      const r = await fetch(API_BASE + 'Checkin/GetEmployeeBranchMappings', { headers: hdrs });
+      if (!r.ok) {
+        setBranchMappings([]);
+        return;
+      }
+      const d = await r.json();
+      if (d.success) setBranchMappings(d.data || []);
+      else setBranchMappings([]);
+    } catch {
+      setBranchMappings([]);
+    } finally {
+      setMappingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'overrides') {
+      loadBranchMappings();
+    }
+  }, [activeTab, loadBranchMappings]);
+
+  const handleSaveMapping = async () => {
+    if (!mapFormEmpCode.trim() || !mapFormBranch.trim()) {
+      showToast('Employee Code and Branch are required.');
+      return;
+    }
+    setMapSaving(true);
+    try {
+      const payload = {
+        id: 0,
+        empCode: mapFormEmpCode.trim(),
+        branch: mapFormBranch.trim(),
+        branchDept: mapFormDept.trim(),
+        isActive: true
+      };
+      const r = await fetch(API_BASE + 'Checkin/SaveEmployeeBranchMapping', {
+        method: 'POST',
+        headers: hdrs,
+        body: JSON.stringify(payload)
+      });
+      const d = await r.json();
+      if (d.success) {
+        showToast(d.message || 'Mapping saved successfully.');
+        setIsMappingModalOpen(false);
+        setMapFormEmpCode('');
+        setMapFormBranch('');
+        setMapFormDept('');
+        loadBranchMappings();
+      } else {
+        showToast(d.message || 'Failed to save mapping.');
+      }
+    } catch {
+      showToast('Network error while saving mapping.');
+    } finally {
+      setMapSaving(false);
+    }
+  };
+
+  const handleDeleteMapping = async (id: number) => {
+    if (!window.confirm('Are you sure you want to remove this branch assignment?')) return;
+    try {
+      const r = await fetch(API_BASE + `Checkin/DeleteEmployeeBranchMapping/${id}`, {
+        method: 'POST',
+        headers: hdrs
+      });
+      const d = await r.json();
+      if (d.success) {
+        showToast('Branch assignment removed.');
+        loadBranchMappings();
+      } else {
+        showToast(d.message || 'Failed to remove.');
+      }
+    } catch {
+      showToast('Network error.');
+    }
+  };
 
   const openAddDirModal = () => {
     setEditingDir(null);
@@ -1456,7 +1558,158 @@ const AIAttendanceRuleMaster: React.FC = () => {
                   </table>
                 </div>
 
+                {/* ── Multi-Branch Assignments (Secondary Branch Access) ── */}
+                <div className="rm-card" style={{ marginTop: 24 }}>
+                  <div className="rm-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <h3 className="rm-card-title" style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>
+                        🏢 Employee Additional Branch Permissions
+                      </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
+                        Allows specific employees to check in at additional branches without modifying their primary department or affecting any other employee.
+                      </p>
+                    </div>
+                    <button
+                      className="rm-bt-add-btn"
+                      style={{ padding: '6px 14px', fontSize: 13 }}
+                      onClick={() => {
+                        setMapFormEmpCode('');
+                        setMapFormBranch('');
+                        setMapFormDept('');
+                        setIsMappingModalOpen(true);
+                      }}
+                    >
+                      + Assign Additional Branch
+                    </button>
+                  </div>
 
+                  {mappingLoading ? (
+                    <div className="rm-loading-text">Loading branch assignments…</div>
+                  ) : (
+                    <table className="rm-table">
+                      <thead>
+                        <tr>
+                          <th>S.No</th>
+                          <th>Employee Code</th>
+                          <th>Employee</th>
+                          <th>Primary Branch</th>
+                          <th>Additional Allowed Branch</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {branchMappings.map((m, idx) => (
+                          <tr key={m.id}>
+                            <td className="rm-emp-code">{idx + 1}</td>
+                            <td className="rm-emp-code">{m.empCode}</td>
+                            <td>
+                              <div className="rm-emp-name">{m.empName || m.empCode}</div>
+                              <div className="rm-emp-sub">{m.designation}</div>
+                            </td>
+                            <td>
+                              <span className="rm-branch-tag">
+                                {m.homeBranch ? (m.homeDept ? `${m.homeBranch} (${m.homeDept})` : m.homeBranch) : '—'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="rm-badge-duty" style={{ background: '#dcfce7', color: '#15803d', borderColor: '#bbf7d0', fontWeight: 600 }}>
+                                📍 {m.branch} {m.branchDept ? `(${m.branchDept})` : ''}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={m.isActive ? 'rm-badge-on' : 'rm-badge-off'}>
+                                {m.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                className="rm-action-btn rm-action-btn-del"
+                                title="Remove Assignment"
+                                onClick={() => handleDeleteMapping(m.id)}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {branchMappings.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="rm-empty">
+                              No additional branch assignments configured.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Add Additional Branch Modal */}
+                {isMappingModalOpen && (
+                  <div className="rm-modal-backdrop" onClick={() => setIsMappingModalOpen(false)}>
+                    <div className="rm-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                      <div className="rm-modal-header">
+                        <h3>Assign Additional Branch</h3>
+                        <button className="rm-modal-close" onClick={() => setIsMappingModalOpen(false)}>&#x2715;</button>
+                      </div>
+                      <div className="rm-modal-body">
+                        <div className="rm-form-field">
+                          <label className="rm-date-label">Employee Code *</label>
+                          <input
+                            type="text"
+                            className="rm-bt-search"
+                            style={{ width: '100%' }}
+                            placeholder="e.g. 1624"
+                            value={mapFormEmpCode}
+                            onChange={e => setMapFormEmpCode(e.target.value)}
+                          />
+                        </div>
+                        <div className="rm-form-field" style={{ marginTop: 12 }}>
+                          <label className="rm-date-label">Branch *</label>
+                          <select
+                            className="rm-select"
+                            style={{ width: '100%' }}
+                            value={mapFormBranch}
+                            onChange={e => {
+                              setMapFormBranch(e.target.value);
+                              setMapFormDept('');
+                            }}
+                          >
+                            <option value="">Select Branch</option>
+                            {allBranches.map(b => (
+                              <option key={b} value={b}>{b}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="rm-form-field" style={{ marginTop: 12 }}>
+                          <label className="rm-date-label">Branch Department (Optional)</label>
+                          <select
+                            className="rm-select"
+                            style={{ width: '100%' }}
+                            value={mapFormDept}
+                            onChange={e => setMapFormDept(e.target.value)}
+                          >
+                            <option value="">All / None</option>
+                            {branchDeptPairs
+                              .filter(pr => !mapFormBranch || pr.branch.toLowerCase() === mapFormBranch.toLowerCase())
+                              .map(pr => pr.branchDept)
+                              .filter((d, i, arr) => d && arr.indexOf(d) === i)
+                              .map(d => (
+                                <option key={d} value={d}>{d}</option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="rm-modal-footer">
+                        <button className="rm-back-btn" onClick={() => setIsMappingModalOpen(false)}>Cancel</button>
+                        <button className="rm-next-btn" disabled={mapSaving} onClick={handleSaveMapping}>
+                          {mapSaving ? 'Saving…' : 'Save Assignment'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

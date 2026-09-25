@@ -278,7 +278,7 @@ const Home: React.FC = () => {
 
     ...(ADMIN_EMPCODES.includes(currentEmpCode) ? [{
       id: "ai-attendance-admin",
-      label: "AI Attendance Admin",
+      label: "Control Panel",
       icon: "https://cdn.lordicon.com/rqqkvjqf.json",
       path: "/ai-attendance-admin-dashboard",
       colorClass: "home-card-ai-admin"

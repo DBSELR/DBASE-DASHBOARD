@@ -7,9 +7,9 @@ import {
   fingerPrintOutline 
 } from 'ionicons/icons';
 import { API_BASE_URL } from './ai_config';
-import './AIAttendanceAdminDashboard.css';
+import './ControlPanel.css';
 
-const AIAttendanceAdminDashboard: React.FC = () => {
+const ControlPanel: React.FC = () => {
   const [email, setEmail] = useState('');
   
   // Toast state
@@ -69,7 +69,7 @@ const AIAttendanceAdminDashboard: React.FC = () => {
                 <IonIcon icon={arrowBackOutline} style={{ color: "white" }} />
               </button>
               <div>
-                <h1 className="page-wr-title">AI Attendance</h1>
+                <h1 className="page-wr-title">Control Panel</h1>
                 <p className="page-wr-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <span className="subtitle-pulse-dot" />
                   <span>Admin Management Console</span>
@@ -184,4 +184,4 @@ const AIAttendanceAdminDashboard: React.FC = () => {
   );
 };
 
-export default AIAttendanceAdminDashboard;
+export default ControlPanel;
