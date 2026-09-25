@@ -305,7 +305,7 @@ const Home: React.FC = () => {
     ...((Live_Tracking_Engine.includes(currentEmpCode) || isRAUser) ? [{
       id: "live-tracking-engine",
       label: "Live Tracking Engine",
-      icon: "https://cdn.lordicon.com/zzcwywzv.json",
+      icon: "https://cdn.lordicon.com/surcxhka.json",
       path: "/onduty-tracking",
       colorClass: "home-card-live-tracking"
     }] : []),
@@ -464,7 +464,7 @@ const Home: React.FC = () => {
                   trigger="loop"
                   colors="primary:#ffffff,secondary:#ffffff"
                   className="home-card-lordicon"
-                  style={{ width: "40px", height: "40px" }}
+                  style={{ width: "32px", height: "32px" }}
                 ></lord-icon>
               )}
             </div>

@@ -37,6 +37,10 @@ import {
   chevronBackOutline,
   chevronForwardOutline,
   grid,
+  navigate,
+  location,
+  map,
+  radio,
 } from "ionicons/icons";
 
 import "../theme/Common.css";
@@ -403,6 +407,20 @@ const getIcon = (iconName: string | null) => {
     "grid-outline": grid,
     "menu-management": grid,
     "Menu Management": grid,
+    "navigate": navigate,
+    "navigate-outline": navigate,
+    "location": location,
+    "location-outline": location,
+    "map": map,
+    "map-outline": map,
+    "radio": radio,
+    "radio-outline": radio,
+    "Live Tracking": navigate,
+    "Live Tracking Engine": navigate,
+    "On Duty Tracking": navigate,
+    "OnDuty Tracking": navigate,
+    "onduty-tracking": navigate,
+    "Tracking": navigate,
   };
   return iconName && icons[iconName] ? icons[iconName] : documentText;
 };
