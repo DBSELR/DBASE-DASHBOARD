@@ -42,6 +42,11 @@ const Reports: React.FC = () => {
 
   const [pdfUrl, setPdfUrl] = useState<string>("");
   const [showPdf, setShowPdf] = useState<boolean>(false);
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
+  const [isIframeLoading, setIsIframeLoading] = useState<boolean>(false);
+  const [isExportingHdfc, setIsExportingHdfc] = useState<boolean>(false);
+  const [isExportingNonHdfc, setIsExportingNonHdfc] = useState<boolean>(false);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // ── Dropdown States ──────────────────────────────────────────────
   const [isReportDropdownOpen, setIsReportDropdownOpen] = useState(false);
@@ -225,6 +230,13 @@ const Reports: React.FC = () => {
       return;
     }
 
+    setIsLoadingReport(true);
+    setShowPdf(true);
+
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
     const path = getApiUrl();
     const token = (localStorage.getItem("token") || "").replace(/"/g, "");
 
@@ -246,15 +258,23 @@ const Reports: React.FC = () => {
         throw new Error(errorText || "Report failed.");
       }
 
-      const blob = await res.blob();
-      if (blob.size === 0) throw new Error("Empty PDF received.");
+      const rawBlob = await res.blob();
+      if (rawBlob.size === 0) throw new Error("Empty PDF received.");
 
-      const pdfUrl = URL.createObjectURL(blob);
-      setPdfUrl(pdfUrl);
+      // Ensure explicit application/pdf MIME type for instant browser PDF engine bootstrap
+      const pdfBlob = new Blob([rawBlob], { type: "application/pdf" });
+
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      const newPdfUrl = URL.createObjectURL(pdfBlob);
+      setPdfUrl(newPdfUrl);
       setShowPdf(true);
 
     } catch (error: any) {
       alert("Error loading report: " + error.message);
+      setShowPdf(false);
+    } finally {
+      setIsLoadingReport(false);
+      setIsIframeLoading(false);
     }
   };
 
@@ -265,11 +285,15 @@ const Reports: React.FC = () => {
     setToDate(moment().format("YYYY-MM-DD"));
     setMonthYear(moment().format("YYYY-MM"));
     setShowPdf(false);
+    setIsLoadingReport(false);
+    setIsIframeLoading(false);
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     setPdfUrl("");
   };
 
   const handleFormat = async () => {
     try {
+      setIsExportingHdfc(true);
       const monthYearSend = moment(monthYear).format("MM-YYYY");
       const path = `Reports/Load_TextExport?MY=${monthYearSend}`;
 
@@ -309,11 +333,14 @@ const Reports: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
       alert("Error exporting HDFC format: " + error.message);
+    } finally {
+      setIsExportingHdfc(false);
     }
   };
 
   const handleNonHDFCFormat = async () => {
     try {
+      setIsExportingNonHdfc(true);
       const monthYearSend = moment(monthYear).format("MM-YYYY");
       const path = `Reports/Load_NonHDFCTextExport?MY=${monthYearSend}`;
       const token = (localStorage.getItem("token") || "").replace(/"/g, "");
@@ -351,6 +378,8 @@ const Reports: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
       alert("Error exporting Non HDFC format: " + error.message);
+    } finally {
+      setIsExportingNonHdfc(false);
     }
   };
 
@@ -358,28 +387,28 @@ const Reports: React.FC = () => {
 
   const reportOptions =
     userDesig === "Director" ||
-    userDesig === "HR" ||
-    userDesig === "In-Charge F&A"
+      userDesig === "HR" ||
+      userDesig === "In-Charge F&A"
       ? [
-          "Employee List",
-          "Salary Statement",
-          "Salary Generation Details",
-          "Salary Generation Abstract",
-          "Work Report",
-          "Timings & Leaves",
-          "stock",
-          "Vouchers",
-          "Employee Check-In/s"
-        ]
+        "Employee List",
+        "Salary Statement",
+        "Salary Generation Details",
+        "Salary Generation Abstract",
+        "Work Report",
+        "Timings & Leaves",
+        "stock",
+        "Vouchers",
+        "Employee Check-In/s"
+      ]
       : [
-          "Salary Generation Details"
-        ];
+        "Salary Generation Details"
+      ];
 
   return (
     <IonPage>
       <IonContent className="page-content">
         <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
-          
+
           {/* ── Premium Header ── */}
           <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
             <div className="page-wr-header-left">
@@ -400,7 +429,7 @@ const Reports: React.FC = () => {
 
           <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
             <div className="stock-grid">
-              
+
               {/* Employee Input */}
               <div className="stock-field">
                 <label>Employee</label>
@@ -492,56 +521,163 @@ const Reports: React.FC = () => {
                   <IonIcon icon={checkmarkCircleOutline} className="select-chevron" />
                 </div>
               </div>
-              
+
             </div>
 
             {/* Action Buttons */}
             <div className="stock-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginTop: '24px' }}>
-              <button className="stock-button" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <IonIcon icon={printOutline} style={{ fontSize: '18px' }} /> Print Report
+              <button
+                className="stock-button"
+                onClick={handlePrint}
+                disabled={isLoadingReport}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: isLoadingReport ? 0.75 : 1,
+                  cursor: isLoadingReport ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <IonIcon icon={printOutline} style={{ fontSize: '18px' }} />
+                {isLoadingReport ? "Generating Report..." : "Print Report"}
               </button>
-              
-              <button className="stock-button stock-button--secondary" onClick={handleClear} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+
+              <button
+                className="stock-button stock-button--secondary"
+                onClick={handleClear}
+                disabled={isLoadingReport}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
                 <IonIcon icon={refreshOutline} style={{ fontSize: '18px' }} /> Clear
               </button>
 
               {(userDesig === "Director" || userDesig === "HR" || userDesig === "In-Charge F&A") && (
                 <>
-                  <button className="stock-button stock-button--secondary" onClick={handleFormat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> HDFC Format
+                  <button
+                    className="stock-button stock-button--secondary"
+                    onClick={handleFormat}
+                    disabled={isExportingHdfc}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      opacity: isExportingHdfc ? 0.75 : 1
+                    }}
+                  >
+                    <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} />
+                    {isExportingHdfc ? "Exporting..." : "HDFC Format"}
                   </button>
-                  <button className="stock-button stock-button--secondary" onClick={handleNonHDFCFormat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Non-HDFC Format
+                  <button
+                    className="stock-button stock-button--secondary"
+                    onClick={handleNonHDFCFormat}
+                    disabled={isExportingNonHdfc}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      opacity: isExportingNonHdfc ? 0.75 : 1
+                    }}
+                  >
+                    <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} />
+                    {isExportingNonHdfc ? "Exporting..." : "Non-HDFC Format"}
                   </button>
                 </>
               )}
             </div>
           </div>
 
-          {/* PDF View Section */}
-          {showPdf && (
-            <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
+          {/* PDF View Section & Fast Simple Loader */}
+          {(showPdf || isLoadingReport) && (
+            <div ref={previewRef} className="stock-panel" style={{ margin: '0 16px 20px 16px', position: 'relative' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--stock-border)', marginBottom: '16px' }}>
-                <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--stock-text)' }}>Report Preview</span>
-                <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ion-color-primary)', fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>Open in New Tab</a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--stock-text)' }}>
+                    {isLoadingReport ? "Generating Report..." : (reportType ? `${reportType} Preview` : "Report Preview")}
+                  </span>
+                </div>
+                {showPdf && !isLoadingReport && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: 'var(--ion-color-primary)',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      Open in New Tab
+                    </a>
+                  </div>
+                )}
               </div>
-              
-              <iframe src={pdfUrl} title="PDF Preview" style={{ width: '100%', height: '65vh', border: 'none', borderRadius: 'var(--stock-radius-md)', backgroundColor: '#fff' }} />
 
-              <div className="stock-actions" style={{ marginTop: '20px' }}>
-                <button
-                  className="stock-button"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = pdfUrl;
-                    a.download = "report.pdf";
-                    a.click();
-                  }}
-                >
-                  <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Download PDF
-                </button>
-              </div>
+              {isLoadingReport ? (
+                <div className="rpt-simple-loader">
+                  <div className="rpt-spinner-wrap">
+                    <div className="rpt-spinner" />
+                    <div className="rpt-spinner-inner" />
+                  </div>
+                  <h3 className="rpt-loader-title">
+                    Preparing {reportType || "Report"}
+                    <span className="rpt-loading-dots">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  </h3>
+                  <p className="rpt-loader-subtitle">Loading data and formatting document...</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ position: 'relative', width: '100%', minHeight: '65vh' }}>
+                    <iframe
+                      src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                      title="PDF Preview"
+                      style={{
+                        width: '100%',
+                        height: '68vh',
+                        border: 'none',
+                        borderRadius: 'var(--stock-radius-md)',
+                        backgroundColor: '#fff',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+
+                  <div className="stock-actions" style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="stock-button stock-button--secondary"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}
+                    >
+                      <IonIcon icon={printOutline} style={{ fontSize: '18px' }} /> Fullscreen / Print
+                    </a>
+                    <button
+                      className="stock-button"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = pdfUrl;
+                        a.download = `${reportType || "report"}.pdf`;
+                        a.click();
+                      }}
+                    >
+                      <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Download PDF
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
