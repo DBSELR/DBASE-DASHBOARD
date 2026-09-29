@@ -20,13 +20,14 @@ export const LocationPermissionModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [permissionState, setPermissionState] = useState<string>("unknown");
 
+  /**
+   * Passive permission check only.
+   * STRICT GOOGLE PLAY COMPLIANCE: NEVER prompt or request permissions on mount/load.
+   */
   const checkStatus = async () => {
     try {
       const status = await Geolocation.checkPermissions();
       setPermissionState(status.location);
-      if (status.location === "granted" && onPermissionGranted) {
-        onPermissionGranted();
-      }
     } catch (e) {
       console.warn("[LocationModal] Check permission error:", e);
     }
@@ -34,8 +35,10 @@ export const LocationPermissionModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // Check current permission state passively when modal opens
       checkStatus();
 
+      // If user toggles permission in system settings and switches back to app
       const handleFocus = () => {
         checkStatus();
       };
@@ -67,6 +70,7 @@ export const LocationPermissionModal: React.FC<Props> = ({
             }
           });
           setPermissionState("granted");
+          window.dispatchEvent(new CustomEvent("location:granted"));
           if (onPermissionGranted) onPermissionGranted();
           onClose();
         } catch (webErr: any) {
@@ -99,6 +103,7 @@ export const LocationPermissionModal: React.FC<Props> = ({
           // Clean up watcher immediately (it was only to prompt permission)
           await BackgroundGeolocation.removeWatcher({ id: watcherId });
           
+          window.dispatchEvent(new CustomEvent("location:granted"));
           if (onPermissionGranted) onPermissionGranted();
           onClose();
         } catch (bgErr) {

@@ -127,8 +127,12 @@ const Home: React.FC = () => {
     getThemeColors();
     updateTime();
     const interval = setInterval(updateTime, 1000);
-    getLocation(); // Fetch location on load
-    return () => clearInterval(interval);
+    getLocation(); // Fetch location on load (passive check only)
+    window.addEventListener("location:granted", getLocation);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("location:granted", getLocation);
+    };
   }, []);
 
   useEffect(() => {
@@ -178,26 +182,16 @@ const Home: React.FC = () => {
 
   const getLocation = async () => {
     try {
-      const permission = await Geolocation.requestPermissions();
+      // Passive check only - NEVER prompt system permission dialog on page load
+      const permission = await Geolocation.checkPermissions();
       if (permission.location !== "granted") {
-        setLocation("Location access denied.");
+        setLocation("Location standby");
         return;
       }
       const coordinates = await Geolocation.getCurrentPosition();
       reverseGeocode(coordinates.coords.latitude, coordinates.coords.longitude);
     } catch (error) {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            reverseGeocode(position.coords.latitude, position.coords.longitude);
-          },
-          () => {
-            setLocation("Location access denied.");
-          }
-        );
-      } else {
-        setLocation("Geolocation not supported.");
-      }
+      setLocation("Location standby");
     }
   };
 

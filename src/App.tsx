@@ -296,7 +296,7 @@ const App: React.FC = () => {
             }}
             onPermissionGranted={() => {
               sessionStorage.removeItem("location_modal_dismissed");
-              broadcaster.requestLocationPermission();
+              window.dispatchEvent(new CustomEvent("location:granted"));
               broadcaster.triggerImmediatePing();
             }}
           />
