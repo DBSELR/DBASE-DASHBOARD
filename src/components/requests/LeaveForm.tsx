@@ -497,65 +497,43 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     // Consolidate into EXACTLY 2 records:
     // 1. Available leave balance (Casual / Sick)
     // 2. Remaining LOP balance
-    const groups: {
-      cat: string;
-      start: string;
-      end: string;
-      mode: string;
-      count: number;
-    }[] = [];
+    const firstPartStart = startDate;
+    const firstPartEnd = moment(startDate)
+      .add(Math.ceil(available) - 1, "days")
+      .format("YYYY-MM-DD");
 
-    // --- Record 1: Available Leave ---
-    const casualEndDayOffset = Math.ceil(available) - 1;
-    const casualEndDate = moment(startDate).add(casualEndDayOffset, "days").format("YYYY-MM-DD");
-    const casualMode = available === 0.5 ? "Forenoon" : (leaveMode || "Leave");
+    const secondPartStart = moment(startDate)
+      .add(Math.floor(available), "days")
+      .format("YYYY-MM-DD");
+    const secondPartEnd = effEndDate;
 
-    groups.push({
-      cat: originalCategory,
-      start: startDate,
-      end: casualEndDate,
-      mode: casualMode,
-      count: available
-    });
-
-    // --- Record 2: Remaining LOP Leave ---
-    const lopStartDayOffset = Math.floor(available);
-    const lopStartDate = moment(startDate).add(lopStartDayOffset, "days").format("YYYY-MM-DD");
-    const lopMode = remainingLOP === 0.5 ? "Afternoon" : "Leave";
-
-    groups.push({
-      cat: "LOP",
-      start: lopStartDate,
-      end: effEndDate,
-      mode: lopMode,
-      count: remainingLOP
-    });
+    const availWord = available === 1 ? "Day" : "Days";
+    const lopWord = remainingLOP === 1 ? "Day" : "Days";
 
     setLoading(true);
 
     try {
-      for (let i = 0; i < groups.length; i++) {
-        const group = groups[i];
-        const isLast = i === groups.length - 1;
-        const dayWord = group.count === 1 ? "Day" : "Days";
-        const remarkText =
-          group.cat === "LOP"
-            ? `(${group.count} ${dayWord} Converted to LOP)`
-            : `(${group.count} ${dayWord} ${group.cat})`;
-        await submitToServer(
-          group.cat,
-          group.start,
-          group.end,
-          remarks + " " + remarkText,
-          !isLast,
-          group.mode,
-          group.count
-        );
-      }
-      showToast("Submitted Successfully");
-      clearForm();
-      loadExistingLeaves();
-      checkBalance();
+      // 1. Available portion (Casual / Sick)
+      await submitToServer(
+        originalCategory,
+        firstPartStart,
+        firstPartEnd,
+        remarks + ` (${available} ${availWord} ${originalCategory})`,
+        true,
+        available === 0.5 ? "Forenoon" : (leaveMode || "Leave"),
+        available
+      );
+
+      // 2. LOP portion
+      await submitToServer(
+        "LOP",
+        secondPartStart,
+        secondPartEnd,
+        remarks + ` (${remainingLOP} ${lopWord} Converted to LOP)`,
+        false,
+        remainingLOP === 0.5 ? "Afternoon" : (leaveMode || "Leave"),
+        remainingLOP
+      );
     } catch (error) {
       console.error("Split leave submission failed:", error);
     } finally {
@@ -595,7 +573,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     const finalPermTime =
       requestType === "Permission"
         ? (overridePermTime !== undefined ? overridePermTime : permTime)
-        : "";
+        : (overrideDays !== undefined ? String(overrideDays) : "");
 
     const activeInTime = overrideInTime !== undefined ? overrideInTime : inTime;
 
