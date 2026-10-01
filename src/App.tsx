@@ -99,6 +99,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
 import FieldDutyStatusPage from "./pages/FieldDutyStatusPage";
 import RAManagement from "./pages/RAManagement";
+import TeltonikaTracking from "./pages/TeltonikaTracking/TeltonikaTracking";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -265,6 +266,9 @@ const App: React.FC = () => {
                   <Route exact path="/onduty-tracking" component={OnDutyLiveTracking} />
                   <Route exact path="/onduty tracking" component={OnDutyLiveTracking} />
                   <Route exact path="/ondutytracking" component={OnDutyLiveTracking} />
+                  <Route exact path="/teltonika-tracking" component={TeltonikaTracking} />
+                  <Route exact path="/teltonika tracking" component={TeltonikaTracking} />
+                  <Route exact path="/teltonikatracking" component={TeltonikaTracking} />
                   <Route exact path="/field-duty" component={FieldDutyStatusPage} />
                   <Route exact path="/field-status" component={FieldDutyStatusPage} />
                   <Route exact path="/stock" component={Stock} />
