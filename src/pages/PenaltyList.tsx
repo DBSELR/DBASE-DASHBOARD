@@ -32,7 +32,8 @@ import {
   Paperclip,
   CheckCircle,
   FileText,
-  Upload
+  Upload,
+  Film
 } from "lucide-react";
 
 import "./WorkReports.css";
@@ -471,6 +472,10 @@ function PenaltyList() {
 
   const isImageFile = (url: string): boolean => {
     return /\.(jpe?g|png|webp|gif|bmp)(\?.*)?$/i.test(url);
+  };
+
+  const isVideoFile = (url: string): boolean => {
+    return /\.(mp4|mov|avi|mkv|webm|3gp|flv|wmv|m4v|ts|ogv)(\?.*)?$/i.test(url);
   };
 
   const isAutoSlip = (remarks?: string): boolean => {
@@ -1193,6 +1198,30 @@ function PenaltyList() {
                                             (e.target as HTMLElement).style.display = "none";
                                           }}
                                         />
+                                      ) : isVideoFile(proofUrl) ? (
+                                        <div
+                                          onClick={() =>
+                                            setLightboxEvidence({
+                                              url: proofUrl,
+                                              title: `Evidence Video: ${penaltyTypeName} - ${selectedEmp.EMPNAME}`,
+                                              remarks: item.Remarks,
+                                              date: formatViolationDate(item.PenaltyDate)
+                                            })
+                                          }
+                                          style={{
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            width: "36px",
+                                            height: "36px",
+                                            borderRadius: "6px",
+                                            background: "#ede9fe"
+                                          }}
+                                          title="Play Video"
+                                        >
+                                          <Film size={20} color="#7c3aed" />
+                                        </div>
                                       ) : (
                                         <IonIcon
                                           icon={documentTextOutline}
@@ -1204,7 +1233,7 @@ function PenaltyList() {
                                           {item.ProofFileName || "Evidence Attached"}
                                         </span>
                                         <span className="p-evidence-hint">
-                                          {isImg ? "Click image to enlarge" : "PDF / Document evidence"}
+                                          {isImg ? "Click image to enlarge" : isVideoFile(proofUrl) ? "Click to play video" : "PDF / Document evidence"}
                                         </span>
                                       </div>
                                     </div>
@@ -1212,7 +1241,7 @@ function PenaltyList() {
                                     <button
                                       className="p-view-evidence-btn"
                                       onClick={() => {
-                                        if (isImg) {
+                                        if (isImg || isVideoFile(proofUrl)) {
                                           setLightboxEvidence({
                                             url: proofUrl,
                                             title: `Evidence: ${penaltyTypeName} - ${selectedEmp.EMPNAME}`,
@@ -1393,7 +1422,7 @@ function PenaltyList() {
                       <input
                         id="issue-proof-file"
                         type="file"
-                        accept="image/*,.pdf"
+                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.mp4,.mov,.avi,.mkv,.webm,.3gp,.flv,.wmv,.m4v,.ts,.ogv"
                         style={{ display: "none" }}
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
@@ -1405,7 +1434,8 @@ function PenaltyList() {
                     {issueProofFile && (
                       <div className="p-file-preview-pill">
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                          📎 {issueProofFile.name} ({(issueProofFile.size / 1024).toFixed(1)} KB)
+                          {issueProofFile.type.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm)$/i.test(issueProofFile.name) ? "🎥" : "📎"}{" "}
+                          {issueProofFile.name} ({(issueProofFile.size / 1024).toFixed(1)} KB)
                         </span>
                         <button
                           type="button"
@@ -1496,11 +1526,21 @@ function PenaltyList() {
                 </div>
 
                 <div className="p-lightbox-img-wrap">
-                  <img
-                    src={lightboxEvidence.url}
-                    alt="Violation Evidence"
-                    className="p-lightbox-img"
-                  />
+                  {isVideoFile(lightboxEvidence.url) ? (
+                    <video
+                      controls
+                      autoPlay
+                      playsInline
+                      src={lightboxEvidence.url}
+                      style={{ maxWidth: "90vw", maxHeight: "75vh", borderRadius: "12px", background: "#000" }}
+                    />
+                  ) : (
+                    <img
+                      src={lightboxEvidence.url}
+                      alt="Violation Evidence"
+                      className="p-lightbox-img"
+                    />
+                  )}
                 </div>
 
                 {lightboxEvidence.remarks && (

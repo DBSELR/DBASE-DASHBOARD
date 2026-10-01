@@ -350,14 +350,28 @@ function ViolationReport() {
               
               {/* Proof */}
               <div className="stock-field">
-                <label>Upload Evidence (Image / PDF)</label>
+                <label>Upload Evidence (Video, Image, PDF)</label>
                 <input
                   type="file"
                   className="stock-input"
                   style={{ padding: '8px' }}
-                  accept="image/*,.pdf"
+                  accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.mp4,.mov,.avi,.mkv,.webm,.3gp,.flv,.wmv,.m4v,.ts,.ogv"
                   onChange={(e) => setProofFile(e.target.files?.[0] || null)}
                 />
+                {proofFile && (proofFile.type.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm|3gp|flv|wmv|m4v|ts|ogv)$/i.test(proofFile.name)) && (
+                  <div style={{ marginTop: "12px", background: "#000", borderRadius: "var(--stock-radius-md)", padding: "4px" }}>
+                    <div style={{ padding: "6px 10px", color: "#fff", fontSize: "12px", fontWeight: "700" }}>
+                      🎥 Video: {proofFile.name} ({(proofFile.size / (1024 * 1024)).toFixed(2)} MB)
+                    </div>
+                    <video
+                      controls
+                      playsInline
+                      preload="metadata"
+                      src={URL.createObjectURL(proofFile)}
+                      style={{ width: "100%", maxWidth: "300px", borderRadius: "var(--stock-radius-md)" }}
+                    />
+                  </div>
+                )}
                 {proofFile && proofFile.type.startsWith("image/") && (
                   <div style={{ marginTop: "12px" }}>
                     <img

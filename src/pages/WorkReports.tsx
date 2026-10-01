@@ -1113,11 +1113,11 @@ const WorkReports: React.FC = () => {
                           <div className="wr-premium-desc-box">
                             <FileText size={14} className="wr-desc-icon" />
                             <p className="wr-premium-text">{report[4]}</p>
-                            {report[6] === "Pending" && JSON.parse(localStorage.getItem("user") || "{}")?.empCode === selectedEmployee && (
+                            {/* {report[6] === "Pending" && JSON.parse(localStorage.getItem("user") || "{}")?.empCode === selectedEmployee && (
                               <button className="wr-edit-btn-small" onClick={() => handleEditClick(report)}>
                                 <Edit2 size={16} />
                               </button>
-                            )}
+                            )} */}
                           </div>
                         </div>
                       </div>

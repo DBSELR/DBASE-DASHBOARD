@@ -20,7 +20,14 @@ import {
   checkmarkCircle,
   chevronDown
 } from "ionicons/icons";
-import { ChevronLeft } from "lucide-react";
+import {
+  ChevronLeft,
+  Video,
+  Image as ImageIcon,
+  FileText,
+  X,
+  Play
+} from "lucide-react";
 
 import "./WorkReports.css";
 import "./RequestsPage.css";
@@ -36,6 +43,7 @@ function PenaltyAssignment() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [penalties, setPenalties] = useState<any[]>([]);
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserCode = user.empCode || user.EMPCODE || "Admin";
@@ -98,6 +106,22 @@ function PenaltyAssignment() {
     }
   };
 
+  // File type detectors
+  const isVideoFile = (file: File | null) => {
+    if (!file) return false;
+    return file.type.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm|3gp|flv|wmv|m4v|ts|ogv)$/i.test(file.name);
+  };
+
+  const isImageFile = (file: File | null) => {
+    if (!file) return false;
+    return file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(file.name);
+  };
+
+  const isPdfFile = (file: File | null) => {
+    if (!file) return false;
+    return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  };
+
   const applyPenalty = async () => {
     try {
       if (!form.penaltyId) {
@@ -147,6 +171,9 @@ function PenaltyAssignment() {
         appliedBy: currentUserCode
       });
       setProofFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (err: any) {
       console.error(err);
       alert(err?.response?.data?.message || "Error Applying Penalty");
@@ -345,35 +372,142 @@ function PenaltyAssignment() {
                 )}
               </div>
 
-              {/* Right Column: Violation Proof */}
+              {/* Right Column: Violation Proof (All video, image, and document types) */}
               <div className="stock-field">
-                <label>Violation Proof</label>
-                <div style={{ padding: '16px', border: '2px dashed var(--stock-border)', borderRadius: 'var(--stock-radius-lg)', backgroundColor: 'var(--stock-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Violation Proof</span>
+                  <span style={{ fontSize: '11px', color: 'var(--stock-primary)', fontWeight: '700' }}>
+                    Videos • Images • PDFs • All Types
+                  </span>
+                </label>
+                <div style={{ padding: '16px', border: '2px dashed var(--stock-border)', borderRadius: 'var(--stock-radius-lg)', backgroundColor: 'var(--stock-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '120px', gap: '8px' }}>
                   <input
+                    ref={fileInputRef}
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.mp4,.mov,.avi,.mkv,.webm,.3gp,.flv,.wmv,.m4v,.ts,.ogv"
                     onChange={(e) => setProofFile(e.target.files?.[0] || null)}
                     style={{ width: '100%', fontSize: '13px' }}
                   />
                   {!proofFile && (
-                    <span style={{ marginTop: '12px', fontSize: '12px', color: 'var(--stock-muted)' }}>Upload Image or PDF Evidence</span>
+                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--stock-text)', marginBottom: '4px' }}>
+                        Upload Video, Image, or PDF Evidence
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--stock-muted)', display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', padding: '2px 6px', borderRadius: '4px', fontWeight: '600' }}>🎥 Video: MP4, MOV, MKV, WebM, AVI, 3GP, etc.</span>
+                        <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '4px', fontWeight: '600' }}>📷 Images: PNG, JPG, WebP</span>
+                        <span style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', padding: '2px 6px', borderRadius: '4px', fontWeight: '600' }}>📄 PDF & Docs</span>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {proofFile && proofFile.type.startsWith("image/") && (
-                  <div style={{ marginTop: '16px', borderRadius: 'var(--stock-radius-lg)', overflow: 'hidden', border: '1px solid var(--stock-border)', background: '#000', display: 'flex', justifyContent: 'center' }}>
-                    <img
-                      src={URL.createObjectURL(proofFile)}
-                      alt="Proof"
-                      style={{ maxWidth: '100%', maxHeight: '220px', objectFit: 'contain' }}
-                    />
+                {/* Video Preview */}
+                {proofFile && isVideoFile(proofFile) && (
+                  <div style={{ marginTop: '16px', borderRadius: 'var(--stock-radius-lg)', overflow: 'hidden', border: '1px solid var(--stock-border)', background: '#0b0f19', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.9)', color: '#ffffff', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}>
+                        <Video size={15} style={{ color: '#818cf8' }} />
+                        {proofFile.name} ({(proofFile.size / (1024 * 1024)).toFixed(2)} MB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProofFile(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <X size={14} /> Remove
+                      </button>
+                    </div>
+                    <div style={{ padding: '10px', display: 'flex', justifyContent: 'center', background: '#000' }}>
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        src={URL.createObjectURL(proofFile)}
+                        style={{ width: '100%', maxHeight: '240px', borderRadius: '8px' }}
+                      />
+                    </div>
+                    <div style={{ padding: '6px 12px', fontSize: '11px', color: '#94a3b8', background: '#0f172a' }}>
+                      ✓ Video file ready for upload. You can preview playback above.
+                    </div>
                   </div>
                 )}
 
-                {proofFile && proofFile.type === "application/pdf" && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px', background: 'var(--stock-surface)', borderRadius: 'var(--stock-radius-lg)', marginTop: '16px', border: '1px solid var(--stock-border)' }}>
-                    <IonIcon icon={documentTextOutline} style={{ fontSize: '24px', color: 'var(--stock-primary)' }} />
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--stock-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proofFile.name}</span>
+                {/* Image Preview */}
+                {proofFile && isImageFile(proofFile) && (
+                  <div style={{ marginTop: '16px', borderRadius: 'var(--stock-radius-lg)', overflow: 'hidden', border: '1px solid var(--stock-border)', background: '#0b0f19', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.9)', color: '#ffffff', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}>
+                        <ImageIcon size={15} style={{ color: '#34d399' }} />
+                        {proofFile.name} ({(proofFile.size / 1024).toFixed(1)} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProofFile(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <X size={14} /> Remove
+                      </button>
+                    </div>
+                    <div style={{ padding: '10px', display: 'flex', justifyContent: 'center', background: '#000' }}>
+                      <img
+                        src={URL.createObjectURL(proofFile)}
+                        alt="Proof"
+                        style={{ maxWidth: '100%', maxHeight: '220px', objectFit: 'contain', borderRadius: '8px' }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* PDF Document Preview */}
+                {proofFile && isPdfFile(proofFile) && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--stock-surface)', borderRadius: 'var(--stock-radius-lg)', marginTop: '16px', border: '1px solid var(--stock-border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                      <IonIcon icon={documentTextOutline} style={{ fontSize: '24px', color: 'var(--stock-primary)', flexShrink: 0 }} />
+                      <div style={{ overflow: 'hidden' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--stock-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proofFile.name}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--stock-muted)' }}>PDF Document • {(proofFile.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProofFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--stock-danger)', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Other File Preview */}
+                {proofFile && !isVideoFile(proofFile) && !isImageFile(proofFile) && !isPdfFile(proofFile) && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--stock-surface)', borderRadius: 'var(--stock-radius-lg)', marginTop: '16px', border: '1px solid var(--stock-border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                      <FileText size={22} style={{ color: 'var(--stock-primary)', flexShrink: 0 }} />
+                      <div style={{ overflow: 'hidden' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--stock-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proofFile.name}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--stock-muted)' }}>Attached File • {(proofFile.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProofFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--stock-danger)', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
                 )}
               </div>

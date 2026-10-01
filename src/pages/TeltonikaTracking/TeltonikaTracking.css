@@ -1,0 +1,648 @@
+/* ========================================================
+   TELTONIKA DEVICE TRACKING - DYNAMIC ACCENT COLOR & THEMED UI
+   Supports all Accent Colors: Blue, Orange, Green, Violet, 
+   Teal, Pink, Chocolate, DBASE, Midnight, Lavender, Crimson, 
+   Amber, Forest, Plum, Coal, Burgundy + Light/Dark modes
+   ======================================================== */
+
+.teltonika-page {
+  --background: #0f172a;
+  background-color: #0f172a;
+  color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  height: 100%;
+}
+
+.teltonika-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #0b1120;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Header with Dynamic Theme Gradient */
+.teltonika-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: rgba(15, 23, 42, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  z-index: 100;
+}
+
+.teltonika-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.teltonika-title-group h1 {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--ion-color-primary, #38bdf8) 0%, var(--ion-color-secondary, #818cf8) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teltonika-title-group p {
+  margin: 2px 0 0 0;
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.teltonika-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Connection Badge */
+.live-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all 0.3s ease;
+}
+
+.live-status-pill.connected {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.live-status-pill.connecting {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.live-status-pill.disconnected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+/* View Mode & Map Style Selector Pills */
+.teltonika-tabs {
+  display: flex;
+  background: rgba(30, 41, 59, 0.85);
+  border-radius: 8px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.teltonika-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.teltonika-tab-btn.active {
+  background: var(--ion-color-primary, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--theme-shadow, rgba(59, 130, 246, 0.4));
+}
+
+.teltonika-btn-icon {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.teltonika-btn-icon:hover {
+  background: rgba(51, 65, 85, 0.95);
+  color: #ffffff;
+  border-color: var(--ion-color-primary, #38bdf8);
+}
+
+/* Main Split View Layout */
+.teltonika-main-layout {
+  display: flex;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  height: calc(100% - 58px);
+}
+
+/* Sidebar */
+.teltonika-sidebar {
+  width: 380px;
+  min-width: 320px;
+  max-width: 420px;
+  background: rgba(15, 23, 42, 0.98);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 25;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .teltonika-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .teltonika-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+}
+
+/* Device Selector Card with Dynamic Primary Accent */
+.device-select-section {
+  padding: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.device-card-active {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid var(--ion-color-primary, rgba(56, 189, 248, 0.4));
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 4px 16px var(--theme-shadow, rgba(0, 0, 0, 0.3));
+}
+
+.device-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.device-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.device-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--ion-color-primary, #0284c7) 0%, var(--ion-color-secondary, #2563eb) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 2px 10px var(--theme-shadow, rgba(0, 0, 0, 0.2));
+}
+
+.device-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f1f5f9;
+}
+
+.device-imei {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge.moving {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.status-badge.idle {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.status-badge.stopped {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.status-badge.offline {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* OBD Realtime Metrics Grid */
+.telemetry-section {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.telemetry-card {
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.telemetry-card:hover {
+  border-color: var(--ion-color-primary, #38bdf8);
+  transform: translateY(-2px);
+}
+
+.telemetry-card.highlight {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(30, 41, 59, 0.8) 100%);
+  border-color: var(--ion-color-primary, #38bdf8);
+}
+
+.telemetry-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.telemetry-value-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.telemetry-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-unit {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ignition-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.ignition-pill.on {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ignition-pill.off {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+/* History Controls Panel */
+.history-section {
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.history-date-input {
+  width: 100%;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.history-date-input:focus {
+  outline: none;
+  border-color: var(--ion-color-primary, #38bdf8);
+}
+
+.history-replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.replay-btn {
+  background: var(--ion-color-primary, #3b82f6);
+  color: #ffffff;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--theme-shadow, rgba(59, 130, 246, 0.4));
+  transition: transform 0.15s;
+}
+
+.replay-btn:hover {
+  transform: scale(1.06);
+}
+
+.replay-slider {
+  flex: 1;
+  accent-color: var(--ion-color-primary, #38bdf8);
+}
+
+/* Map Viewport & Fullscreen Fill */
+.teltonika-map-container {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background: #0f172a;
+  overflow: hidden;
+}
+
+#teltonika-map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 10;
+  background-color: #0f172a;
+}
+
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  background: #0f172a !important;
+  font-family: inherit;
+}
+
+/* Floating Controls on Map */
+.map-style-toggle-bar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.map-style-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.map-style-btn.active {
+  background: var(--ion-color-primary, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 2px 6px var(--theme-shadow, rgba(59, 130, 246, 0.3));
+}
+
+.proxy-notice-pill {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  z-index: 30;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.map-overlay-card {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 16px;
+  backdrop-filter: blur(12px);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.overlay-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.overlay-label {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.overlay-val {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+/* Custom Car Marker with Directional Bearing */
+.teltonika-car-marker {
+  transition: transform 0.35s ease-out;
+}
+
+.teltonika-car-pin {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  border: 2.5px solid #ffffff;
+  position: relative;
+}
+
+.teltonika-car-pin.moving {
+  background: #10b981;
+}
+
+.teltonika-car-pin.idle {
+  background: #f59e0b;
+}
+
+.teltonika-car-pin.stopped {
+  background: #64748b;
+}
+
+.teltonika-car-pin.offline {
+  background: #ef4444;
+}
+
+.heading-arrow {
+  position: absolute;
+  top: -8px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 8px solid #ffffff;
+}
+
+/* Modal Styling */
+.teltonika-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.teltonika-modal-box {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  padding: 24px;
+}
+
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modal-header-row h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #f8fafc;
+}
+
+.code-snippet {
+  background: #020617;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--ion-color-primary, #38bdf8);
+  word-break: break-all;
+  user-select: all;
+  margin: 6px 0;
+}

@@ -257,6 +257,20 @@ const Menu: React.FC = () => {
     userData?.username ||
     "";
 
+  const isTeltonikaAllowed =
+    String(
+      empCodeDisplay ||
+      userData?.EmpCode ||
+      userData?.empCode ||
+      userData?.emp_code ||
+      userData?.Empcode ||
+      userData?.userName ||
+      userData?.username ||
+      userProfile?.EmpCode ||
+      userProfile?.empCode ||
+      ""
+    ).trim() === "1501";
+
   const picSrc =
     userProfile?.ProfileImage ||
     userProfile?.profileImage ||
@@ -353,13 +367,31 @@ const Menu: React.FC = () => {
                   No menu items found.
                 </p>
               )}
+              {/* Teltonika Device Tracking */}
+              {isTeltonikaAllowed && (
+                <IonItem
+                  button
+                  lines="none"
+                  onClick={() => handleTabClick("/teltonika-tracking")}
+                  className={location.pathname === "/teltonika-tracking" ? "item-active" : ""}
+                  style={{ "--item-index": (menuItems.length || 0) + 1 } as React.CSSProperties}
+                >
+                  <div className="menu-item-row" title="Teltonika Device Tracking">
+                    <div className="menu-icon-chip" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8" }}>
+                      <IonIcon icon={radio} />
+                    </div>
+                    <span className="menu-item-label" style={{ fontWeight: 600 }}>Teltonika Tracking</span>
+                  </div>
+                </IonItem>
+              )}
+
               {/* Logout Button */}
               <IonItem
                 button
                 lines="none"
                 onClick={handleLogout}
                 className="logout-item"
-                style={{ "--item-index": (menuItems.length || 0) + 2 } as React.CSSProperties}
+                style={{ "--item-index": (menuItems.length || 0) + (isTeltonikaAllowed ? 2 : 1) } as React.CSSProperties}
               >
                 <div className="menu-item-row" title="Logout">
                   <div className="menu-icon-chip">
@@ -421,6 +453,9 @@ const getIcon = (iconName: string | null) => {
     "OnDuty Tracking": navigate,
     "onduty-tracking": navigate,
     "Tracking": navigate,
+    "Teltonika Tracking": radio,
+    "Teltonika Device Tracking": radio,
+    "teltonika-tracking": radio,
   };
   return iconName && icons[iconName] ? icons[iconName] : documentText;
 };
