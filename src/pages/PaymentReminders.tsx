@@ -118,6 +118,7 @@ const PaymentReminders: React.FC = () => {
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
   const [selectedReminderForDetails, setSelectedReminderForDetails] = useState<PaymentReminder | null>(null);
+  const [showCostBreakdownModal, setShowCostBreakdownModal] = useState<boolean>(false);
 
   // Form State - Add / Edit
   const [editReminderId, setEditReminderId] = useState<number | null>(null);
@@ -280,7 +281,7 @@ const PaymentReminders: React.FC = () => {
     if (diffDays < 0) {
       return {
         days: diffDays,
-        text: `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? "s" : ""}`,
+        text: `Overdue ${Math.abs(diffDays)}d`,
         class: "overdue",
         badge: "danger",
         isAlert: true,
@@ -288,7 +289,7 @@ const PaymentReminders: React.FC = () => {
     } else if (diffDays === 0) {
       return {
         days: 0,
-        text: "Due TODAY",
+        text: "Due Today",
         class: "due-today",
         badge: "danger",
         isAlert: true,
@@ -298,7 +299,7 @@ const PaymentReminders: React.FC = () => {
       const isDueSoon = thresholds.some((t) => diffDays <= t);
       return {
         days: diffDays,
-        text: `Due in ${diffDays} day${diffDays > 1 ? "s" : ""}`,
+        text: `${diffDays}d left`,
         class: isDueSoon ? "due-soon" : "due-normal",
         badge: isDueSoon ? "warning" : "success",
         isAlert: isDueSoon,
@@ -321,6 +322,25 @@ const PaymentReminders: React.FC = () => {
         return 0; // One-time expenses not recurring monthly
       default:
         return cost;
+    }
+  };
+
+  // Helper: Get formatted human-readable calculation formula
+  const getCycleFormula = (cost: number, currency: string, cycle: string) => {
+    const sym = getCurrencySymbol(currency);
+    switch (cycle.toLowerCase()) {
+      case "monthly":
+        return `${sym}${cost.toLocaleString()} ÷ 1 mo = ${sym}${cost.toLocaleString()}/mo`;
+      case "quarterly":
+        return `${sym}${cost.toLocaleString()} ÷ 3 mo = ${sym}${Math.round(cost / 3).toLocaleString()}/mo`;
+      case "half-yearly":
+        return `${sym}${cost.toLocaleString()} ÷ 6 mo = ${sym}${Math.round(cost / 6).toLocaleString()}/mo`;
+      case "annually":
+        return `${sym}${cost.toLocaleString()} ÷ 12 mo = ${sym}${Math.round(cost / 12).toLocaleString()}/mo`;
+      case "one-time":
+        return "One-time (₹0 / mo)";
+      default:
+        return `${sym}${cost.toLocaleString()} (${cycle})`;
     }
   };
 
@@ -369,6 +389,24 @@ const PaymentReminders: React.FC = () => {
   const totalMonthlyCostEst = reminders
     .filter((r) => r.status === "Active" && r.currency === "INR")
     .reduce((acc, r) => acc + calculateMonthlyCost(r.cost, r.renewalCycle), 0);
+
+  const activeINRSubscriptions = reminders.filter(
+    (r) => r.status === "Active" && r.currency === "INR"
+  );
+
+  // Current month due calculation (Active INR subscriptions due in current calendar month)
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const currentMonthName = now.toLocaleString("default", { month: "long" });
+
+  const currentMonthDueSubscriptions = reminders.filter((r) => {
+    if (r.status !== "Active" || r.currency !== "INR") return false;
+    const expDate = new Date(r.expiryDate);
+    return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+  });
+
+  const currentMonthTotalDue = currentMonthDueSubscriptions.reduce((acc, r) => acc + r.cost, 0);
 
   // 3. Add / Edit Subscription Handlers
   const handleOpenAddModal = () => {
@@ -700,15 +738,15 @@ const PaymentReminders: React.FC = () => {
             </div>
           ) : (
             <>
-              {/* ── Dashboard Stats Row ── */}
+              {/* ── Dashboard Stats Row (4 In One Row) ── */}
               <div className="stats-row-grid">
                 <div className="stat-card glass-panel border-left-blue">
                   <div className="stat-icon-wrapper bg-soft-blue">
                     <IonIcon icon={walletOutline} className="text-blue" />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-number">{totalActiveCount}</span>
                     <span className="stat-label">Active Subscriptions</span>
+                    <span className="stat-number text-blue">{totalActiveCount}</span>
                   </div>
                 </div>
 
@@ -717,8 +755,8 @@ const PaymentReminders: React.FC = () => {
                     <IonIcon icon={alertCircleOutline} className="text-red pulsating-light" />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-number text-red">{overdueCount}</span>
                     <span className="stat-label">Overdue Bills</span>
+                    <span className="stat-number text-red">{overdueCount}</span>
                   </div>
                 </div>
 
@@ -727,20 +765,29 @@ const PaymentReminders: React.FC = () => {
                     <IonIcon icon={timeOutline} className="text-orange" />
                   </div>
                   <div className="stat-content">
+                    <span className="stat-label">Due in Alert Window</span>
                     <span className="stat-number text-orange">{dueSoonCount}</span>
-                    <span className="stat-label">Due Within Alert Threshold</span>
                   </div>
                 </div>
 
-                <div className="stat-card glass-panel border-left-green">
+                <div 
+                  className="stat-card glass-panel border-left-green stat-card-interactive"
+                  onClick={() => setShowCostBreakdownModal(true)}
+                  title={`Click to view all ${currentMonthDueSubscriptions.length} subscriptions due in ${currentMonthName} ${currentYear}`}
+                >
                   <div className="stat-icon-wrapper bg-soft-green">
                     <span className="text-green currency-symbol">₹</span>
                   </div>
                   <div className="stat-content">
+                    <div className="stat-header-label-row">
+                      <span className="stat-label">Due in {currentMonthName}</span>
+                      <span className="stat-info-badge interactive-badge" title="Click to view itemized bills due this month">
+                        View 🔍
+                      </span>
+                    </div>
                     <span className="stat-number text-green">
-                      ₹{Math.round(totalMonthlyCostEst).toLocaleString()}
+                      ₹{Math.round(currentMonthTotalDue).toLocaleString()}
                     </span>
-                    <span className="stat-label">Est. Monthly Cost (INR)</span>
                   </div>
                 </div>
               </div>
@@ -823,17 +870,17 @@ const PaymentReminders: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="table-responsive desktop-only-table">
-                      <table className="reminders-table">
+                    <div className="pr-table-container desktop-only-table">
+                      <table className="pr-reminders-table">
                         <thead>
                           <tr>
                             <th>Subscription / Vendor</th>
                             <th>Category</th>
                             <th>Frequency</th>
-                            <th>Cost</th>
+                            <th>Plan Cost</th>
                             <th>Next Due Date</th>
                             <th>Target Employees</th>
-                            <th>Actions</th>
+                            <th className="pr-actions-th">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -843,9 +890,9 @@ const PaymentReminders: React.FC = () => {
                               <tr key={item.id} className={`row-hover-effect ${item.status === 'Paused' ? 'row-paused' : ''}`} onClick={() => handleOpenDetailsModal(item)} style={{ cursor: 'pointer' }}>
                                 <td>
                                   <div className="name-provider-cell">
-                                    <span className="item-main-name">{item.name}</span>
+                                    <span className="item-main-name" title={item.name}>{item.name}</span>
                                     {item.provider && (
-                                      <span className="item-provider-label">{item.provider}</span>
+                                      <span className="item-provider-label" title={`Provider: ${item.provider}`}>{item.provider}</span>
                                     )}
                                   </div>
                                 </td>
@@ -858,10 +905,11 @@ const PaymentReminders: React.FC = () => {
                                   <span className="cycle-badge">{item.renewalCycle}</span>
                                 </td>
                                 <td>
-                                  <span className="cost-tag font-semibold">
-                                    {getCurrencySymbol(item.currency)}
-                                    {item.cost.toLocaleString()}
-                                  </span>
+                                  <div className="cost-cell-display">
+                                    <span className="cost-tag font-semibold">
+                                      {getCurrencySymbol(item.currency)}{item.cost.toLocaleString()}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td>
                                   <div className="due-date-cell">
@@ -879,7 +927,7 @@ const PaymentReminders: React.FC = () => {
                                 </td>
                                 <td>
                                   <div className="assigned-emps-cell" title={getEmployeeNames(item.notifyEmpCodes)}>
-                                    <User size={14} className="cell-icon-prefix" />
+                                    <User size={13} className="cell-icon-prefix" />
                                     <span className="truncate-text">
                                       {getEmployeeNames(item.notifyEmpCodes)}
                                     </span>
@@ -889,42 +937,42 @@ const PaymentReminders: React.FC = () => {
                                   <div className="actions-cell-row" onClick={(e) => e.stopPropagation()}>
                                     {item.status === "Active" && (
                                       <button
-                                        className="action-btn pay-btn-icon"
+                                        className="pr-action-btn pr-btn-pay"
                                         title="Mark as Paid"
                                         onClick={() => handleOpenMarkPaidModal(item)}
                                       >
-                                        <CheckCircle size={15} />
+                                        <CheckCircle size={15} strokeWidth={2.2} />
                                       </button>
                                     )}
                                     <button
-                                      className="action-btn history-btn-icon"
+                                      className="pr-action-btn pr-btn-history"
                                       title="Payment History Logs"
                                       onClick={() => handleOpenHistoryModal(item)}
                                     >
-                                      <History size={15} />
+                                      <History size={15} strokeWidth={2.2} />
                                     </button>
                                     <button
-                                      className="action-btn edit-btn-icon"
+                                      className="pr-action-btn pr-btn-edit"
                                       title="Edit Subscription"
                                       onClick={() => handleOpenEditModal(item)}
                                     >
-                                      <Edit size={15} />
+                                      <Edit size={15} strokeWidth={2.2} />
                                     </button>
                                     {item.status === "Active" && (
                                       <button
-                                        className="action-btn test-btn-icon"
+                                        className="pr-action-btn pr-btn-test"
                                         title="Test Notification"
                                         onClick={() => handleTriggerTestNotification(item.id, item.name)}
                                       >
-                                        <Bell size={15} />
+                                        <Bell size={15} strokeWidth={2.2} />
                                       </button>
                                     )}
                                     <button
-                                      className="action-btn delete-btn-icon"
+                                      className="pr-action-btn pr-btn-delete"
                                       title="Delete Subscription"
                                       onClick={() => handleDeleteReminder(item.id, item.name)}
                                     >
-                                      <Trash2 size={15} />
+                                      <Trash2 size={15} strokeWidth={2.2} />
                                     </button>
                                   </div>
                                 </td>
@@ -965,13 +1013,13 @@ const PaymentReminders: React.FC = () => {
                               {item.provider && <p className="mobile-card-provider">{item.provider}</p>}
                               
                               <div className="mobile-card-row">
-                                <span className="mobile-card-cost">
+                                <div className="mobile-card-cost">
                                   <span className="cost-tag">
                                     {getCurrencySymbol(item.currency)}
                                     {item.cost.toLocaleString()}
                                   </span>
                                   <span className="cycle-badge"> / {item.renewalCycle}</span>
-                                </span>
+                                </div>
                                 <span className="mobile-card-due-date">
                                   <strong>Due:</strong> {formatDate(item.expiryDate)}
                                 </span>
@@ -988,42 +1036,42 @@ const PaymentReminders: React.FC = () => {
                               <div className="actions-cell-row">
                                 {item.status === "Active" && (
                                   <button
-                                    className="action-btn pay-btn-icon"
+                                    className="pr-action-btn pr-btn-pay"
                                     title="Mark as Paid"
                                     onClick={() => handleOpenMarkPaidModal(item)}
                                   >
-                                    <CheckCircle size={14} />
+                                    <CheckCircle size={14} strokeWidth={2.2} />
                                   </button>
                                 )}
                                 <button
-                                  className="action-btn history-btn-icon"
+                                  className="pr-action-btn pr-btn-history"
                                   title="Payment History Logs"
                                   onClick={() => handleOpenHistoryModal(item)}
                                 >
-                                  <History size={14} />
+                                  <History size={14} strokeWidth={2.2} />
                                 </button>
                                 <button
-                                  className="action-btn edit-btn-icon"
+                                  className="pr-action-btn pr-btn-edit"
                                   title="Edit Subscription"
                                   onClick={() => handleOpenEditModal(item)}
                                 >
-                                  <Edit size={14} />
+                                  <Edit size={14} strokeWidth={2.2} />
                                 </button>
                                 {item.status === "Active" && (
                                   <button
-                                    className="action-btn test-btn-icon"
+                                    className="pr-action-btn pr-btn-test"
                                     title="Test Notification"
                                     onClick={() => handleTriggerTestNotification(item.id, item.name)}
                                   >
-                                    <Bell size={14} />
+                                    <Bell size={14} strokeWidth={2.2} />
                                   </button>
                                 )}
                                 <button
-                                  className="action-btn delete-btn-icon"
+                                  className="pr-action-btn pr-btn-delete"
                                   title="Delete Subscription"
                                   onClick={() => handleDeleteReminder(item.id, item.name)}
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={14} strokeWidth={2.2} />
                                 </button>
                               </div>
                             </div>
@@ -1558,9 +1606,9 @@ const PaymentReminders: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="details-meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                  <div className="details-meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
                     <div className="details-meta-item">
-                      <label className="details-label">Cost / Cycle</label>
+                      <label className="details-label">Billing Cost (Plan)</label>
                       <p className="details-value">
                         {getCurrencySymbol(selectedReminderForDetails.currency)}
                         {selectedReminderForDetails.cost.toLocaleString()} / {selectedReminderForDetails.renewalCycle}
@@ -1652,6 +1700,118 @@ const PaymentReminders: React.FC = () => {
                       Mark as Paid
                     </button>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── MODAL 4: CURRENT MONTH DUE BREAKDOWN ── */}
+          {showCostBreakdownModal && (
+            <div className="custom-modal-backdrop" onClick={() => setShowCostBreakdownModal(false)}>
+              <div className="custom-modal-content breakdown-modal-compact glass-panel" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header-row breakdown-modal-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="stat-icon-wrapper bg-soft-green breakdown-icon-badge">
+                      <span className="text-green currency-symbol">₹</span>
+                    </div>
+                    <div>
+                      <h3 className="breakdown-modal-title">Due in {currentMonthName} {currentYear} Breakdown</h3>
+                      <p className="breakdown-modal-subtitle">
+                        {currentMonthDueSubscriptions.length} active subscription bills scheduled for renewal this month
+                      </p>
+                    </div>
+                  </div>
+                  <button className="modal-close-btn breakdown-close-btn" onClick={() => setShowCostBreakdownModal(false)}>
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="breakdown-modal-body">
+                  <div className="calc-explanation-box">
+                    <p className="calc-explanation-text">
+                      📅 <strong>{currentMonthName} {currentYear} Renewal Schedule:</strong> Showing active office subscription bills expiring in the current month.
+                    </p>
+                  </div>
+
+                  <div className="breakdown-table-container">
+                    <table className="breakdown-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '32px' }}>#</th>
+                          <th>Subscription Name</th>
+                          <th>Category</th>
+                          <th>Frequency</th>
+                          <th>Due Date</th>
+                          <th style={{ textAlign: 'right' }}>Bill Amount Due</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentMonthDueSubscriptions.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: '16px', color: '#718096' }}>
+                              No active INR subscriptions due in {currentMonthName} {currentYear}.
+                            </td>
+                          </tr>
+                        ) : (
+                          currentMonthDueSubscriptions.map((item, idx) => {
+                            const dueState = getDueStatus(item.expiryDate, item.reminderThresholds);
+                            return (
+                              <tr key={item.id}>
+                                <td style={{ color: '#718096', fontWeight: 600 }}>{idx + 1}</td>
+                                <td>
+                                  <strong style={{ color: '#1a202c', fontSize: '12px' }}>{item.name}</strong>
+                                  {item.provider && (
+                                    <span style={{ display: 'block', fontSize: '10.5px', color: '#718096' }}>
+                                      {item.provider}
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={`category-tag tag-${item.category.toLowerCase().replace(" ", "-")}`} style={{ fontSize: '9.5px', padding: '1.5px 5px' }}>
+                                    {item.category}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="cycle-badge" style={{ fontSize: '10.5px', padding: '1.5px 6px' }}>{item.renewalCycle}</span>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11.5px', fontWeight: 600 }}>{formatDate(item.expiryDate)}</span>
+                                    <span className={`due-countdown-tag badge-${dueState.badge}`} style={{ fontSize: '9.5px', padding: '1px 4px' }}>
+                                      {dueState.text}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <span className="text-green" style={{ fontWeight: 800, fontSize: '13px' }}>
+                                    ₹{item.cost.toLocaleString()}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="breakdown-total-row">
+                          <td colSpan={5} style={{ textAlign: 'right', fontWeight: 700, fontSize: '12.5px', color: '#1a202c', padding: '8px 10px' }}>
+                            Total Due in {currentMonthName} {currentYear} (INR):
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '8px 10px' }}>
+                            <span className="text-green" style={{ fontWeight: 900, fontSize: '15px' }}>
+                              ₹{Math.round(currentMonthTotalDue).toLocaleString()}
+                            </span>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="breakdown-actions-row">
+                  <button className="form-cancel-btn breakdown-close-action-btn" onClick={() => setShowCostBreakdownModal(false)}>
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
