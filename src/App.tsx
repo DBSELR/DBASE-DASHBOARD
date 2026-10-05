@@ -75,6 +75,7 @@ import MeetingList from "./pages/Meetings/MeetingList";
 import PaymentReminders from "./pages/PaymentReminders";
 import TaskNotificationPopup from "./components/TaskNotificationPopup";
 import WorkReportReminderModal from "./components/WorkReportReminderModal";
+import PenaltyNotificationModal from "./components/PenaltyNotificationModal";
 import { registerNativePush } from "./services/pushNotification";
 
 import PenaltyMaster from "./pages/PenaltyMaster";
@@ -290,6 +291,7 @@ const App: React.FC = () => {
         {user && <SpeedDialComponent />}
         {user && <TaskNotificationPopup />}
         {user && <WorkReportReminderModal />}
+        {user && <PenaltyNotificationModal />}
         {user && (
           <LocationPermissionModal
             isOpen={showPermissionModal}

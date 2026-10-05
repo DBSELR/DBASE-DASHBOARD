@@ -4,7 +4,7 @@ import { API_BASE } from "../config";
 
 import "./EmployeePenalties.css";
 import "./PenaltyDashboard.css";
-import { IonPage, IonContent, IonIcon } from "@ionic/react";
+import { IonPage, IonContent, IonIcon, IonToast } from "@ionic/react";
 import {
     ChevronLeft,
     Eye,
@@ -21,7 +21,15 @@ import {
     Bot,
     UserCheck,
     Image as ImageIcon,
-    Video
+    Video,
+    ArrowRightLeft,
+    Upload,
+    Search,
+    Send,
+    Award,
+    CheckCircle2,
+    AlertCircle,
+    History
 } from "lucide-react";
 import { warningOutline, documentTextOutline } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
@@ -42,6 +50,10 @@ export interface ViolationItem {
     ProofFileName?: string;
     ProofFilePath?: any;
     ProofFileType?: string;
+    TransferStatus?: string;
+    TransferredToEmpCode?: string;
+    TransferredFromEmpCode?: string;
+    TransferRequestId?: number;
     raw?: any;
 }
 
@@ -64,6 +76,126 @@ function EmployeePenalties() {
     // Selected violation for the detail modal
     const [selectedViolation, setSelectedViolation] = useState<ViolationItem | null>(null);
     const [imageError, setImageError] = useState(false);
+
+    // Transfer Slip States & Handlers
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [slipToTransfer, setSlipToTransfer] = useState<ViolationItem | null>(null);
+    const [allEmployees, setAllEmployees] = useState<any[]>([]);
+    const [transferTargetEmp, setTransferTargetEmp] = useState("");
+    const [transferViolationTime, setTransferViolationTime] = useState("");
+    const [transferRemarks, setTransferRemarks] = useState("");
+    const [transferProofFile, setTransferProofFile] = useState<File | null>(null);
+    const [transferSubmitting, setTransferSubmitting] = useState(false);
+    const [transferSearch, setTransferSearch] = useState("");
+    const [transferDropdownOpen, setTransferDropdownOpen] = useState(false);
+    const [toastState, setToastState] = useState<{ isOpen: boolean; message: string; color: "success" | "danger" | "warning" }>({
+        isOpen: false,
+        message: "",
+        color: "success"
+    });
+
+    const showToast = (message: string, color: "success" | "danger" | "warning" = "success") => {
+        setToastState({ isOpen: true, message, color });
+    };
+
+    const handleOpenTransferModal = async (violation: ViolationItem) => {
+        setSlipToTransfer(violation);
+        setTransferTargetEmp("");
+        const now = new Date();
+        const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setTransferViolationTime(localIso);
+        setTransferRemarks("");
+        setTransferProofFile(null);
+        setTransferSearch("");
+        setTransferDropdownOpen(false);
+        setTransferModalOpen(true);
+
+        if (allEmployees.length === 0) {
+            try {
+                const res = await axios.get(`${API_BASE}Employee/Load_Employees`);
+                setAllEmployees(res.data || []);
+            } catch (e) {
+                console.error("Failed to load employees for transfer:", e);
+            }
+        }
+    };
+
+    const handleCloseTransferModal = () => {
+        if (transferSubmitting) return;
+        setTransferModalOpen(false);
+        setSlipToTransfer(null);
+    };
+
+    const handleSubmitTransfer = async () => {
+        if (!slipToTransfer?.Id) {
+            showToast("Invalid slip selected", "danger");
+            return;
+        }
+        if (!transferTargetEmp) {
+            showToast("Please select the employee who committed the violation", "warning");
+            return;
+        }
+        const currentCode = String(userData?.empCode || "").trim().toLowerCase();
+        if (transferTargetEmp.trim().toLowerCase() === currentCode) {
+            showToast("You cannot transfer a slip to yourself!", "warning");
+            return;
+        }
+        if (!transferRemarks.trim()) {
+            showToast("Please enter remarks explaining the violation committed by this employee", "warning");
+            return;
+        }
+
+        setTransferSubmitting(true);
+        try {
+            const token = localStorage.getItem("token");
+            const formData = new FormData();
+            formData.append("PenaltyRecordId", slipToTransfer.Id.toString());
+            formData.append("FromEmpCode", userData?.empCode || "");
+            formData.append("ToEmpCode", transferTargetEmp);
+            formData.append("ViolationTime", transferViolationTime || new Date().toISOString());
+            formData.append("Remarks", transferRemarks);
+            if (transferProofFile) {
+                formData.append("ProofFile", transferProofFile);
+            }
+
+            const res = await axios.post(`${API_BASE}Penalty/RequestSlipTransfer`, formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (res.data?.success) {
+                showToast("Transfer request submitted successfully! Sent to HR for review.", "success");
+                setTransferModalOpen(false);
+                if (userData?.empCode) {
+                    loadData(userData.empCode);
+                }
+            } else {
+                showToast(res.data?.message || "Failed to submit transfer request", "danger");
+            }
+        } catch (err: any) {
+            console.error(err);
+            showToast(err?.response?.data?.message || err?.message || "Error submitting transfer request", "danger");
+        } finally {
+            setTransferSubmitting(false);
+        }
+    };
+
+    //----------------------------------------
+    // HELPER: Convert Any Field Safely to String (Prevents Object-as-Child React Crashes)
+    //----------------------------------------
+    const toSafeString = (val: any, fallback = ""): string => {
+        if (val === null || val === undefined) return fallback;
+        if (typeof val === "string") {
+            const trimmed = val.trim();
+            return trimmed === "{}" ? fallback : trimmed;
+        }
+        if (typeof val === "number" || typeof val === "boolean") {
+            return String(val);
+        }
+        return fallback;
+    };
 
     //----------------------------------------
     // HELPER: Format Incident Time
@@ -302,29 +434,34 @@ function EmployeePenalties() {
                         );
                     }) || dashboardViolations[idx];
 
-                    const resolvedPenaltyType =
+                    const resolvedPenaltyType = toSafeString(
                         item.PenaltyType ||
                         rule?.penaltyType ||
                         rule?.PenaltyType ||
-                        matchedFromDashboard?.PenaltyType ||
-                        "Policy Violation";
+                        matchedFromDashboard?.PenaltyType,
+                        "Policy Violation"
+                    );
 
                     return {
                         Id: item.Id,
-                        EmpCode: item.EmpCode || empCode,
+                        EmpCode: toSafeString(item.EmpCode, empCode),
                         PenaltyId: item.PenaltyId,
                         PenaltyType: resolvedPenaltyType,
                         PenaltyDate: item.PenaltyDate,
                         ViolationTime: item.ViolationTime,
-                        Remarks: item.Remarks || matchedFromDashboard?.Remarks || "",
-                        SlipType: item.SlipType || matchedFromDashboard?.SlipType || "Yellow Slip",
-                        SlipCount: item.SlipCount ?? matchedFromDashboard?.SlipCount ?? 1,
-                        Status: item.Status || "Applied",
-                        AppliedBy: item.AppliedBy || matchedFromDashboard?.AppliedBy || "System",
+                        Remarks: toSafeString(item.Remarks, toSafeString(matchedFromDashboard?.Remarks, "")),
+                        SlipType: toSafeString(item.SlipType, toSafeString(matchedFromDashboard?.SlipType, "Yellow Slip")),
+                        SlipCount: Number(item.SlipCount) || Number(matchedFromDashboard?.SlipCount) || 1,
+                        Status: toSafeString(item.Status, "Applied"),
+                        AppliedBy: toSafeString(item.AppliedBy, toSafeString(matchedFromDashboard?.AppliedBy, "System")),
                         AppliedDate: item.AppliedDate || matchedFromDashboard?.AppliedDate || item.PenaltyDate,
-                        ProofFileName: typeof item.ProofFileName === "string" ? item.ProofFileName : "",
+                        ProofFileName: toSafeString(item.ProofFileName, ""),
                         ProofFilePath: item.ProofFilePath,
-                        ProofFileType: typeof item.ProofFileType === "string" ? item.ProofFileType : "",
+                        ProofFileType: toSafeString(item.ProofFileType, ""),
+                        TransferStatus: toSafeString(item.TransferStatus, "None"),
+                        TransferredToEmpCode: toSafeString(item.TransferredToEmpCode, ""),
+                        TransferredFromEmpCode: toSafeString(item.TransferredFromEmpCode, ""),
+                        TransferRequestId: item.TransferRequestId || null,
                         raw: item
                     };
                 });
@@ -332,13 +469,16 @@ function EmployeePenalties() {
                 combinedViolations = dashboardViolations.map((item: any, idx: number) => ({
                     Id: item.Id || idx + 1,
                     EmpCode: empCode,
-                    PenaltyType: item.PenaltyType || "Policy Violation",
-                    SlipType: item.SlipType || "Yellow Slip",
-                    SlipCount: item.SlipCount ?? 1,
-                    Remarks: item.Remarks || "",
+                    PenaltyType: toSafeString(item.PenaltyType, "Policy Violation"),
+                    SlipType: toSafeString(item.SlipType, "Yellow Slip"),
+                    SlipCount: Number(item.SlipCount) || 1,
+                    Remarks: toSafeString(item.Remarks, ""),
                     AppliedDate: item.AppliedDate || "",
-                    Status: item.Status || "Applied",
-                    AppliedBy: item.AppliedBy || "System",
+                    Status: toSafeString(item.Status, "Applied"),
+                    AppliedBy: toSafeString(item.AppliedBy, "System"),
+                    TransferStatus: toSafeString(item.TransferStatus, "None"),
+                    TransferredToEmpCode: toSafeString(item.TransferredToEmpCode, ""),
+                    TransferredFromEmpCode: toSafeString(item.TransferredFromEmpCode, ""),
                     raw: item
                 }));
             }
@@ -416,21 +556,22 @@ function EmployeePenalties() {
         );
     }
 
-    const emp = data.summary?.[0] || {};
-    const esc = data.escalation?.[0] || {};
+    const emp = (data.summary && data.summary[0] && typeof data.summary[0] === "object") ? data.summary[0] : {};
+    const esc = (data.escalation && data.escalation[0] && typeof data.escalation[0] === "object") ? data.escalation[0] : {};
 
     // Profile Details
-    const empName = emp.EMPNAME || userData?.empName || userData?.EMPNAME || userData?.userName || "HARISH PAMPANA";
-    const empCode = emp.EMPCODE || userData?.empCode || userData?.EMPCODE || "1589";
-    const designation = userData?.designation || userData?.DESIGNATION || userData?.role || "Developer";
+    const empName = toSafeString(emp.EMPNAME, toSafeString(userData?.empName, toSafeString(userData?.EMPNAME, toSafeString(userData?.userName, "HARISH PAMPANA"))));
+    const empCode = toSafeString(emp.EMPCODE, toSafeString(userData?.empCode, toSafeString(userData?.EMPCODE, "1589")));
+    const designation = toSafeString(userData?.designation, toSafeString(userData?.DESIGNATION, toSafeString(userData?.role, "Developer")));
+    const escalationStatus = toSafeString(esc.EscalationStatus, "Normal Status");
 
     return (
         <IonPage>
             <IonContent className="page-content">
-                <div className="wr-container stock-container" style={{ padding: 0, minHeight: "auto", backgroundColor: "transparent" }}>
+                <div className="ep-page-wrapper">
                     
                     {/* ── Premium Page Header ── */}
-                    <div className="page-wr-header" style={{ margin: "16px", borderRadius: "16px", padding: "16px" }}>
+                    <div className="page-wr-header ep-header-banner">
                         <div className="page-wr-header-left">
                             <button className="page-wr-back-btn" onClick={() => history.goBack()} title="Go Back">
                                 <ChevronLeft size={22} color="white" />
@@ -447,190 +588,259 @@ function EmployeePenalties() {
                         </div>
                     </div>
 
-                    {/* Action Bar */}
-                    <div style={{ display: "flex", justifyContent: "flex-end", margin: "0 16px 16px 16px" }}>
-                        <button
-                            className="stock-button stock-button--secondary"
-                            onClick={() => history.push("/violation-report")}
-                            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderRadius: "14px", fontSize: "13px", fontWeight: "700" }}
-                        >
-                            <IonIcon icon={documentTextOutline} style={{ fontSize: "18px" }} />
-                            Transfer Slip
-                        </button>
+                    {/* ── EMPLOYEE PROFILE CARD ── */}
+                    <div className="ep-profile-card">
+                        <div className="ep-profile-left">
+                            <div className="ep-profile-avatar">
+                                {empName ? empName.charAt(0).toUpperCase() : "E"}
+                            </div>
+                            <div className="ep-profile-info">
+                                <span className="ep-profile-tag">Employee Profile</span>
+                                <h2 className="ep-profile-name">{empName}</h2>
+                                <div className="ep-profile-sub">
+                                    <span className="ep-profile-designation">{designation}</span>
+                                    <span className="ep-divider">•</span>
+                                    <span className="ep-profile-code-badge">Employee ID: {empCode}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="ep-profile-status-badge">
+                            <div className={`ep-escalation-pill ${
+                                escalationStatus === "Disciplinary Review"
+                                    ? "danger"
+                                    : escalationStatus === "Manager Escalation"
+                                    ? "orange"
+                                    : escalationStatus === "HR Warning"
+                                    ? "warning"
+                                    : "safe"
+                            }`}>
+                                <div className="ep-esc-ring"></div>
+                                <span className="ep-esc-text">{escalationStatus}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="stock-panel" style={{ margin: "0 16px 20px 16px" }}>
-                        
-                        {/* ── EMPLOYEE PROFILE CARD ── */}
-                        <div className="ep-profile-card">
-                            <div className="ep-profile-left">
-                                <div className="ep-profile-avatar">
-                                    {empName ? empName.charAt(0).toUpperCase() : "E"}
-                                </div>
-                                <div className="ep-profile-info">
-                                    <span className="ep-profile-tag">Profile</span>
-                                    <h2 className="ep-profile-name">{empName}</h2>
-                                    <div className="ep-profile-sub">
-                                        <span className="ep-profile-designation">{designation}</span>
-                                        <span>•</span>
-                                        <span className="ep-profile-code-badge">Employee • {empCode}</span>
-                                    </div>
+                    {/* ── 5-COLUMN BENTO SUMMARY GRID ── */}
+                    <div className="ep-summary-bento">
+                        {/* Card 1: Performance Score */}
+                        <div className="ep-bento-card ep-bento-score">
+                            <div className="ep-bento-card-bg-circle" />
+                            <div className="ep-bento-top">
+                                <span className="ep-bento-label">Performance Score</span>
+                                <div className="ep-bento-icon-pill">
+                                    <Award size={16} />
                                 </div>
                             </div>
-                            <div className="ep-profile-status-badge">
-                                <div className={`ep-escalation-pill ${
-                                    esc.EscalationStatus === "Disciplinary Review"
-                                        ? "danger"
-                                        : esc.EscalationStatus === "Manager Escalation"
-                                        ? "orange"
-                                        : esc.EscalationStatus === "HR Warning"
-                                        ? "warning"
-                                        : "safe"
-                                }`} style={{ padding: "8px 14px", borderRadius: "10px", boxShadow: "none" }}>
-                                    <div className="ep-esc-ring" style={{ width: "12px", height: "12px" }}></div>
-                                    <span style={{ fontSize: "12px", fontWeight: "800" }}>{esc.EscalationStatus || "Normal Status"}</span>
-                                </div>
+                            <div className="ep-bento-value">
+                                {Number(emp.TotalPerformanceScore || 0).toFixed(2)}
                             </div>
+                            <div className="ep-bento-subtext">Overall Score Index</div>
                         </div>
 
-                        {/* ── BENTO SUMMARY GRID ── */}
-                        <div className="ep-summary-bento">
-                            <div className="ep-bento-box green">
-                                <div className="ep-bento-label">Green Slips</div>
-                                <div className="ep-bento-value">{emp.TotalGreenSlips || 0}</div>
-                            </div>
-                            <div className="ep-bento-box yellow">
-                                <div className="ep-bento-label">Yellow Slips</div>
-                                <div className="ep-bento-value">{emp.TotalYellowSlips || 0}</div>
-                            </div>
-                            <div className="ep-bento-box orange">
-                                <div className="ep-bento-label">Orange Slips</div>
-                                <div className="ep-bento-value">{emp.TotalOrangeSlips || 0}</div>
-                            </div>
-                            <div className="ep-bento-box red">
-                                <div className="ep-bento-label">Red Slips</div>
-                                <div className="ep-bento-value">{emp.TotalRedSlips || 0}</div>
-                            </div>
-                            <div className="ep-bento-box score">
-                                <div className="ep-bento-label">Performance Score</div>
-                                <div className="ep-bento-value">
-                                    {Number(emp.TotalPerformanceScore || 0).toFixed(2)}
+                        {/* Card 2: Green Slips */}
+                        <div className="ep-bento-card ep-bento-green">
+                            <div className="ep-bento-card-bg-circle" />
+                            <div className="ep-bento-top">
+                                <span className="ep-bento-label">Green Slips</span>
+                                <div className="ep-bento-icon-pill">
+                                    <CheckCircle2 size={16} />
                                 </div>
                             </div>
+                            <div className="ep-bento-value">{Number(emp.TotalGreenSlips) || 0}</div>
+                            <div className="ep-bento-subtext">Appreciation Slips</div>
                         </div>
 
-                        {/* ── VIOLATION HISTORY SECTION ── */}
-                        <div className="dashboard-section">
-                            <h2>
-                                <span>Violation History</span>
-                                <span className="ep-section-count-badge">
-                                    {data.violations.length} {data.violations.length === 1 ? "Record" : "Records"}
-                                </span>
-                            </h2>
+                        {/* Card 3: Yellow Slips */}
+                        <div className="ep-bento-card ep-bento-yellow">
+                            <div className="ep-bento-card-bg-circle" />
+                            <div className="ep-bento-top">
+                                <span className="ep-bento-label">Yellow Slips</span>
+                                <div className="ep-bento-icon-pill">
+                                    <AlertTriangle size={16} />
+                                </div>
+                            </div>
+                            <div className="ep-bento-value">{Number(emp.TotalYellowSlips) || 0}</div>
+                            <div className="ep-bento-subtext">Warning Slips</div>
+                        </div>
 
-                            <div className="ep-history-list">
-                                {data.violations.length > 0 ? (
-                                    data.violations.map((item: ViolationItem, index: number) => {
-                                        const violationTimeStr = formatViolationTime(item.ViolationTime);
-                                        const formattedDate = formatViolationDate(item.PenaltyDate || item.AppliedDate);
-                                        const hasProof = !!item.ProofFilePath && String(item.ProofFilePath).trim() !== "" && String(item.ProofFilePath).trim() !== "{}";
-                                        const isAiEngine = String(item.AppliedBy || "").toLowerCase().includes("ai") || String(item.AppliedBy || "").toLowerCase().includes("automatic");
-                                        const hasVideoProof = hasProof && isVideoProof(item.ProofFilePath, item.ProofFileType, item.ProofFileName);
+                        {/* Card 4: Orange Slips */}
+                        <div className="ep-bento-card ep-bento-orange">
+                            <div className="ep-bento-card-bg-circle" />
+                            <div className="ep-bento-top">
+                                <span className="ep-bento-label">Orange Slips</span>
+                                <div className="ep-bento-icon-pill">
+                                    <AlertCircle size={16} />
+                                </div>
+                            </div>
+                            <div className="ep-bento-value">{Number(emp.TotalOrangeSlips) || 0}</div>
+                            <div className="ep-bento-subtext">Escalation Slips</div>
+                        </div>
 
-                                        return (
-                                            <div key={item.Id || index} className="ep-history-card">
-                                                {/* Card Header */}
-                                                <div className="ep-card-header">
-                                                    <div className="ep-card-header-left">
-                                                        {item.Id && <span className="ep-card-id-tag">#{item.Id}</span>}
-                                                        <span className="ep-date">
-                                                            <Calendar size={13} style={{ color: "#64748b" }} />
-                                                            {formattedDate}
-                                                        </span>
-                                                    </div>
-                                                    <div className="ep-card-header-right">
-                                                        <span className={`ep-slip-badge ${item.SlipType?.toLowerCase().replace(/\s+/g, "-")}`}>
-                                                            {item.SlipType}
-                                                        </span>
-                                                    </div>
+                        {/* Card 5: Red Slips */}
+                        <div className="ep-bento-card ep-bento-red">
+                            <div className="ep-bento-card-bg-circle" />
+                            <div className="ep-bento-top">
+                                <span className="ep-bento-label">Red Slips</span>
+                                <div className="ep-bento-icon-pill">
+                                    <ShieldAlert size={16} />
+                                </div>
+                            </div>
+                            <div className="ep-bento-value">{Number(emp.TotalRedSlips) || 0}</div>
+                            <div className="ep-bento-subtext">Severe Penalties</div>
+                        </div>
+                    </div>
+
+                    {/* ── VIOLATION HISTORY SECTION ── */}
+                    <div className="ep-history-section">
+                        <div className="ep-section-header">
+                            <div className="ep-section-title-wrap">
+                                <div className="ep-section-icon-badge">
+                                    <History size={18} />
+                                </div>
+                                <div>
+                                    <h2 className="ep-section-title">Violation History</h2>
+                                    <p className="ep-section-subtitle">Detailed records of issued slips and transfers</p>
+                                </div>
+                            </div>
+                            <span className="ep-section-count-badge">
+                                {data.violations.length} {data.violations.length === 1 ? "Record" : "Records"}
+                            </span>
+                        </div>
+
+                        <div className="ep-history-list">
+                            {data.violations.length > 0 ? (
+                                data.violations.map((item: ViolationItem, index: number) => {
+                                    const violationTimeStr = formatViolationTime(item.ViolationTime);
+                                    const formattedDate = formatViolationDate(item.PenaltyDate || item.AppliedDate);
+                                    const hasProof = !!item.ProofFilePath && String(item.ProofFilePath).trim() !== "" && String(item.ProofFilePath).trim() !== "{}";
+                                    const isAiEngine = String(item.AppliedBy || "").toLowerCase().includes("ai") || String(item.AppliedBy || "").toLowerCase().includes("automatic");
+                                    const hasVideoProof = hasProof && isVideoProof(item.ProofFilePath, item.ProofFileType, item.ProofFileName);
+
+                                    return (
+                                        <div key={item.Id || index} className="ep-history-card">
+                                            {/* Card Header */}
+                                            <div className="ep-card-header">
+                                                <div className="ep-card-header-left">
+                                                    {item.Id && <span className="ep-card-id-tag">#{item.Id}</span>}
+                                                    <span className="ep-date">
+                                                        <Calendar size={13} style={{ color: "#64748b" }} />
+                                                        {formattedDate}
+                                                    </span>
                                                 </div>
+                                                <div className="ep-card-header-right">
+                                                    <span className={`ep-slip-badge ${item.SlipType?.toLowerCase().replace(/\s+/g, "-")}`}>
+                                                        {item.SlipType}
+                                                    </span>
+                                                </div>
+                                            </div>
 
-                                                {/* Card Body Details Grid */}
-                                                <div className="ep-card-grid">
+                                            {/* Card Body Details Grid */}
+                                            <div className="ep-card-grid">
+                                                <div className="ep-info-row">
+                                                    <label>Penalty</label>
+                                                    <span className="ep-val-highlight">{toSafeString(item.PenaltyType, "Policy Violation")}</span>
+                                                </div>
+                                                <div className="ep-info-row">
+                                                    <label>Count</label>
+                                                    <span>{Number(item.SlipCount) || 1}</span>
+                                                </div>
+                                                <div className="ep-info-row">
+                                                    <label>Status</label>
+                                                    <span style={{ color: "#047857", fontWeight: 700 }}>{toSafeString(item.Status, "Applied")}</span>
+                                                </div>
+                                                {violationTimeStr && (
                                                     <div className="ep-info-row">
-                                                        <label>Penalty</label>
-                                                        <span>{item.PenaltyType}</span>
+                                                        <label>Time</label>
+                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                                            <Clock size={12} style={{ color: "#64748b" }} />
+                                                            {violationTimeStr}
+                                                        </span>
                                                     </div>
-                                                    <div className="ep-info-row">
-                                                        <label>Count</label>
-                                                        <span>{item.SlipCount}</span>
-                                                    </div>
-                                                    <div className="ep-info-row">
-                                                        <label>Status</label>
-                                                        <span style={{ color: "#047857" }}>{item.Status || "Applied"}</span>
-                                                    </div>
-                                                    {violationTimeStr && (
-                                                        <div className="ep-info-row">
-                                                            <label>Time</label>
-                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                                                                <Clock size={12} style={{ color: "#64748b" }} />
-                                                                {violationTimeStr}
-                                                            </span>
-                                                        </div>
+                                                )}
+                                                <div className="ep-info-row">
+                                                    <label>Applied By</label>
+                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                                        {isAiEngine ? (
+                                                            <>
+                                                                <Bot size={13} style={{ color: "#6366f1" }} />
+                                                                <span>AI Engine</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <User size={13} style={{ color: "#64748b" }} />
+                                                                <span>{toSafeString(item.AppliedBy, "System")}</span>
+                                                            </>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Remarks Box */}
+                                            {item.Remarks && typeof item.Remarks === "string" && item.Remarks.trim() !== "" && item.Remarks.trim() !== "{}" && (
+                                                <div className="ep-card-footer">
+                                                    <FileText size={13} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
+                                                    <p>{item.Remarks}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Footer Action Bar with View & Transfer Buttons */}
+                                            <div className="ep-card-footer-box">
+                                                <div className="ep-card-tags">
+                                                    <span className="ep-tag-status">
+                                                        <CheckCircle size={12} />
+                                                        {toSafeString(item.Status, "Applied")}
+                                                    </span>
+                                                    {item.TransferStatus === "PendingTransfer" && (
+                                                        <span className="ep-badge-pending-transfer" title="Waiting for HR / Management Approval">
+                                                            ⏳ Transfer Pending
+                                                        </span>
                                                     )}
-                                                    <div className="ep-info-row">
-                                                        <label>Applied By</label>
-                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                                                            {isAiEngine ? (
+                                                    {item.TransferStatus === "Transferred" && typeof item.TransferredToEmpCode === "string" && item.TransferredToEmpCode.trim() !== "" && item.TransferredToEmpCode.trim() !== "{}" && (
+                                                        <span className="ep-badge-transferred" title={`Transferred to ${item.TransferredToEmpCode}`}>
+                                                            ✅ Transferred Out ({item.TransferredToEmpCode})
+                                                        </span>
+                                                    )}
+                                                    {typeof item.TransferredFromEmpCode === "string" && item.TransferredFromEmpCode.trim() !== "" && item.TransferredFromEmpCode.trim() !== "{}" && (
+                                                        <span className="ep-badge-transferred-in" title={`Transferred from ${item.TransferredFromEmpCode}`}>
+                                                            🔁 From {item.TransferredFromEmpCode}
+                                                        </span>
+                                                    )}
+                                                    {hasProof && (
+                                                        <span
+                                                            className={`ep-evidence-chip ${hasVideoProof ? 'video' : ''}`}
+                                                            onClick={() => handleViewViolation(item, index)}
+                                                            title="Click to view attached evidence"
+                                                        >
+                                                            {hasVideoProof ? (
                                                                 <>
-                                                                    <Bot size={12} style={{ color: "#6366f1" }} />
-                                                                    <span>AI Engine</span>
+                                                                    <Video size={12} />
+                                                                    Video Evidence
+                                                                </>
+                                                            ) : isImageProof(item.ProofFilePath, item.ProofFileType, item.ProofFileName) ? (
+                                                                <>
+                                                                    <ImageIcon size={12} />
+                                                                    Image Evidence
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <User size={12} style={{ color: "#64748b" }} />
-                                                                    <span>{item.AppliedBy || "System"}</span>
+                                                                    <Paperclip size={12} />
+                                                                    Evidence Attached
                                                                 </>
                                                             )}
                                                         </span>
-                                                    </div>
+                                                    )}
                                                 </div>
-
-                                                {/* Remarks Box */}
-                                                {item.Remarks && (
-                                                    <div className="ep-card-footer">
-                                                        <p>{item.Remarks}</p>
-                                                    </div>
-                                                )}
-
-                                                {/* Footer Action Bar with View Button */}
-                                                <div className="ep-card-footer-box">
-                                                    <div className="ep-card-tags">
-                                                        <span className="ep-tag-status">
-                                                            <CheckCircle size={11} style={{ display: "inline", marginRight: "3px" }} />
-                                                            {item.Status || "Applied"}
-                                                        </span>
-                                                        {hasProof && (
-                                                            <span className={`ep-evidence-chip ${hasVideoProof ? 'video' : ''}`}>
-                                                                {hasVideoProof ? (
-                                                                    <>
-                                                                        <Video size={12} />
-                                                                        Video Evidence
-                                                                    </>
-                                                                ) : isImageProof(item.ProofFilePath, item.ProofFileType, item.ProofFileName) ? (
-                                                                    <>
-                                                                        <ImageIcon size={12} />
-                                                                        Image Evidence
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Paperclip size={12} />
-                                                                        Evidence Attached
-                                                                    </>
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                <div className="ep-card-actions-group">
+                                                    {item.Status !== "Transferred" && item.TransferStatus !== "PendingTransfer" && item.TransferStatus !== "Transferred" && (
+                                                        <button
+                                                            className="ep-transfer-btn"
+                                                            onClick={() => handleOpenTransferModal(item)}
+                                                            title="Witnessed a policy violation? Transfer this slip to another employee"
+                                                        >
+                                                            <ArrowRightLeft size={13} />
+                                                            Transfer Slip
+                                                        </button>
+                                                    )}
                                                     <button
                                                         className="ep-view-btn"
                                                         onClick={() => handleViewViolation(item, index)}
@@ -641,41 +851,21 @@ function EmployeePenalties() {
                                                     </button>
                                                 </div>
                                             </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className="ep-empty-state">
-                                        <CheckCircle size={32} style={{ color: "#10b981", margin: "0 auto 8px" }} />
-                                        <p style={{ margin: "0 0 4px", fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
-                                            No Penalties Found
-                                        </p>
-                                        <span style={{ fontSize: "12px", color: "#64748b" }}>
-                                            You currently have no penalty slips or policy violations recorded.
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="ep-empty-state">
+                                    <CheckCircle size={36} style={{ color: "#10b981", margin: "0 auto 10px" }} />
+                                    <p style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: "700", color: "#1e293b" }}>
+                                        No Penalties Found
+                                    </p>
+                                    <span style={{ fontSize: "13px", color: "#64748b" }}>
+                                        You currently have no penalty slips or policy violations recorded.
+                                    </span>
+                                </div>
+                            )}
                         </div>
-
-                        {/* ── ESCALATION SECTION ── */}
-                        <div className="ep-escalation-section">
-                            <h2>Current Escalation Status</h2>
-                            <div
-                                className={`ep-escalation-pill ${
-                                    esc.EscalationStatus === "Disciplinary Review"
-                                        ? "danger"
-                                        : esc.EscalationStatus === "Manager Escalation"
-                                        ? "orange"
-                                        : esc.EscalationStatus === "HR Warning"
-                                        ? "warning"
-                                        : "safe"
-                                }`}
-                            >
-                                <div className="ep-esc-ring"></div>
-                                <span>{esc.EscalationStatus || "Normal"}</span>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -722,7 +912,7 @@ function EmployeePenalties() {
                                         </div>
                                     </div>
                                     <span className="ep-tag-status">
-                                        {selectedViolation.Status || "Applied"}
+                                        {toSafeString(selectedViolation.Status, "Applied")}
                                     </span>
                                 </div>
 
@@ -731,18 +921,18 @@ function EmployeePenalties() {
                                     <div className="ep-modal-field full">
                                         <label>Penalty Type / Rule</label>
                                         <span style={{ fontSize: "15px", color: "#0f172a" }}>
-                                            {selectedViolation.PenaltyType}
+                                            {toSafeString(selectedViolation.PenaltyType, "Policy Violation")}
                                         </span>
                                     </div>
 
                                     <div className="ep-modal-field">
                                         <label>Slip Category</label>
-                                        <span>{selectedViolation.SlipType}</span>
+                                        <span>{toSafeString(selectedViolation.SlipType, "Yellow Slip")}</span>
                                     </div>
 
                                     <div className="ep-modal-field">
                                         <label>Slip Count</label>
-                                        <span>{selectedViolation.SlipCount}</span>
+                                        <span>{Number(selectedViolation.SlipCount) || 1}</span>
                                     </div>
 
                                     <div className="ep-modal-field">
@@ -776,7 +966,7 @@ function EmployeePenalties() {
                                             ) : (
                                                 <>
                                                     <UserCheck size={15} style={{ color: "#059669" }} />
-                                                    <span>Supervisor / Administrator (ID: {selectedViolation.AppliedBy || "System"})</span>
+                                                    <span>Supervisor / Administrator (ID: {toSafeString(selectedViolation.AppliedBy, "System")})</span>
                                                 </>
                                             )}
                                         </span>
@@ -791,14 +981,14 @@ function EmployeePenalties() {
 
                                     <div className="ep-modal-field">
                                         <label>Record Status</label>
-                                        <span style={{ color: "#047857" }}>{selectedViolation.Status || "Applied"}</span>
+                                        <span style={{ color: "#047857" }}>{toSafeString(selectedViolation.Status, "Applied")}</span>
                                     </div>
                                 </div>
 
                                 {/* Official Remarks Box */}
                                 <div className="ep-modal-remarks-box">
                                     <label>Official Remarks / Violation Reason</label>
-                                    <p>{selectedViolation.Remarks || "No specific remarks provided."}</p>
+                                    <p>{toSafeString(selectedViolation.Remarks, "No specific remarks provided.")}</p>
                                 </div>
 
                                 {/* Evidence & Proof Section (Video, Image, PDF, etc.) */}
@@ -882,6 +1072,211 @@ function EmployeePenalties() {
                         </div>
                     </div>
                 )}
+
+                {/* ── TRANSFER SLIP MODAL ── */}
+                {transferModalOpen && slipToTransfer && (
+                    <div className="ep-modal-backdrop" onClick={handleCloseTransferModal}>
+                        <div className="ep-modal-content ep-transfer-modal" onClick={(e) => e.stopPropagation()}>
+                            {/* Modal Header */}
+                            <div className="ep-modal-header">
+                                <div className="ep-modal-title-group">
+                                    <div className="ep-modal-icon-badge">
+                                        <ArrowRightLeft size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="ep-modal-title">Transfer Penalty Slip</h3>
+                                        <span className="ep-modal-subtitle">
+                                            Pass this slip to the violating employee with evidence
+                                        </span>
+                                    </div>
+                                </div>
+                                <button className="ep-modal-close" onClick={handleCloseTransferModal} disabled={transferSubmitting}>
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="ep-modal-body">
+                                {/* Slip Context Box */}
+                                <div className="ep-transfer-slip-context">
+                                    <div className="ep-transfer-context-header">
+                                        <span className="ep-transfer-context-label">Slip Being Transferred:</span>
+                                        <span className={`ep-slip-badge ${slipToTransfer.SlipType?.toLowerCase().replace(/\s+/g, "-")}`}>
+                                            {slipToTransfer.SlipType}
+                                        </span>
+                                    </div>
+                                    <div className="ep-transfer-context-details">
+                                        <div><strong>Penalty:</strong> {slipToTransfer.PenaltyType}</div>
+                                        <div><strong>Issued On:</strong> {formatViolationDate(slipToTransfer.PenaltyDate || slipToTransfer.AppliedDate)}</div>
+                                    </div>
+                                </div>
+
+                                {/* Form Fields */}
+                                <div className="ep-transfer-form">
+                                    {/* Employee B Selection */}
+                                    <div className="ep-transfer-field">
+                                        <label>Select Violating Employee <span style={{ color: "#ef4444" }}>*</span></label>
+                                        <div className="ep-transfer-search-box">
+                                            <Search size={16} className="ep-search-icon" />
+                                            <input
+                                                type="text"
+                                                className="ep-transfer-input"
+                                                placeholder="Search employee by name or code..."
+                                                value={transferSearch}
+                                                onChange={(e) => {
+                                                    setTransferSearch(e.target.value);
+                                                    setTransferDropdownOpen(true);
+                                                }}
+                                                onFocus={() => setTransferDropdownOpen(true)}
+                                            />
+                                        </div>
+
+                                        {transferDropdownOpen && (
+                                            <div className="ep-transfer-dropdown-list">
+                                                {allEmployees
+                                                    .filter((emp: any) => {
+                                                        const term = transferSearch.toLowerCase();
+                                                        const code = String(emp[0] || emp.empCode || "").toLowerCase();
+                                                        const name = String(emp[1] || emp.empName || "").toLowerCase();
+                                                        const currentCode = String(userData?.empCode || "").toLowerCase();
+                                                        return code !== currentCode && (name.includes(term) || code.includes(term));
+                                                    })
+                                                    .slice(0, 15)
+                                                    .map((emp: any) => {
+                                                        const code = String(emp[0] || emp.empCode);
+                                                        const name = String(emp[1] || emp.empName);
+                                                        const isSelected = transferTargetEmp === code;
+                                                        return (
+                                                            <div
+                                                                key={code}
+                                                                className={`ep-transfer-dropdown-item ${isSelected ? "selected" : ""}`}
+                                                                onClick={() => {
+                                                                    setTransferTargetEmp(code);
+                                                                    setTransferSearch(`${name} (${code})`);
+                                                                    setTransferDropdownOpen(false);
+                                                                }}
+                                                            >
+                                                                <User size={14} />
+                                                                <div className="ep-transfer-dropdown-item-text">
+                                                                    <strong>{name}</strong>
+                                                                    <span>#{code}</span>
+                                                                </div>
+                                                                {isSelected && <CheckCircle size={14} style={{ marginLeft: "auto", color: "#10b981" }} />}
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        )}
+                                        {transferTargetEmp && (
+                                            <div className="ep-selected-emp-chip">
+                                                <UserCheck size={14} />
+                                                <span>Target: <strong>{transferSearch}</strong></span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTransferTargetEmp("");
+                                                        setTransferSearch("");
+                                                    }}
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Incident Time */}
+                                    <div className="ep-transfer-field">
+                                        <label>Violation Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
+                                        <input
+                                            type="datetime-local"
+                                            className="ep-transfer-input"
+                                            value={transferViolationTime}
+                                            onChange={(e) => setTransferViolationTime(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Violation Remarks */}
+                                    <div className="ep-transfer-field">
+                                        <label>Violation Reason / Explanation <span style={{ color: "#ef4444" }}>*</span></label>
+                                        <textarea
+                                            rows={3}
+                                            className="ep-transfer-textarea"
+                                            placeholder="Explain what policy violation was observed in detail..."
+                                            value={transferRemarks}
+                                            onChange={(e) => setTransferRemarks(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Proof File Uploader */}
+                                    <div className="ep-transfer-field">
+                                        <label>Attach Evidence (Photo, Video, Document)</label>
+                                        <div className="ep-file-upload-box">
+                                            <input
+                                                type="file"
+                                                id="epTransferProofInput"
+                                                accept="image/*,video/*,.pdf"
+                                                style={{ display: "none" }}
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        setTransferProofFile(e.target.files[0]);
+                                                    }
+                                                }}
+                                            />
+                                            <label htmlFor="epTransferProofInput" className="ep-file-upload-label">
+                                                <Upload size={18} />
+                                                <span>{transferProofFile ? transferProofFile.name : "Click to Upload Photo, Video or PDF proof"}</span>
+                                            </label>
+                                            {transferProofFile && (
+                                                <button
+                                                    type="button"
+                                                    className="ep-file-remove-btn"
+                                                    onClick={() => setTransferProofFile(null)}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="ep-modal-footer">
+                                <button
+                                    className="ep-btn-secondary"
+                                    onClick={handleCloseTransferModal}
+                                    disabled={transferSubmitting}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="ep-btn-primary"
+                                    onClick={handleSubmitTransfer}
+                                    disabled={transferSubmitting || !transferTargetEmp || !transferRemarks.trim()}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                                >
+                                    {transferSubmitting ? (
+                                        <>Submitting...</>
+                                    ) : (
+                                        <>
+                                            <Send size={15} />
+                                            Submit for HR Approval
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <IonToast
+                    isOpen={toastState.isOpen}
+                    message={toastState.message}
+                    color={toastState.color}
+                    duration={3500}
+                    position="top"
+                    onDidDismiss={() => setToastState(prev => ({ ...prev, isOpen: false }))}
+                />
             </IonContent>
         </IonPage>
     );

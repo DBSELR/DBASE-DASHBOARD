@@ -124,6 +124,17 @@ export const useTaskNotification = () => {
         return;
       }
 
+      // Ignore non-task notifications (handled by dedicated modals)
+      if (
+        payload.type === "penalty" ||
+        payload.type === "slip_transfer_request" ||
+        payload.type === "work_report_reminder" ||
+        payload.slipType ||
+        payload.penaltyType
+      ) {
+        return;
+      }
+
       const tid = String(payload.tID ?? payload.TID ?? Date.now());
       const dismissed = getDismissedFromStorage();
       if (dismissed.has(tid)) return;

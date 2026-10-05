@@ -70,6 +70,10 @@ interface ViolationDetail {
   ProofFileName: string | null;
   ProofFilePath: any;
   ProofFileType: string | null;
+  TransferStatus?: string;
+  TransferredToEmpCode?: string;
+  TransferredFromEmpCode?: string;
+  TransferRequestId?: number;
 }
 
 interface PenaltyMasterItem {
@@ -1086,6 +1090,21 @@ function PenaltyList() {
                                   <span className="p-vcard-pt-value">{penaltyTypeName}</span>
                                 </div>
                                 <div className="p-vcard-badges">
+                                  {item.TransferStatus === "PendingTransfer" && (
+                                    <span className="p-status-tag" style={{ background: "#fef3c7", color: "#b45309", borderColor: "#fde68a", fontWeight: 700 }}>
+                                      ⏳ Transfer Pending
+                                    </span>
+                                  )}
+                                  {item.TransferStatus === "Transferred" && (
+                                    <span className="p-status-tag" style={{ background: "#ecfdf5", color: "#047857", borderColor: "#a7f3d0", fontWeight: 700, textDecoration: "line-through" }}>
+                                      ✅ Transferred to {item.TransferredToEmpCode}
+                                    </span>
+                                  )}
+                                  {item.TransferredFromEmpCode && (
+                                    <span className="p-status-tag" style={{ background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe", fontWeight: 700 }}>
+                                      🔁 From {item.TransferredFromEmpCode}
+                                    </span>
+                                  )}
                                   <span className={`p-slip-type-pill ${slipTypeClass}`}>
                                     {item.SlipType || "Slip"} &times;{item.SlipCount || 1}
                                   </span>

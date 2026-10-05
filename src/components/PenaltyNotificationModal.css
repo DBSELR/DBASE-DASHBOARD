@@ -1,0 +1,395 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PENALTY NOTIFICATION MODAL (In-App Push Popup)
+   High-visibility, modern alert dialog modeled after Work Report Reminder
+   ═══════════════════════════════════════════════════════════════════ */
+
+.pnm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: pnmFadeIn 0.25s ease-out;
+}
+
+@keyframes pnmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pnm-card {
+  width: 100%;
+  max-width: 460px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  animation: pnmSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 2px solid transparent;
+}
+
+.dark .pnm-card,
+body.dark .pnm-card {
+  background: #18181b;
+}
+
+@keyframes pnmSlideUp {
+  from {
+    transform: translateY(28px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Pulsing Glow States based on Slip Color */
+.pnm-glow-red {
+  border-color: rgba(220, 38, 38, 0.6);
+  animation: pnmRedPulse 2s infinite ease-in-out;
+}
+
+@keyframes pnmRedPulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+  50% { box-shadow: 0 0 35px 8px rgba(220, 38, 38, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+}
+
+.pnm-glow-orange {
+  border-color: rgba(234, 88, 12, 0.6);
+  animation: pnmOrangePulse 2s infinite ease-in-out;
+}
+
+@keyframes pnmOrangePulse {
+  0% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.6); }
+  50% { box-shadow: 0 0 35px 8px rgba(234, 88, 12, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.6); }
+}
+
+.pnm-glow-yellow {
+  border-color: rgba(217, 119, 6, 0.6);
+  animation: pnmYellowPulse 2s infinite ease-in-out;
+}
+
+@keyframes pnmYellowPulse {
+  0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.6); }
+  50% { box-shadow: 0 0 35px 8px rgba(217, 119, 6, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.6); }
+}
+
+.pnm-glow-green {
+  border-color: rgba(16, 185, 129, 0.6);
+  animation: pnmGreenPulse 2s infinite ease-in-out;
+}
+
+@keyframes pnmGreenPulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  50% { box-shadow: 0 0 35px 8px rgba(16, 185, 129, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+}
+
+/* Header Styles */
+.pnm-header {
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+}
+
+.pnm-header-red {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.pnm-header-orange {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+}
+
+.pnm-header-yellow {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.pnm-header-green {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.pnm-header-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pnm-bell-icon {
+  animation: pnmBellRing 1.2s infinite ease-in-out;
+}
+
+@keyframes pnmBellRing {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-8deg); }
+}
+
+.pnm-header-title-box h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.pnm-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pnm-close-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.06);
+}
+
+/* Body */
+.pnm-body {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pnm-top-badges {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pnm-slip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.pnm-slip-red {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.pnm-slip-orange {
+  background: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+
+.pnm-slip-yellow {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.pnm-slip-green {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.pnm-time-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Violation Details Card */
+.pnm-details-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dark .pnm-details-card,
+body.dark .pnm-details-card {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+
+.pnm-violation-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dark .pnm-violation-title,
+body.dark .pnm-violation-title {
+  color: #f8fafc;
+}
+
+.pnm-remarks-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+  font-weight: 500;
+}
+
+.dark .pnm-remarks-box,
+body.dark .pnm-remarks-box {
+  background: #18181b;
+  border-color: #3f3f46;
+  color: #cbd5e1;
+}
+
+.pnm-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+  padding-top: 4px;
+}
+
+/* Callout Info Box */
+.pnm-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pnm-callout-warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.pnm-callout-success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.dark .pnm-callout-warning,
+body.dark .pnm-callout-warning {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: rgba(217, 119, 6, 0.3);
+  color: #fde68a;
+}
+
+.dark .pnm-callout-success,
+body.dark .pnm-callout-success {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+}
+
+/* Action Buttons */
+.pnm-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pnm-btn-primary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.pnm-btn-primary-red {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.pnm-btn-primary-orange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.pnm-btn-primary-yellow {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.pnm-btn-primary-green {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.pnm-btn-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.pnm-btn-secondary {
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark .pnm-btn-secondary,
+body.dark .pnm-btn-secondary {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #94a3b8;
+}
+
+.pnm-btn-secondary:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
