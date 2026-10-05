@@ -37,6 +37,23 @@ try {
     const image = payload.data?.image || null;
     const targetUrl = payload.data?.url || "/workreport";
 
+    let actions = [
+      { action: "submit", title: "📝 Submit Work Report" },
+      { action: "dismiss", title: "✖ Dismiss" }
+    ];
+
+    if (type === "penalty") {
+      actions = [
+        { action: "view_penalty", title: "⚠️ View Penalties" },
+        { action: "dismiss", title: "✖ Dismiss" }
+      ];
+    } else if (type === "payment_reminder") {
+      actions = [
+        { action: "view_reminder", title: "💳 View Reminders" },
+        { action: "dismiss", title: "✖ Dismiss" }
+      ];
+    }
+
     const notificationOptions = {
       body: body,
       icon: "/images/dbase.png",
@@ -49,10 +66,7 @@ try {
       data: {
         url: targetUrl
       },
-      actions: [
-        { action: "submit", title: "📝 Submit Work Report" },
-        { action: "dismiss", title: "✖ Dismiss" }
-      ]
+      actions: actions
     };
 
     self.registration.showNotification(title, notificationOptions);

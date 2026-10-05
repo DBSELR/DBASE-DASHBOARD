@@ -459,4 +459,25 @@ export const apiService = {
         const query = empCode ? `?empCode=${encodeURIComponent(empCode)}&limit=${limit}` : `?limit=${limit}`;
         return apiService.get(`/Employee/GetEmployeeRegistrationLogs${query}`);
     },
+
+    getEmployeePenaltyCount: async (empCode: string) => {
+        try {
+            const countRes = await apiService.get(`/Penalty/GetEmployeePenaltyCount/${empCode}`);
+            if (countRes && countRes.count !== undefined) {
+                return countRes;
+            }
+        } catch (e) {
+            console.warn("GetEmployeePenaltyCount failed, falling back to GetEmployeePenaltyDetails", e);
+        }
+
+        try {
+            const details = await apiService.get(`/Penalty/GetEmployeePenaltyDetails/${empCode}`);
+            if (Array.isArray(details)) {
+                return { success: true, count: details.length };
+            }
+        } catch (e) {
+            console.error("Failed to load penalty details count fallback:", e);
+        }
+        return { success: false, count: 0 };
+    },
 };

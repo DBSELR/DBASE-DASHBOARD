@@ -19,7 +19,7 @@ import "../theme/Home.css";
 import { useHistory } from "react-router-dom";
 import { apiService } from "../utils/apiService";
 import { IonIcon } from "@ionic/react";
-import { time } from "ionicons/icons";
+import { time, warningOutline } from "ionicons/icons";
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -51,6 +51,7 @@ const Home: React.FC = () => {
   const [location, setLocation] = useState<string>("Fetching location...");
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingTasksCount, setPendingTasksCount] = useState<number>(0);
+  const [penaltiesCount, setPenaltiesCount] = useState<number>(0);
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const history = useHistory();
 
@@ -160,6 +161,30 @@ const Home: React.FC = () => {
     fetchPendingTasks();
     const taskInterval = setInterval(fetchPendingTasks, 10000);
     return () => clearInterval(taskInterval);
+  }, []);
+
+  useEffect(() => {
+    const fetchPenaltiesCount = async () => {
+      try {
+        const userJson = localStorage.getItem("user");
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          const emp = String(user.empCode || user.EMPCODE || user.EmpCode || "").trim();
+          if (emp) {
+            const res = await apiService.getEmployeePenaltyCount(emp);
+            if (res && res.success !== false) {
+              setPenaltiesCount(Number(res.count) || 0);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching penalties count:", error);
+      }
+    };
+
+    fetchPenaltiesCount();
+    const penaltyInterval = setInterval(fetchPenaltiesCount, 15000);
+    return () => clearInterval(penaltyInterval);
   }, []);
 
   const updateTime = () => {
@@ -446,6 +471,12 @@ const Home: React.FC = () => {
               <div className="home-card-badge" title="Pending Received Tasks">
                 <IonIcon icon={time} style={{ fontSize: "12px", marginRight: "4px", color: "#ffffff" }} />
                 <span>{pendingTasksCount}</span>
+              </div>
+            )}
+            {item.id === "my-penalties" && penaltiesCount > 0 && (
+              <div className="home-card-badge" title="Active Penalties">
+                <IonIcon icon={time} style={{ fontSize: "12px", marginRight: "4px", color: "#ffffff" }} />
+                <span>{penaltiesCount}</span>
               </div>
             )}
             <div className="home-card-icon-wrapper">
