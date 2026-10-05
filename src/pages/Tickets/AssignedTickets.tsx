@@ -150,17 +150,17 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
         TicketPriority: r[13],
         TDate: r[10] ? moment(r[10]).format("DD MMM YYYY") : "",
         File_Path: String(
-          r.File_Path || r.file_Path || r.file_path || 
+          r.File_Path || r.file_Path || r.file_path ||
           (Array.isArray(r) ? (
-            (typeof r[14] === 'string' && r[14].includes('.')) ? r[14] : 
-            (typeof r[8] === 'string' && r[8].includes('.')) ? r[8] : ""
+            (typeof r[14] === 'string' && r[14].includes('.')) ? r[14] :
+              (typeof r[8] === 'string' && r[8].includes('.')) ? r[8] : ""
           ) : "") || ""
         ).trim(),
         Img_Path: String(
-          r.Img_Path || r.img_Path || r.img_path || 
+          r.Img_Path || r.img_Path || r.img_path ||
           (Array.isArray(r) ? (
-            (typeof r[15] === 'string' && r[15].includes('.')) ? r[15] : 
-            (typeof r[9] === 'string' && r[9].includes('.')) ? r[9] : ""
+            (typeof r[15] === 'string' && r[15].includes('.')) ? r[15] :
+              (typeof r[9] === 'string' && r[9].includes('.')) ? r[9] : ""
           ) : "") || ""
         ).trim(),
         Target_Time: r[27],
@@ -246,7 +246,7 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
               _EMPLOYEEID: String(empCode),
               _CLIENT_NAME: String(ticket.Client),
               _PROJECT_NAMEE: String(ticket.Project || ""),
-              _WORKDESCRIPTION: `${ticket.TICKETID}_${desc}__${up.closingRemarks}`,
+              _WORKDESCRIPTION: `${ticket.TICKETID}_${desc}`,
               _SERVICE_TYPE: String(serviceType)
             };
 

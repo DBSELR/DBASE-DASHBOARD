@@ -473,9 +473,9 @@ const WorkReports: React.FC = () => {
 
   const handleEditClick = (report: any) => {
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
-    const loginEmpCode = userData?.empCode;
+    const loginEmpCode = userData?.empCode || userData?.EmpCode;
 
-    if (loginEmpCode !== selectedEmployee) {
+    if (loginEmpCode && selectedEmployee && String(loginEmpCode) !== String(selectedEmployee) && !canViewAllEmployees) {
       setToastType("danger");
       setToastMessage("You can't edit others work report!");
       setShowToast(true);
@@ -483,8 +483,8 @@ const WorkReports: React.FC = () => {
     }
 
     console.log("Report selected for editing:", report);
-    setEditingReportId(report[0]); // Assuming report[0] is workId
-    setEditingReportContent(report[4]); // Assuming report[4] is _work_report
+    setEditingReportId(report[0]); // report[0] is workId
+    setEditingReportContent((report[4] || "").split("__")[0]); // clean report description
     setShowEditModal(true);
   };
 
@@ -496,16 +496,8 @@ const WorkReports: React.FC = () => {
       return;
     }
 
-    const userData =
-      JSON.parse(
-        localStorage.getItem("user") || "{}"
-      );
-
-    const canViewAllEmployees =
-      userData?.designation === "HR" ||
-      userData?.designation === "Director" ||
-      userData?.designation === "In-Charge F&A";
-    const empCode = userData?.empCode;
+    const userData = JSON.parse(localStorage.getItem("user") || "{}");
+    const empCode = userData?.empCode || userData?.EmpCode;
 
     if (!empCode) {
       setToastType("danger");
@@ -514,7 +506,7 @@ const WorkReports: React.FC = () => {
       return;
     }
 
-    if (empCode !== selectedEmployee) {
+    if (String(empCode) !== String(selectedEmployee) && !canViewAllEmployees) {
       setToastType("danger");
       setToastMessage("You can't edit others work report!");
       setShowToast(true);
@@ -524,8 +516,8 @@ const WorkReports: React.FC = () => {
 
     const payload = {
       workId: editingReportId,
-      _empcode: empCode,
-      _work_report: editingReportContent
+      _empcode: selectedEmployee || empCode,
+      _work_report: editingReportContent.trim()
     };
 
     console.log("Updating Work Report Payload:", payload);
@@ -548,7 +540,8 @@ const WorkReports: React.FC = () => {
         headers: response.headers
       });
 
-      if (response.data === "Updated Successfully!" || response.data?.includes("Successfully")) {
+      const respStr = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      if (respStr.toLowerCase().includes("success") || respStr.includes("Updated")) {
         setToastType("success");
         setToastMessage("Work report updated successfully!");
         setShowEditModal(false);
@@ -569,7 +562,7 @@ const WorkReports: React.FC = () => {
         stack: error.stack
       });
       setToastType("danger");
-      setToastMessage(error.response?.data || "Error updating report.");
+      setToastMessage(error.response?.data?.message || error.response?.data || "Error updating report.");
     }
     setShowToast(true);
   };
@@ -589,7 +582,7 @@ const WorkReports: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent className="ion-padding" style={{ "--background": "var(--ion-background-color)" }}>
+      <IonContent style={{ "--background": "var(--ion-background-color)", "--padding-top": "0px" }}>
         <div className="wr-container">
           {/* Custom Premium Header */}
           <div className="page-wr-header">
@@ -729,318 +722,110 @@ const WorkReports: React.FC = () => {
             {/* Submit Section */}
             <div className={`wr-side-section ${activeSection === "submit" ? "wr-show" : "wr-hide-on-mobile"}`}>
               <div className="wr-card">
-                <div className="wr-section-title">
-                  <ClipboardCheck size={24} />
-                  Submit Daily Report
+                <div className="wr-card-top-header">
+                  <div className="wr-section-title" style={{ margin: 0 }}>
+                    <ClipboardCheck size={20} />
+                    Submit Daily Report
+                  </div>
+                  {showTeamReports && (
+                    <button
+                      type="button"
+                      className="team-report-btn"
+                      onClick={() => history.push("/workreport-dashboard")}
+                    >
+                      Team Work Reports
+                    </button>
+                  )}
                 </div>
 
-                {/* <div className="wr-input-group">
-                  <label className="wr-label">Report Date</label>
-                  <div className="wr-input-wrapper" onClick={() => setShowDateModal(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px' }}>
-                    <span style={{ fontSize: '15px' }}>{formatDate(reportDate)}</span>
-                    <Calendar size={18} color="var(--ion-color-primary)" />
-                  </div>
-                </div> */}
-
-                {/* Tab 2 Field 1: Client Name (Custom Dropdown) */}
-                {(() => {
-                  const selectedClientObj = clients.find(c => String(c.id) === String(selectedClient));
-                  return (
-                    <div className="ntv-form-group">
-                      <label className="ntv-form-label">Client Name</label>
-                      <div
-                        className={`ntv-form-input-wrapper ${isClientDropdownOpen ? 'active' : ''}`}
-                        ref={clientTriggerRef}
-                        onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
-                      >
-                        <User size={18} className="ntv-form-input-icon" />
-                        <span className="ntv-form-text-display">
-                          {selectedClientObj ? selectedClientObj.name : "Choose Client"}
-                        </span>
-                        <ChevronDown size={16} style={{ marginLeft: 'auto', opacity: 0.7 }} />
-
-                        {isClientDropdownOpen && createPortal(
-                          <>
-                            <div
-                              className="dropdown-outside-click-layer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsClientDropdownOpen(false);
-                              }}
-                            />
-                            <div
-                              className="custom-inline-dropdown"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                top: `${clientDropdownPos.top}px`,
-                                left: `${clientDropdownPos.left}px`,
-                                width: `${clientDropdownPos.width}px`
-                              }}
-                            >
-                              <div className="dropdown-search-sec">
-                                <Search size={16} className="dropdown-search-icon" />
-                                <input
-                                  type="text"
-                                  className="dropdown-pure-input"
-                                  placeholder="Search client name..."
-                                  value={clientSearchTerm}
-                                  onChange={(e) => setClientSearchTerm(e.target.value)}
-                                  autoFocus
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                />
-                                {clientSearchTerm && (
-                                  <button
-                                    className="dropdown-clear-btn"
-                                    onClick={() => setClientSearchTerm("")}
-                                  >
-                                    <X size={16} />
-                                  </button>
-                                )}
-                              </div>
-
-                              <div className="dropdown-body">
-                                {filteredClients.length > 0 ? (
-                                  filteredClients.map((c, index) => {
-                                    const isSelected = String(selectedClient) === String(c.id);
-                                    const initials = (c.name.charAt(0) || "?").toUpperCase();
-                                    return (
-                                      <div
-                                        key={index}
-                                        className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setSelectedClient(String(c.id));
-                                          setIsClientDropdownOpen(false);
-                                          setClientSearchTerm("");
-                                        }}
-                                      >
-                                        <div className={`dr-avatar grad-${(c.id % 5) || 0}`}>
-                                          {initials}
-                                        </div>
-                                        <div className="dr-info">
-                                          <span className="dr-name">{c.name}</span>
-                                          <span className="dr-id">ID: {c.id}</span>
-                                        </div>
-                                        {isSelected && <Check size={18} className="dr-check" />}
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <div className="dr-no-results">No clients found</div>
-                                )}
-                              </div>
-                            </div>
-                          </>,
-                          document.body
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Tab 2 Field 2: Work Location (Custom Dropdown) */}
-                <div className="ntv-form-group">
-                  <label className="ntv-form-label">Work Location</label>
-                  <div
-                    className={`ntv-form-input-wrapper ${isLocationDropdownOpen ? 'active' : ''}`}
-                    ref={locationTriggerRef}
-                    onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-                  >
-                    <MapPin size={18} className="ntv-form-input-icon" />
-                    <span className="ntv-form-text-display">
-                      {workLocation || "Choose Location"}
-                    </span>
-                    <ChevronDown size={16} style={{ marginLeft: 'auto', opacity: 0.7 }} />
-
-                    {isLocationDropdownOpen && createPortal(
-                      <>
+                <div className={`wr-form-row-1 ${canViewAllEmployees ? 'has-emp-col' : 'no-emp-col'}`}>
+                  {/* Field 1: Client Name (Custom Dropdown) */}
+                  {(() => {
+                    const selectedClientObj = clients.find(c => String(c.id) === String(selectedClient));
+                    return (
+                      <div className="ntv-form-group">
+                        <label className="ntv-form-label">Client Name</label>
                         <div
-                          className="dropdown-outside-click-layer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsLocationDropdownOpen(false);
-                          }}
-                        />
-                        <div
-                          className="custom-inline-dropdown"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          style={{
-                            position: 'absolute',
-                            top: `${locationDropdownPos.top}px`,
-                            left: `${locationDropdownPos.left}px`,
-                            width: `${locationDropdownPos.width}px`
-                          }}
+                          className={`ntv-form-input-wrapper ${isClientDropdownOpen ? 'active' : ''}`}
+                          ref={clientTriggerRef}
+                          onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
                         >
-                          <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
-                            {["In-House", "On-Site"].map((loc, index) => {
-                              const isSelected = workLocation === loc;
-                              const initials = loc.charAt(0);
-                              return (
-                                <div
-                                  key={index}
-                                  className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setWorkLocation(loc);
-                                    setIsLocationDropdownOpen(false);
-                                  }}
-                                >
-                                  <div className={`dr-avatar grad-${(index % 5) || 0}`}>
-                                    {initials}
-                                  </div>
-                                  <div className="dr-info">
-                                    <span className="dr-name">{loc}</span>
-                                  </div>
-                                  {isSelected && <Check size={18} className="dr-check" />}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                  </div>
-                </div>
+                          <User size={16} className="ntv-form-input-icon" />
+                          <span className="ntv-form-text-display">
+                            {selectedClientObj ? selectedClientObj.name : "Choose Client"}
+                          </span>
+                          <ChevronDown size={15} style={{ marginLeft: 'auto', opacity: 0.7 }} />
 
-                <div className="wr-input-group">
-                  <label className="wr-label">Description</label>
-                  <textarea
-                    className="wr-textarea"
-                    value={reportContent}
-                    onChange={(e) => setReportContent(e.target.value)}
-                    rows={6}
-                    placeholder="Tell us what you worked on today..."
-                  />
-                </div>
-
-                <div className="wr-button-group">
-                  <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
-                    <Send size={20} />
-                    Submit
-                  </button>
-                  <button className="wr-btn wr-btn-outline" onClick={handleClear}>
-                    <RefreshCcw size={15} />
-                    Clear
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* History Section */}
-            <div className={`wr-main-section ${activeSection === "reports" ? "wr-show" : "wr-hide-on-mobile"}`}>
-              <div className="wr-view-section">
-                <div className="wr-card" style={{ marginBottom: '24px' }}>
-                  <div className="wr-history-header">
-                    <div className="wr-section-title">
-                      <Search size={22} />
-                      Work History
-                    </div>
-
-                    {showTeamReports && (
-                      <button
-                        className="team-report-btn"
-                        onClick={() => history.push("/workreport-dashboard")}
-                      >
-                        Team Work Reports
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="workrp-wh" >
-                    {canViewAllEmployees && (
-                      <div className="wr-input-group" style={{ marginBottom: 0 }}>
-                        <div className="custom-dropdown-container" ref={triggerRef}>
-                          <div
-                            className={`premium-filter-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
-                            onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
-                          >
-                            <div className="trigger-content">
-                              <div className="trigger-icon-box">
-                                <IonIcon icon={personOutline} />
-                              </div>
-                              <div className="trigger-text-sec">
-                                <span className="trigger-sub">Employee</span>
-                                <span className="trigger-main">
-                                  {employees.find(e => e.empCode === selectedEmployee)?.name || "Select Employee"}
-                                </span>
-                              </div>
-                            </div>
-                            <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
-                          </div>
-
-                          {isEmployeeDropdownOpen && createPortal(
+                          {isClientDropdownOpen && createPortal(
                             <>
-                              <div className="dropdown-outside-click-layer" onClick={() => setIsEmployeeDropdownOpen(false)} />
+                              <div
+                                className="dropdown-outside-click-layer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsClientDropdownOpen(false);
+                                }}
+                              />
                               <div
                                 className="custom-inline-dropdown"
+                                onMouseDown={(e) => e.stopPropagation()}
                                 style={{
                                   position: 'absolute',
-                                  top: `${dropdownPos.top}px`,
-                                  left: `${dropdownPos.left}px`,
-                                  width: `${dropdownPos.width}px`
+                                  top: `${clientDropdownPos.top}px`,
+                                  left: `${clientDropdownPos.left}px`,
+                                  width: `${clientDropdownPos.width}px`
                                 }}
                               >
                                 <div className="dropdown-search-sec">
-                                  <IonIcon icon={searchOutline} className="dropdown-search-icon" />
+                                  <Search size={16} className="dropdown-search-icon" />
                                   <input
                                     type="text"
                                     className="dropdown-pure-input"
-                                    placeholder="Search name or code..."
-                                    value={empSearchTerm}
-                                    onChange={(e) => setEmpSearchTerm(e.target.value)}
+                                    placeholder="Search client name..."
+                                    value={clientSearchTerm}
+                                    onChange={(e) => setClientSearchTerm(e.target.value)}
                                     autoFocus
+                                    onMouseDown={(e) => e.stopPropagation()}
                                   />
-                                  {empSearchTerm && (
-                                    <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
-                                      <IonIcon icon={closeCircle} />
+                                  {clientSearchTerm && (
+                                    <button
+                                      className="dropdown-clear-btn"
+                                      onClick={() => setClientSearchTerm("")}
+                                    >
+                                      <X size={16} />
                                     </button>
                                   )}
                                 </div>
 
                                 <div className="dropdown-body">
-                                  {filteredEmployees.map((emp) => {
-                                    const isSelected = selectedEmployee === emp.empCode;
-
-                                    // Extract actual name by removing ID prefix (e.g., 1501-NAME)
-                                    const nameWithoutId = emp.name.includes("-") ? emp.name.split("-")[1].trim() : emp.name;
-                                    const initials = nameWithoutId.charAt(0).toUpperCase();
-
-                                    return (
-                                      <div
-                                        key={emp.empCode}
-                                        className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
-                                        onMouseDown={async (e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setSelectedEmployee(emp.empCode);
-                                          setReportList([]);
-                                          const targetMonth = selectedMonth || getCurrentMonthYear();
-                                          setSelectedMonth(targetMonth);
-                                          setIsEmployeeDropdownOpen(false);
-                                          setEmpSearchTerm("");
-                                          await fetchMonths(emp.empCode);
-                                          await fetchReports(emp.empCode, targetMonth);
-                                        }}
-                                      >
-                                        <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`}>
-                                          {initials}
+                                  {filteredClients.length > 0 ? (
+                                    filteredClients.map((c, index) => {
+                                      const isSelected = String(selectedClient) === String(c.id);
+                                      const initials = (c.name.charAt(0) || "?").toUpperCase();
+                                      return (
+                                        <div
+                                          key={index}
+                                          className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setSelectedClient(String(c.id));
+                                            setIsClientDropdownOpen(false);
+                                            setClientSearchTerm("");
+                                          }}
+                                        >
+                                          <div className={`dr-avatar grad-${(c.id % 5) || 0}`}>
+                                            {initials}
+                                          </div>
+                                          <div className="dr-info">
+                                            <span className="dr-name">{c.name}</span>
+                                            <span className="dr-id">ID: {c.id}</span>
+                                          </div>
+                                          {isSelected && <Check size={18} className="dr-check" />}
                                         </div>
-                                        <div className="dr-info">
-                                          <span className="dr-name">{emp.name}</span>
-                                          <span className="dr-id">ID: {emp.empCode}</span>
-                                        </div>
-                                        {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
-                                      </div>
-                                    );
-                                  })}
-                                  {filteredEmployees.length === 0 && (
-                                    <div className="dr-no-results">
-                                      <p>No matches for "{empSearchTerm}"</p>
-                                    </div>
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="dr-no-results">No clients found</div>
                                   )}
                                 </div>
                               </div>
@@ -1049,42 +834,247 @@ const WorkReports: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    )}
-                    <div className="wr-input-group" style={{ marginBottom: 0 }}>
-                      <div className="custom-dropdown-container">
-                        <div className="premium-filter-trigger">
+                    );
+                  })()}
+
+                  {/* Field 2: Work Location (Custom Dropdown) */}
+                  <div className="ntv-form-group">
+                    <label className="ntv-form-label">Work Location</label>
+                    <div
+                      className={`ntv-form-input-wrapper ${isLocationDropdownOpen ? 'active' : ''}`}
+                      ref={locationTriggerRef}
+                      onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+                    >
+                      <MapPin size={16} className="ntv-form-input-icon" />
+                      <span className="ntv-form-text-display">
+                        {workLocation || "Choose Location"}
+                      </span>
+                      <ChevronDown size={15} style={{ marginLeft: 'auto', opacity: 0.7 }} />
+
+                      {isLocationDropdownOpen && createPortal(
+                        <>
+                          <div
+                            className="dropdown-outside-click-layer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsLocationDropdownOpen(false);
+                            }}
+                          />
+                          <div
+                            className="custom-inline-dropdown"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{
+                              position: 'absolute',
+                              top: `${locationDropdownPos.top}px`,
+                              left: `${locationDropdownPos.left}px`,
+                              width: `${locationDropdownPos.width}px`
+                            }}
+                          >
+                            <div className="dropdown-body" style={{ height: 'auto', maxHeight: '180px' }}>
+                              {["In-House", "On-Site"].map((loc, index) => {
+                                const isSelected = workLocation === loc;
+                                const initials = loc.charAt(0);
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setWorkLocation(loc);
+                                      setIsLocationDropdownOpen(false);
+                                    }}
+                                  >
+                                    <div className={`dr-avatar grad-${(index % 5) || 0}`}>
+                                      {initials}
+                                    </div>
+                                    <div className="dr-info">
+                                      <span className="dr-name">{loc}</span>
+                                    </div>
+                                    {isSelected && <Check size={18} className="dr-check" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>,
+                        document.body
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Field 3: Employee (Custom Dropdown) */}
+                  {canViewAllEmployees && (
+                    <div className="ntv-form-group">
+                      <label className="ntv-form-label">Employee</label>
+                      <div className="custom-dropdown-container" ref={triggerRef}>
+                        <div
+                          className={`premium-filter-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
+                          onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
+                        >
                           <div className="trigger-content">
                             <div className="trigger-icon-box">
-                              <IonIcon icon={calendarOutline} />
+                              <IonIcon icon={personOutline} />
                             </div>
                             <div className="trigger-text-sec">
-                              <span className="trigger-sub">Month</span>
-                              <span className="trigger-main">{selectedMonth || "Select Month"}</span>
+                              <span className="trigger-main">
+                                {employees.find(e => e.empCode === selectedEmployee)?.name || "Select Employee"}
+                              </span>
                             </div>
                           </div>
                           <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
-
-                          <IonSelect
-                            className="hidden-select-overlay"
-                            interface="popover"
-                            value={selectedMonth}
-                            onIonChange={(e) => {
-                              const month = e.detail.value;
-                              setSelectedMonth(month);
-                              if (selectedEmployee) {
-                                fetchReports(selectedEmployee, month);
-                              }
-                            }}
-                          >
-                            {months.map((month, idx) => (
-                              <IonSelectOption key={idx} value={month}>
-                                {month}
-                              </IonSelectOption>
-                            ))}
-                          </IonSelect>
                         </div>
+
+                        {isEmployeeDropdownOpen && createPortal(
+                          <>
+                            <div className="dropdown-outside-click-layer" onClick={() => setIsEmployeeDropdownOpen(false)} />
+                            <div
+                              className="custom-inline-dropdown"
+                              style={{
+                                position: 'absolute',
+                                top: `${dropdownPos.top}px`,
+                                left: `${dropdownPos.left}px`,
+                                width: `${dropdownPos.width}px`
+                              }}
+                            >
+                              <div className="dropdown-search-sec">
+                                <IonIcon icon={searchOutline} className="dropdown-search-icon" />
+                                <input
+                                  type="text"
+                                  className="dropdown-pure-input"
+                                  placeholder="Search name or code..."
+                                  value={empSearchTerm}
+                                  onChange={(e) => setEmpSearchTerm(e.target.value)}
+                                  autoFocus
+                                />
+                                {empSearchTerm && (
+                                  <button className="dropdown-clear-btn" onClick={() => setEmpSearchTerm("")}>
+                                    <IonIcon icon={closeCircle} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="dropdown-body">
+                                {filteredEmployees.map((emp) => {
+                                  const isSelected = selectedEmployee === emp.empCode;
+                                  const nameWithoutId = emp.name.includes("-") ? emp.name.split("-")[1].trim() : emp.name;
+                                  const initials = nameWithoutId.charAt(0).toUpperCase();
+
+                                  return (
+                                    <div
+                                      key={emp.empCode}
+                                      className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
+                                      onMouseDown={async (e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelectedEmployee(emp.empCode);
+                                        setReportList([]);
+                                        const targetMonth = selectedMonth || getCurrentMonthYear();
+                                        setSelectedMonth(targetMonth);
+                                        setIsEmployeeDropdownOpen(false);
+                                        setEmpSearchTerm("");
+                                        await fetchMonths(emp.empCode);
+                                        await fetchReports(emp.empCode, targetMonth);
+                                      }}
+                                    >
+                                      <div className={`dr-avatar grad-${(parseInt(emp.empCode) % 5) || 0}`}>
+                                        {initials}
+                                      </div>
+                                      <div className="dr-info">
+                                        <span className="dr-name">{emp.name}</span>
+                                        <span className="dr-id">ID: {emp.empCode}</span>
+                                      </div>
+                                      {isSelected && <IonIcon icon={checkmarkCircle} className="dr-check" />}
+                                    </div>
+                                  );
+                                })}
+                                {filteredEmployees.length === 0 && (
+                                  <div className="dr-no-results">
+                                    <p>No matches for "{empSearchTerm}"</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </>,
+                          document.body
+                        )}
                       </div>
                     </div>
+                  )}
+
+                  {/* Field 4: Month Dropdown */}
+                  <div className="ntv-form-group">
+                    <label className="ntv-form-label">Month</label>
+                    <div className="custom-dropdown-container">
+                      <div className="premium-filter-trigger">
+                        <div className="trigger-content">
+                          <div className="trigger-icon-box">
+                            <IonIcon icon={calendarOutline} />
+                          </div>
+                          <div className="trigger-text-sec">
+                            <span className="trigger-main">{selectedMonth || "Select Month"}</span>
+                          </div>
+                        </div>
+                        <IonIcon icon={layersOutline} className="trigger-icon-arrow" />
+
+                        <IonSelect
+                          className="hidden-select-overlay"
+                          interface="popover"
+                          value={selectedMonth}
+                          onIonChange={(e) => {
+                            const month = e.detail.value;
+                            setSelectedMonth(month);
+                            if (selectedEmployee) {
+                              fetchReports(selectedEmployee, month);
+                            }
+                          }}
+                        >
+                          {months.map((month, idx) => (
+                            <IonSelectOption key={idx} value={month}>
+                              {month}
+                            </IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Description and Buttons */}
+                <div className={`wr-form-row-2 ${canViewAllEmployees ? 'has-emp-col' : 'no-emp-col'}`}>
+                  <div className="wr-input-group wr-desc-group">
+                    <label className="wr-label">Description</label>
+                    <textarea
+                      className="wr-textarea"
+                      value={reportContent}
+                      onChange={(e) => setReportContent(e.target.value)}
+                      rows={3}
+                      placeholder="Tell us what you worked on today..."
+                    />
+                  </div>
+
+                  <div className="wr-action-buttons-wrap">
+                    <button className="wr-btn wr-btn-outline" onClick={handleClear}>
+                      <RefreshCcw size={14} />
+                      Clear
+                    </button>
+
+                    <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
+                      <Send size={16} />
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* History Section */}
+            <div className={`wr-main-section ${activeSection === "reports" ? "wr-show" : "wr-hide-on-mobile"}`}>
+              <div className="wr-view-section">
+                <div className="wr-history-header-compact">
+                  <div className="wr-section-title" style={{ marginBottom: 0 }}>
+                    <Search size={18} />
+                    Work History
                   </div>
                 </div>
 
@@ -1112,12 +1102,19 @@ const WorkReports: React.FC = () => {
                           <h3 className="wr-premium-title">{report[1]}</h3>
                           <div className="wr-premium-desc-box">
                             <FileText size={14} className="wr-desc-icon" />
-                            <p className="wr-premium-text">{report[4]}</p>
-                            {/* {report[6] === "Pending" && JSON.parse(localStorage.getItem("user") || "{}")?.empCode === selectedEmployee && (
-                              <button className="wr-edit-btn-small" onClick={() => handleEditClick(report)}>
-                                <Edit2 size={16} />
+                            <p className="wr-premium-text">{(report[4] || "").split("__")[0]}</p>
+                            {(report[6]?.toLowerCase() === "pending" || !report[6]) && (canViewAllEmployees || String(_user?.empCode || _user?.EmpCode) === String(selectedEmployee)) && (
+                              <button 
+                                className="wr-edit-btn-small" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditClick(report);
+                                }}
+                                title="Edit Work Report"
+                              >
+                                <Edit2 size={15} />
                               </button>
-                            )} */}
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1174,7 +1171,7 @@ const WorkReports: React.FC = () => {
           </div>
         </IonModal>
 
-        {/* Simple & Ultra-Premium Success Message Modal */}
+        {/* Ultra-Premium Success Message Modal with Logo Inside Circle */}
         <IonModal 
           isOpen={showSuccessModal} 
           className="premium-success-modal" 
@@ -1182,12 +1179,18 @@ const WorkReports: React.FC = () => {
           onDidDismiss={() => setShowSuccessModal(false)}
         >
           <div className="us-content" onClick={() => setShowSuccessModal(false)}>
-            {/* Glossy Right-Tick Ball with Soft Pulse */}
-            <div className="us-ball-wrapper">
+            {/* Central Animated Emblem with Logo & Right-Tick Badge */}
+            <div className="us-emblem-wrapper">
               <div className="us-pulse-ring us-pulse-1"></div>
               <div className="us-pulse-ring us-pulse-2"></div>
 
-              <div className="us-tick-ball">
+              {/* White Glossy Circle containing the Company Logo */}
+              <div className="us-logo-circle">
+                <img src="./images/dbs-logo-short.png" alt="Company Logo" className="us-circle-logo" />
+              </div>
+
+              {/* Front Right-Tick Animated Checkmark Badge */}
+              <div className="us-check-badge">
                 <svg className="us-checkmark-svg" viewBox="0 0 52 52">
                   <path className="us-checkmark-check" fill="none" d="M14.5 27.2l7.6 7.6 15.4-15.6" />
                 </svg>
@@ -1207,23 +1210,39 @@ const WorkReports: React.FC = () => {
           className="wr-edit-modal"
         >
           <div className="wr-modal-content">
-            <h3 className="wr-modal-title">Edit Work Report</h3>
+            <div className="wr-modal-header">
+              <h3 className="wr-modal-title">
+                <Edit2 size={18} color="var(--ion-color-primary)" />
+                Edit Work Report
+              </h3>
+              <button 
+                className="wr-modal-close-btn" 
+                onClick={() => setShowEditModal(false)}
+                type="button"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
             <div className="wr-input-group" style={{ width: '100%' }}>
-              <label className="wr-label">Description</label>
+              <label className="wr-label">Work Description</label>
               <textarea
                 className="wr-textarea"
                 value={editingReportContent}
                 onChange={(e) => setEditingReportContent(e.target.value)}
-                rows={8}
+                rows={6}
                 placeholder="Update your work report..."
+                style={{ resize: "vertical", minHeight: "130px" }}
               />
             </div>
-            <div className="wr-button-group" style={{ width: '100%' }}>
+            <div className="wr-button-group" style={{ width: '100%', marginTop: '6px' }}>
               <button className="wr-btn wr-btn-outline" onClick={() => setShowEditModal(false)}>
+                <X size={15} />
                 Cancel
               </button>
               <button className="wr-btn wr-btn-primary" onClick={handleUpdate}>
-                Update
+                <Check size={16} />
+                Update Report
               </button>
             </div>
           </div>

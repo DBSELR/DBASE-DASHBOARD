@@ -634,6 +634,7 @@ const LeaveDashboard: React.FC = () => {
                   else if (gtLower.includes("lop") || stLower.includes("lop") || lopMins > 0) lopCount++;
 
                   const dMoment = moment(fullDateStr, "YYYY-MM-DD");
+                  const isThisLop = gtLower.includes("lop") || stLower.includes("lop") || lopMins > 0;
                   extractedLateLogs.push({
                     id: `${empCode}_${fullDateStr}`,
                     date: fullDateStr,
@@ -647,6 +648,8 @@ const LeaveDashboard: React.FC = () => {
                     lunchLate: lLate,
                     permOverstay: pOverstay,
                     totalLate: tLate,
+                    occasionNumber: occCount,
+                    lopOccasionNumber: isThisLop ? lopCount : 0,
                     graceType: graceType || (tLate > 0 ? (tLate <= 15 && gCount <= 4 ? "FREE_GRACE" : "PERMISSION") : "PRESENT"),
                     attendanceStatus: attStatus || (tLate > 0 ? "Late" : "Present"),
                     lopMinutes: lopMins
@@ -723,6 +726,7 @@ const LeaveDashboard: React.FC = () => {
                   else if (gtLower.includes("lop") || stLower.includes("lop") || lopMins > 0) lopCount++;
 
                   const dMoment = moment(fullDateStr, "YYYY-MM-DD");
+                  const isThisLop = gtLower.includes("lop") || stLower.includes("lop") || lopMins > 0;
                   extractedLateLogs.push({
                     id: `${empCode}_${fullDateStr}`,
                     date: fullDateStr,
@@ -736,6 +740,8 @@ const LeaveDashboard: React.FC = () => {
                     lunchLate: lLate,
                     permOverstay: pOverstay,
                     totalLate: tLate,
+                    occasionNumber: occCount,
+                    lopOccasionNumber: isThisLop ? lopCount : 0,
                     graceType: graceType || (tLate > 0 ? "Late" : "Present"),
                     attendanceStatus: attStatus || (tLate > 0 ? "Late" : "Present"),
                     lopMinutes: lopMins
@@ -1478,7 +1484,13 @@ const LeaveDashboard: React.FC = () => {
                         impactText = `Deducted from monthly P_Time balance (${r.totalLate}m)`;
                       } else if (isLop) {
                         statusClass = "ld-late-pill-lop";
-                        impactText = `Converted to Loss of Pay (LOP) + Slip`;
+                        // Strictly LOP-based: 1st LOP = No Slip, 2nd LOP and subsequent = Yellow Slip
+                        const hasSlip = (r.lopOccasionNumber !== undefined && r.lopOccasionNumber >= 2) ||
+                                        Boolean(r.slip && String(r.slip).toLowerCase().includes("slip"));
+
+                        impactText = hasSlip
+                          ? `Converted to Loss of Pay (LOP) + Yellow Slip`
+                          : `Converted to Loss of Pay (LOP)`;
                       }
 
                       return (
