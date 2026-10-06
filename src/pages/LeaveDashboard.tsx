@@ -519,9 +519,9 @@ const LeaveDashboard: React.FC = () => {
 
           const aiPermUsed = Number(
             graceData.permissionGraceUsed ??
-              (graceData.permissionSessionsMax !== undefined && graceData.permissionSessionsLeft !== undefined
-                ? graceData.permissionSessionsMax - graceData.permissionSessionsLeft
-                : 0)
+            (graceData.permissionSessionsMax !== undefined && graceData.permissionSessionsLeft !== undefined
+              ? graceData.permissionSessionsMax - graceData.permissionSessionsLeft
+              : 0)
           ) || 0;
 
           if (aiPermUsed > 0) {
@@ -534,9 +534,9 @@ const LeaveDashboard: React.FC = () => {
 
           aiGracesUsed = Number(
             graceData.freeGracesUsed ??
-              (graceData.freeGracesMax !== undefined && graceData.gracesLeft !== undefined
-                ? graceData.freeGracesMax - graceData.gracesLeft
-                : 0)
+            (graceData.freeGracesMax !== undefined && graceData.gracesLeft !== undefined
+              ? graceData.freeGracesMax - graceData.gracesLeft
+              : 0)
           ) || 0;
 
           if (graceData.freeGracesMax) {
@@ -849,15 +849,15 @@ const LeaveDashboard: React.FC = () => {
       setBalances({
         cl: { balance: clBalance, used: clUsed },
         sl: { balance: slBalance, used: slUsed },
-        perm: { 
-          balance: permBalance, 
-          used: Math.max(permUsed, appliedPermMins), 
-          usedSessions: calculatedUsedPermSessions, 
-          maxSessions: calculatedMaxPermSessions 
+        perm: {
+          balance: permBalance,
+          used: Math.max(permUsed, appliedPermMins),
+          usedSessions: calculatedUsedPermSessions,
+          maxSessions: calculatedMaxPermSessions
         },
-        lop: { 
-          balance: lopBalance, 
-          used: calculatedLeaveLopDays 
+        lop: {
+          balance: lopBalance,
+          used: calculatedLeaveLopDays
         },
         grace: { used: finalGraceUsed, max: graceMax, usedMins: finalGraceUsedMins, todayUsed: todayGraceUsed, todayMins: todayGraceMins }
       });
@@ -1486,7 +1486,7 @@ const LeaveDashboard: React.FC = () => {
                         statusClass = "ld-late-pill-lop";
                         // Strictly LOP-based: 1st LOP = No Slip, 2nd LOP and subsequent = Yellow Slip
                         const hasSlip = (r.lopOccasionNumber !== undefined && r.lopOccasionNumber >= 2) ||
-                                        Boolean(r.slip && String(r.slip).toLowerCase().includes("slip"));
+                          Boolean(r.slip && String(r.slip).toLowerCase().includes("slip"));
 
                         impactText = hasSlip
                           ? `Converted to Loss of Pay (LOP) + Yellow Slip`

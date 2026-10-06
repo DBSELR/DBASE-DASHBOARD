@@ -206,14 +206,77 @@ const generateMonthList = () => {
 
 
 
+const getStatusCategory = (statusStr: any): string => {
+  const s = String(statusStr || "").toLowerCase();
+  if (s.includes("accept") || s.includes("approv")) return "approved";
+  if (s.includes("reject")) return "rejected";
+  if (s.includes("pend")) return "pending";
+  if (s.includes("receiv")) return "received";
+  return "pending";
+};
+
+const getRejectionStatusText = (item: any): string => {
+  if (!item) return "REJECTED";
+
+  const ra2Status = safeText(item.RA2_Status || item.ra2_Status || item.rA2_Status).toLowerCase().trim();
+  const ra1Status = safeText(item.RA1_Status || item.ra1_Status || item.rA1_Status).toLowerCase().trim();
+  const ra3Status = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase().trim();
+  const ra4Status = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase().trim();
+
+  if (ra2Status === "rejected") {
+    return `REJECTED BY ${String(item.RA2 || "RA2").toUpperCase()}`;
+  }
+  if (ra1Status === "rejected") {
+    return `REJECTED BY ${String(item.RA1 || "RA1").toUpperCase()}`;
+  }
+  if (ra3Status === "rejected") {
+    return `REJECTED BY ${String(item.RA3 || "RA3").toUpperCase()}`;
+  }
+  if (ra4Status === "rejected") {
+    return `REJECTED BY ${String(item.RA4 || "RA4").toUpperCase()}`;
+  }
+
+  const raw = String(item?.L_status || "").trim();
+  if (raw.toLowerCase().startsWith("rejected by")) {
+    return raw.toUpperCase();
+  }
+  if (raw.toLowerCase().includes("rejected")) {
+    const who = item.RA2 || item.RA1 || item.CurrentRA || "";
+    if (who && String(who).toLowerCase() !== "null") {
+      return `REJECTED BY ${String(who).toUpperCase()}`;
+    }
+    return raw.toUpperCase();
+  }
+
+  return "REJECTED";
+};
+
 const getRejectionInfo = (item: any) => {
-  if (!item?.L_status) return null;
+  if (!item) return null;
 
-  const status = String(item.L_status);
+  const ra2Status = safeText(item.RA2_Status || item.ra2_Status || item.rA2_Status).toLowerCase().trim();
+  const ra1Status = safeText(item.RA1_Status || item.ra1_Status || item.rA1_Status).toLowerCase().trim();
+  const ra3Status = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase().trim();
+  const ra4Status = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase().trim();
 
-  if (status.toLowerCase().includes("rejected")) {
-    // 🔥 SHOW EXACT BACKEND MESSAGE
-    return status;
+  if (ra2Status === "rejected") {
+    return `Rejected by ${item.RA2 || "RA2"}`;
+  }
+  if (ra1Status === "rejected") {
+    return `Rejected by ${item.RA1 || "RA1"}`;
+  }
+  if (ra3Status === "rejected") {
+    return `Rejected by ${item.RA3 || "RA3"}`;
+  }
+  if (ra4Status === "rejected") {
+    return `Rejected by ${item.RA4 || "RA4"}`;
+  }
+
+  if (item?.L_status) {
+    const status = String(item.L_status);
+    if (status.toLowerCase().includes("rejected")) {
+      return status;
+    }
   }
 
   return null;
@@ -560,39 +623,71 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     let deducedRA = pick(itemObj, "CurrentRA", "currentRA", "currentRa");
     let deducedStatus = safeText(pick(itemObj, "L_status", "Status", "l_status", "status"));
 
-    if (!deducedRA && deducedStatus.toLowerCase().includes("pending")) {
-      const r1 = pick(itemObj, "RA1", "rA1", "ra1");
-      const r2 = pick(itemObj, "RA2", "rA2", "ra2");
-      const r3 = pick(itemObj, "RA3", "rA3", "ra3");
-      const r4 = pick(itemObj, "RA4", "rA4", "ra4");
-      const rs1 = safeText(pick(itemObj, "RA1_Status", "ra1_Status", "rA1_Status", "ra1Status", "rA1Status"));
-      const rs2 = safeText(pick(itemObj, "RA2_Status", "ra2_Status", "rA2_Status", "ra2Status", "rA2Status"));
-      const rs3 = safeText(pick(itemObj, "RA3_Status", "ra3_Status", "rA3_Status", "ra3Status", "rA3Status"));
+    const r1 = pick(itemObj, "RA1", "rA1", "ra1");
+    const r2 = pick(itemObj, "RA2", "rA2", "ra2");
+    const r3 = pick(itemObj, "RA3", "rA3", "ra3");
+    const r4 = pick(itemObj, "RA4", "rA4", "ra4");
 
-      const isP = (s: string) => !s || (!s.toLowerCase().includes("accepted") && !s.toLowerCase().includes("approved") && !s.toLowerCase().includes("rejected"));
+    const rs1 = safeText(pick(itemObj, "RA1_Status", "ra1_Status", "rA1_Status", "ra1Status", "rA1Status")).toLowerCase().trim();
+    const rs2 = safeText(pick(itemObj, "RA2_Status", "ra2_Status", "rA2_Status", "ra2Status", "rA2Status")).toLowerCase().trim();
+    const rs3 = safeText(pick(itemObj, "RA3_Status", "ra3_Status", "rA3_Status", "ra3Status", "rA3Status")).toLowerCase().trim();
+    const rs4 = safeText(pick(itemObj, "RA4_Status", "ra4_Status", "rA4_Status", "ra4Status", "rA4Status")).toLowerCase().trim();
 
-      if (r1 && isP(rs1)) deducedRA = r1;
-      else if (r2 && isP(rs2)) deducedRA = r2;
-      else if (r3 && isP(rs3)) deducedRA = r3;
-      else if (r4) deducedRA = r4;
+    const isAppr = (s: string) => s === "accepted" || s === "approved";
+    const isRej = (s: string) => s === "rejected";
 
-      if (!deducedRA) {
-        if (view !== "my") {
-          deducedRA = getUser()?.designation || "";
-        } else {
-          deducedRA = fallbackMgr;
+    const isPermission = (itemObj?.ltype || type || "").toLowerCase().includes("permission");
+
+    if (isPermission) {
+      if (isRej(rs2)) {
+        deducedStatus = `Rejected by ${r2 || "RA2"}`;
+      } else if (isRej(rs1)) {
+        deducedStatus = `Rejected by ${r1 || "RA1"}`;
+      } else if (isAppr(rs2) && isAppr(rs1)) {
+        deducedStatus = r1 === r2 ? `Accepted by ${r1 || "RA1"}` : `Accepted by ${r1 || "RA1"} → ${r2 || "RA2"}`;
+      } else if (isAppr(rs2)) {
+        deducedStatus = `Accepted by ${r2 || "RA2"}`;
+      } else if (isAppr(rs1)) {
+        deducedStatus = `Accepted by ${r1 || "RA1"}`;
+      } else if (!deducedStatus || deducedStatus.toLowerCase().includes("pending")) {
+        const targetRA = deducedRA || r1 || r2 || (view !== "my" ? (getUser()?.designation || getUser()?.Designation || "") : fallbackMgr);
+        deducedStatus = targetRA ? `Pending at ${targetRA}` : "Pending";
+      }
+    } else {
+      if (!deducedRA && deducedStatus.toLowerCase().includes("pending")) {
+        const isP = (s: string) => !s || (!s.includes("accepted") && !s.includes("approved") && !s.includes("rejected"));
+
+        if (r1 && isP(rs1)) deducedRA = r1;
+        else if (r2 && isP(rs2)) deducedRA = r2;
+        else if (r3 && isP(rs3)) deducedRA = r3;
+        else if (r4) deducedRA = r4;
+
+        if (!deducedRA) {
+          if (view !== "my") {
+            deducedRA = getUser()?.designation || getUser()?.Designation || "";
+          } else {
+            deducedRA = fallbackMgr;
+          }
         }
       }
-    }
 
-    if (deducedRA && deducedStatus.toLowerCase().includes("pending")) {
-      const trimmed = deducedStatus.trim().toLowerCase();
-      if (trimmed === "pending" || trimmed === "pending at") {
-        deducedStatus = "Pending at " + deducedRA;
-      }
-    } else if (!deducedRA && deducedStatus.toLowerCase().includes("pending")) {
-      if (deducedStatus.trim().toLowerCase() === "pending at") {
-        deducedStatus = "Pending";
+      if (isRej(rs4)) {
+        deducedStatus = `Rejected by ${r4 || "RA4"}`;
+      } else if (isRej(rs3)) {
+        deducedStatus = `Rejected by ${r3 || "RA3"}`;
+      } else if (isRej(rs2)) {
+        deducedStatus = `Rejected by ${r2 || "RA2"}`;
+      } else if (isRej(rs1)) {
+        deducedStatus = `Rejected by ${r1 || "RA1"}`;
+      } else if (deducedRA && deducedStatus.toLowerCase().includes("pending")) {
+        const trimmed = deducedStatus.trim().toLowerCase();
+        if (trimmed === "pending" || trimmed === "pending at") {
+          deducedStatus = "Pending at " + deducedRA;
+        }
+      } else if (!deducedRA && deducedStatus.toLowerCase().includes("pending")) {
+        if (deducedStatus.trim().toLowerCase() === "pending at") {
+          deducedStatus = "Pending";
+        }
       }
     }
 
@@ -630,10 +725,15 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
       Slip: pick(itemObj, "Slip", "slip"),
 
-      RA1: pick(itemObj, "RA1", "rA1", "ra1"),
-      RA2: pick(itemObj, "RA2", "rA2", "ra2"),
-      RA3: pick(itemObj, "RA3", "rA3", "ra3"),
-      RA4: pick(itemObj, "RA4", "rA4", "ra4"),
+      RA1: r1,
+      RA2: r2,
+      RA3: r3,
+      RA4: r4,
+
+      RA1Name: pick(itemObj, "RA1Name", "ra1Name", "RA1_Name", "ra1_Name"),
+      RA2Name: pick(itemObj, "RA2Name", "ra2Name", "RA2_Name", "ra2_Name"),
+      RA3Name: pick(itemObj, "RA3Name", "ra3Name", "RA3_Name", "ra3_Name"),
+      RA4Name: pick(itemObj, "RA4Name", "ra4Name", "RA4_Name", "ra4_Name"),
 
       RA1_Comment: pick(itemObj, "RA1_Comment", "ra1_Comment", "rA1_Comment", "ra1Comment", "rA1Comment"),
       RA2_Comment: pick(itemObj, "RA2_Comment", "ra2_Comment", "rA2_Comment", "ra2Comment", "rA2Comment"),
@@ -1349,18 +1449,30 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     const ra1Status = normalizeText(item?.RA1_Status);
     const ra2Status = normalizeText(item?.RA2_Status);
 
-    if (
-      ra1Status === "accepted" ||
-      ra1Status === "approved"
-    ) {
+    const ra1Approved = ra1Status === "accepted" || ra1Status === "approved";
+    const ra2Approved = ra2Status === "accepted" || ra2Status === "approved";
+
+    if (ra1Approved && ra2Approved) {
+      const r1 = item?.RA1 || "RA1";
+      const r2 = item?.RA2 || "RA2";
+      return r1 === r2 ? r1 : `${r1} → ${r2}`;
+    }
+
+    if (ra2Approved) {
+      return item?.RA2 || "RA2";
+    }
+
+    if (ra1Approved) {
       return item?.RA1 || "RA1";
     }
 
-    if (
-      ra2Status === "accepted" ||
-      ra2Status === "approved"
-    ) {
-      return item?.RA2 || "RA2";
+    const raw = String(item?.L_status || "").trim();
+    if (raw.toLowerCase().includes("accepted by ") || raw.toLowerCase().includes("approved by ")) {
+      return raw.replace(/^(accepted|approved)\s+by\s+/i, "").trim();
+    }
+
+    if (raw.toLowerCase().includes("accepted") || raw.toLowerCase().includes("approved")) {
+      return item?.RA2 || item?.RA1 || "Approved";
     }
 
     return "-";
@@ -1395,7 +1507,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       return status.includes("pending") || status === "";
     }
 
-    const user = normalizeText(getUser()?.designation);
+    const user = normalizeText(getUser()?.designation || getUser()?.Designation || getUser()?.role);
 
     if (normalizeText(item.ltype) === "permission") {
       const ra1 = normalizeText(item.RA1);
@@ -1403,8 +1515,6 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
       const ra1Status = normalizeText(item.RA1_Status);
       const ra2Status = normalizeText(item.RA2_Status);
-
-      const user = normalizeText(getUser()?.designation);
 
       const ra1Responded =
         ra1Status === "accepted" ||
@@ -1428,7 +1538,17 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
          Both RA1 and RA2 can act while
          the permission is still pending.
       */
-      return user === ra1 || user === ra2;
+      if (ra1 && user === ra1) return true;
+      if (ra2 && user === ra2) return true;
+      if (user && ra1 && (user.includes(ra1) || ra1.includes(user))) return true;
+      if (user && ra2 && (user.includes(ra2) || ra2.includes(user))) return true;
+
+      // Fallback if RA1/RA2 not explicitly set
+      if (!ra1 && !ra2) {
+        return normalizeText(item.CurrentRA) === user;
+      }
+
+      return false;
     }
 
     // if (normalizeText(item.ltype) === "permission") {
@@ -2200,7 +2320,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
             }
 
             return (
-              <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card status-${(item.L_status || '').toLowerCase().replace(/\s/g, '')}`}>
+              <div key={`${item.lid}-${item.empcode}`} className={`lr-history-card status-${getStatusCategory(item.L_status)}`}>
                 <div className="lr-card-inner">
                   <div className="lr-card-header-row">
                     <div className="lr-card-main">
@@ -2233,16 +2353,28 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "10px" }}>
-
-
-                      <div
-                        className={`lr-status-indicator lr-status-${(item.L_status || '')
-                          .toLowerCase()
-                          .replace(/\s/g, '')}`}
-                      >
-                        {item.L_status}
-                      </div>
-
+                      {(() => {
+                        const cat = getStatusCategory(item.L_status);
+                        if (cat === "approved" || cat === "accepted") {
+                          return (
+                            <div className="lr-status-indicator lr-status-approved">
+                              Approved
+                            </div>
+                          );
+                        }
+                        if (cat === "rejected") {
+                          return (
+                            <div className="lr-status-rejected-text">
+                              {getRejectionStatusText(item)}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="lr-status-pending-text">
+                            {String(item.L_status || "Pending").toUpperCase()}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                   </div>
