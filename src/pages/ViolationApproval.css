@@ -1,0 +1,593 @@
+/* =====================================================
+   ViolationApproval — Modern Modal & Page Enhancements
+   ===================================================== */
+
+/* ── Modal Overlay ── */
+.va-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: vaFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vaFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Modal Card ── */
+.va-modal-card {
+  background: #ffffff;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  animation: vaScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vaScaleUp {
+  from { transform: scale(0.92) translateY(12px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* ── Modal Header Styles ── */
+.va-modal-header {
+  padding: 20px 24px 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.va-modal-header.approve {
+  background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+  color: #ffffff;
+}
+
+.va-modal-header.reject {
+  background: linear-gradient(135deg, #881337 0%, #be123c 100%);
+  color: #ffffff;
+}
+
+.va-modal-header.info {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: #ffffff;
+}
+
+.va-header-title-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.va-header-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.va-header-icon-badge.approve {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.va-header-icon-badge.reject {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.va-header-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+.va-header-subtitle {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 500;
+}
+
+.va-modal-close-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.va-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+/* ── Modal Body ── */
+.va-modal-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Transfer Flow Visual Card ── */
+.va-flow-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.va-flow-parties {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.va-party-box {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.va-party-box.from {
+  border-top: 3px solid #059669;
+}
+
+.va-party-box.to {
+  border-top: 3px solid #ea580c;
+}
+
+.va-party-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.va-party-avatar.from {
+  background: #ecfdf5;
+  color: #047857;
+  border: 2px solid #a7f3d0;
+}
+
+.va-party-avatar.to {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 2px solid #fed7aa;
+}
+
+.va-party-role {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.va-party-role.from { color: #059669; }
+.va-party-role.to { color: #ea580c; }
+
+.va-party-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.25;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.va-party-code {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.va-party-action-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+.va-party-action-tag.from {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.va-party-action-tag.to {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.va-flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.va-flow-arrow-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ea580c;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3);
+}
+
+.va-flow-slip-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.va-flow-slip-badge.yellow {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.va-flow-slip-badge.red {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* ── Transfer Details Box ── */
+.va-details-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.va-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.4;
+  gap: 12px;
+}
+
+.va-detail-label {
+  font-weight: 600;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.va-detail-val {
+  font-weight: 700;
+  color: #1e293b;
+  text-align: right;
+}
+
+.va-reason-box {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+
+.va-reason-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9a3412;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.va-reason-text {
+  font-size: 13px;
+  color: #7c2d12;
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* ── Evidence Thumbnail in Modal ── */
+.va-modal-evidence {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+.va-evidence-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.va-evidence-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #93c5fd;
+  cursor: pointer;
+}
+
+.va-evidence-thumb:hover {
+  transform: scale(1.05);
+}
+
+.va-evidence-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.va-evidence-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.va-evidence-sub {
+  font-size: 11px;
+  color: #3b82f6;
+}
+
+.va-evidence-btn {
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.va-evidence-btn:hover {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+/* ── Advisory Banner ── */
+.va-advisory-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.va-advisory-banner.approve {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.va-advisory-banner.reject {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+}
+
+.va-advisory-banner.info {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+/* ── Review Remarks Input ── */
+.va-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.va-input-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.va-input-textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  min-height: 68px;
+  resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.va-input-textarea:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.va-input-textarea.reject:focus {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
+}
+
+/* ── Modal Footer ── */
+.va-modal-footer {
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.va-btn {
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+}
+
+.va-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.va-btn--cancel {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.va-btn--cancel:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.va-btn--approve {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.va-btn--approve:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.va-btn--reject {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.25);
+}
+
+.va-btn--reject:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(244, 63, 94, 0.35);
+}
+
+/* ── Lightbox Overlay & Modal ── */
+.va-lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: vaFadeIn 0.2s ease;
+}
+
+.va-lightbox-modal {
+  position: relative;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.va-lightbox-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  color: #ffffff;
+}
+
+.va-lightbox-media {
+  max-width: 90vw;
+  max-height: 75vh;
+  border-radius: 14px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}

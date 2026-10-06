@@ -31,6 +31,9 @@ import {
   UserCheck,
   Paperclip,
   CheckCircle,
+  CheckCircle2,
+  ArrowRightLeft,
+  Image as ImageIcon,
   FileText,
   Upload,
   Film
@@ -58,7 +61,9 @@ interface EmployeeSummary {
 interface ViolationDetail {
   Id: number;
   EmpCode: string;
+  EmpName?: string;
   PenaltyId: number;
+  PenaltyType?: string;
   PenaltyDate: string;
   ViolationTime: any;
   Remarks: string;
@@ -72,8 +77,21 @@ interface ViolationDetail {
   ProofFileType: string | null;
   TransferStatus?: string;
   TransferredToEmpCode?: string;
+  TransferredToEmpName?: string;
   TransferredFromEmpCode?: string;
+  TransferredFromEmpName?: string;
   TransferRequestId?: number;
+  IsExpired?: boolean;
+  TransferRemarks?: string;
+  TransferProofFileName?: string;
+  TransferProofFilePath?: string;
+  TransferProofFileType?: string;
+  TransferRequestStatus?: string;
+  TransferRequestedDate?: string;
+  TransferReviewedBy?: string;
+  TransferReviewedByName?: string;
+  TransferReviewedDate?: string;
+  TransferReviewRemarks?: string;
 }
 
 interface PenaltyMasterItem {
@@ -90,6 +108,19 @@ interface AllEmployeeItem {
   Designation?: string;
   BranchDept?: string;
 }
+
+// ── Bulletproof string converter (Prevents React Objects-as-Child crash) ──
+const toSafeString = (val: any, fallback = ""): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    return trimmed === "{}" ? fallback : trimmed;
+  }
+  if (typeof val === "number" || typeof val === "boolean") {
+    return String(val);
+  }
+  return fallback;
+};
 
 function PenaltyList() {
   const history = useHistory();
@@ -140,7 +171,18 @@ function PenaltyList() {
     setLoading(true);
     try {
       const res = await axios.get(`${API_BASE}Penalty/GetEmployeeSlipSummary`);
-      setEmployees(res.data || []);
+      const raw = Array.isArray(res.data) ? res.data : [];
+      const clean: EmployeeSummary[] = raw.map((e: any) => ({
+        ...e,
+        EMPCODE: toSafeString(e.EMPCODE),
+        EMPNAME: toSafeString(e.EMPNAME),
+        YellowSlips: Number(e.YellowSlips) || 0,
+        RedSlips: Number(e.RedSlips) || 0,
+        EscalationStatus: toSafeString(e.EscalationStatus, "Normal"),
+        Department: toSafeString(e.Department, ""),
+        Designation: toSafeString(e.Designation, "")
+      }));
+      setEmployees(clean);
     } catch (err) {
       console.error("Failed to load penalty summary:", err);
     } finally {
@@ -159,7 +201,24 @@ function PenaltyList() {
 
       // Load All Employees for assignment picker
       const empRes = await axios.get(`${API_BASE}Employee/Load_Employees`);
-      setAllEmployeesList(empRes.data || []);
+      const rawEmployees = Array.isArray(empRes.data) ? empRes.data : [];
+      const parsedEmployees: AllEmployeeItem[] = rawEmployees.map((e: any) => {
+        if (Array.isArray(e)) {
+          return {
+            EmpCode: String(e[0] || ""),
+            EmpName: String(e[1] || ""),
+            Designation: String(e[2] || ""),
+            BranchDept: String(e[3] || "")
+          };
+        }
+        return {
+          EmpCode: toSafeString(e.EmpCode || e.EMPCODE),
+          EmpName: toSafeString(e.EmpName || e.EMPNAME),
+          Designation: toSafeString(e.Designation),
+          BranchDept: toSafeString(e.BranchDept)
+        };
+      });
+      setAllEmployeesList(parsedEmployees);
     } catch (err) {
       console.error("Failed to load penalty master or employee list:", err);
     }
@@ -170,8 +229,8 @@ function PenaltyList() {
     const map: { [id: number]: { PenaltyType: string; SlipType: string; SlipCount: number } } = {};
     (penaltiesMaster || []).forEach((p: any) => {
       const id = Number(p.id !== undefined ? p.id : p.Id);
-      const penaltyType = p.penaltyType || p.PenaltyType || "";
-      const slipType = p.slipType || p.SlipType || "Yellow Slip";
+      const penaltyType = toSafeString(p.penaltyType || p.PenaltyType, "");
+      const slipType = toSafeString(p.slipType || p.SlipType, "Yellow Slip");
       const slipCount = Number(p.slipCount !== undefined ? p.slipCount : (p.SlipCount ?? 1));
       if (id) {
         map[id] = { PenaltyType: penaltyType, SlipType: slipType, SlipCount: slipCount };
@@ -179,6 +238,44 @@ function PenaltyList() {
     });
     return map;
   }, [penaltiesMaster]);
+
+  const sanitizeViolationDetail = (item: any, empCode: string): ViolationDetail => {
+    return {
+      Id: Number(item.Id) || 0,
+      EmpCode: toSafeString(item.EmpCode, empCode),
+      EmpName: toSafeString(item.EmpName, ""),
+      PenaltyId: Number(item.PenaltyId) || 0,
+      PenaltyType: toSafeString(item.PenaltyType, ""),
+      PenaltyDate: toSafeString(item.PenaltyDate),
+      ViolationTime: item.ViolationTime && typeof item.ViolationTime === "object" && Object.keys(item.ViolationTime).length === 0 ? null : item.ViolationTime,
+      Remarks: toSafeString(item.Remarks, ""),
+      SlipType: toSafeString(item.SlipType, "Yellow Slip"),
+      SlipCount: Number(item.SlipCount) || 1,
+      Status: toSafeString(item.Status, "Applied"),
+      AppliedBy: toSafeString(item.AppliedBy, "System"),
+      AppliedDate: toSafeString(item.AppliedDate),
+      ProofFileName: toSafeString(item.ProofFileName, "") || null,
+      ProofFilePath: item.ProofFilePath && typeof item.ProofFilePath === "object" && Object.keys(item.ProofFilePath).length === 0 ? null : item.ProofFilePath,
+      ProofFileType: toSafeString(item.ProofFileType, "") || null,
+      TransferStatus: toSafeString(item.TransferStatus, "None"),
+      TransferredToEmpCode: toSafeString(item.TransferredToEmpCode, "") || undefined,
+      TransferredToEmpName: toSafeString(item.TransferredToEmpName, "") || undefined,
+      TransferredFromEmpCode: toSafeString(item.TransferredFromEmpCode, "") || undefined,
+      TransferredFromEmpName: toSafeString(item.TransferredFromEmpName, "") || undefined,
+      TransferRequestId: Number(item.TransferRequestId) || undefined,
+      IsExpired: Boolean(item.IsExpired),
+      TransferRemarks: toSafeString(item.TransferRemarks, "") || undefined,
+      TransferProofFileName: toSafeString(item.TransferProofFileName, "") || undefined,
+      TransferProofFilePath: item.TransferProofFilePath && typeof item.TransferProofFilePath === "object" && Object.keys(item.TransferProofFilePath).length === 0 ? undefined : item.TransferProofFilePath,
+      TransferProofFileType: toSafeString(item.TransferProofFileType, "") || undefined,
+      TransferRequestStatus: toSafeString(item.TransferRequestStatus, "") || undefined,
+      TransferRequestedDate: toSafeString(item.TransferRequestedDate, "") || undefined,
+      TransferReviewedBy: toSafeString(item.TransferReviewedBy, "") || undefined,
+      TransferReviewedByName: toSafeString(item.TransferReviewedByName, "") || undefined,
+      TransferReviewedDate: toSafeString(item.TransferReviewedDate, "") || undefined,
+      TransferReviewRemarks: toSafeString(item.TransferReviewRemarks, "") || undefined
+    };
+  };
 
   // Open employee console drawer and load violation history
   const openEmployeeConsole = async (emp: EmployeeSummary) => {
@@ -189,9 +286,11 @@ function PenaltyList() {
       setDrawerLoading(true);
       try {
         const res = await axios.get(`${API_BASE}Penalty/GetEmployeePenaltyDetails/${empCode}`);
+        const raw = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.value) ? res.data.value : []);
+        const clean = raw.map((d: any) => sanitizeViolationDetail(d, empCode));
         setDetails((prev) => ({
           ...prev,
-          [empCode]: res.data || []
+          [empCode]: clean
         }));
       } catch (err) {
         console.error("Failed to load violation details for " + empCode, err);
@@ -205,9 +304,11 @@ function PenaltyList() {
     setDrawerLoading(true);
     try {
       const res = await axios.get(`${API_BASE}Penalty/GetEmployeePenaltyDetails/${empCode}`);
+      const raw = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.value) ? res.data.value : []);
+      const clean = raw.map((d: any) => sanitizeViolationDetail(d, empCode));
       setDetails((prev) => ({
         ...prev,
-        [empCode]: res.data || []
+        [empCode]: clean
       }));
     } catch (err) {
       console.error("Failed to refresh details for " + empCode, err);
@@ -301,8 +402,9 @@ function PenaltyList() {
   const formatViolationTime = (timeVal: any, penaltyDateVal?: string): string => {
     if (!timeVal) return "-";
 
-    // Handle .NET TimeSpan serialized object { hours, minutes, seconds, ticks, ... }
+    // Handle empty object {} or .NET TimeSpan serialized object { hours, minutes, seconds, ticks, ... }
     if (typeof timeVal === "object" && timeVal !== null) {
+      if (Object.keys(timeVal).length === 0) return "-";
       if (timeVal.hours !== undefined && timeVal.minutes !== undefined) {
         const h = Number(timeVal.hours);
         const m = Number(timeVal.minutes);
@@ -317,7 +419,7 @@ function PenaltyList() {
       if (timeVal.value && typeof timeVal.value === "string") {
         timeVal = timeVal.value;
       } else {
-        return "Policy Trigger";
+        return "-";
       }
     }
 
@@ -326,6 +428,7 @@ function PenaltyList() {
       !timeStr ||
       timeStr === "null" ||
       timeStr === "undefined" ||
+      timeStr === "{}" ||
       timeStr === "[object Object]" ||
       timeStr.startsWith("0001-01-01")
     ) {
@@ -353,20 +456,24 @@ function PenaltyList() {
 
     // Try combining with penaltyDateVal
     if (penaltyDateVal) {
-      const datePart = penaltyDateVal.split("T")[0];
-      const combined = new Date(`${datePart}T${timeStr}`);
-      if (!isNaN(combined.getTime())) {
-        return combined.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+      const cleanPDate = toSafeString(penaltyDateVal);
+      if (cleanPDate) {
+        const datePart = cleanPDate.split("T")[0];
+        const combined = new Date(`${datePart}T${timeStr}`);
+        if (!isNaN(combined.getTime())) {
+          return combined.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+        }
       }
     }
 
-    return timeStr === "[object Object]" ? "-" : (timeStr || "-");
+    return timeStr === "[object Object]" || timeStr === "{}" ? "-" : (timeStr || "-");
   };
 
-  const formatViolationDate = (dateVal: string): string => {
-    if (!dateVal) return "-";
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return dateVal;
+  const formatViolationDate = (dateVal: any): string => {
+    const s = toSafeString(dateVal);
+    if (!s) return "-";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
     return d.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
@@ -374,21 +481,40 @@ function PenaltyList() {
     });
   };
 
+  const formatDateTime = (dateTimeStr: any): string => {
+    if (!dateTimeStr || typeof dateTimeStr !== "string" || dateTimeStr.trim() === "{}") return "—";
+    try {
+      const d = new Date(dateTimeStr);
+      if (!isNaN(d.getTime())) {
+        return (
+          d.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+          }) + " at " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+        );
+      }
+      return dateTimeStr;
+    } catch {
+      return dateTimeStr;
+    }
+  };
+
   // Helper to resolve the Penalty Type title from PenaltyId or Remarks
   const getPenaltyTypeName = (item: ViolationDetail): string => {
     // 1. Direct match with PenaltyId in Penalty Master
     const pid = Number(item.PenaltyId);
     if (pid && penaltyMap[pid] && penaltyMap[pid].PenaltyType) {
-      return penaltyMap[pid].PenaltyType;
+      return toSafeString(penaltyMap[pid].PenaltyType, "Policy Violation");
     }
 
     // 2. Direct property from backend if provided
     if ((item as any).PenaltyType || (item as any).penaltyType) {
-      return (item as any).PenaltyType || (item as any).penaltyType;
+      return toSafeString((item as any).PenaltyType || (item as any).penaltyType, "Policy Violation");
     }
 
     // 3. Fallback matching against specific policy triggers in remarks
-    const rem = (item.Remarks || "").toLowerCase();
+    const rem = toSafeString(item.Remarks).toLowerCase();
     if (rem.includes("late occasions") || rem.includes("exceeded monthly 10 late") || rem.includes("late threshold")) {
       return "Late Arrival / Policy Violation";
     }
@@ -442,10 +568,10 @@ function PenaltyList() {
       const types = Array.from(new Set(empDetails.map((d) => getPenaltyTypeName(d))));
       return types.slice(0, 2).join(", ") + (types.length > 2 ? ` (+${types.length - 2} more)` : "");
     }
-    if ((emp.YellowSlips || 0) >= 4) {
+    if ((Number(emp.YellowSlips) || 0) >= 4) {
       return "Late Arrival / Policy Violation";
     }
-    if ((emp.RedSlips || 0) > 0) {
+    if ((Number(emp.RedSlips) || 0) > 0) {
       return "Client / Misconduct";
     }
     return "Late Coming";
@@ -457,11 +583,11 @@ function PenaltyList() {
     let clean = "";
     if (typeof path === "string") {
       clean = path.trim();
-    } else if (typeof path === "object") {
+    } else if (typeof path === "object" && Object.keys(path).length > 0) {
       clean = (path.filePath || path.url || path.ProofFilePath || path.fileName || path.path || "").toString().trim();
     }
 
-    if (!clean || clean.includes("[object Object]") || clean.includes("[object%20Object]")) {
+    if (!clean || clean === "{}" || clean.includes("[object Object]") || clean.includes("[object%20Object]")) {
       return "";
     }
 
@@ -475,16 +601,19 @@ function PenaltyList() {
   };
 
   const isImageFile = (url: string): boolean => {
+    if (!url || typeof url !== "string") return false;
     return /\.(jpe?g|png|webp|gif|bmp)(\?.*)?$/i.test(url);
   };
 
   const isVideoFile = (url: string): boolean => {
+    if (!url || typeof url !== "string") return false;
     return /\.(mp4|mov|avi|mkv|webm|3gp|flv|wmv|m4v|ts|ogv)(\?.*)?$/i.test(url);
   };
 
-  const isAutoSlip = (remarks?: string): boolean => {
-    if (!remarks) return false;
-    const lower = remarks.toLowerCase();
+  const isAutoSlip = (remarks?: any): boolean => {
+    const remStr = toSafeString(remarks);
+    if (!remStr) return false;
+    const lower = remStr.toLowerCase();
     return (
       lower.includes("automatic") ||
       lower.includes("late occasions") ||
@@ -906,19 +1035,19 @@ function PenaltyList() {
                       {/* Avatar & Info */}
                       <div className="p-emp-profile">
                         <div className={`p-avatar ${escClass}`}>
-                          {emp.EMPNAME?.charAt(0) || "E"}
+                          {toSafeString(emp.EMPNAME).charAt(0) || "E"}
                         </div>
                         <div className="p-emp-info">
-                          <span className="p-emp-name">{emp.EMPNAME}</span>
+                          <span className="p-emp-name">{toSafeString(emp.EMPNAME)}</span>
                           <div className="p-emp-meta">
-                            <span className="p-emp-code-badge">{emp.EMPCODE}</span>
-                            {emp.Department && (
-                              <span>&bull; {emp.Department}</span>
+                            <span className="p-emp-code-badge">{toSafeString(emp.EMPCODE)}</span>
+                            {Boolean(toSafeString(emp.Department)) && (
+                              <span>&bull; {toSafeString(emp.Department)}</span>
                             )}
                           </div>
                           <div className="p-emp-penalty-type-chip" title="Primary Penalty Type">
                             <span className="p-emp-pt-tag">Penalty Type:</span>
-                            <span>{getEmployeePenaltyTypeSummary(emp)}</span>
+                            <span>{toSafeString(getEmployeePenaltyTypeSummary(emp), "Late Coming")}</span>
                           </div>
                         </div>
                       </div>
@@ -928,14 +1057,14 @@ function PenaltyList() {
                         <div className="p-slips-badge-group">
                           <div className="p-slips-chips">
                             <span className="p-slip-chip yellow" title="Yellow Slips">
-                              {emp.YellowSlips || 0} Y
+                              {Number(emp.YellowSlips) || 0} Y
                             </span>
                             <span className="p-slip-chip red" title="Red Slips">
-                              {emp.RedSlips || 0} R
+                              {Number(emp.RedSlips) || 0} R
                             </span>
                           </div>
                           <span className={`p-escalation-badge ${escClass}`}>
-                            {emp.EscalationStatus || "Normal"}
+                            {toSafeString(emp.EscalationStatus, "Normal")}
                           </span>
                         </div>
                         <div className="p-emp-chevron">
@@ -960,19 +1089,19 @@ function PenaltyList() {
                 <div className="p-drawer-header">
                   <div className="p-drawer-title-area">
                     <div className={`p-avatar ${getEscClass(selectedEmp.EscalationStatus)}`}>
-                      {selectedEmp.EMPNAME?.charAt(0) || "E"}
+                      {toSafeString(selectedEmp.EMPNAME).charAt(0) || "E"}
                     </div>
                     <div>
-                      <h3 className="p-drawer-emp-name">{selectedEmp.EMPNAME}</h3>
+                      <h3 className="p-drawer-emp-name">{toSafeString(selectedEmp.EMPNAME)}</h3>
                       <div className="p-drawer-emp-meta">
-                        <span>Code: <strong>{selectedEmp.EMPCODE}</strong></span>
-                        {selectedEmp.Department && (
-                          <span>&bull; {selectedEmp.Department}</span>
+                        <span>Code: <strong>{toSafeString(selectedEmp.EMPCODE)}</strong></span>
+                        {Boolean(toSafeString(selectedEmp.Department)) && (
+                          <span>&bull; {toSafeString(selectedEmp.Department)}</span>
                         )}
                       </div>
                       <div style={{ marginTop: "4px" }}>
                         <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.18)", padding: "2px 8px", borderRadius: "6px", color: "#ffffff", fontWeight: "700" }}>
-                          Penalty Type: {getEmployeePenaltyTypeSummary(selectedEmp)}
+                          Penalty Type: {toSafeString(getEmployeePenaltyTypeSummary(selectedEmp), "Late Coming")}
                         </span>
                       </div>
                     </div>
@@ -1026,11 +1155,35 @@ function PenaltyList() {
                   <div className="p-drawer-bento">
                     <div className="p-bento-item">
                       <div className="p-bento-label">Yellow Slips</div>
-                      <div className="p-bento-value yellow">{selectedEmp.YellowSlips || 0}</div>
+                      <div className="p-bento-value yellow">
+                        {details[selectedEmp.EMPCODE]
+                          ? details[selectedEmp.EMPCODE]
+                              .filter(
+                                (d) =>
+                                  toSafeString(d.Status).toLowerCase().trim() !== "transferred" &&
+                                  toSafeString(d.TransferStatus).toLowerCase().trim() !== "transferred" &&
+                                  !d.IsExpired
+                              )
+                              .filter((d) => toSafeString(d.SlipType).toLowerCase().includes("yellow"))
+                              .reduce((sum, d) => sum + (Number(d.SlipCount) || 1), 0)
+                          : (selectedEmp.YellowSlips || 0)}
+                      </div>
                     </div>
                     <div className="p-bento-item">
                       <div className="p-bento-label">Red Slips</div>
-                      <div className="p-bento-value red">{selectedEmp.RedSlips || 0}</div>
+                      <div className="p-bento-value red">
+                        {details[selectedEmp.EMPCODE]
+                          ? details[selectedEmp.EMPCODE]
+                              .filter(
+                                (d) =>
+                                  toSafeString(d.Status).toLowerCase().trim() !== "transferred" &&
+                                  toSafeString(d.TransferStatus).toLowerCase().trim() !== "transferred" &&
+                                  !d.IsExpired
+                              )
+                              .filter((d) => toSafeString(d.SlipType).toLowerCase().includes("red"))
+                              .reduce((sum, d) => sum + (Number(d.SlipCount) || 1), 0)
+                          : (selectedEmp.RedSlips || 0)}
+                      </div>
                     </div>
                     <div className="p-bento-item">
                       <div className="p-bento-label">Total Records</div>
@@ -1079,6 +1232,26 @@ function PenaltyList() {
                             ? "orange"
                             : "green";
                           const penaltyTypeName = getPenaltyTypeName(item);
+                          const isTransferredOut = toSafeString(item.Status) === "Transferred" || toSafeString(item.TransferStatus) === "Transferred";
+                          const isTransferredIn = toSafeString(item.TransferStatus) === "TransferredIn" || (Boolean(toSafeString(item.TransferredFromEmpCode)) && !isTransferredOut);
+                          const isPending = toSafeString(item.TransferStatus) === "PendingTransfer";
+                          const hasTransfer = isTransferredOut || isTransferredIn || isPending || Boolean(item.TransferRequestId) || Boolean(toSafeString(item.TransferredToEmpCode)) || Boolean(toSafeString(item.TransferredFromEmpCode));
+
+                          const fromName = toSafeString(item.TransferredFromEmpName) || (isTransferredOut ? toSafeString(item.EmpName, selectedEmp.EMPNAME) : "Original Holder");
+                          const fromCode = toSafeString(item.TransferredFromEmpCode) || (isTransferredOut ? toSafeString(item.EmpCode, selectedEmp.EMPCODE) : "—");
+
+                          const toName = toSafeString(item.TransferredToEmpName) || (isTransferredIn ? toSafeString(item.EmpName, selectedEmp.EMPNAME) : "Reassigned Employee");
+                          const toCode = toSafeString(item.TransferredToEmpCode) || (isTransferredIn ? toSafeString(item.EmpCode, selectedEmp.EMPCODE) : "—");
+
+                          const cardClass = isTransferredOut
+                            ? "p-transfer-audit-card cleared"
+                            : isPending
+                            ? "p-transfer-audit-card pending"
+                            : "p-transfer-audit-card";
+
+                          const transferProofUrl = item.TransferProofFilePath ? getProofUrl(item.TransferProofFilePath) : "";
+                          const isTransferImg = transferProofUrl ? isImageFile(transferProofUrl) : false;
+                          const isTransferVid = transferProofUrl ? isVideoFile(transferProofUrl) : false;
 
                           return (
                             <div key={item.Id} className="p-violation-detail-card">
@@ -1090,33 +1263,203 @@ function PenaltyList() {
                                   <span className="p-vcard-pt-value">{penaltyTypeName}</span>
                                 </div>
                                 <div className="p-vcard-badges">
-                                  {item.TransferStatus === "PendingTransfer" && (
+                                  {isPending && (
                                     <span className="p-status-tag" style={{ background: "#fef3c7", color: "#b45309", borderColor: "#fde68a", fontWeight: 700 }}>
                                       ⏳ Transfer Pending
                                     </span>
                                   )}
-                                  {item.TransferStatus === "Transferred" && (
+                                  {isTransferredOut && toSafeString(item.TransferredToEmpCode) && (
                                     <span className="p-status-tag" style={{ background: "#ecfdf5", color: "#047857", borderColor: "#a7f3d0", fontWeight: 700, textDecoration: "line-through" }}>
-                                      ✅ Transferred to {item.TransferredToEmpCode}
+                                      ✅ Transferred to {toSafeString(item.TransferredToEmpCode)}
                                     </span>
                                   )}
-                                  {item.TransferredFromEmpCode && (
+                                  {Boolean(toSafeString(item.TransferredFromEmpCode)) && (
                                     <span className="p-status-tag" style={{ background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe", fontWeight: 700 }}>
-                                      🔁 From {item.TransferredFromEmpCode}
+                                      🔁 From {toSafeString(item.TransferredFromEmpCode)}
                                     </span>
                                   )}
                                   <span className={`p-slip-type-pill ${slipTypeClass}`}>
-                                    {item.SlipType || "Slip"} &times;{item.SlipCount || 1}
+                                    {toSafeString(item.SlipType, "Slip")} &times;{item.SlipCount || 1}
                                   </span>
                                   <span
                                     className={`p-status-tag ${
-                                      item.Status?.toLowerCase() === "approved" ? "approved" : ""
+                                      toSafeString(item.Status).toLowerCase() === "approved" ? "approved" : ""
                                     }`}
                                   >
-                                    {item.Status || "Applied"}
+                                    {toSafeString(item.Status, "Applied")}
                                   </span>
                                 </div>
                               </div>
+
+                              {/* ── TRANSFER AUDIT CARD (when slip was transferred or pending) ── */}
+                              {hasTransfer && (
+                                <div className={cardClass} style={{ marginTop: "8px" }}>
+                                  <div className="p-tac-header">
+                                    <div className="p-tac-title">
+                                      <ArrowRightLeft size={15} />
+                                      <span>
+                                        {isTransferredOut
+                                          ? "Disciplinary Slip Reassigned & Cleared"
+                                          : isTransferredIn
+                                          ? "Disciplinary Slip Transferred In"
+                                          : isPending
+                                          ? "Slip Transfer Pending HR Review"
+                                          : "Slip Reassignment Audit"}
+                                      </span>
+                                    </div>
+                                    <span className="p-tac-badge">
+                                      {isTransferredOut ? "Cleared From Record" : isTransferredIn ? "Slip Assigned" : isPending ? "Pending Review" : "Transferred"}
+                                    </span>
+                                  </div>
+
+                                  {/* Flow Reassignment Bar */}
+                                  <div className="p-tac-flow">
+                                    <div className="p-tac-flow-party">
+                                      <span className="p-tac-flow-label">Cleared From</span>
+                                      <span className="p-tac-flow-name">{fromName}</span>
+                                      <span className="p-tac-flow-sub">#{fromCode}</span>
+                                      <span className="p-tac-flow-tag cleared">Slip Cleared</span>
+                                    </div>
+
+                                    <div className="p-tac-flow-arrow">
+                                      <ArrowRightLeft size={18} />
+                                      <span className="p-tac-flow-arrow-text">Transferred To</span>
+                                    </div>
+
+                                    <div className="p-tac-flow-party to">
+                                      <span className="p-tac-flow-label">Transferred To</span>
+                                      <span className="p-tac-flow-name">{toName}</span>
+                                      <span className="p-tac-flow-sub">#{toCode}</span>
+                                      <span className="p-tac-flow-tag assigned">Slip Assigned</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Audit Grid */}
+                                  <div className="p-tac-grid">
+                                    <div className="p-tac-field">
+                                      <span className="p-tac-label">Accepted & Approved By</span>
+                                      <span className="p-tac-val">
+                                        <UserCheck size={13} style={{ color: "#059669" }} />
+                                        <strong>
+                                          {toSafeString(item.TransferReviewedByName) || (toSafeString(item.TransferReviewedBy) ? `Supervisor #${item.TransferReviewedBy}` : "HR Administrator")}
+                                          {toSafeString(item.TransferReviewedBy) ? ` (#${item.TransferReviewedBy})` : ""}
+                                        </strong>
+                                      </span>
+                                    </div>
+
+                                    <div className="p-tac-field">
+                                      <span className="p-tac-label">Approval Decision</span>
+                                      <span className="p-tac-val">
+                                        <CheckCircle2 size={13} style={{ color: "#10b981" }} />
+                                        <span>{toSafeString(item.TransferRequestStatus) || (isPending ? "Pending HR Review" : "Approved & Applied")}</span>
+                                      </span>
+                                    </div>
+
+                                    <div className="p-tac-field">
+                                      <span className="p-tac-label">Approved Date & Time</span>
+                                      <span className="p-tac-val">
+                                        <Clock size={12} style={{ color: "#64748b" }} />
+                                        <span>{formatDateTime(item.TransferReviewedDate)}</span>
+                                      </span>
+                                    </div>
+
+                                    <div className="p-tac-field">
+                                      <span className="p-tac-label">Requested On</span>
+                                      <span className="p-tac-val">
+                                        <Calendar size={12} style={{ color: "#64748b" }} />
+                                        <span>{formatDateTime(item.TransferRequestedDate)}</span>
+                                      </span>
+                                    </div>
+
+                                    {Boolean(toSafeString(item.TransferRemarks)) && (
+                                      <div className="p-tac-field full">
+                                        <span className="p-tac-label">Transfer Reason & Violation Observed</span>
+                                        <div className="p-tac-remarks">
+                                          "{toSafeString(item.TransferRemarks)}"
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {Boolean(toSafeString(item.TransferReviewRemarks)) && (
+                                      <div className="p-tac-field full">
+                                        <span className="p-tac-label">Management Approval Remarks / Notes</span>
+                                        <div className="p-tac-remarks approval">
+                                          <CheckCircle size={12} style={{ display: "inline", marginRight: "4px", color: "#16a34a" }} />
+                                          "{toSafeString(item.TransferReviewRemarks)}"
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Attached Transfer Evidence Preview */}
+                                  {transferProofUrl && (
+                                    <div className="p-tac-evidence-box">
+                                      <div className="p-tac-evidence-preview">
+                                        {isTransferImg ? (
+                                          <img
+                                            src={transferProofUrl}
+                                            alt="Transfer Proof"
+                                            className="p-tac-evidence-thumb"
+                                            onClick={() =>
+                                              setLightboxEvidence({
+                                                url: transferProofUrl,
+                                                title: `Transfer Evidence: ${penaltyTypeName} (${fromName} ➔ ${toName})`,
+                                                remarks: item.TransferRemarks,
+                                                date: formatDateTime(item.TransferReviewedDate)
+                                              })
+                                            }
+                                            title="Click to view full image in lightbox"
+                                          />
+                                        ) : isTransferVid ? (
+                                          <div
+                                            onClick={() =>
+                                              setLightboxEvidence({
+                                                url: transferProofUrl,
+                                                title: `Transfer Video: ${penaltyTypeName}`,
+                                                remarks: item.TransferRemarks,
+                                                date: formatDateTime(item.TransferReviewedDate)
+                                              })
+                                            }
+                                            style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: "40px", height: "40px", borderRadius: "6px", background: "#ede9fe" }}
+                                            title="Click to play transfer video"
+                                          >
+                                            <Film size={20} color="#7c3aed" />
+                                          </div>
+                                        ) : (
+                                          <Paperclip size={20} color="#16a34a" />
+                                        )}
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                          <span style={{ fontSize: "11.5px", fontWeight: "700", color: "#0f172a" }}>
+                                            {toSafeString(item.TransferProofFileName, "Transfer Evidence File")}
+                                          </span>
+                                          <span style={{ fontSize: "10.5px", color: "#64748b" }}>
+                                            Attached Reassignment Proof &bull; Click to view
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <button
+                                        className="p-view-evidence-btn"
+                                        style={{ background: "#059669", color: "#ffffff" }}
+                                        onClick={() => {
+                                          if (isTransferImg || isTransferVid) {
+                                            setLightboxEvidence({
+                                              url: transferProofUrl,
+                                              title: `Transfer Evidence: ${penaltyTypeName} (${fromName} ➔ ${toName})`,
+                                              remarks: item.TransferRemarks,
+                                              date: formatDateTime(item.TransferReviewedDate)
+                                            });
+                                          } else {
+                                            window.open(transferProofUrl, "_blank");
+                                          }
+                                        }}
+                                      >
+                                        <Eye size={13} />
+                                        <span>View</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Grid showing ALL explicit fields */}
                               <div className="p-detail-grid">
@@ -1145,7 +1488,7 @@ function PenaltyList() {
                                     }}
                                   >
                                     <AlertTriangle size={15} color="#d97706" />
-                                    {penaltyTypeName}
+                                    {toSafeString(penaltyTypeName, "Policy Violation")}
                                   </span>
                                 </div>
 
@@ -1166,7 +1509,7 @@ function PenaltyList() {
                                 <div className="p-detail-item">
                                   <span className="p-detail-label">Employee</span>
                                   <span className="p-detail-val">
-                                    {selectedEmp.EMPNAME} ({selectedEmp.EMPCODE})
+                                    {toSafeString(selectedEmp.EMPNAME)} ({toSafeString(selectedEmp.EMPCODE)})
                                   </span>
                                 </div>
 
@@ -1181,7 +1524,7 @@ function PenaltyList() {
                                     ) : (
                                       <span className="p-source-tag manual">
                                         <User size={12} />
-                                        <span>{item.AppliedBy ? `Supervisor (${item.AppliedBy})` : "Supervisor"}</span>
+                                        <span>{toSafeString(item.AppliedBy) ? `Supervisor (${toSafeString(item.AppliedBy)})` : "Supervisor"}</span>
                                       </span>
                                     )}
                                   </span>
@@ -1191,7 +1534,7 @@ function PenaltyList() {
                               {/* Remarks */}
                               <div className="p-timeline-remarks">
                                 <div className="p-timeline-remarks-label">Remarks</div>
-                                <div>{item.Remarks || "No remarks provided"}</div>
+                                <div>{toSafeString(item.Remarks, "No remarks provided")}</div>
                               </div>
 
                               {/* Violation Proof / Evidence */}
@@ -1269,6 +1612,69 @@ function PenaltyList() {
                                           });
                                         } else {
                                           window.open(proofUrl, "_blank");
+                                        }
+                                      }}
+                                    >
+                                      <Eye size={14} />
+                                      <span>View</span>
+                                    </button>
+                                  </div>
+                                ) : transferProofUrl ? (
+                                  <div className="p-evidence-box" style={{ marginTop: "4px", background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                                    <div className="p-evidence-left">
+                                      {isTransferImg ? (
+                                        <img
+                                          src={transferProofUrl}
+                                          alt="Transfer Evidence"
+                                          className="p-evidence-thumb"
+                                          onClick={() =>
+                                            setLightboxEvidence({
+                                              url: transferProofUrl,
+                                              title: `Transfer Proof: ${penaltyTypeName} (${fromName} ➔ ${toName})`,
+                                              remarks: item.TransferRemarks,
+                                              date: formatDateTime(item.TransferReviewedDate)
+                                            })
+                                          }
+                                        />
+                                      ) : isTransferVid ? (
+                                        <div
+                                          onClick={() =>
+                                            setLightboxEvidence({
+                                              url: transferProofUrl,
+                                              title: `Transfer Video: ${penaltyTypeName}`,
+                                              remarks: item.TransferRemarks,
+                                              date: formatDateTime(item.TransferReviewedDate)
+                                            })
+                                          }
+                                          style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "6px", background: "#ede9fe" }}
+                                        >
+                                          <Film size={20} color="#7c3aed" />
+                                        </div>
+                                      ) : (
+                                        <Paperclip size={20} color="#16a34a" />
+                                      )}
+                                      <div className="p-evidence-text">
+                                        <span className="p-evidence-filename" style={{ color: "#166534" }}>
+                                          {item.TransferProofFileName || "Transfer Proof Attached"}
+                                        </span>
+                                        <span className="p-evidence-hint" style={{ color: "#15803d" }}>
+                                          Reassignment Evidence &bull; Click to view
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <button
+                                      className="p-view-evidence-btn"
+                                      style={{ background: "#16a34a", color: "#fff" }}
+                                      onClick={() => {
+                                        if (isTransferImg || isTransferVid) {
+                                          setLightboxEvidence({
+                                            url: transferProofUrl,
+                                            title: `Transfer Proof: ${penaltyTypeName} (${fromName} ➔ ${toName})`,
+                                            remarks: item.TransferRemarks,
+                                            date: formatDateTime(item.TransferReviewedDate)
+                                          });
+                                        } else {
+                                          window.open(transferProofUrl, "_blank");
                                         }
                                       }}
                                     >

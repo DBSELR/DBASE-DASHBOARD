@@ -1359,4 +1359,303 @@ body.dark .ep-transfer-modal {
 .ep-file-remove-btn:hover {
   background: #fca5a5;
   color: #b91c1c;
+}
+
+/* ══════════════════════════════════════════════
+   TRANSFER AUDIT CARD IN MODAL & TIMELINE
+   ══════════════════════════════════════════════ */
+.ep-modal-transfer-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f8fafc 100%);
+  border: 1.5px solid #a7f3d0;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.08);
+}
+
+.ep-modal-transfer-card.cleared {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 50%, #f8fafc 100%);
+  border-color: #fecdd3;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.08);
+}
+
+.ep-modal-transfer-card.pending {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #f8fafc 100%);
+  border-color: #fde68a;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.08);
+}
+
+.ep-mtc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ep-mtc-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.ep-modal-transfer-card.cleared .ep-mtc-title {
+  color: #991b1b;
+}
+
+.ep-modal-transfer-card.pending .ep-mtc-title {
+  color: #92400e;
+}
+
+.ep-mtc-status-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #059669;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+}
+
+.ep-modal-transfer-card.cleared .ep-mtc-status-badge {
+  background: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.ep-modal-transfer-card.pending .ep-mtc-status-badge {
+  background: #d97706;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+}
+
+.ep-mtc-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.ep-mtc-flow-party {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ep-mtc-flow-party.to {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.ep-mtc-flow-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.ep-mtc-flow-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ep-mtc-flow-sub {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.ep-mtc-flow-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.ep-mtc-flow-tag.cleared {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ep-mtc-flow-tag.assigned {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ep-mtc-flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ep-mtc-flow-arrow svg {
+  color: #6366f1;
+}
+
+.ep-mtc-flow-arrow-text {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #6366f1;
+  letter-spacing: 0.5px;
+}
+
+.ep-mtc-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.ep-mtc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ep-mtc-field.full {
+  grid-column: span 2;
+}
+
+.ep-mtc-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ep-mtc-field-val {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ep-mtc-remarks {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #334155;
+  font-style: italic;
+  line-height: 1.45;
+  display: block;
+}
+
+.ep-mtc-remarks.approval {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+  font-style: normal;
+}
+
+.ep-mtc-evidence {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-mtc-evidence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ep-mtc-evidence-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ep-mtc-evidence-thumb {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s ease;
+}
+
+.ep-mtc-evidence-thumb:hover {
+  transform: scale(1.02);
+}
+
+.ep-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: epFadeIn 0.2s ease-out;
+}
+
+.ep-lightbox-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.ep-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.ep-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.35);
 }

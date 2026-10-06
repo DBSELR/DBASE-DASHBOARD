@@ -1286,3 +1286,244 @@
   font-weight: 800;
   color: #0f172a;
 }
+
+/* ══════════════════════════════════════════════
+   TRANSFER AUDIT CARD IN TIMELINE DRAWER
+   ══════════════════════════════════════════════ */
+.p-transfer-audit-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f8fafc 100%);
+  border: 1.5px solid #a7f3d0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.06);
+}
+
+.p-transfer-audit-card.cleared {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 50%, #f8fafc 100%);
+  border-color: #fecdd3;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.06);
+}
+
+.p-transfer-audit-card.pending {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #f8fafc 100%);
+  border-color: #fde68a;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.06);
+}
+
+.p-tac-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.p-tac-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.p-transfer-audit-card.cleared .p-tac-title {
+  color: #991b1b;
+}
+
+.p-transfer-audit-card.pending .p-tac-title {
+  color: #92400e;
+}
+
+.p-tac-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #059669;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.p-transfer-audit-card.cleared .p-tac-badge {
+  background: #dc2626;
+}
+
+.p-transfer-audit-card.pending .p-tac-badge {
+  background: #d97706;
+}
+
+.p-tac-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.p-tac-flow-party {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.p-tac-flow-party.to {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.p-tac-flow-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748b;
+}
+
+.p-tac-flow-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.p-tac-flow-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.p-tac-flow-tag {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 5px;
+  margin-top: 3px;
+}
+
+.p-tac-flow-tag.cleared {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.p-tac-flow-tag.assigned {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.p-tac-flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.p-tac-flow-arrow svg {
+  color: #6366f1;
+}
+
+.p-tac-flow-arrow-text {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #6366f1;
+  letter-spacing: 0.4px;
+}
+
+.p-tac-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.p-tac-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.p-tac-field.full {
+  grid-column: span 2;
+}
+
+.p-tac-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.p-tac-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.p-tac-remarks {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  color: #334155;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.p-tac-remarks.approval {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+  font-style: normal;
+}
+
+.p-tac-evidence-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.p-tac-evidence-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.p-tac-evidence-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  transition: transform 0.15s ease;
+}
+
+.p-tac-evidence-thumb:hover {
+  transform: scale(1.05);
+}

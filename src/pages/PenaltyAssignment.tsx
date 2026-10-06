@@ -160,7 +160,13 @@ function PenaltyAssignment() {
         }
       });
 
-      alert("Penalty Applied Successfully");
+      setToast({
+        open: true,
+        message: "Penalty Applied Successfully! Record has been created.",
+        color: "success"
+      });
+
+      alert("Penalty Applied Successfully! Record has been created.");
 
       setForm({
         penaltyId: "",
@@ -176,7 +182,13 @@ function PenaltyAssignment() {
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.response?.data?.message || "Error Applying Penalty");
+      const errMsg = err?.response?.data?.message || err?.message || "Error Applying Penalty";
+      setToast({
+        open: true,
+        message: errMsg,
+        color: "danger"
+      });
+      alert(errMsg);
     }
   };
 
@@ -253,7 +265,15 @@ function PenaltyAssignment() {
           </div>
 
           {/* Action Bar */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '0 16px 16px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', margin: '0 16px 16px 16px', flexWrap: 'wrap' }}>
+            <button 
+              className="stock-button stock-button--secondary" 
+              onClick={() => history.push("/penalty-list")}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '14px', fontSize: '13px', fontWeight: '700' }}
+            >
+              <IonIcon icon={warningOutline} style={{ fontSize: '18px' }} />
+              Penalty Records & List
+            </button>
             <button 
               className="stock-button stock-button--secondary" 
               onClick={() => history.push("/violation-approval")}

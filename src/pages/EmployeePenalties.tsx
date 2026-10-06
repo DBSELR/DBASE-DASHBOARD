@@ -52,8 +52,22 @@ export interface ViolationItem {
     ProofFileType?: string;
     TransferStatus?: string;
     TransferredToEmpCode?: string;
+    TransferredToEmpName?: string;
     TransferredFromEmpCode?: string;
+    TransferredFromEmpName?: string;
     TransferRequestId?: number;
+    IsExpired?: boolean;
+    TransferRemarks?: string;
+    TransferProofFileName?: string;
+    TransferProofFilePath?: string;
+    TransferProofFileType?: string;
+    TransferRequestStatus?: string;
+    TransferRequestedDate?: string;
+    TransferReviewedBy?: string;
+    TransferReviewedByName?: string;
+    TransferReviewedDate?: string;
+    TransferReviewRemarks?: string;
+    EmpName?: string;
     raw?: any;
 }
 
@@ -76,6 +90,8 @@ function EmployeePenalties() {
     // Selected violation for the detail modal
     const [selectedViolation, setSelectedViolation] = useState<ViolationItem | null>(null);
     const [imageError, setImageError] = useState(false);
+    const [transferImageError, setTransferImageError] = useState(false);
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
     // Transfer Slip States & Handlers
     const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -99,6 +115,15 @@ function EmployeePenalties() {
     };
 
     const handleOpenTransferModal = async (violation: ViolationItem) => {
+        if (violation.TransferStatus === "PendingTransfer") {
+            showToast("This slip is already pending transfer review by HR!", "warning");
+            return;
+        }
+        if (violation.TransferStatus === "Transferred" || violation.Status === "Transferred") {
+            showToast("This slip has already been transferred.", "warning");
+            return;
+        }
+
         setSlipToTransfer(violation);
         setTransferTargetEmp("");
         const now = new Date();
@@ -131,13 +156,32 @@ function EmployeePenalties() {
             showToast("Invalid slip selected", "danger");
             return;
         }
+        if (slipToTransfer.TransferStatus === "PendingTransfer") {
+            showToast("This slip is already pending transfer review by HR!", "warning");
+            setTransferModalOpen(false);
+            return;
+        }
+        if (slipToTransfer.TransferStatus === "Transferred" || slipToTransfer.Status === "Transferred") {
+            showToast("This slip has already been transferred.", "warning");
+            setTransferModalOpen(false);
+            return;
+        }
         if (!transferTargetEmp) {
             showToast("Please select the employee who committed the violation", "warning");
             return;
         }
-        const currentCode = String(userData?.empCode || "").trim().toLowerCase();
-        if (transferTargetEmp.trim().toLowerCase() === currentCode) {
-            showToast("You cannot transfer a slip to yourself!", "warning");
+
+        const fromCode = String(
+            slipToTransfer.EmpCode ||
+            userData?.empCode ||
+            userData?.EMPCODE ||
+            userData?.EmpCode ||
+            userData?.emp_code ||
+            ""
+        ).trim();
+
+        if (transferTargetEmp.trim().toLowerCase() === fromCode.toLowerCase()) {
+            showToast("You cannot transfer a slip to the same employee!", "warning");
             return;
         }
         if (!transferRemarks.trim()) {
@@ -150,7 +194,7 @@ function EmployeePenalties() {
             const token = localStorage.getItem("token");
             const formData = new FormData();
             formData.append("PenaltyRecordId", slipToTransfer.Id.toString());
-            formData.append("FromEmpCode", userData?.empCode || "");
+            formData.append("FromEmpCode", fromCode);
             formData.append("ToEmpCode", transferTargetEmp);
             formData.append("ViolationTime", transferViolationTime || new Date().toISOString());
             formData.append("Remarks", transferRemarks);
@@ -168,15 +212,30 @@ function EmployeePenalties() {
             if (res.data?.success) {
                 showToast("Transfer request submitted successfully! Sent to HR for review.", "success");
                 setTransferModalOpen(false);
-                if (userData?.empCode) {
-                    loadData(userData.empCode);
+                // Optimistically update local state so card shows PendingTransfer immediately
+                setData((prev) => ({
+                    ...prev,
+                    violations: prev.violations.map((v) =>
+                        v.Id === slipToTransfer.Id
+                            ? { ...v, TransferStatus: "PendingTransfer" }
+                            : v
+                    )
+                }));
+                if (fromCode) {
+                    loadData(fromCode);
                 }
             } else {
                 showToast(res.data?.message || "Failed to submit transfer request", "danger");
             }
         } catch (err: any) {
             console.error(err);
-            showToast(err?.response?.data?.message || err?.message || "Error submitting transfer request", "danger");
+            const errMsg =
+                err?.response?.data?.message ||
+                err?.response?.data?.Message ||
+                err?.response?.data ||
+                err?.message ||
+                "Error submitting transfer request";
+            showToast(typeof errMsg === "string" ? errMsg : JSON.stringify(errMsg), "danger");
         } finally {
             setTransferSubmitting(false);
         }
@@ -460,8 +519,22 @@ function EmployeePenalties() {
                         ProofFileType: toSafeString(item.ProofFileType, ""),
                         TransferStatus: toSafeString(item.TransferStatus, "None"),
                         TransferredToEmpCode: toSafeString(item.TransferredToEmpCode, ""),
+                        TransferredToEmpName: toSafeString(item.TransferredToEmpName, ""),
                         TransferredFromEmpCode: toSafeString(item.TransferredFromEmpCode, ""),
+                        TransferredFromEmpName: toSafeString(item.TransferredFromEmpName, ""),
                         TransferRequestId: item.TransferRequestId || null,
+                        IsExpired: Boolean(item.IsExpired),
+                        TransferRemarks: toSafeString(item.TransferRemarks, ""),
+                        TransferProofFileName: toSafeString(item.TransferProofFileName, ""),
+                        TransferProofFilePath: item.TransferProofFilePath,
+                        TransferProofFileType: toSafeString(item.TransferProofFileType, ""),
+                        TransferRequestStatus: toSafeString(item.TransferRequestStatus, ""),
+                        TransferRequestedDate: item.TransferRequestedDate || "",
+                        TransferReviewedBy: toSafeString(item.TransferReviewedBy, ""),
+                        TransferReviewedByName: toSafeString(item.TransferReviewedByName, ""),
+                        TransferReviewedDate: item.TransferReviewedDate || "",
+                        TransferReviewRemarks: toSafeString(item.TransferReviewRemarks, ""),
+                        EmpName: toSafeString(item.EmpName, ""),
                         raw: item
                     };
                 });
@@ -518,6 +591,7 @@ function EmployeePenalties() {
     //----------------------------------------
     const handleViewViolation = (violation: ViolationItem, index: number) => {
         setImageError(false);
+        setTransferImageError(false);
         setSelectedViolation(violation);
         const proofUrl = getProofUrl(violation.ProofFilePath);
 
@@ -542,6 +616,9 @@ function EmployeePenalties() {
     const handleCloseModal = () => {
         console.log("✖️ [EmployeePenalties] Closed Violation Details Modal");
         setSelectedViolation(null);
+        setLightboxUrl(null);
+        setImageError(false);
+        setTransferImageError(false);
     };
 
     //----------------------------------------
@@ -564,6 +641,20 @@ function EmployeePenalties() {
     const empCode = toSafeString(emp.EMPCODE, toSafeString(userData?.empCode, toSafeString(userData?.EMPCODE, "1589")));
     const designation = toSafeString(userData?.designation, toSafeString(userData?.DESIGNATION, toSafeString(userData?.role, "Developer")));
     const escalationStatus = toSafeString(esc.EscalationStatus, "Normal Status");
+
+    const activeYellowSlips = emp.TotalYellowSlips !== undefined && emp.TotalYellowSlips !== null
+        ? Number(emp.TotalYellowSlips) || 0
+        : data.violations
+            .filter(v => toSafeString(v.Status).toLowerCase().trim() !== "transferred" && toSafeString(v.TransferStatus).toLowerCase().trim() !== "transferred" && !v.IsExpired)
+            .filter(v => toSafeString(v.SlipType).toLowerCase().includes("yellow"))
+            .reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0);
+
+    const activeRedSlips = emp.TotalRedSlips !== undefined && emp.TotalRedSlips !== null
+        ? Number(emp.TotalRedSlips) || 0
+        : data.violations
+            .filter(v => toSafeString(v.Status).toLowerCase().trim() !== "transferred" && toSafeString(v.TransferStatus).toLowerCase().trim() !== "transferred" && !v.IsExpired)
+            .filter(v => toSafeString(v.SlipType).toLowerCase().includes("red"))
+            .reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0);
 
     return (
         <IonPage>
@@ -659,7 +750,7 @@ function EmployeePenalties() {
                                     <AlertTriangle size={16} />
                                 </div>
                             </div>
-                            <div className="ep-bento-value">{Number(emp.TotalYellowSlips) || 0}</div>
+                            <div className="ep-bento-value">{activeYellowSlips}</div>
                             <div className="ep-bento-subtext">Warning Slips</div>
                         </div>
 
@@ -685,7 +776,7 @@ function EmployeePenalties() {
                                     <ShieldAlert size={16} />
                                 </div>
                             </div>
-                            <div className="ep-bento-value">{Number(emp.TotalRedSlips) || 0}</div>
+                            <div className="ep-bento-value">{activeRedSlips}</div>
                             <div className="ep-bento-subtext">Severe Penalties</div>
                         </div>
                     </div>
@@ -831,7 +922,25 @@ function EmployeePenalties() {
                                                     )}
                                                 </div>
                                                 <div className="ep-card-actions-group">
-                                                    {item.Status !== "Transferred" && item.TransferStatus !== "PendingTransfer" && item.TransferStatus !== "Transferred" && (
+                                                    {item.TransferStatus === "PendingTransfer" ? (
+                                                        <span
+                                                            style={{
+                                                                fontSize: "11px",
+                                                                fontWeight: "700",
+                                                                color: "#b45309",
+                                                                background: "#fef3c7",
+                                                                border: "1px solid #fde68a",
+                                                                padding: "6px 10px",
+                                                                borderRadius: "8px",
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                gap: "4px"
+                                                            }}
+                                                            title="Waiting for HR / Management Approval"
+                                                        >
+                                                            ⏳ Transfer Pending Review
+                                                        </span>
+                                                    ) : item.Status !== "Transferred" && item.TransferStatus !== "Transferred" && (
                                                         <button
                                                             className="ep-transfer-btn"
                                                             onClick={() => handleOpenTransferModal(item)}
@@ -915,6 +1024,195 @@ function EmployeePenalties() {
                                         {toSafeString(selectedViolation.Status, "Applied")}
                                     </span>
                                 </div>
+
+                                {/* ── TRANSFER AUDIT & REASSIGNMENT CARD (When slip was transferred, received, or pending) ── */}
+                                {Boolean(
+                                    selectedViolation.TransferStatus === "Transferred" ||
+                                    selectedViolation.TransferStatus === "TransferredIn" ||
+                                    selectedViolation.TransferStatus === "PendingTransfer" ||
+                                    selectedViolation.Status === "Transferred" ||
+                                    selectedViolation.TransferredToEmpCode ||
+                                    selectedViolation.TransferredFromEmpCode ||
+                                    selectedViolation.TransferRequestId
+                                ) && (
+                                    (() => {
+                                        const isTransferredOut = selectedViolation.Status === "Transferred" || selectedViolation.TransferStatus === "Transferred";
+                                        const isTransferredIn = selectedViolation.TransferStatus === "TransferredIn" || (Boolean(selectedViolation.TransferredFromEmpCode) && !isTransferredOut);
+                                        const isPending = selectedViolation.TransferStatus === "PendingTransfer";
+
+                                        const cardClass = isTransferredOut
+                                            ? "ep-modal-transfer-card cleared"
+                                            : isPending
+                                            ? "ep-modal-transfer-card pending"
+                                            : "ep-modal-transfer-card";
+
+                                        const fromName = selectedViolation.TransferredFromEmpName || (isTransferredOut ? (selectedViolation.EmpName || empName) : "Original Holder");
+                                        const fromCode = selectedViolation.TransferredFromEmpCode || (isTransferredOut ? (selectedViolation.EmpCode || empCode) : "—");
+
+                                        const toName = selectedViolation.TransferredToEmpName || (isTransferredIn ? (selectedViolation.EmpName || empName) : "Reassigned Employee");
+                                        const toCode = selectedViolation.TransferredToEmpCode || (isTransferredIn ? (selectedViolation.EmpCode || empCode) : "—");
+
+                                        const transferProofUrl = selectedViolation.TransferProofFilePath ? getProofUrl(selectedViolation.TransferProofFilePath) : "";
+                                        const isTransferImg = transferProofUrl ? isImageProof(transferProofUrl, selectedViolation.TransferProofFileType, selectedViolation.TransferProofFileName) : false;
+                                        const isTransferVid = transferProofUrl ? isVideoProof(transferProofUrl, selectedViolation.TransferProofFileType, selectedViolation.TransferProofFileName) : false;
+
+                                        return (
+                                            <div className={cardClass}>
+                                                {/* Header */}
+                                                <div className="ep-mtc-header">
+                                                    <div className="ep-mtc-title">
+                                                        <ArrowRightLeft size={16} />
+                                                        <span>
+                                                            {isTransferredOut
+                                                                ? "Disciplinary Slip Reassigned (Cleared from Employee)"
+                                                                : isTransferredIn
+                                                                ? "Disciplinary Slip Transferred In (Assigned to Employee)"
+                                                                : isPending
+                                                                ? "Slip Transfer Pending HR Review"
+                                                                : "Slip Reassignment Audit"}
+                                                        </span>
+                                                    </div>
+                                                    <span className="ep-mtc-status-badge">
+                                                        {isTransferredOut ? "Cleared From Record" : isTransferredIn ? "Slip Assigned" : isPending ? "Pending Review" : "Transferred"}
+                                                    </span>
+                                                </div>
+
+                                                {/* Reassignment Flow Bar */}
+                                                <div className="ep-mtc-flow">
+                                                    <div className="ep-mtc-flow-party">
+                                                        <span className="ep-mtc-flow-label">Cleared From</span>
+                                                        <span className="ep-mtc-flow-name">{fromName}</span>
+                                                        <span className="ep-mtc-flow-sub">#{fromCode}</span>
+                                                        <span className="ep-mtc-flow-tag cleared">Slip Cleared</span>
+                                                    </div>
+
+                                                    <div className="ep-mtc-flow-arrow">
+                                                        <ArrowRightLeft size={18} />
+                                                        <span className="ep-mtc-flow-arrow-text">Transferred To</span>
+                                                    </div>
+
+                                                    <div className="ep-mtc-flow-party to">
+                                                        <span className="ep-mtc-flow-label">Transferred To</span>
+                                                        <span className="ep-mtc-flow-name">{toName}</span>
+                                                        <span className="ep-mtc-flow-sub">#{toCode}</span>
+                                                        <span className="ep-mtc-flow-tag assigned">Slip Assigned</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Audit Details Grid */}
+                                                <div className="ep-mtc-details-grid">
+                                                    <div className="ep-mtc-field">
+                                                        <span className="ep-mtc-field-label">Accepted & Approved By</span>
+                                                        <span className="ep-mtc-field-val">
+                                                            <UserCheck size={14} style={{ color: "#059669" }} />
+                                                            <strong>
+                                                                {selectedViolation.TransferReviewedByName || (selectedViolation.TransferReviewedBy ? `Supervisor #${selectedViolation.TransferReviewedBy}` : "HR Administrator")}
+                                                                {selectedViolation.TransferReviewedBy ? ` (#${selectedViolation.TransferReviewedBy})` : ""}
+                                                            </strong>
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="ep-mtc-field">
+                                                        <span className="ep-mtc-field-label">Approval Decision</span>
+                                                        <span className="ep-mtc-field-val">
+                                                            <CheckCircle2 size={14} style={{ color: "#10b981" }} />
+                                                            <span>{selectedViolation.TransferRequestStatus || (isPending ? "Pending HR Review" : "Approved & Applied")}</span>
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="ep-mtc-field">
+                                                        <span className="ep-mtc-field-label">Approved Date & Time</span>
+                                                        <span className="ep-mtc-field-val">
+                                                            <Clock size={13} style={{ color: "#64748b" }} />
+                                                            <span>{formatDateTime(selectedViolation.TransferReviewedDate)}</span>
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="ep-mtc-field">
+                                                        <span className="ep-mtc-field-label">Requested On</span>
+                                                        <span className="ep-mtc-field-val">
+                                                            <Calendar size={13} style={{ color: "#64748b" }} />
+                                                            <span>{formatDateTime(selectedViolation.TransferRequestedDate)}</span>
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Transfer Reason */}
+                                                    {selectedViolation.TransferRemarks && (
+                                                        <div className="ep-mtc-field full">
+                                                            <span className="ep-mtc-field-label">Transfer Reason & Violation Observed</span>
+                                                            <div className="ep-mtc-remarks">
+                                                                "{selectedViolation.TransferRemarks}"
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Management Approval Remarks */}
+                                                    {selectedViolation.TransferReviewRemarks && (
+                                                        <div className="ep-mtc-field full">
+                                                            <span className="ep-mtc-field-label">Management Approval Remarks / Notes</span>
+                                                            <div className="ep-mtc-remarks approval">
+                                                                <CheckCircle size={13} style={{ display: "inline", marginRight: "4px", color: "#16a34a" }} />
+                                                                "{selectedViolation.TransferReviewRemarks}"
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Transfer Evidence Box */}
+                                                {transferProofUrl && (
+                                                    <div className="ep-mtc-evidence">
+                                                        <div className="ep-mtc-evidence-header">
+                                                            <span className="ep-mtc-evidence-label">
+                                                                <Paperclip size={13} />
+                                                                Attached Transfer Evidence Proof
+                                                            </span>
+                                                            <a
+                                                                href={transferProofUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="ep-modal-evidence-link"
+                                                            >
+                                                                <ExternalLink size={13} />
+                                                                Open / Download File
+                                                            </a>
+                                                        </div>
+                                                        {isTransferVid ? (
+                                                            <video
+                                                                controls
+                                                                playsInline
+                                                                preload="metadata"
+                                                                src={transferProofUrl}
+                                                                className="ep-modal-evidence-video"
+                                                            >
+                                                                Your browser does not support HTML5 video playback.
+                                                            </video>
+                                                        ) : isTransferImg && !transferImageError ? (
+                                                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                                                <img
+                                                                    src={transferProofUrl}
+                                                                    alt="Transfer Proof"
+                                                                    className="ep-mtc-evidence-thumb"
+                                                                    onClick={() => setLightboxUrl(transferProofUrl)}
+                                                                    onError={() => setTransferImageError(true)}
+                                                                    title="Click to view full image in lightbox"
+                                                                />
+                                                                <span style={{ fontSize: "11px", color: "#64748b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                                                    <ImageIcon size={12} />
+                                                                    {selectedViolation.TransferProofFileName || "Transfer Evidence File"} &bull; Click image to enlarge
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ padding: "10px", background: "#f8fafc", borderRadius: "8px", fontSize: "12px", color: "#475569" }}>
+                                                                <Paperclip size={14} style={{ display: "inline", marginRight: "5px" }} />
+                                                                <strong>Evidence File:</strong> {selectedViolation.TransferProofFileName || "Attached Proof File"}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()
+                                )}
 
                                 {/* Detailed Fields Grid */}
                                 <div className="ep-modal-grid-details">
@@ -1022,10 +1320,13 @@ function EmployeePenalties() {
                                                     src={getProofUrl(selectedViolation.ProofFilePath)}
                                                     alt="Violation Proof"
                                                     className="ep-modal-evidence-img"
+                                                    style={{ cursor: "pointer" }}
+                                                    onClick={() => setLightboxUrl(getProofUrl(selectedViolation.ProofFilePath))}
                                                     onError={() => {
                                                         console.warn("⚠️ Proof image failed to load from primary URL:", getProofUrl(selectedViolation.ProofFilePath));
                                                         setImageError(true);
                                                     }}
+                                                    title="Click to view full image in lightbox"
                                                 />
                                             ) : (
                                                 <div style={{ padding: "12px", background: "#f1f5f9", borderRadius: "8px", fontSize: "12px", color: "#475569" }}>
@@ -1048,6 +1349,22 @@ function EmployeePenalties() {
                                                     Open / Download File
                                                 </a>
                                             </div>
+                                        </div>
+                                    ) : selectedViolation.TransferProofFilePath &&
+                                      String(selectedViolation.TransferProofFilePath).trim() !== "" &&
+                                      String(selectedViolation.TransferProofFilePath).trim() !== "{}" ? (
+                                        <div style={{ padding: "12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", fontSize: "12px", color: "#166534", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                <CheckCircle size={16} style={{ color: "#16a34a", flexShrink: 0 }} />
+                                                <span>Transfer evidence proof attached above (<strong>{selectedViolation.TransferProofFileName || "Evidence File"}</strong>).</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLightboxUrl(getProofUrl(selectedViolation.TransferProofFilePath))}
+                                                style={{ background: "#16a34a", color: "#ffffff", border: "none", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}
+                                            >
+                                                Preview Evidence
+                                            </button>
                                         </div>
                                     ) : (
                                         <div className="ep-modal-no-evidence">
@@ -1266,6 +1583,21 @@ function EmployeePenalties() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* ── LIGHTBOX MODAL OVERLAY ── */}
+                {lightboxUrl && (
+                    <div className="ep-lightbox-backdrop" onClick={() => setLightboxUrl(null)}>
+                        <button className="ep-lightbox-close" onClick={() => setLightboxUrl(null)} title="Close Lightbox">
+                            <X size={24} />
+                        </button>
+                        <img
+                            src={lightboxUrl}
+                            alt="Evidence Fullscreen Preview"
+                            className="ep-lightbox-img"
+                            onClick={(e) => e.stopPropagation()}
+                        />
                     </div>
                 )}
 
