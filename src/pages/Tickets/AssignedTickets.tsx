@@ -100,23 +100,139 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
     }
   };
 
+  const [allEmps, setAllEmps] = useState<{ EmpCode: string; EmpName: string }[]>([]);
+
   useEffect(() => {
     if (!apiBase) return;
-    void loadData();
-    void loadEmployees();
-  }, [fromDate, toDate, clientId, projectId, apiBase]);
+    let isMounted = true;
+    async function init() {
+      const empsMap = await loadEmployees();
+      if (isMounted) {
+        await loadData(empsMap);
+      }
+    }
+    void init();
+    return () => { isMounted = false; };
+  }, [fromDate, toDate, clientId, projectId, apiBase, empCode]);
 
-  async function loadEmployees() {
+  async function loadEmployees(): Promise<Map<string, string>> {
+    const empLookup = new Map<string, string>();
     try {
-      const res = await fetch(`${apiBase}Tickets/LOADINTERNALEMPLOYEES?EMPCODE=${empCode}`, { headers: getHeaders(true) });
-      const raw = await handleResponse(res, "EMPS");
-      setEmpNames((raw || []).map((e: any) => ({ EmpCode: String(e[0]), EmpName: e[1] })));
+      const [resInternal, resAll, resSupport] = await Promise.all([
+        fetch(`${apiBase}Tickets/LOADINTERNALEMPLOYEES?EMPCODE=${empCode}`, { headers: getHeaders(true) }).catch(() => null),
+        fetch(`${apiBase}Employee/Load_Employees`, { headers: getHeaders(true) }).catch(() => null),
+        fetch(`${apiBase}Employee/Load_Employees_SupportTickets?SearchEmp=${empCode}`, { headers: getHeaders(true) }).catch(() => null)
+      ]);
+
+      const internalList: { EmpCode: string; EmpName: string }[] = [];
+      const allList: { EmpCode: string; EmpName: string }[] = [];
+
+      const addEmp = (c: any, n: any, targetList?: { EmpCode: string; EmpName: string }[]) => {
+        const codeStr = String(c ?? "").trim();
+        const nameStr = String(n ?? "").trim();
+        if (!codeStr || ["0", "null", "NULL", "undefined"].includes(codeStr)) return;
+        if (!empLookup.has(codeStr) || (nameStr && !empLookup.get(codeStr))) {
+          empLookup.set(codeStr, nameStr);
+        }
+        if (targetList && !targetList.some(item => item.EmpCode === codeStr)) {
+          targetList.push({ EmpCode: codeStr, EmpName: nameStr || codeStr });
+        }
+      };
+
+      if (resInternal && resInternal.ok) {
+        const raw = await handleResponse(resInternal, "EMPS_INTERNAL");
+        const list = Array.isArray(raw) ? raw : (raw?.Table || raw?.table || []);
+        (list || []).forEach((e: any) => {
+          const c = Array.isArray(e) ? e[0] : (e.EmpCode || e.EMPCODE || e.Empcode || e[0]);
+          const n = Array.isArray(e) ? e[1] : (e.EmpName || e.EMPNAME || e.Empname || e[1]);
+          addEmp(c, n, internalList);
+        });
+        setEmpNames(internalList);
+      }
+
+      if (resAll && resAll.ok) {
+        const rawAll = await handleResponse(resAll, "EMPS_ALL");
+        const listAll = Array.isArray(rawAll) ? rawAll : (rawAll?.Table || rawAll?.table || []);
+        (listAll || []).forEach((e: any) => {
+          const c = Array.isArray(e) ? e[0] : (e.EmpCode || e.EMPCODE || e.Empcode || e[0]);
+          const n = Array.isArray(e) ? e[1] : (e.EmpName || e.EMPNAME || e.Empname || e[1]);
+          addEmp(c, n, allList);
+        });
+      }
+
+      if (resSupport && resSupport.ok) {
+        const rawSup = await handleResponse(resSupport, "EMPS_SUP");
+        const listSup = Array.isArray(rawSup) ? rawSup : (rawSup?.Table || rawSup?.table || []);
+        (listSup || []).forEach((e: any) => {
+          const c = Array.isArray(e) ? e[0] : (e.EmpCode || e.EMPCODE || e.Empcode || e[0]);
+          const n = Array.isArray(e) ? e[1] : (e.EmpName || e.EMPNAME || e.Empname || e[1]);
+          addEmp(c, n, allList);
+        });
+      }
+
+      setAllEmps(allList.length > 0 ? allList : internalList);
     } catch (err) {
       console.error("[AssignedTickets] loadEmployees ERROR:", err);
     }
+    return empLookup;
   }
 
-  async function loadData() {
+  const formatEmpDisplay = (code: any, name?: any, customLookup?: Map<string, string>) => {
+    const strCode = String(code || "").trim();
+    const strName = String(name || "").trim();
+    if (!strCode && !strName) return "";
+    if (["0", "null", "NULL", "undefined", ""].includes(strCode) && !strName) return "";
+
+    const lookupName = customLookup?.get(strCode);
+    if (lookupName && !["0", "null", "NULL", "undefined", ""].includes(lookupName)) {
+      return lookupName.includes("-") ? lookupName : `${strCode}-${lookupName}`;
+    }
+
+    const found = allEmps.find(e => String(e.EmpCode).trim() === strCode) || 
+                  empNames.find(e => String(e.EmpCode).trim() === strCode);
+    if (found) {
+      const eName = String(found.EmpName || "").trim();
+      return eName.includes("-") ? eName : `${found.EmpCode}-${eName}`;
+    }
+    if (strName && !["0", "null", "NULL", "undefined", ""].includes(strName)) {
+      return strName.includes("-") ? strName : (strCode ? `${strCode}-${strName}` : strName);
+    }
+    if (strCode && !["0", "null", "NULL", "undefined", ""].includes(strCode)) {
+      return strCode;
+    }
+    return "";
+  };
+
+  const extractTrackingRow = (item: any) => {
+    if (!item) return { empCode: "", supEmp: "", createdBy: "" };
+    if (Array.isArray(item)) {
+      return {
+        empCode: String(item[2] ?? "").trim(),
+        supEmp: String(item[3] ?? "").trim(),
+        createdBy: String(item[4] ?? "").trim()
+      };
+    }
+    if (typeof item === "object") {
+      const keys = Object.keys(item);
+      const findKeyVal = (searchKeys: string[]) => {
+        for (const sk of searchKeys) {
+          const matched = keys.find(k => k.toLowerCase() === sk.toLowerCase());
+          if (matched && item[matched] !== undefined && item[matched] !== null) {
+            return String(item[matched]).trim();
+          }
+        }
+        return "";
+      };
+      return {
+        empCode: findKeyVal(["EMPCODE", "EmpCode", "empcode", "EMP_CODE", "EmployeeCode"]),
+        supEmp: findKeyVal(["Sup_EmpCodes", "sup_EmpCodes", "Sup_empcodes", "sup_empcodes", "Sup_EmpCode", "SupEmpCode", "SupEmp", "sup_EmpCode", "SupportEmpCode"]),
+        createdBy: findKeyVal(["CREATEDBYID", "CreatedById", "createdbyid", "CreatedBy", "createdby", "CREATEDBY", "CreatedByID"])
+      };
+    }
+    return { empCode: "", supEmp: "", createdBy: "" };
+  };
+
+  async function loadData(customLookup?: Map<string, string>) {
     setLoading(true);
     try {
       const q = new URLSearchParams({ empcode: empCode, CLIENTID: clientId, PROJECTID: projectId, _nocache: Date.now().toString() });
@@ -125,48 +241,93 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       const raw = await handleResponse(res, "ASSIGNED");
       console.log("[AssignedTickets] LOADEMPTASKSLIST Payload:", raw);
 
-      if (raw && raw.length > 0) {
-        const firstItem = raw[0];
-        console.log("[AssignedTickets] Sample Item Structure:", firstItem);
-        if (Array.isArray(firstItem)) {
-          console.log("[AssignedTickets] Status Check (index 22):", firstItem[22]);
-          console.log("[AssignedTickets] Mapping Check:", {
-            TICKETID: firstItem[1] || firstItem[0],
-            StatusIndex22: firstItem[22],
-            File: firstItem[8],
-            Img: firstItem[9]
-          });
-        }
-      }
+      const rawList = Array.isArray(raw) ? raw : (raw?.Table || raw?.table || []);
 
-      const mapped = (raw || []).map((r: any) => ({
-        TICKETID: String(r[1] || r[0]),
-        Client: r[2],
-        clint_detail: r[5],
-        Project: r[3],
-        Subject: r[6],
-        Remarks: r[11],
-        Issue_Status: String(r[22] || 'O').toUpperCase(),
-        TicketPriority: r[13],
-        TDate: r[10] ? moment(r[10]).format("DD MMM YYYY") : "",
-        File_Path: String(
-          r.File_Path || r.file_Path || r.file_path ||
-          (Array.isArray(r) ? (
-            (typeof r[14] === 'string' && r[14].includes('.')) ? r[14] :
-              (typeof r[8] === 'string' && r[8].includes('.')) ? r[8] : ""
-          ) : "") || ""
-        ).trim(),
-        Img_Path: String(
-          r.Img_Path || r.img_Path || r.img_path ||
-          (Array.isArray(r) ? (
-            (typeof r[15] === 'string' && r[15].includes('.')) ? r[15] :
-              (typeof r[9] === 'string' && r[9].includes('.')) ? r[9] : ""
-          ) : "") || ""
-        ).trim(),
-        Target_Time: r[27],
-      }));
-      setData(mapped);
-      if (onCountChange) onCountChange(mapped.length);
+      const baseMapped = (rawList || []).map((r: any) => {
+        const isArr = Array.isArray(r);
+        return {
+          TICKETID: String(isArr ? (r[1] || r[0]) : (r.TICKETID || r.TicketID || "")).trim(),
+          Client: isArr ? r[2] : (r.Client || ""),
+          clint_detail: isArr ? r[5] : (r.clint_detail || r.Client_MobileNo || ""),
+          Project: isArr ? r[3] : (r.Project || ""),
+          Subject: isArr ? r[6] : (r.Subject || ""),
+          Remarks: isArr ? r[11] : (r.Remarks || ""),
+          Issue_Status: String(isArr ? (r[22] || r[12] || 'O') : (r.Issue_Status || r.STATUS || 'O')).toUpperCase(),
+          TicketPriority: isArr ? r[13] : (r.TicketPriority || "Normal"),
+          TDate: (isArr ? r[10] : (r.TDate || r.Date)) ? moment(isArr ? r[10] : (r.TDate || r.Date)).format("DD MMM YYYY") : "",
+          Target_Time: isArr ? r[27] : (r.Target_Time || ""),
+          File_Path: String(
+            r.File_Path || r.file_Path || r.file_path ||
+            (isArr ? (
+              (typeof r[14] === 'string' && r[14].includes('.')) ? r[14] :
+                (typeof r[8] === 'string' && r[8].includes('.')) ? r[8] : ""
+            ) : "") || ""
+          ).trim(),
+          Img_Path: String(
+            r.Img_Path || r.img_Path || r.img_path ||
+            (isArr ? (
+              (typeof r[15] === 'string' && r[15].includes('.')) ? r[15] :
+                (typeof r[9] === 'string' && r[9].includes('.')) ? r[9] : ""
+            ) : "") || ""
+          ).trim(),
+          CreatedBy: "",
+          AssignedEmpCode: "",
+          SupEmpCode: ""
+        };
+      });
+
+      // Fetch tracking per ticket to get exact Assigner (CreatedBy), Receiver (EMPCODE), and Support Emp (Sup_EmpCodes)
+      const ticketsWithTracking = await Promise.all(
+        baseMapped.map(async (t: any) => {
+          const tid = String(t.TICKETID || "").trim();
+          if (!tid) return t;
+          try {
+            const trkRes = await fetch(`${apiBase}Tickets/Load_TicketTracking_ByTicketID?TicketID=${encodeURIComponent(tid)}`, { headers: getHeaders(true) });
+            const trkData = await handleResponse(trkRes, `TRACKING_${tid}`);
+            const trkList = Array.isArray(trkData) ? trkData : (trkData?.Table || trkData?.table || []);
+            
+            if (trkList && trkList.length > 0) {
+              let createdBy = "";
+              let empCode = "";
+              let supEmp = "";
+
+              // Search records from newest to oldest for valid Sup_EmpCodes
+              for (let i = trkList.length - 1; i >= 0; i--) {
+                const info = extractTrackingRow(trkList[i]);
+                if (info.supEmp && !["0", "null", "NULL", "undefined", ""].includes(info.supEmp)) {
+                  supEmp = info.supEmp;
+                  createdBy = info.createdBy;
+                  empCode = info.empCode;
+                  break;
+                }
+              }
+
+              // If no supEmp found with assigner, check latest record
+              if (!createdBy || !empCode) {
+                const lastInfo = extractTrackingRow(trkList[trkList.length - 1]);
+                if (!createdBy) createdBy = lastInfo.createdBy;
+                if (!empCode) empCode = lastInfo.empCode;
+                if (!supEmp) supEmp = lastInfo.supEmp;
+              }
+
+              console.log("[AssignedTickets] Ticket tracking resolved:", { tid, createdBy, empCode, supEmp });
+
+              return {
+                ...t,
+                CreatedBy: createdBy,
+                AssignedEmpCode: empCode,
+                SupEmpCode: supEmp
+              };
+            }
+          } catch (e) {
+            console.error("Error fetching tracking for ticket", tid, e);
+          }
+          return t;
+        })
+      );
+
+      setData(ticketsWithTracking);
+      if (onCountChange) onCountChange(ticketsWithTracking.length);
     } catch (err) {
       console.error("[AssignedTickets] loadData ERROR:", err);
       setData([]);
@@ -448,6 +609,20 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                       </div>
                     </div>
                   </div>
+
+                  {/* Support Ticket Transfer Line - Only shown when SupEmpCode exists */}
+                  {Boolean(x.SupEmpCode && !["0", "null", "NULL", ""].includes(String(x.SupEmpCode).trim())) && (
+                    <div className="ast-support-flow-bar">
+                      <span className="ast-support-flow-title">Support ticket :</span>
+                      <span className="ast-support-flow-emp">
+                        {formatEmpDisplay(x.AssignedEmpCode || x.CreatedBy)}
+                      </span>
+                      <span className="ast-support-flow-arrow">&gt;</span>
+                      <span className="ast-support-flow-emp">
+                        {formatEmpDisplay(x.SupEmpCode)}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Action Area (Updates) */}
                   <div className="ast-update-container">
