@@ -107,6 +107,7 @@ const EmpProfile: React.FC = () => {
     userType: "",
     doj: "",
     joiningDate: "",
+    dob: "",
     bloodGroup: "",
     contactNumber: "",
     pan: "",
@@ -480,7 +481,7 @@ const EmpProfile: React.FC = () => {
     const rawDoj = getValue(4, ["_Doj", "Doj", "doj"], "");
     const dojStr = rawDoj ? (String(rawDoj).includes("T") ? String(rawDoj).split("T")[0] : String(rawDoj)) : "";
 
-    const rawDob = getValue(45, ["_Dob", "Dob", "dob"], "");
+    const rawDob = getValue(7, ["_Dob", "Dob", "dob", "DOB"], "") || getValue(45, ["_Dob", "Dob", "dob", "DOB"], "");
     const dobStr = rawDob ? (String(rawDob).includes("T") ? String(rawDob).split("T")[0] : String(rawDob)) : "";
 
     const checkInVal = getValue(44, ["_CheckIn", "checkIn", "CheckIn", "InTime", "intime"], "");
@@ -582,6 +583,7 @@ const EmpProfile: React.FC = () => {
         designation: safeStr(details._Desig),
         department: safeStr(details._Dept),
         joiningDate: safeStr(details._Doj),
+        dob: safeStr(details._Dob),
         bloodGroup: safeStr(details._Blood),
         contactNumber: safeStr(details._Mobile),
         email: safeStr(details._Email),
@@ -739,6 +741,7 @@ const EmpProfile: React.FC = () => {
             designation: details._Desig,
             department: details._Dept,
             joiningDate: details._Doj,
+            dob: details._Dob,
             bloodGroup: details._Blood,
             contactNumber: details._Mobile,
             email: details._Email,
@@ -782,6 +785,7 @@ const EmpProfile: React.FC = () => {
             empName: userProfile.EmpName || userProfile.Empname,
             designation: userProfile.Designation,
             joiningDate: userProfile.DOJ,
+            dob: userProfile.DOB || userProfile.Dob || userProfile.dob || "",
             bloodGroup: userProfile.Blood,
             contactNumber: userProfile.Mobile,
             pan: userProfile.PanNo,
@@ -1113,6 +1117,7 @@ const EmpProfile: React.FC = () => {
         // ROW_NUMBER over distinct values and are not stable), so no lookup
         _BranchDept: (formData._BranchDept ?? "").trim(),
         _Doj: formatToDDMMYYYY(formData._Doj),
+        _Dob: formatToDDMMYYYY(formData._Dob),
         _UpdatedBy: (() => {
           try {
             const user = JSON.parse(localStorage.getItem("user") || "{}");
