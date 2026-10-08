@@ -182,10 +182,15 @@ export default function SupportTickets({ apiBase, empCode, pIncharge, onCountCha
         ).trim()
       }));
 
-      console.log("[SupportTickets] loadSupportTickets mapped items:", mapped?.length);
-      if (mapped.length > 0) console.log("[SupportTickets] Mapped Sample [0]:", JSON.stringify(mapped[0], null, 2));
-      setDataSupport(mapped);
-      if (onCountChange) onCountChange(mapped.length);
+      const activeMapped = mapped.filter((r: any) => {
+        const s = String(r.T_STATUS || "").toUpperCase();
+        return s !== "C" && s !== "CLOSED" && s !== "Q" && s !== "QUIT";
+      });
+
+      console.log("[SupportTickets] loadSupportTickets active mapped items:", activeMapped?.length);
+      if (activeMapped.length > 0) console.log("[SupportTickets] Mapped Sample [0]:", JSON.stringify(activeMapped[0], null, 2));
+      setDataSupport(activeMapped);
+      if (onCountChange) onCountChange(activeMapped.length);
     } catch (err: any) {
       console.error("[SupportTickets] loadSupportTickets CATCH ERROR:", err);
       setDataSupport([]);

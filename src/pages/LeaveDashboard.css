@@ -870,6 +870,44 @@
   border: 1px solid #e2e8f0;
 }
 
+/* Slip Penalty Badges */
+.ld-slip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.ld-slip-chip.yellow {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.15);
+}
+
+.dark-theme .ld-slip-chip.yellow {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.ld-slip-chip.default {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.dark-theme .ld-slip-chip.default {
+  background: #1e293b;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
 .ld-duration-pill {
   font-size: 12px;
   font-weight: 750;

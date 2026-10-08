@@ -188,8 +188,8 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
       return lookupName.includes("-") ? lookupName : `${strCode}-${lookupName}`;
     }
 
-    const found = allEmps.find(e => String(e.EmpCode).trim() === strCode) || 
-                  empNames.find(e => String(e.EmpCode).trim() === strCode);
+    const found = allEmps.find(e => String(e.EmpCode).trim() === strCode) ||
+      empNames.find(e => String(e.EmpCode).trim() === strCode);
     if (found) {
       const eName = String(found.EmpName || "").trim();
       return eName.includes("-") ? eName : `${found.EmpCode}-${eName}`;
@@ -285,35 +285,34 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
             const trkRes = await fetch(`${apiBase}Tickets/Load_TicketTracking_ByTicketID?TicketID=${encodeURIComponent(tid)}`, { headers: getHeaders(true) });
             const trkData = await handleResponse(trkRes, `TRACKING_${tid}`);
             const trkList = Array.isArray(trkData) ? trkData : (trkData?.Table || trkData?.table || []);
-            
-            if (trkList && trkList.length > 0) {
-              let createdBy = "";
-              let empCode = "";
-              let supEmp = "";
 
-              // Search records from newest to oldest for valid Sup_EmpCodes
-              for (let i = trkList.length - 1; i >= 0; i--) {
-                const info = extractTrackingRow(trkList[i]);
-                if (info.supEmp && !["0", "null", "NULL", "undefined", ""].includes(info.supEmp)) {
-                  supEmp = info.supEmp;
-                  createdBy = info.createdBy;
-                  empCode = info.empCode;
-                  break;
+            if (trkList && trkList.length > 0) {
+              const lastRow = trkList[trkList.length - 1];
+              const lastInfo = extractTrackingRow(lastRow);
+              const isArr = Array.isArray(lastRow);
+              const latestStatus = String(isArr ? (lastRow[8] || lastRow[12] || '') : (lastRow.STATUS || lastRow.Status || '')).toUpperCase();
+
+              let createdBy = lastInfo.createdBy;
+              let empCode = lastInfo.empCode;
+              let supEmp = lastInfo.supEmp;
+
+              // If supEmp not in latest row, check earlier rows
+              if (!supEmp) {
+                for (let i = trkList.length - 2; i >= 0; i--) {
+                  const info = extractTrackingRow(trkList[i]);
+                  if (info.supEmp && !["0", "null", "NULL", "undefined", ""].includes(info.supEmp)) {
+                    supEmp = info.supEmp;
+                    break;
+                  }
                 }
               }
 
-              // If no supEmp found with assigner, check latest record
-              if (!createdBy || !empCode) {
-                const lastInfo = extractTrackingRow(trkList[trkList.length - 1]);
-                if (!createdBy) createdBy = lastInfo.createdBy;
-                if (!empCode) empCode = lastInfo.empCode;
-                if (!supEmp) supEmp = lastInfo.supEmp;
-              }
-
-              console.log("[AssignedTickets] Ticket tracking resolved:", { tid, createdBy, empCode, supEmp });
+              const resolvedStatus = latestStatus || t.Issue_Status;
+              console.log("[AssignedTickets] Ticket tracking resolved:", { tid, createdBy, empCode, supEmp, resolvedStatus });
 
               return {
                 ...t,
+                Issue_Status: resolvedStatus,
                 CreatedBy: createdBy,
                 AssignedEmpCode: empCode,
                 SupEmpCode: supEmp
@@ -326,8 +325,16 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
         })
       );
 
-      setData(ticketsWithTracking);
-      if (onCountChange) onCountChange(ticketsWithTracking.length);
+      const activeTickets = ticketsWithTracking.filter((t: any) => {
+        const s = String(t.Issue_Status || '').toUpperCase();
+        if (s === 'C' || s === 'CLOSED' || s === 'Q' || s === 'QUIT') {
+          return false;
+        }
+        return true;
+      });
+
+      setData(activeTickets);
+      if (onCountChange) onCountChange(activeTickets.length);
     } catch (err) {
       console.error("[AssignedTickets] loadData ERROR:", err);
       setData([]);
@@ -376,15 +383,31 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
   async function onUpdateStatus(ticket: any) {
     const up = updates[ticket.TICKETID] || { status: "", remark: "", supportEmpCode: "", ticketType: "", closingRemarks: "", quitRemarks: "", targetDate: "" };
 
-    if (up.status === "Q" && !up.quitRemarks.trim()) return alert("Please enter quitting reason");
-    if (up.status === "C" && (!up.closingRemarks.trim() || !up.ticketType)) return alert("Please enter closing reason and ticket type");
-    if (!up.status) return alert("Please select a status");
+    if (up.status === "Q" && !up.quitRemarks.trim()) {
+      setToast({ open: true, msg: "Please enter quitting reason", color: "warning" });
+      return;
+    }
+    if (up.status === "C") {
+      if (!up.ticketType) {
+        setToast({ open: true, msg: "Please select ticket type", color: "warning" });
+        return;
+      }
+      if (!up.closingRemarks.trim()) {
+        setToast({ open: true, msg: "Please enter closing reason", color: "warning" });
+        return;
+      }
+    }
+
+    if (!up.status && !up.supportEmpCode) {
+      setToast({ open: true, msg: "Please select an Action Status or Transfer employee", color: "warning" });
+      return;
+    }
 
     const payload = {
       _TICKETID: ticket.TICKETID,
       _EMPCODE_LOGIN: empCode,
       _SUPPORTEMPCODE: up.supportEmpCode || "",
-      _SELECTEDTIKSTATUS: up.status,
+      _SELECTEDTIKSTATUS: up.status || ticket.Issue_Status || "O",
       _TASKREMARKS: up.quitRemarks || "",
       _TICKETTYPE: up.ticketType || "",
       _CLOSINGREMARKS: up.closingRemarks || ""
@@ -439,7 +462,10 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
   }
 
   async function onSaveWorkReport() {
-    if (!workDescription.trim()) return alert("Please enter work description");
+    if (!workDescription.trim()) {
+      setToast({ open: true, msg: "Please enter work description", color: "warning" });
+      return;
+    }
     if (!activeWorkTicket) return;
 
     setLoading(true);
@@ -610,19 +636,39 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
                     </div>
                   </div>
 
-                  {/* Support Ticket Transfer Line - Only shown when SupEmpCode exists */}
-                  {Boolean(x.SupEmpCode && !["0", "null", "NULL", ""].includes(String(x.SupEmpCode).trim())) && (
-                    <div className="ast-support-flow-bar">
-                      <span className="ast-support-flow-title">Support ticket :</span>
-                      <span className="ast-support-flow-emp">
-                        {formatEmpDisplay(x.AssignedEmpCode || x.CreatedBy)}
-                      </span>
-                      <span className="ast-support-flow-arrow">&gt;</span>
-                      <span className="ast-support-flow-emp">
-                        {formatEmpDisplay(x.SupEmpCode)}
-                      </span>
-                    </div>
-                  )}
+                  {/* Support Ticket Transfer Line - Only shown when SupEmpCode exists and is transferred between distinct employees */}
+                  {(() => {
+                    const toCode = String(x.SupEmpCode || "").trim();
+                    if (!toCode || ["0", "null", "NULL", ""].includes(toCode)) return null;
+
+                    const toEmpDisplay = formatEmpDisplay(toCode);
+                    if (!toEmpDisplay) return null;
+
+                    // Prefer CreatedBy if distinct from SupEmpCode, otherwise AssignedEmpCode if distinct
+                    const fromCode = (
+                      x.CreatedBy && String(x.CreatedBy).trim() !== toCode && !["0", "null", "NULL", ""].includes(String(x.CreatedBy).trim())
+                    ) ? String(x.CreatedBy).trim() : (
+                      x.AssignedEmpCode && String(x.AssignedEmpCode).trim() !== toCode && !["0", "null", "NULL", ""].includes(String(x.AssignedEmpCode).trim())
+                    ) ? String(x.AssignedEmpCode).trim() : "";
+
+                    const fromEmpDisplay = fromCode ? formatEmpDisplay(fromCode) : "";
+
+                    // Do not display if from and to are identical or missing
+                    if (!fromEmpDisplay || fromEmpDisplay === toEmpDisplay) return null;
+
+                    return (
+                      <div className="ast-support-flow-bar">
+                        <span className="ast-support-flow-title">Support ticket :</span>
+                        <span className="ast-support-flow-emp">
+                          {fromEmpDisplay}
+                        </span>
+                        <span className="ast-support-flow-arrow">&gt;</span>
+                        <span className="ast-support-flow-emp">
+                          {toEmpDisplay}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Action Area (Updates) */}
                   <div className="ast-update-container">

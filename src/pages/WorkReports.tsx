@@ -315,6 +315,14 @@ const WorkReports: React.FC = () => {
     return moment().utcOffset("+05:30").format("MMM-YYYY");
   };
 
+  const isReportToday = (dateStr: string) => {
+    if (!dateStr) return false;
+    return moment(
+      dateStr,
+      ["DD-MM-YYYY", "YYYY-MM-DD", "DD-MMM-YYYY", "D-MMM-YYYY", "DD/MM/YYYY", "YYYY/MM/DD", "D-MM-YYYY", moment.ISO_8601]
+    ).isSame(moment().utcOffset("+05:30"), "day");
+  };
+
   const fetchMonths = async (empCode: string) => {
     const list = generateMonthList();
     setMonths(list);
@@ -478,6 +486,13 @@ const WorkReports: React.FC = () => {
     if (loginEmpCode && selectedEmployee && String(loginEmpCode) !== String(selectedEmployee) && !canViewAllEmployees) {
       setToastType("danger");
       setToastMessage("You can't edit others work report!");
+      setShowToast(true);
+      return;
+    }
+
+    if (!isReportToday(report[5])) {
+      setToastType("danger");
+      setToastMessage("Only today's work report can be edited!");
       setShowToast(true);
       return;
     }
@@ -1103,7 +1118,7 @@ const WorkReports: React.FC = () => {
                           <div className="wr-premium-desc-box">
                             <FileText size={14} className="wr-desc-icon" />
                             <p className="wr-premium-text">{(report[4] || "").split("__")[0]}</p>
-                            {(report[6]?.toLowerCase() === "pending" || !report[6]) && (canViewAllEmployees || String(_user?.empCode || _user?.EmpCode) === String(selectedEmployee)) && (
+                            {(report[6]?.toLowerCase() === "pending" || !report[6]) && isReportToday(report[5]) && (canViewAllEmployees || String(_user?.empCode || _user?.EmpCode) === String(selectedEmployee)) && (
                               <button 
                                 className="wr-edit-btn-small" 
                                 onClick={(e) => {

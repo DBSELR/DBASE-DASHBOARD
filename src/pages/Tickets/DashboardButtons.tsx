@@ -33,7 +33,7 @@ const getCollegeDisplay = (remarks: any, subject: any) => {
   if (!remarks || typeof remarks !== 'string') return "";
   const cleanRemarks = remarks.trim();
   if (cleanRemarks === "null" || cleanRemarks === "0" || cleanRemarks === "") return "";
-  
+
   const explicitMatch = cleanRemarks.match(/(?:college|colleage)\s+code\s*[-:\s]*\s*(\d+)/i);
   if (explicitMatch) {
     return `college code-${explicitMatch[1]}`;
@@ -46,6 +46,21 @@ const getCollegeDisplay = (remarks: any, subject: any) => {
 };
 
 const ADMIN_CODES = ['1507', '1509', '1532', '1501', '1540', '1504'];
+
+const normalizeStatus = (s: any): string => {
+  const str = String(s || '').trim().toUpperCase();
+  if (!str) return '';
+  if (str === 'P' || str.startsWith('PEND') || str.includes('PROGRESS')) return 'P';
+  if (str === 'A' || str === 'S' || str.startsWith('ASSIGN')) return 'A';
+  if (str === 'O' || str === 'OPEN') return 'O';
+  if (str === 'H' || str.startsWith('HOLD')) return 'H';
+  if (str === 'C' || str.startsWith('CLOSE')) return 'C';
+  if (str === 'R' || str.startsWith('REOPEN')) return 'R';
+  if (str === 'U' || str.startsWith('UNDERTAKE')) return 'U';
+  if (str === 'W' || str.startsWith('WORK')) return 'W';
+  if (str === 'Q' || str.startsWith('QUIT')) return 'Q';
+  return str;
+};
 
 const CHIPS = [
   { s: "P", l: "Pending", ic: <AlertCircle size={16} /> },
@@ -105,6 +120,66 @@ export default function DashboardButtons(props: Props) {
     setStatus(null);
   }, [fromDate, toDate, clientId, projectId]);
 
+  const resolveTicketActualStatus = async (ticketId: string, defaultStatus: string, r?: any, cleanEmp: string = ""): Promise<{ status: string; isClosedByThisEmp: boolean }> => {
+    const cleanDefault = normalizeStatus(defaultStatus || 'O');
+
+    let trkList: any[] = [];
+    if (ticketId) {
+      try {
+        const trkRes = await fetch(`${apiBase}Tickets/Load_TicketTracking_ByTicketID?TicketID=${encodeURIComponent(ticketId)}`, { headers: getHeaders(true) });
+        const trkData = await handleResponse(trkRes, `TRACKING_STATUS_${ticketId}`);
+        trkList = Array.isArray(trkData) ? trkData : (trkData?.Table || trkData?.table || []);
+      } catch (e) {
+        console.error("[DashboardButtons] resolveTicketActualStatus tracking error:", ticketId, e);
+      }
+    }
+
+    let closedByThisUser = false;
+    if (trkList && trkList.length > 0) {
+      for (let i = trkList.length - 1; i >= 0; i--) {
+        const row = trkList[i];
+        const isArr = Array.isArray(row);
+        const rowEmp = String(isArr ? row[2] : (row.EMPCODE || row.EmpCode || '')).trim();
+        const rowStatus = normalizeStatus(isArr ? (row[8] || row[12] || '') : (row.STATUS || row.Status || ''));
+        if (rowStatus === 'C') {
+          if (rowEmp && cleanEmp && rowEmp === cleanEmp) {
+            closedByThisUser = true;
+          }
+        }
+      }
+    } else if (r) {
+      // Fallback to row fields if tracking unavailable
+      if (Array.isArray(r)) {
+        const empField = String(r[16] || '').trim();
+        const numMatch = empField.match(/^\d+/);
+        if (numMatch && numMatch[0] === cleanEmp) {
+          closedByThisUser = true;
+        }
+      } else if (typeof r === 'object') {
+        const empField = String(r.EMPCODE || r.EmpCode || r.EMPLOYEE || '').trim();
+        const numMatch = empField.match(/^\d+/);
+        if (numMatch && numMatch[0] === cleanEmp) {
+          closedByThisUser = true;
+        }
+      }
+    }
+
+    let latestStatus = cleanDefault;
+    if (trkList && trkList.length > 0) {
+      const lastRow = trkList[trkList.length - 1];
+      const isArr = Array.isArray(lastRow);
+      const trkStatus = normalizeStatus(isArr ? (lastRow[8] || lastRow[12] || '') : (lastRow.STATUS || lastRow.Status || ''));
+      if (trkStatus) {
+        latestStatus = trkStatus;
+      }
+    }
+
+    return {
+      status: latestStatus,
+      isClosedByThisEmp: closedByThisUser
+    };
+  };
+
   async function refreshCounts() {
     const dFrom = moment(fromDate).format("MM-DD-YYYY");
     const dTo = moment(toDate).format("MM-DD-YYYY");
@@ -124,20 +199,35 @@ export default function DashboardButtons(props: Props) {
           };
         }
       } else {
-        // Use LOADEMPTASKSLIST for employees to get accurate counts (ignoring date filter for consistency with AssignedTickets)
-        const res = await fetch(`${apiBase}Tickets/LOADEMPTASKSLIST?empcode=${empCode}&CLIENTID=0&PROJECTID=0`, { headers: getHeaders(true) });
-        const json = await handleResponse(res, "COUNTS_EMP_LIST");
-        if (Array.isArray(json)) {
-          json.forEach((r: any) => {
-            const s = String(r[12] || 'O').toUpperCase();
-            if (s === 'P') mainCounts.P++;
-            else if (s === 'A' || s === 'S') mainCounts.A++;
-            else if (s === 'O') mainCounts.O++;
-            else if (s === 'H') mainCounts.H++;
-            else if (s === 'C') mainCounts.C++;
-            else if (s === 'R') mainCounts.R++;
-          });
-        }
+        // Use LOADEMPTASKSLIST for employees and resolve actual latest status
+        const q = new URLSearchParams({ empcode: empCode, CLIENTID: clientId, PROJECTID: projectId, _nocache: Date.now().toString() });
+        const res = await fetch(`${apiBase}Tickets/LOADEMPTASKSLIST?${q.toString()}`, { headers: getHeaders(true) });
+        const raw = await handleResponse(res, "COUNTS_EMP_LIST");
+        const rawList = Array.isArray(raw) ? raw : (raw?.Table || raw?.table || []);
+
+        const cleanEmp = String(empCode).trim();
+        const resolvedList = await Promise.all(
+          rawList.map(async (r: any) => {
+            const isArr = Array.isArray(r);
+            const baseStatus = String(isArr ? (r[22] || r[12] || 'O') : (r.Issue_Status || r.STATUS || 'O')).toUpperCase();
+            const tid = String(isArr ? (r[1] || r[0]) : (r.TICKETID || r.TicketID || '')).trim();
+            const { status: actualStatus, isClosedByThisEmp } = await resolveTicketActualStatus(tid, baseStatus, r, cleanEmp);
+            return { r, actualStatus: normalizeStatus(actualStatus), isClosedByThisEmp };
+          })
+        );
+
+        resolvedList.forEach(({ actualStatus, isClosedByThisEmp }) => {
+          if (actualStatus === 'P') mainCounts.P++;
+          else if (actualStatus === 'A' || actualStatus === 'S') mainCounts.A++;
+          else if (actualStatus === 'O') mainCounts.O++;
+          else if (actualStatus === 'H') mainCounts.H++;
+          else if (actualStatus === 'C') {
+            if (isClosedByThisEmp) {
+              mainCounts.C++;
+            }
+          }
+          else if (actualStatus === 'R') mainCounts.R++;
+        });
       }
 
       const resW = await fetch(`${apiBase}Tickets/EMPLOYEE_WORKREPORT_TICKETS_COUNT?EMPCODE=${empCode}`, { headers: getHeaders(true) });
@@ -172,13 +262,33 @@ export default function DashboardButtons(props: Props) {
         raw = await handleResponse(res, "DASH_ADMIN");
       } else if (!isAdmin && !['U', 'W'].includes(s as string)) {
         // Employee dashboard tickets (P,A,O,H,R,C) from LOADEMPTASKSLIST
-        const res = await fetch(`${apiBase}Tickets/LOADEMPTASKSLIST?empcode=${empCode}&CLIENTID=0&PROJECTID=0`, { headers: getHeaders(true) });
+        const q = new URLSearchParams({ empcode: empCode, CLIENTID: clientId, PROJECTID: projectId, _nocache: Date.now().toString() });
+        const res = await fetch(`${apiBase}Tickets/LOADEMPTASKSLIST?${q.toString()}`, { headers: getHeaders(true) });
         const all = await handleResponse(res, "DASH_EMP_LIST");
-        raw = (all || []).filter((r: any) => {
-          const rs = String(r[12] || 'O').toUpperCase();
-          if (s === 'A') return rs === 'A' || rs === 'S';
-          return rs === s;
-        });
+        const rawList = Array.isArray(all) ? all : (all?.Table || all?.table || []);
+        const cleanEmp = String(empCode).trim();
+        const resolvedList = await Promise.all(
+          rawList.map(async (r: any) => {
+            const isArr = Array.isArray(r);
+            const baseStatus = String(isArr ? (r[22] || r[12] || 'O') : (r.Issue_Status || r.STATUS || 'O')).toUpperCase();
+            const tid = String(isArr ? (r[1] || r[0]) : (r.TICKETID || r.TicketID || '')).trim();
+            const { status: actualStatus, isClosedByThisEmp } = await resolveTicketActualStatus(tid, baseStatus, r, cleanEmp);
+            return { r, actualStatus: normalizeStatus(actualStatus), isClosedByThisEmp };
+          })
+        );
+
+        const targetNorm = normalizeStatus(s);
+        raw = resolvedList
+          .filter(({ actualStatus, isClosedByThisEmp }) => {
+            if (targetNorm === 'C') {
+              return actualStatus === 'C' && isClosedByThisEmp;
+            }
+            if (targetNorm === 'A') {
+              return actualStatus === 'A' || actualStatus === 'S';
+            }
+            return actualStatus === targetNorm;
+          })
+          .map(({ r }) => r);
       } else {
         const q = new URLSearchParams({ status: s === 'W' ? 'O' : s as string, EMPCODE: empCode, FDATE: dFrom, TDATE: dTo });
         if (clientId !== "0") q.append("CID", clientId);

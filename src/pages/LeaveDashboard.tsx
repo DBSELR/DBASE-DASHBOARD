@@ -916,6 +916,14 @@ const LeaveDashboard: React.FC = () => {
     else if (fullCatLower.includes("permission") || fullCatLower.includes("perm")) typeClass = "perm";
     else if (fullCatLower.includes("lop") || fullCatLower.includes("loss")) typeClass = "lop";
 
+    const rawSlip = safeStr(
+      x.Slip ||
+      x.slip ||
+      x.SlipType ||
+      x.slipType ||
+      (Array.isArray(x) ? (x.length === 32 ? x[26] : x.length === 30 ? x[24] : x[24] || x[26] || "") : "")
+    );
+
     return {
       id: x.lid || (Array.isArray(x) ? x[0] : ""),
       from,
@@ -929,6 +937,7 @@ const LeaveDashboard: React.FC = () => {
       statusClass,
       typeClass,
       leaveCategory,
+      slip: rawSlip,
       isPerm
     };
   };
@@ -961,7 +970,8 @@ const LeaveDashboard: React.FC = () => {
         const fullCat = `${r.typeDisp} ${r.leaveCategory}`.toLowerCase();
         const fullRemarks = r.remarks.toLowerCase();
         const fullStatus = r.status.toLowerCase();
-        return fullDate.includes(q) || fullCat.includes(q) || fullRemarks.includes(q) || fullStatus.includes(q);
+        const fullSlip = (r.slip || "").toLowerCase();
+        return fullDate.includes(q) || fullCat.includes(q) || fullRemarks.includes(q) || fullStatus.includes(q) || fullSlip.includes(q);
       }
 
       return true;
@@ -1618,9 +1628,19 @@ const LeaveDashboard: React.FC = () => {
 
                         {/* Category */}
                         <td>
-                          <span className={`ld-type-chip ${r.typeClass}`}>
-                            {getCategoryTypeDisplay(r.typeDisp, r.leaveCategory) || "Leave"}
-                          </span>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <span className={`ld-type-chip ${r.typeClass}`}>
+                              {getCategoryTypeDisplay(r.typeDisp, r.leaveCategory) || "Leave"}
+                            </span>
+                            {r.slip && (
+                              <span
+                                className={`ld-slip-chip ${r.slip.toLowerCase().includes("yellow") ? "yellow" : "default"}`}
+                                title={r.slip}
+                              >
+                                {r.slip}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Duration */}

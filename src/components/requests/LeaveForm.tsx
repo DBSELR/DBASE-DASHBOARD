@@ -174,20 +174,22 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       // Normalize items: support both the older string array and the newer object array formats
       const data = (res.data || []).map((item: any) => {
         if (typeof item === "string") {
-          return { date: item, leaveMode: "", leaveCategory: "", lType: "", pOut: "" };
+          return { date: item, leaveMode: "", leaveCategory: "", lType: "", pOut: "", remarks: "" };
         }
         const lType = String(item.lType || item.LType || item.ltype || item.requestType || item.RequestType || "").trim();
         const leaveMode = String(item.leaveMode || item.LeaveMode || item.leavemode || "").trim();
         const leaveCategory = String(item.leaveCategory || item.LeaveCategory || item.leavecategory || "").trim();
         const rawDate = item.date || item.Date || item.lfrom || item.LFrom || item.lFrom;
         const formattedDate = rawDate ? moment(rawDate).format("YYYY-MM-DD") : "";
+        const remarks = String(item.remarks || item.Remarks || item.purpose || item.Purpose || "").trim();
 
         return {
           date: formattedDate,
           leaveMode,
           leaveCategory,
           lType,
-          pOut: item.pOut || item.P_Out || item.p_out || ""
+          pOut: item.pOut || item.P_Out || item.p_out || "",
+          remarks
         };
       });
 
@@ -210,10 +212,11 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
   // =========================================
 
 
-  const checkBalance = async () => {
+  const checkBalance = async (dateOverride?: string) => {
     const empCode = getUser()?.empCode;
+    const targetDate = dateOverride || startDate;
 
-    if (!startDate) return;
+    if (!targetDate) return;
 
     let finalCategory = "";
 
@@ -227,11 +230,6 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       finalCategory = leaveMode;
     }
 
-
-    //  if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
-    //   finalCategory = "Casual";
-    // }
-
     if (!finalCategory) return;
 
     try {
@@ -241,16 +239,52 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
           params: {
             empCode,
             leaveCategory: finalCategory,
-            date: startDate,
+            date: targetDate,
           },
         }
       );
 
+      const rawMax = Number(res.data?.maxSessions || 0);
+      const maxSessions = rawMax > 0 ? rawMax : (finalCategory === "Permission" ? 6 : 0);
+
+      let usedSessions = Number(res.data?.usedSessions || 0);
+      if (finalCategory === "Permission" && targetDate) {
+        const monthStr = moment(targetDate).format("MMM-YYYY");
+        const monthIso = moment(targetDate).format("YYYY-MM");
+        try {
+          const permListRes = await axios.get(
+            `${API_BASE}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${monthStr}&LType=permission`
+          );
+          if (Array.isArray(permListRes.data)) {
+            // Count unique permission sessions for the month (excluding split secondary records)
+            const count = permListRes.data.filter((row: any) => {
+              const rem = String(row?.Remarks || (Array.isArray(row) ? (row[10] || row[9] || row[5]) : "") || "").toLowerCase();
+              return !rem.includes("converted to lop");
+            }).length;
+            usedSessions = Math.max(usedSessions, count);
+          }
+        } catch (e) {
+          const monthPerms = existingDates.filter((item: any) => {
+            if (!item?.date || !item.date.startsWith(monthIso)) return false;
+            const isPerm =
+              String(item.leaveMode).toLowerCase() === "permission" ||
+              String(item.lType).toLowerCase() === "permission" ||
+              String(item.leaveCategory).toLowerCase() === "permission";
+            const rem = String(item.remarks || "").toLowerCase();
+            return isPerm && !rem.includes("converted to lop");
+          }).length;
+          usedSessions = Math.max(usedSessions, monthPerms);
+        }
+      }
+
+      const displayedUsedSessions = maxSessions > 0 ? Math.min(usedSessions, maxSessions) : usedSessions;
+
       setBalance({
         used: res.data?.used || 0,
         balance: res.data?.balance || 0,
-        usedSessions: res.data?.usedSessions || 0,
-        maxSessions: res.data?.maxSessions || 0,
+        usedSessions: displayedUsedSessions,
+        actualUsedSessions: usedSessions,
+        maxSessions: maxSessions,
       });
 
     } catch (err) {
@@ -372,8 +406,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       requestType === "Permission"
         ? "Permission"
         : leaveMode === "Leave"
-        ? leaveCategory
-        : leaveMode;
+          ? leaveCategory
+          : leaveMode;
 
     let requestedDays = 1;
     if (finalCategory === "Forenoon" || finalCategory === "Afternoon") {
@@ -412,15 +446,22 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     // 🔥 PERMISSION VALIDATION
     if (requestType === "Permission" && balance) {
       const minutes = parseFloat(permTime || "0");
+      const maxSessions = Number(balance.maxSessions || 6);
+      const usedSessions = Number(balance.actualUsedSessions ?? balance.usedSessions ?? 0);
 
-      if (balance.usedSessions >= balance.maxSessions) {
-        setLopMessage("Session limit exceeded → Convert to LOP.");
-        setConfirmLOP(true);
-        return;
+      // ⛔ STRICT STOP: When max sessions reached (e.g. 6/6), strictly block further permissions (even LOP)
+      if (maxSessions > 0 && usedSessions >= maxSessions) {
+        return showToast(`Permission session limit reached (${balance.usedSessions}/${maxSessions}). No more permissions can be applied.`);
       }
 
       if (minutes > balance.balance) {
-        setLopMessage("Permission minutes exceeded → Convert to LOP.");
+        const avail = Number(balance?.balance ?? 0);
+        const excess = minutes - avail;
+        setLopMessage(
+          avail <= 0
+            ? "Permission balance exhausted → Convert to LOP."
+            : `You requested ${minutes} mins but only have ${avail} mins available. Remaining ${excess} min${excess === 1 ? "" : "s"} will be converted to LOP.`
+        );
         setConfirmLOP(true);
         return;
       }
@@ -436,10 +477,18 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     // 🔥 DEDICATED PERMISSION SUBMISSION
     if (requestType === "Permission") {
       const avail = Number(balance?.balance ?? 0);
-      const isSessionExceeded = balance && balance.usedSessions >= balance.maxSessions;
+      const maxSessions = Number(balance?.maxSessions || 6);
+      const usedSessions = Number(balance?.actualUsedSessions ?? balance?.usedSessions ?? 0);
+      const isSessionExceeded = maxSessions > 0 && usedSessions >= maxSessions;
+      const requestedMinutes = parseFloat(permTime || "0");
 
-      if (avail <= 0 || isSessionExceeded) {
-        // Balance is 0 or sessions exhausted - submit directly as single LOP record without split text
+      if (isSessionExceeded) {
+        showToast(`Permission session limit reached (${balance?.usedSessions || maxSessions}/${maxSessions}). No more permissions can be applied.`);
+        return;
+      }
+
+      if (avail <= 0) {
+        // Balance is 0 - submit directly as single LOP record without split text
         await submitToServer(
           "LOP",
           startDate || undefined,
@@ -455,8 +504,51 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
         return;
       }
 
-      // If available > 0, backend SP will split into (avail min Permission) + (excess min LOP), both > 0
-      await submitToServer("Permission");
+      // If available balance covers all requested minutes, submit as single Permission request
+      if (avail >= requestedMinutes) {
+        await submitToServer("Permission");
+        return;
+      }
+
+      const remainingLOP = requestedMinutes - avail;
+      const availWord = avail === 1 ? "Min" : "Mins";
+      const lopWord = remainingLOP === 1 ? "Min" : "Mins";
+
+      setLoading(true);
+
+      try {
+        // 1. Available Permission portion (consumes available minutes and updates session count)
+        await submitToServer(
+          "Permission",
+          startDate || undefined,
+          undefined,
+          remarks + ` (${avail} ${availWord} Permission)`,
+          true,
+          "Permission",
+          undefined,
+          String(avail),
+          inTime,
+          false
+        );
+
+        // 2. Excess portion converted to LOP (displays as LOP Permission card)
+        await submitToServer(
+          "LOP",
+          startDate || undefined,
+          undefined,
+          remarks + ` (${remainingLOP} ${lopWord} Converted to LOP)`,
+          false,
+          "Permission",
+          undefined,
+          String(remainingLOP),
+          inTime,
+          false
+        );
+      } catch (error) {
+        console.error("Split permission submission failed:", error);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -619,9 +711,10 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
 
       if (!skipClear) {
         showToast("Submitted Successfully");
+        const prevDate = startDate || undefined;
         clearForm();
         loadExistingLeaves();
-        checkBalance();
+        if (prevDate) checkBalance(prevDate);
       }
 
       // ── Send WhatsApp template to RA1 ──
@@ -960,7 +1053,14 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
                     {requestType === "Permission" && (
                       <div className="lf-v3-metric-item">
                         <span className="lf-v3-metric-label">Sessions</span>
-                        <span className="lf-v3-metric-val sessions">
+                        <span
+                          className="lf-v3-metric-val sessions"
+                          style={
+                            Number(balance.usedSessions) >= Number(balance.maxSessions) && Number(balance.maxSessions) > 0
+                              ? { color: "#dc2626", fontWeight: 800 }
+                              : undefined
+                          }
+                        >
                           {balance.usedSessions}/{balance.maxSessions}
                         </span>
                       </div>
@@ -974,7 +1074,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
                           100,
                           (Number(balance.balance || 0) /
                             (Number(balance.balance || 0) + Number(balance.used || 1))) *
-                            100
+                          100
                         )}%`
                       }}
                     />
@@ -985,7 +1085,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
                   <span style={{ fontSize: '12px', color: 'var(--ion-color-primary, #1e293b)', fontWeight: 600 }}>
                     {startDate ? "Check real-time balance for selected category" : "Select date to view balance details"}
                   </span>
-                  <button type="button" className="lf-v3-fetch-balance-btn" onClick={checkBalance}>
+                  <button type="button" className="lf-v3-fetch-balance-btn" onClick={() => checkBalance()}>
                     <IonIcon icon={informationCircleOutline} />
                     <span>Fetch Balance</span>
                   </button>
