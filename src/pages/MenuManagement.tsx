@@ -26,7 +26,6 @@ import {
   Check,
   X,
   ExternalLink,
-  Layers,
   Sparkles
 } from "lucide-react";
 import {
@@ -187,8 +186,8 @@ const MenuManagement: React.FC = () => {
     return ALLOWED_EMP_CODES.includes(callerEmpCode);
   }, [callerEmpCode]);
 
-  // Active view tab: 'permissions' | 'menus' | 'bulk'
-  const [activeTab, setActiveTab] = useState<"permissions" | "menus" | "bulk">("permissions");
+  // Active view tab: 'permissions' | 'menus'
+  const [activeTab, setActiveTab] = useState<"permissions" | "menus">("permissions");
 
   // Data states
   const [menus, setMenus] = useState<MenuItem[]>([]);
@@ -224,11 +223,6 @@ const MenuManagement: React.FC = () => {
     remarks: "",
     menuType: "-"
   });
-
-  // Bulk state
-  const [bulkSelectedEmpCodes, setBulkSelectedEmpCodes] = useState<Set<string>>(new Set());
-  const [bulkMode, setBulkMode] = useState<"replace" | "append" | "remove">("replace");
-  const [bulkSelectedMenuIds, setBulkSelectedMenuIds] = useState<Set<number>>(new Set());
 
   // Notify toast helper
   const notify = (msg: string, color: string = "success") => setToast({ msg, color });
@@ -541,41 +535,7 @@ const MenuManagement: React.FC = () => {
     return Object.values(categorizedMenus).reduce((acc, list) => acc + list.length, 0);
   }, [categorizedMenus]);
 
-  // Bulk update handler
-  const handleBulkUpdate = async () => {
-    if (bulkSelectedEmpCodes.size === 0) {
-      notify("Please select at least one employee for bulk update.", "warning");
-      return;
-    }
-    if (bulkSelectedMenuIds.size === 0 && bulkMode !== "replace") {
-      notify("Please select at least one menu to update.", "warning");
-      return;
-    }
 
-    setSaving(true);
-    try {
-      const cleanBase = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
-      const payload = {
-        callerEmpCode,
-        empCodes: Array.from(bulkSelectedEmpCodes),
-        menuIds: Array.from(bulkSelectedMenuIds),
-        mode: bulkMode
-      };
-
-      const res = await axios.post(`${cleanBase}MenuManagement/BulkUpdatePermissions`, payload, {
-        headers: getHeaders()
-      });
-
-      if (res.data?.success) {
-        notify(res.data.message || "Bulk permissions updated!", "success");
-        loadData();
-      }
-    } catch (err: any) {
-      notify(err.response?.data?.message || "Bulk update failed.", "danger");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   // --------------------------------------------------------------------------
   // Render: Unauthorized View
@@ -633,12 +593,6 @@ const MenuManagement: React.FC = () => {
                 onClick={() => setActiveTab("menus")}
               >
                 <MenuIcon size={16} /> Menu Master ({menus.length})
-              </button>
-              <button
-                className={`menu-mgmt-tab-btn ${activeTab === "bulk" ? "active" : ""}`}
-                onClick={() => setActiveTab("bulk")}
-              >
-                <Layers size={16} /> Bulk Assignment
               </button>
             </div>
           </div>
@@ -1083,169 +1037,6 @@ const MenuManagement: React.FC = () => {
                         })}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================================= */}
-              {/* TAB 3: BULK ASSIGNMENT */}
-              {/* ========================================================================= */}
-              {activeTab === "bulk" && (
-                <div className="menu-master-card" style={{ padding: "24px" }}>
-                  <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-                    <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: "0 0 8px" }}>
-                      Bulk Menu Permission Assignment
-                    </h2>
-                    <p style={{ color: "#64748b", fontSize: "0.9rem", margin: "0 0 24px" }}>
-                      Apply permission sets, append new features, or revoke menus across multiple employees simultaneously.
-                    </p>
-
-                    {/* Step 1: Select Employees */}
-                    <div style={{ marginBottom: "20px" }}>
-                      <label style={{ fontWeight: 600, fontSize: "0.9rem", display: "block", marginBottom: "8px" }}>
-                        1. Select Target Employees ({bulkSelectedEmpCodes.size} selected)
-                      </label>
-                      <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-                        <button
-                          className="action-btn"
-                          onClick={() => setBulkSelectedEmpCodes(new Set(employees.map(e => e.empCode)))}
-                        >
-                          Select All Employees ({employees.length})
-                        </button>
-                        <button
-                          className="action-btn"
-                          onClick={() => setBulkSelectedEmpCodes(new Set())}
-                        >
-                          Clear Selection
-                        </button>
-                      </div>
-
-                      <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: "10px", padding: "8px" }}>
-                        {employees.map(emp => {
-                          const isChecked = bulkSelectedEmpCodes.has(emp.empCode);
-                          return (
-                            <label
-                              key={emp.empCode}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                background: isChecked ? "#eff6ff" : "transparent"
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  setBulkSelectedEmpCodes(prev => {
-                                    const next = new Set(prev);
-                                    if (next.has(emp.empCode)) next.delete(emp.empCode);
-                                    else next.add(emp.empCode);
-                                    return next;
-                                  });
-                                }}
-                              />
-                              <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
-                                {emp.empName} ({emp.empCode}) - {emp.designation || emp.department}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Step 2: Choose Mode */}
-                    <div style={{ marginBottom: "20px" }}>
-                      <label style={{ fontWeight: 600, fontSize: "0.9rem", display: "block", marginBottom: "8px" }}>
-                        2. Assignment Mode
-                      </label>
-                      <div style={{ display: "flex", gap: "12px" }}>
-                        {[
-                          { mode: "replace", label: "Overwrite / Replace Permissions" },
-                          { mode: "append", label: "Append (Add to Existing)" },
-                          { mode: "remove", label: "Revoke (Remove from Existing)" }
-                        ].map(item => (
-                          <label key={item.mode} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "0.85rem" }}>
-                            <input
-                              type="radio"
-                              name="bulkMode"
-                              checked={bulkMode === item.mode}
-                              onChange={() => setBulkMode(item.mode as any)}
-                            />
-                            {item.label}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Step 3: Select Menus */}
-                    <div style={{ marginBottom: "24px" }}>
-                      <label style={{ fontWeight: 600, fontSize: "0.9rem", display: "block", marginBottom: "8px" }}>
-                        3. Menus to Apply ({bulkSelectedMenuIds.size} selected)
-                      </label>
-                      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                        <button
-                          className="action-btn"
-                          onClick={() => setBulkSelectedMenuIds(new Set(menus.filter(m => m.isactive).map(m => m.id)))}
-                        >
-                          Select All Active Menus
-                        </button>
-                        <button
-                          className="action-btn"
-                          onClick={() => setBulkSelectedMenuIds(new Set())}
-                        >
-                          Clear Menus
-                        </button>
-                      </div>
-
-                      <div style={{ maxHeight: "240px", overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: "10px", padding: "8px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-                        {menus.map(menu => {
-                          const isChecked = bulkSelectedMenuIds.has(menu.id);
-                          return (
-                            <label
-                              key={menu.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                padding: "6px 8px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                background: isChecked ? "#eff6ff" : "transparent"
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  setBulkSelectedMenuIds(prev => {
-                                    const next = new Set(prev);
-                                    if (next.has(menu.id)) next.delete(menu.id);
-                                    else next.add(menu.id);
-                                    return next;
-                                  });
-                                }}
-                              />
-                              <span style={{ fontSize: "0.82rem" }}>
-                                {menu.menuText} <span style={{ color: "#94a3b8" }}>({menu.navigateUrl || "Parent"})</span>
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <button
-                      className="action-btn primary"
-                      style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: "0.95rem" }}
-                      onClick={handleBulkUpdate}
-                      disabled={saving}
-                    >
-                      {saving ? "Executing Bulk Update..." : `Apply to ${bulkSelectedEmpCodes.size} Employees`}
-                    </button>
                   </div>
                 </div>
               )}

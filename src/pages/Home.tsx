@@ -38,6 +38,7 @@ const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508', '1541', '1635'];
 const PENDING_LEAVES = ['1501', '1601', '1541', '1635'];
 const PAYMENT_REMINDERS = ['1501', '1508', '1531', '1635', '1541'];
 const Live_Tracking_Engine = ['1501', '1509', '1601', '1508', '1541', '1635'];
+const AMC_LOG_EMPCODES = ['1508'];
 const Home: React.FC = () => {
   const particlesInit = useCallback(async (engine: Engine) => {
     await loadSlim(engine);
@@ -58,7 +59,7 @@ const Home: React.FC = () => {
   const currentEmpCode = (() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
-      return String(u.empCode || u.EmpCode || '').trim();
+      return String(u.empCode || u.EmpCode || u.userName || u.username || '').trim();
     } catch {
       return '';
     }
@@ -327,6 +328,14 @@ const Home: React.FC = () => {
       icon: "https://cdn.lordicon.com/surcxhka.json",
       path: "/onduty-tracking",
       colorClass: "home-card-live-tracking"
+    }] : []),
+
+    ...(AMC_LOG_EMPCODES.includes(currentEmpCode) ? [{
+      id: "amc-log",
+      label: "AMC Log",
+      icon: "https://cdn.lordicon.com/puvaffet.json",
+      path: "/amc-log-dashboard",
+      colorClass: "home-card-amc-log"
     }] : []),
   ];
 

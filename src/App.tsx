@@ -101,6 +101,7 @@ import AccountDeletion from "./pages/AccountDeletion";
 import FieldDutyStatusPage from "./pages/FieldDutyStatusPage";
 import RAManagement from "./pages/RAManagement";
 import TeltonikaTracking from "./pages/TeltonikaTracking/TeltonikaTracking";
+import AMClogDashboard from "./pages/AMClogDashboard";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -202,7 +203,7 @@ const App: React.FC = () => {
             <IonRouterOutlet id="main" animated={false}>
               <ErrorBoundary>
                 <Switch>
-                  
+
                   <Route exact path="/home" component={Home} />
                   <Route exact path="/eprofile" component={EmpProfile} />
                   <Route exact path="/timings" component={Timings} />
@@ -225,8 +226,8 @@ const App: React.FC = () => {
                   <Route exact path="/office-client-docs" component={OfficeClientDocs} />
                   <Route exact path="/camera" component={CameraPage} />
                   <Route exact path="/dashboard" component={TicketsDashboard} />
-                  <Route exact path="/policies" component={Policies} /> 
-                  <Route exact path="/polices" component={Policies} />  
+                  <Route exact path="/policies" component={Policies} />
+                  <Route exact path="/polices" component={Policies} />
                   <Route path="/tickets" exact component={Tickets} />
                   <Route path="/tickets/raisedticket" exact component={RaiseTicket} />
                   <Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />
@@ -277,14 +278,12 @@ const App: React.FC = () => {
                   <Route exact path="/terms" component={TermsAndConditions} />
                   <Route exact path="/privacy" component={PrivacyPolicy} />
                   <Route exact path="/account-deletion" component={AccountDeletion} />
-                 
                   <Route exact path="/ras" component={RAManagement} />
-
-
+                  <Route exact path="/amc-log-dashboard" component={AMClogDashboard} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </ErrorBoundary>
-            </IonRouterOutlet> 
+            </IonRouterOutlet>
           </IonSplitPane>
         )}
         {user && <FloatingTabBar />}

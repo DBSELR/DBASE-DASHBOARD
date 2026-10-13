@@ -522,6 +522,12 @@
   color: #fff;
 }
 
+.home-card-amc-log { --card-theme-color: 2, 132, 199; }
+.home-card-amc-log .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+}
+
 /* Responsive Adjustments */
 @media (min-width: 480px) {
   .home-grid {
