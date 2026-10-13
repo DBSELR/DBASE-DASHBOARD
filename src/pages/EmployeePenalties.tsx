@@ -71,6 +71,135 @@ export interface ViolationItem {
     raw?: any;
 }
 
+export interface AllowedTimeSlot {
+    value: string; // "09:40"
+    label: string; // "09:40 AM"
+    period: "morning" | "afternoon";
+}
+
+const buildAllowedTimeSlots = (): { morning: AllowedTimeSlot[]; afternoon: AllowedTimeSlot[]; all: AllowedTimeSlot[] } => {
+    const morning: AllowedTimeSlot[] = [];
+    const afternoon: AllowedTimeSlot[] = [];
+    const all: AllowedTimeSlot[] = [];
+
+    const formatSlot = (h: number, m: number, period: "morning" | "afternoon"): AllowedTimeSlot => {
+        const hh = String(h).padStart(2, "0");
+        const mm = String(m).padStart(2, "0");
+        const value = `${hh}:${mm}`;
+        const ampm = h < 12 ? "AM" : "PM";
+        const displayH = h % 12 === 0 ? 12 : h % 12;
+        const label = `${String(displayH).padStart(2, "0")}:${mm} ${ampm}`;
+        return { value, label, period };
+    };
+
+    // Morning: 09:40 to 13:30 (step = 5 mins)
+    for (let t = 9 * 60 + 40; t <= 13 * 60 + 30; t += 5) {
+        const slot = formatSlot(Math.floor(t / 60), t % 60, "morning");
+        morning.push(slot);
+        all.push(slot);
+    }
+
+    // Afternoon: 14:40 to 18:30 (step = 5 mins)
+    for (let t = 14 * 60 + 40; t <= 18 * 60 + 30; t += 5) {
+        const slot = formatSlot(Math.floor(t / 60), t % 60, "afternoon");
+        afternoon.push(slot);
+        all.push(slot);
+    }
+
+    return { morning, afternoon, all };
+};
+
+const ALLOWED_TIME_SLOTS = buildAllowedTimeSlots();
+
+const isMorningTime = (val: string): boolean => {
+    if (!val) return true;
+    const [h, m] = val.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return true;
+    const mins = h * 60 + m;
+    return mins >= 9 * 60 + 40 && mins <= 13 * 60 + 30;
+};
+
+const isAfternoonTime = (val: string): boolean => {
+    if (!val) return false;
+    const [h, m] = val.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return false;
+    const mins = h * 60 + m;
+    return mins >= 14 * 60 + 40 && mins <= 18 * 60 + 30;
+};
+
+const getInitialViolationDate = (violation?: ViolationItem | null): string => {
+    const raw = violation?.PenaltyDate || violation?.AppliedDate;
+    if (raw) {
+        const str = String(raw).trim();
+        const ymdMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (ymdMatch) {
+            return `${ymdMatch[1]}-${ymdMatch[2]}-${ymdMatch[3]}`;
+        }
+        const dmyMatch = str.match(/^(\d{2})-(\d{2})-(\d{4})/);
+        if (dmyMatch) {
+            return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+        }
+        try {
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, "0");
+                const day = String(d.getDate()).padStart(2, "0");
+                return `${y}-${m}-${day}`;
+            }
+        } catch {}
+    }
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+};
+
+const getInitialViolationTime = (violation?: ViolationItem | null): string => {
+    const raw = violation?.ViolationTime || violation?.PenaltyDate;
+    if (raw) {
+        const str = String(raw).trim();
+        const timeMatch = str.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+            const h = parseInt(timeMatch[1], 10);
+            const m = parseInt(timeMatch[2], 10);
+            const mins = h * 60 + m;
+            if (mins >= 9 * 60 + 40 && mins <= 13 * 60 + 30) {
+                const rounded = Math.round(mins / 5) * 5;
+                const clamped = Math.min(13 * 60 + 30, Math.max(9 * 60 + 40, rounded));
+                const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+                const mm = String(clamped % 60).padStart(2, "0");
+                return `${hh}:${mm}`;
+            }
+            if (mins >= 14 * 60 + 40 && mins <= 18 * 60 + 30) {
+                const rounded = Math.round(mins / 5) * 5;
+                const clamped = Math.min(18 * 60 + 30, Math.max(14 * 60 + 40, rounded));
+                const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+                const mm = String(clamped % 60).padStart(2, "0");
+                return `${hh}:${mm}`;
+            }
+        }
+    }
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    if (currentMins >= 9 * 60 + 40 && currentMins <= 13 * 60 + 30) {
+        const rounded = Math.round(currentMins / 5) * 5;
+        const clamped = Math.min(13 * 60 + 30, Math.max(9 * 60 + 40, rounded));
+        const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+        const mm = String(clamped % 60).padStart(2, "0");
+        return `${hh}:${mm}`;
+    }
+    if (currentMins >= 14 * 60 + 40 && currentMins <= 18 * 60 + 30) {
+        const rounded = Math.round(currentMins / 5) * 5;
+        const clamped = Math.min(18 * 60 + 30, Math.max(14 * 60 + 40, rounded));
+        const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+        const mm = String(clamped % 60).padStart(2, "0");
+        return `${hh}:${mm}`;
+    }
+    return "09:40";
+};
+
 export interface PenaltyDashboardData {
     summary: any[];
     violations: ViolationItem[];
@@ -98,7 +227,8 @@ function EmployeePenalties() {
     const [slipToTransfer, setSlipToTransfer] = useState<ViolationItem | null>(null);
     const [allEmployees, setAllEmployees] = useState<any[]>([]);
     const [transferTargetEmp, setTransferTargetEmp] = useState("");
-    const [transferViolationTime, setTransferViolationTime] = useState("");
+    const [transferViolationDate, setTransferViolationDate] = useState("");
+    const [transferViolationTime, setTransferViolationTime] = useState("09:40");
     const [transferRemarks, setTransferRemarks] = useState("");
     const [transferProofFile, setTransferProofFile] = useState<File | null>(null);
     const [transferSubmitting, setTransferSubmitting] = useState(false);
@@ -126,9 +256,8 @@ function EmployeePenalties() {
 
         setSlipToTransfer(violation);
         setTransferTargetEmp("");
-        const now = new Date();
-        const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        setTransferViolationTime(localIso);
+        setTransferViolationDate(getInitialViolationDate(violation));
+        setTransferViolationTime(getInitialViolationTime(violation));
         setTransferRemarks("");
         setTransferProofFile(null);
         setTransferSearch("");
@@ -184,6 +313,24 @@ function EmployeePenalties() {
             showToast("You cannot transfer a slip to the same employee!", "warning");
             return;
         }
+        if (!transferViolationDate) {
+            showToast("Please select the date of violation", "warning");
+            return;
+        }
+        if (!transferViolationTime) {
+            showToast("Please select an approved violation time slot", "warning");
+            return;
+        }
+
+        const [hhStr, mmStr] = transferViolationTime.split(":");
+        const totalMins = parseInt(hhStr, 10) * 60 + parseInt(mmStr, 10);
+        const isMorning = totalMins >= 9 * 60 + 40 && totalMins <= 13 * 60 + 30;
+        const isAfternoon = totalMins >= 14 * 60 + 40 && totalMins <= 18 * 60 + 30;
+        if (!isMorning && !isAfternoon) {
+            showToast("Violation time must be between 09:40 AM - 01:30 PM or 02:40 PM - 06:30 PM", "warning");
+            return;
+        }
+
         if (!transferRemarks.trim()) {
             showToast("Please enter remarks explaining the violation committed by this employee", "warning");
             return;
@@ -196,7 +343,8 @@ function EmployeePenalties() {
             formData.append("PenaltyRecordId", slipToTransfer.Id.toString());
             formData.append("FromEmpCode", fromCode);
             formData.append("ToEmpCode", transferTargetEmp);
-            formData.append("ViolationTime", transferViolationTime || new Date().toISOString());
+            const combinedViolationTime = `${transferViolationDate}T${transferViolationTime}:00`;
+            formData.append("ViolationTime", combinedViolationTime);
             formData.append("Remarks", transferRemarks);
             if (transferProofFile) {
                 formData.append("ProofFile", transferProofFile);
@@ -1501,15 +1649,111 @@ function EmployeePenalties() {
                                         )}
                                     </div>
 
-                                    {/* Incident Time */}
-                                    <div className="ep-transfer-field">
-                                        <label>Violation Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
-                                        <input
-                                            type="datetime-local"
-                                            className="ep-transfer-input"
-                                            value={transferViolationTime}
-                                            onChange={(e) => setTransferViolationTime(e.target.value)}
-                                        />
+                                    {/* Incident Date & Time */}
+                                    <div className="ep-transfer-datetime-grid">
+                                        <div className="ep-transfer-field">
+                                            <label>
+                                                <Calendar size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+                                                Violation Date <span style={{ color: "#ef4444" }}>*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                className="ep-transfer-input ep-transfer-date-input"
+                                                value={transferViolationDate}
+                                                onChange={(e) => setTransferViolationDate(e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div className="ep-transfer-field">
+                                            <label>
+                                                <Clock size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+                                                Violation Time (Office Hours) <span style={{ color: "#ef4444" }}>*</span>
+                                            </label>
+                                            <div className="ep-transfer-select-wrap">
+                                                <select
+                                                    className="ep-transfer-input ep-transfer-select"
+                                                    value={transferViolationTime}
+                                                    onChange={(e) => setTransferViolationTime(e.target.value)}
+                                                >
+                                                    <optgroup label="🌅 Morning Shift (09:40 AM – 01:30 PM)">
+                                                        {ALLOWED_TIME_SLOTS.morning.map((slot) => (
+                                                            <option key={slot.value} value={slot.value}>
+                                                                {slot.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="🌇 Afternoon Shift (02:40 PM – 06:30 PM)">
+                                                        {ALLOWED_TIME_SLOTS.afternoon.map((slot) => (
+                                                            <option key={slot.value} value={slot.value}>
+                                                                {slot.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Shift selector pills & quick presets */}
+                                    <div className="ep-transfer-time-container">
+                                        <div className="ep-transfer-shift-tabs">
+                                            <button
+                                                type="button"
+                                                className={`ep-shift-tab-btn ${isMorningTime(transferViolationTime) ? "active morning" : ""}`}
+                                                onClick={() => setTransferViolationTime("09:40")}
+                                            >
+                                                <span className="ep-shift-icon">🌅</span>
+                                                <div className="ep-shift-tab-text">
+                                                    <span className="ep-shift-name">Morning Shift</span>
+                                                    <span className="ep-shift-hours">09:40 AM – 01:30 PM</span>
+                                                </div>
+                                                {isMorningTime(transferViolationTime) && <span className="ep-shift-active-tag">Active</span>}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className={`ep-shift-tab-btn ${isAfternoonTime(transferViolationTime) ? "active afternoon" : ""}`}
+                                                onClick={() => setTransferViolationTime("14:40")}
+                                            >
+                                                <span className="ep-shift-icon">🌇</span>
+                                                <div className="ep-shift-tab-text">
+                                                    <span className="ep-shift-name">Afternoon Shift</span>
+                                                    <span className="ep-shift-hours">02:40 PM – 06:30 PM</span>
+                                                </div>
+                                                {isAfternoonTime(transferViolationTime) && <span className="ep-shift-active-tag">Active</span>}
+                                            </button>
+                                        </div>
+
+                                        {/* Quick-Pick Times */}
+                                        <div className="ep-quick-times-row">
+                                            <span className="ep-quick-title">Quick Times:</span>
+                                            <div className="ep-quick-chips-list">
+                                                {(isMorningTime(transferViolationTime)
+                                                    ? ["09:40", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "01:00", "13:30"]
+                                                    : ["14:40", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30"]
+                                                ).map((presetVal) => {
+                                                    const isSelected = transferViolationTime === presetVal;
+                                                    const slot = ALLOWED_TIME_SLOTS.all.find((s) => s.value === presetVal);
+                                                    return (
+                                                        <button
+                                                            key={presetVal}
+                                                            type="button"
+                                                            className={`ep-quick-chip ${isSelected ? "selected" : ""}`}
+                                                            onClick={() => setTransferViolationTime(presetVal)}
+                                                        >
+                                                            {slot?.label || presetVal}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="ep-shift-policy-note">
+                                            <AlertCircle size={13} style={{ color: "#6366f1", flexShrink: 0 }} />
+                                            <span>
+                                                Policy rules restrict violation logging exclusively to active office duty hours (<strong>09:40 AM – 01:30 PM</strong> and <strong>02:40 PM – 06:30 PM</strong>).
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Violation Remarks */}
@@ -1569,7 +1813,13 @@ function EmployeePenalties() {
                                 <button
                                     className="ep-btn-primary"
                                     onClick={handleSubmitTransfer}
-                                    disabled={transferSubmitting || !transferTargetEmp || !transferRemarks.trim()}
+                                    disabled={
+                                        transferSubmitting ||
+                                        !transferTargetEmp ||
+                                        !transferRemarks.trim() ||
+                                        !transferViolationDate ||
+                                        !transferViolationTime
+                                    }
                                     style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                                 >
                                     {transferSubmitting ? (

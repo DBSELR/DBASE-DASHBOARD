@@ -1,14 +1,16 @@
-/* ========================================================
+/* ==========================================================================
    TELTONIKA DEVICE TRACKING - DYNAMIC ACCENT COLOR & THEMED UI
-   Supports all Accent Colors: Blue, Orange, Green, Violet, 
-   Teal, Pink, Chocolate, DBASE, Midnight, Lavender, Crimson, 
-   Amber, Forest, Plum, Coal, Burgundy + Light/Dark modes
-   ======================================================== */
+   Fully Integrated with Dashboard Theme System:
+   Blue, Orange, Green, Violet, Teal, Pink, Chocolate, DBASE, 
+   Midnight, Lavender, Crimson, Amber, Forest, Plum, Coal, Burgundy
+   Light & Dark Mode Support
+   ========================================================================== */
 
+/* --- Page Root & Workspace Base --- */
 .teltonika-page {
-  --background: #0f172a;
-  background-color: #0f172a;
-  color: #f8fafc;
+  --background: var(--ion-background-color, #f4f6fa);
+  background-color: var(--ion-background-color, #f4f6fa);
+  color: var(--ion-text-color, #1e293b);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   height: 100%;
 }
@@ -18,21 +20,27 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #0b1120;
+  background: var(--ion-background-color, #f4f6fa);
+  color: var(--ion-text-color, #1e293b);
   overflow: hidden;
   position: relative;
 }
 
-/* Header with Dynamic Theme Gradient */
+/* ==========================================================================
+   HEADER SECTION
+   ========================================================================== */
 .teltonika-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 18px;
-  background: rgba(15, 23, 42, 0.96);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid #e2e8f0;
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   z-index: 100;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .teltonika-header-left {
@@ -45,18 +53,20 @@
   margin: 0;
   font-size: 1.22rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--ion-color-primary, #38bdf8) 0%, var(--ion-color-secondary, #818cf8) 100%);
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: -0.01em;
 }
 
 .teltonika-title-group p {
   margin: 2px 0 0 0;
   font-size: 0.76rem;
-  color: #94a3b8;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .teltonika-header-right {
@@ -79,20 +89,20 @@
 }
 
 .live-status-pill.connected {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .live-status-pill.connecting {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .live-status-pill.disconnected {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
@@ -101,18 +111,15 @@
   height: 8px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 10px currentColor;
+  box-shadow: 0 0 8px currentColor;
   animation: pulse-glow 2s infinite ease-in-out;
 }
 
 @keyframes pulse-glow {
-
-  0%,
-  100% {
+  0%, 100% {
     opacity: 1;
     transform: scale(1);
   }
-
   50% {
     opacity: 0.4;
     transform: scale(0.85);
@@ -122,10 +129,10 @@
 /* View Mode & Map Style Selector Pills */
 .teltonika-tabs {
   display: flex;
-  background: rgba(30, 41, 59, 0.85);
-  border-radius: 8px;
+  background: #f1f5f9;
+  border-radius: 9px;
   padding: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #e2e8f0;
 }
 
 .teltonika-tab-btn {
@@ -137,22 +144,37 @@
   font-weight: 600;
   border: none;
   background: transparent;
-  color: #94a3b8;
-  border-radius: 6px;
+  color: #64748b;
+  border-radius: 7px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.teltonika-tab-btn:hover {
+  color: #0f172a;
+}
+
 .teltonika-tab-btn.active {
-  background: var(--ion-color-primary, #3b82f6);
-  color: #ffffff;
-  box-shadow: 0 2px 8px var(--theme-shadow, rgba(59, 130, 246, 0.4));
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px var(--theme-shadow, rgba(0, 119, 182, 0.3));
+}
+
+.teltonika-tab-btn.auto-live-btn {
+  border: 1px solid #e2e8f0;
+}
+
+.teltonika-tab-btn.auto-live-btn.active {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #059669 !important;
+  box-shadow: none !important;
 }
 
 .teltonika-btn-icon {
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   padding: 7px 12px;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -161,16 +183,58 @@
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   transition: all 0.2s;
 }
 
 .teltonika-btn-icon:hover {
-  background: rgba(51, 65, 85, 0.95);
-  color: #ffffff;
-  border-color: var(--ion-color-primary, #38bdf8);
+  background: var(--theme-bg-surface, #e3f2fd);
+  color: var(--ion-color-primary, #0077b6);
+  border-color: var(--ion-color-primary, #0077b6);
+  transform: translateY(-1px);
 }
 
-/* Main Split View Layout */
+/* Flespi Sync Button */
+.teltonika-sync-flespi-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb, 0, 119, 182), 0.08) 0%, rgba(var(--ion-color-secondary-rgb, 0, 180, 216), 0.12) 100%);
+  color: var(--ion-color-primary, #0077b6);
+  border: 1px solid var(--ion-color-primary, #0077b6);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px var(--theme-shadow, rgba(0, 119, 182, 0.15));
+}
+
+.teltonika-sync-flespi-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px var(--theme-shadow, rgba(0, 119, 182, 0.3));
+}
+
+.teltonika-sync-flespi-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.teltonika-sync-flespi-btn.syncing svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   MAIN LAYOUT & SIDEBAR
+   ========================================================================== */
 .teltonika-main-layout {
   display: flex;
   flex: 1;
@@ -179,17 +243,18 @@
   height: calc(100% - 58px);
 }
 
-/* Sidebar */
 .teltonika-sidebar {
   width: 380px;
   min-width: 320px;
   max-width: 420px;
-  background: rgba(15, 23, 42, 0.98);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   z-index: 25;
   overflow-y: auto;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.02);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 @media (max-width: 900px) {
@@ -213,15 +278,16 @@
 /* Device Selector Card with Dynamic Primary Accent */
 .device-select-section {
   padding: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .device-card-active {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border: 1px solid var(--ion-color-primary, rgba(56, 189, 248, 0.4));
+  background: linear-gradient(135deg, #ffffff 0%, var(--theme-bg-surface, #f8fafc) 100%);
+  border: 1.5px solid var(--ion-color-primary, #0077b6);
   border-radius: 12px;
   padding: 14px;
-  box-shadow: 0 4px 16px var(--theme-shadow, rgba(0, 0, 0, 0.3));
+  box-shadow: 0 4px 16px var(--theme-shadow, rgba(0, 119, 182, 0.12));
+  transition: all 0.3s ease;
 }
 
 .device-card-header {
@@ -241,24 +307,24 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--ion-color-primary, #0284c7) 0%, var(--ion-color-secondary, #2563eb) 100%);
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 2px 10px var(--theme-shadow, rgba(0, 0, 0, 0.2));
+  box-shadow: 0 3px 10px var(--theme-shadow, rgba(0, 119, 182, 0.25));
 }
 
 .device-title {
   font-weight: 700;
   font-size: 0.95rem;
-  color: #f1f5f9;
+  color: #0f172a;
 }
 
 .device-imei {
   font-size: 0.74rem;
-  color: #94a3b8;
-  font-family: monospace;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .status-badge {
@@ -271,30 +337,198 @@
 }
 
 .status-badge.moving {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .status-badge.idle {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .status-badge.stopped {
-  background: rgba(148, 163, 184, 0.2);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.3);
 }
 
 .status-badge.offline {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-/* OBD Realtime Metrics Grid */
+/* Vehicle VIN Card */
+.device-vin-card {
+  margin-top: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.vin-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.vin-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-weight: 600;
+}
+
+.vin-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vin-icon {
+  color: var(--ion-color-primary, #0077b6);
+}
+
+.vin-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.08em;
+}
+
+/* ==========================================================================
+   OBD-II DTC FAULT CODE ALERT BOX
+   ========================================================================== */
+.dtc-alert-box {
+  margin-bottom: 14px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: all 0.3s ease;
+}
+
+.dtc-alert-box.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(245, 158, 11, 0.06) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.08);
+}
+
+.dtc-alert-box.healthy {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #059669;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.dtc-healthy-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.dtc-alert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dtc-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dtc-icon {
+  color: #ef4444;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.dtc-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #b91c1c;
+  letter-spacing: 0.02em;
+}
+
+.dtc-count-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: #ef4444;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  letter-spacing: 0.04em;
+}
+
+.dtc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dtc-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.dtc-code-badge {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.dtc-item-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.dtc-code-name {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.25;
+}
+
+.dtc-code-system {
+  font-size: 0.66rem;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* ==========================================================================
+   TELEMETRY REALTIME METRICS GRID
+   ========================================================================== */
 .telemetry-section {
   padding: 14px;
   display: flex;
@@ -317,32 +551,50 @@
 }
 
 .telemetry-card {
-  background: rgba(30, 41, 59, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: transform 0.2s, border-color 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
 .telemetry-card:hover {
-  border-color: var(--ion-color-primary, #38bdf8);
+  border-color: var(--ion-color-primary, #0077b6);
   transform: translateY(-2px);
+  box-shadow: 0 4px 14px var(--theme-shadow, rgba(0, 119, 182, 0.15));
 }
 
 .telemetry-card.highlight {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(30, 41, 59, 0.8) 100%);
-  border-color: var(--ion-color-primary, #38bdf8);
+  background: linear-gradient(135deg, #ffffff 0%, var(--theme-bg-surface, #e3f2fd) 100%);
+  border-color: var(--ion-color-primary, #0077b6);
+}
+
+.telemetry-card.highlight-cyan {
+  background: linear-gradient(135deg, #ffffff 0%, var(--theme-bg-surface, #e3f2fd) 100%);
+  border-color: var(--ion-color-primary, #0077b6);
+}
+
+.telemetry-card.engine-on-active {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, #ffffff 0%, rgba(16, 185, 129, 0.08) 100%);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.12);
 }
 
 .telemetry-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.telemetry-card-top svg {
+  color: var(--ion-color-primary, #0077b6);
 }
 
 .telemetry-value-wrap {
@@ -354,7 +606,7 @@
 .telemetry-value {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #0f172a;
   font-variant-numeric: tabular-nums;
 }
 
@@ -362,6 +614,22 @@
   font-size: 0.72rem;
   color: #64748b;
   font-weight: 600;
+}
+
+.engine-load-bar-wrap {
+  width: 100%;
+  height: 5px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.engine-load-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ion-color-secondary, #00b4d8) 0%, var(--ion-color-primary, #0077b6) 70%, #ef4444 100%);
+  border-radius: 9999px;
+  transition: width 0.4s ease;
 }
 
 .ignition-pill {
@@ -375,34 +643,81 @@
 }
 
 .ignition-pill.on {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
 }
 
 .ignition-pill.off {
-  background: rgba(148, 163, 184, 0.2);
-  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
 }
 
-/* History Controls Panel */
+.engine-subtext {
+  font-size: 0.65rem;
+  color: #059669;
+  font-weight: 600;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.glow-spark {
+  filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.6));
+  animation: sparkPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes sparkPulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* Last Ping Box */
+.teltonika-last-ping-box {
+  padding: 10px 14px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-top: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.teltonika-last-ping-box .ping-title {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.teltonika-last-ping-box .ping-time {
+  font-size: 0.85rem;
+  color: #0f172a;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   HISTORY CONTROLS PANEL
+   ========================================================================== */
 .history-section {
   padding: 14px;
-  background: rgba(15, 23, 42, 0.9);
+  background: #ffffff;
 }
 
 .history-date-input {
   width: 100%;
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.82rem;
+  transition: border-color 0.2s;
 }
 
 .history-date-input:focus {
   outline: none;
-  border-color: var(--ion-color-primary, #38bdf8);
+  border-color: var(--ion-color-primary, #0077b6);
+  box-shadow: 0 0 0 2px var(--theme-shadow, rgba(0, 119, 182, 0.15));
 }
 
 .history-replay-controls {
@@ -413,7 +728,7 @@
 }
 
 .replay-btn {
-  background: var(--ion-color-primary, #3b82f6);
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%);
   color: #ffffff;
   border: none;
   width: 38px;
@@ -423,7 +738,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px var(--theme-shadow, rgba(59, 130, 246, 0.4));
+  box-shadow: 0 4px 12px var(--theme-shadow, rgba(0, 119, 182, 0.3));
   transition: transform 0.15s;
 }
 
@@ -433,15 +748,28 @@
 
 .replay-slider {
   flex: 1;
-  accent-color: var(--ion-color-primary, #38bdf8);
+  accent-color: var(--ion-color-primary, #0077b6);
 }
 
-/* Map Viewport & Fullscreen Fill */
+.history-point-details {
+  margin-top: 12px;
+  padding: 10px;
+  background: var(--theme-bg-surface, #f8fafc);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   MAP VIEWPORT & FULLSCREEN CANVAS
+   ========================================================================== */
 .teltonika-map-container {
   flex: 1;
   height: 100%;
   position: relative;
-  background: #0f172a;
+  background: #f8fafc;
   overflow: hidden;
 }
 
@@ -454,13 +782,13 @@
   width: 100% !important;
   height: 100% !important;
   z-index: 10;
-  background-color: #0f172a;
+  background-color: #f8fafc;
 }
 
 .leaflet-container {
   width: 100% !important;
   height: 100% !important;
-  background: #0f172a !important;
+  background: #f8fafc !important;
   font-family: inherit;
 }
 
@@ -469,21 +797,22 @@
   position: absolute;
   top: 16px;
   left: 16px;
-  background: rgba(15, 23, 42, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 4px;
   display: flex;
   gap: 4px;
   z-index: 30;
   backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .map-style-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #64748b;
   padding: 6px 12px;
   font-size: 0.78rem;
   font-weight: 600;
@@ -492,19 +821,23 @@
   transition: all 0.2s;
 }
 
+.map-style-btn:hover {
+  color: #0f172a;
+}
+
 .map-style-btn.active {
-  background: var(--ion-color-primary, #3b82f6);
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%);
   color: #ffffff;
-  box-shadow: 0 2px 6px var(--theme-shadow, rgba(59, 130, 246, 0.3));
+  box-shadow: 0 2px 6px var(--theme-shadow, rgba(0, 119, 182, 0.3));
 }
 
 .proxy-notice-pill {
   position: absolute;
   top: 64px;
   left: 16px;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fbbf24;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #d97706;
   padding: 6px 12px;
   border-radius: 8px;
   font-size: 0.74rem;
@@ -514,23 +847,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .map-overlay-card {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px 16px;
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 30;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .overlay-metric {
@@ -541,7 +875,7 @@
 
 .overlay-label {
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
   font-weight: 600;
 }
@@ -549,7 +883,23 @@
 .overlay-val {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #0f172a;
+}
+
+.overlay-val.overlay-val-vin {
+  font-size: 0.82rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--ion-color-primary, #0077b6);
+}
+
+.overlay-val.overlay-val-mono {
+  font-size: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.overlay-val.overlay-val-protocol {
+  color: var(--ion-color-primary, #0077b6);
+  font-size: 0.85rem;
 }
 
 /* Custom Car Marker with Directional Bearing */
@@ -565,7 +915,7 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   border: 2.5px solid #ffffff;
   position: relative;
 }
@@ -596,12 +946,485 @@
   border-bottom: 8px solid #ffffff;
 }
 
-/* Modal Styling */
+/* ==========================================================================
+   DIAGNOSTIC CONSOLE & PACKET INSPECTOR DRAWER
+   ========================================================================== */
+
+/* Console Floating Action Button */
+.console-open-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ion-color-primary, #0077b6);
+  border: 1.5px solid var(--ion-color-primary, #0077b6);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 20px var(--theme-shadow, rgba(0, 0, 0, 0.15));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
+}
+
+.console-open-btn:hover {
+  background: var(--theme-bg-surface, #e3f2fd);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--theme-shadow, rgba(0, 0, 0, 0.2));
+}
+
+.console-count {
+  background: var(--ion-color-primary, #0077b6);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+
+/* Detailed Diagnostic Console Drawer */
+.teltonika-console-drawer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 320px;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 2px solid var(--ion-color-primary, #0077b6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.12);
+  transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.teltonika-console-drawer.maximized {
+  height: 600px;
+}
+
+/* Console Header */
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  user-select: none;
+}
+
+.console-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.console-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+
+.console-badge {
+  background: var(--theme-bg-surface, #e3f2fd);
+  border: 1px solid var(--ion-color-primary, #0077b6);
+  color: var(--ion-color-primary, #0077b6);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.console-badge.console-badge-emerald {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+}
+
+.console-live-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.8); opacity: 0.5; }
+}
+
+.console-tabs-group {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.console-tab-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.console-tab-btn:hover {
+  color: #0f172a;
+}
+
+.console-tab-btn.active {
+  background: var(--ion-color-primary, #0077b6);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.console-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.console-tool-btn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.console-tool-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.console-tool-btn.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+}
+
+.console-tool-btn.close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+/* Console Body */
+.console-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+}
+
+/* Terminal View */
+.console-terminal-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.console-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.filter-chip {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-chip:hover {
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.filter-chip.active {
+  background: var(--ion-color-primary, #0077b6);
+  border-color: var(--ion-color-primary, #0077b6);
+  color: #ffffff;
+}
+
+/* Terminal Log Stream: Sleek developer-grade high contrast console */
+.terminal-log-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  background: #0f172a;
+  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.terminal-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  word-break: break-word;
+}
+
+.log-time {
+  color: #64748b;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.log-cat {
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.cat-telemetry {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+.cat-engine {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.cat-obd {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+
+.cat-flespi {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.cat-signalr {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.cat-alert {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.log-msg {
+  color: #e2e8f0;
+}
+
+.terminal-line.success .log-msg {
+  color: #4ade80;
+}
+
+.terminal-line.warn .log-msg {
+  color: #facc15;
+}
+
+.terminal-line.error .log-msg {
+  color: #f87171;
+}
+
+/* ==========================================================================
+   ENGINE STATE ANALYZER VIEW
+   ========================================================================== */
+.engine-analyzer-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #f8fafc;
+}
+
+.analyzer-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.12) 0%, #ffffff 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.analyzer-banner.stopped {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, #ffffff 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.analyzer-banner-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analyzer-banner-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.matrix-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.matrix-card.active-source {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, #ffffff 0%, rgba(16, 185, 129, 0.08) 100%);
+}
+
+.matrix-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.matrix-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.matrix-status-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.matrix-status-pill.pass {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.matrix-status-pill.idle {
+  background: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+}
+
+.matrix-desc {
+  font-size: 0.7rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.analyzer-note-box {
+  background: var(--theme-bg-surface, #e3f2fd);
+  border-left: 3px solid var(--ion-color-primary, #0077b6);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.76rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   RAW JSON VIEW
+   ========================================================================== */
+.raw-json-view {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.raw-json-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.raw-json-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  background: #0f172a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  color: #38bdf8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ==========================================================================
+   MODAL STYLING
+   ========================================================================== */
 .teltonika-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -610,14 +1433,14 @@
 }
 
 .teltonika-modal-box {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   width: 100%;
   max-width: 620px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   padding: 24px;
 }
 
@@ -631,18 +1454,278 @@
 .modal-header-row h2 {
   margin: 0;
   font-size: 1.3rem;
-  color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.teltonika-modal-content {
+  font-size: 0.88rem;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.modal-section-title {
+  font-size: 1rem;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.modal-section-title.primary {
+  color: var(--ion-color-primary, #0077b6);
+  margin-top: 0;
+}
+
+.modal-section-title.emerald {
+  color: #059669;
+}
+
+.modal-section-title.amber {
+  color: #d97706;
+}
+
+.modal-section-title.violet {
+  color: #7c3aed;
 }
 
 .code-snippet {
-  background: #020617;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 10px 14px;
   border-radius: 8px;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.85rem;
-  color: var(--ion-color-primary, #38bdf8);
+  color: var(--ion-color-primary, #0077b6);
   word-break: break-all;
   user-select: all;
   margin: 6px 0;
+}
+
+/* ==========================================================================
+   DARK MODE OVERRIDES (Seamless toggle when body has .dark)
+   ========================================================================== */
+body.dark .teltonika-page,
+body.dark .teltonika-container {
+  --background: #0b1120;
+  background-color: #0b1120;
+  color: #f8fafc;
+}
+
+body.dark .teltonika-header {
+  background: rgba(15, 23, 42, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.dark .teltonika-title-group p {
+  color: #94a3b8;
+}
+
+body.dark .teltonika-tabs {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .teltonika-tab-btn {
+  color: #94a3b8;
+}
+
+body.dark .teltonika-tab-btn:hover {
+  color: #ffffff;
+}
+
+body.dark .teltonika-btn-icon {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+body.dark .teltonika-btn-icon:hover {
+  background: rgba(51, 65, 85, 0.95);
+  color: #ffffff;
+}
+
+body.dark .teltonika-sidebar {
+  background: rgba(15, 23, 42, 0.98);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.dark .device-select-section {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+body.dark .device-card-active {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border-color: var(--ion-color-primary, rgba(56, 189, 248, 0.4));
+}
+
+body.dark .device-title {
+  color: #f1f5f9;
+}
+
+body.dark .device-imei {
+  color: #94a3b8;
+}
+
+body.dark .device-vin-card {
+  background: rgba(2, 6, 23, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark .vin-code {
+  color: #f8fafc;
+}
+
+body.dark .telemetry-card {
+  background: rgba(30, 41, 59, 0.65);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+body.dark .telemetry-value {
+  color: #f8fafc;
+}
+
+body.dark .telemetry-card.highlight,
+body.dark .telemetry-card.highlight-cyan {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(30, 41, 59, 0.8) 100%);
+}
+
+body.dark .telemetry-card.engine-on-active {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(16, 185, 129, 0.1) 100%);
+}
+
+body.dark .teltonika-last-ping-box {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark .teltonika-last-ping-box .ping-time {
+  color: #f8fafc;
+}
+
+body.dark .history-section {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+body.dark .history-date-input {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+body.dark .history-point-details {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+body.dark .teltonika-map-container,
+body.dark #teltonika-map,
+body.dark .leaflet-container {
+  background: #0f172a !important;
+}
+
+body.dark .map-style-toggle-bar {
+  background: rgba(15, 23, 42, 0.94);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.dark .map-overlay-card {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark .overlay-val {
+  color: #f1f5f9;
+}
+
+body.dark .teltonika-console-drawer {
+  background: rgba(10, 15, 29, 0.97);
+}
+
+body.dark .console-header {
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .console-title {
+  color: #f1f5f9;
+}
+
+body.dark .console-tabs-group {
+  background: rgba(2, 6, 23, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .console-tool-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+body.dark .console-body {
+  background: #090e1a;
+}
+
+body.dark .console-filters-bar {
+  background: rgba(15, 23, 42, 0.7);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark .filter-chip {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+body.dark .engine-analyzer-view {
+  background: #090e1a;
+}
+
+body.dark .analyzer-banner {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.6) 100%);
+}
+
+body.dark .analyzer-banner-title {
+  color: #ffffff;
+}
+
+body.dark .matrix-card {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .matrix-value {
+  color: #f1f5f9;
+}
+
+body.dark .analyzer-note-box {
+  background: rgba(30, 41, 59, 0.5);
+  color: #cbd5e1;
+}
+
+body.dark .raw-json-view {
+  background: #090e1a;
+}
+
+body.dark .raw-json-toolbar {
+  background: rgba(15, 23, 42, 0.7);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .teltonika-modal-box {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.dark .modal-header-row h2 {
+  color: #f8fafc;
+}
+
+body.dark .teltonika-modal-content {
+  color: #cbd5e1;
+}
+
+body.dark .code-snippet {
+  background: #020617;
+  border-color: rgba(255, 255, 255, 0.1);
 }
