@@ -1,9 +1,9 @@
 /* OverTime.css */
 
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.45);
-  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --primary-gradient: linear-gradient(135deg, var(--ion-color-primary, #6366f1) 0%, var(--ion-color-primary-tint, #a855f7) 100%);
   --secondary-gradient: linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%);
   --premium-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
   --card-radius: 28px;
@@ -11,7 +11,7 @@
 }
 
 .overtime-page {
-  --background: #f8fafc;
+  --background: var(--ion-background-color, #f8fafc);
 }
 
 .overtime-content {
@@ -60,7 +60,7 @@
   margin: 0;
   font-size: 2rem;
   font-weight: 800;
-  color: #111827;
+  color: var(--ion-text-color, #111827);
   letter-spacing: -0.5px;
 }
 
@@ -80,20 +80,221 @@
 
 /* Form Container */
 .overtime-form-container {
-  background: var(--glass-bg);
+  background: var(--ion-card-background, var(--glass-bg));
   backdrop-filter: blur(18px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--ion-border-color, var(--glass-border));
   border-radius: var(--card-radius);
-  padding: 16px 20px;
+  padding: 18px 22px;
   box-shadow: var(--premium-shadow);
   margin-bottom: 24px;
   position: relative;
   z-index: 2;
+  transition: all 0.25s ease;
 }
 
 .overtime-form-container .lr-field-box {
   padding: 8px 12px !important;
 }
+
+/* ── OverTime Responsive Bento Form Grid ── */
+.ot-form-grid {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.2fr) minmax(170px, 2fr) minmax(110px, 1fr) minmax(110px, 1fr) 95px 105px;
+  gap: 10px;
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ot-form-grid .lr-field-box {
+  background: var(--lr-surface, #ffffff);
+  border: 1.5px solid var(--ion-border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 8px 12px !important;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 58px;
+  height: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ot-form-grid .lr-field-box:focus-within {
+  border-color: var(--ion-color-primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.12);
+}
+
+.ot-form-grid .lr-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ion-color-step-500, #64748b);
+  display: block;
+  margin-bottom: 3px;
+  user-select: none;
+}
+
+.ot-form-grid .lr-field-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ot-form-grid .lr-field-icon {
+  font-size: 18px;
+  color: var(--ion-color-primary, #6366f1);
+  flex-shrink: 0;
+}
+
+.ot-form-grid input[type="time"] {
+  cursor: pointer;
+}
+
+.ot-work-summary-box {
+  grid-column: 1 / -1;
+  padding: 8px 12px !important;
+}
+
+.ot-work-summary-box .lr-field-content {
+  align-items: flex-start;
+}
+
+.ot-work-summary-box textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  resize: none;
+  color: var(--ion-text-color, #1e293b);
+  font-family: inherit;
+  line-height: 1.35;
+}
+
+/* Tablet Layout (600px - 899px) */
+@media screen and (max-width: 899px) and (min-width: 600px) {
+  .ot-form-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .ot-field-date {
+    grid-column: span 2;
+  }
+  .ot-field-client {
+    grid-column: span 2;
+  }
+  .ot-field-from {
+    grid-column: span 1;
+  }
+  .ot-field-to {
+    grid-column: span 1;
+  }
+  .ot-field-actual {
+    grid-column: span 1;
+  }
+  .ot-field-approved {
+    grid-column: span 1;
+  }
+  .ot-work-summary-box {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Mobile Layout (< 600px) */
+@media screen and (max-width: 599px) {
+  .overtime-form-container {
+    padding: 14px !important;
+    border-radius: 18px !important;
+    margin-bottom: 14px;
+  }
+
+  .overtime-form-title {
+    margin-bottom: 12px !important;
+    font-size: 1.15rem !important;
+  }
+
+  .ot-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .ot-field-date {
+    grid-column: span 1;
+  }
+
+  .ot-field-client {
+    grid-column: span 1;
+  }
+
+  .ot-field-from {
+    grid-column: span 1;
+  }
+
+  .ot-field-to {
+    grid-column: span 1;
+  }
+
+  .ot-field-actual {
+    grid-column: span 1;
+  }
+
+  .ot-field-approved {
+    grid-column: span 1;
+  }
+
+  .ot-work-summary-box {
+    grid-column: span 2;
+  }
+
+  .ot-form-grid .lr-field-box {
+    padding: 7px 10px !important;
+    min-height: 52px;
+    border-radius: 12px;
+  }
+
+  .ot-form-grid .lr-field-label {
+    font-size: 9.5px;
+    margin-bottom: 2px;
+    letter-spacing: 0.4px;
+  }
+
+  .ot-form-grid .lr-field-content span,
+  .ot-form-grid .lr-field-content input {
+    font-size: 13px !important;
+  }
+
+  .ot-form-grid .lr-field-icon {
+    font-size: 16px;
+  }
+}
+
+/* Dark mode for ot-form-grid */
+body.dark .ot-form-grid .lr-field-box,
+.dark .ot-form-grid .lr-field-box,
+body[color-theme="dark"] .ot-form-grid .lr-field-box {
+  background: #0f172a !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none;
+}
+
+body.dark .ot-form-grid .lr-field-label,
+.dark .ot-form-grid .lr-field-label,
+body[color-theme="dark"] .ot-form-grid .lr-field-label {
+  color: #94a3b8 !important;
+}
+
+body.dark .ot-work-summary-box textarea,
+.dark .ot-work-summary-box textarea,
+body[color-theme="dark"] .ot-work-summary-box textarea {
+  color: #f8fafc !important;
+}
+
 
 .overtime-form-title {
   display: flex;
@@ -101,13 +302,13 @@
   gap: 10px;
   font-size: 1.35rem;
   font-weight: 800;
-  color: #1e293b;
+  color: var(--ion-text-color, #1e293b);
   margin-bottom: 24px;
 }
 
 .overtime-form-title ion-icon {
   font-size: 1.3rem;
-  color: #6366f1;
+  color: var(--ion-color-primary, #6366f1);
 }
 
 /* Input Wrappers */
@@ -862,4 +1063,253 @@
     min-width: unset;
   }
 }
- 
+
+/* ═══════════════════════════════════════════════════
+   CLEAN & TRENDY OVERTIME MODAL (Auto-Adopt Theme)
+═══════════════════════════════════════════════════ */
+
+.ot-modal-card {
+  width: min(440px, 92vw);
+  max-height: 90vh;
+  background: var(--ion-card-background, var(--ion-background-color, #ffffff));
+  color: var(--ion-text-color, #0f172a);
+  border: 1px solid var(--ion-border-color, rgba(226, 232, 240, 0.8));
+  border-radius: 20px;
+  padding: 22px 24px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: modalShow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ot-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ion-border-color, #f1f5f9);
+}
+
+.ot-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ion-text-color, #0f172a);
+}
+
+.ot-modal-header p {
+  margin: 3px 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.ot-close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.ot-close-btn:hover {
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+.ot-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ot-time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ot-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ot-input-group label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.ot-input-group input,
+.ot-input-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--ion-item-background, #f8fafc);
+  border: 1.5px solid var(--ion-border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ion-text-color, #0f172a);
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.ot-input-group input:focus,
+.ot-input-group textarea:focus {
+  outline: none;
+  background: var(--ion-card-background, #ffffff);
+  border-color: var(--ion-color-primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.15);
+}
+
+.ot-input-group input[type="time"] {
+  cursor: pointer;
+}
+
+.ot-input-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  max-height: 260px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.ot-duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.08);
+  color: var(--ion-color-primary, #6366f1);
+  border: 1px solid rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.2);
+}
+
+.ot-duration-badge ion-icon {
+  font-size: 16px;
+}
+
+.ot-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ion-border-color, #f1f5f9);
+}
+
+.ot-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--ion-border-color, #e2e8f0);
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 9px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ot-btn-cancel:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--ion-text-color, #1e293b);
+  border-color: #cbd5e1;
+}
+
+.ot-btn-save {
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6), var(--ion-color-secondary, #00b4d8)) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 700 !important;
+  font-size: 0.92rem !important;
+  padding: 10px 22px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px var(--theme-shadow, rgba(0, 119, 182, 0.35)) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.ot-btn-save:hover {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px var(--theme-shadow, rgba(0, 119, 182, 0.45)) !important;
+}
+
+.ot-btn-save:active {
+  transform: translateY(0) !important;
+  filter: brightness(0.96) !important;
+}
+
+/* Dark Theme Overrides for OverTime Page & Form */
+body.dark .overtime-form-container,
+.dark .overtime-form-container,
+body[color-theme="dark"] .overtime-form-container {
+  background: var(--ion-card-background, #1e293b) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.dark .overtime-form-title,
+.dark .overtime-form-title,
+body[color-theme="dark"] .overtime-form-title {
+  color: #f8fafc !important;
+}
+
+body.dark .overtime-form-container .lr-field-box,
+.dark .overtime-form-container .lr-field-box,
+body[color-theme="dark"] .overtime-form-container .lr-field-box {
+  background: #0f172a !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.dark .overtime-input-wrapper,
+.dark .overtime-input-wrapper,
+body[color-theme="dark"] .overtime-input-wrapper {
+  background: #0f172a !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Dark mode for ot-modal-card */
+body.dark .ot-modal-card,
+.dark .ot-modal-card,
+body[color-theme="dark"] .ot-modal-card {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+}
+
+body.dark .ot-modal-header,
+.dark .ot-modal-header,
+body[color-theme="dark"] .ot-modal-header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .ot-input-group input,
+body.dark .ot-input-group textarea,
+.dark .ot-input-group input,
+.dark .ot-input-group textarea,
+body[color-theme="dark"] .ot-input-group input,
+body[color-theme="dark"] .ot-input-group textarea {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+body.dark .ot-modal-footer,
+.dark .ot-modal-footer,
+body[color-theme="dark"] .ot-modal-footer {
+  border-color: rgba(255, 255, 255, 0.08);
+}

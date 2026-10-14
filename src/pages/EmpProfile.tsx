@@ -481,8 +481,14 @@ const EmpProfile: React.FC = () => {
     const rawDoj = getValue(4, ["_Doj", "Doj", "doj"], "");
     const dojStr = rawDoj ? (String(rawDoj).includes("T") ? String(rawDoj).split("T")[0] : String(rawDoj)) : "";
 
-    const rawDob = getValue(7, ["_Dob", "Dob", "dob", "DOB"], "") || getValue(45, ["_Dob", "Dob", "dob", "DOB"], "");
-    const dobStr = rawDob ? (String(rawDob).includes("T") ? String(rawDob).split("T")[0] : String(rawDob)) : "";
+    const rawDob = getValue(45, ["_Dob", "Dob", "dob", "DOB"], "");
+    const dobStr = rawDob
+      ? String(rawDob).includes("T")
+        ? String(rawDob).split("T")[0]
+        : String(rawDob).includes("/")
+          ? String(rawDob).split("/").reverse().join("-")
+          : String(rawDob)
+      : "";
 
     const checkInVal = getValue(44, ["_CheckIn", "checkIn", "CheckIn", "InTime", "intime"], "");
     const legacyCheckInVal = getValue(43, ["intime1", "InTime1"], "");

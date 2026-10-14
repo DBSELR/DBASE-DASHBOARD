@@ -11,6 +11,7 @@ import {
   IonIcon,
   IonSelect,
   IonSelectOption,
+  IonToast,
   useIonAlert,
 } from "@ionic/react";
 
@@ -218,68 +219,79 @@ const getStatusCategory = (statusStr: any): string => {
 const getRejectionStatusText = (item: any): string => {
   if (!item) return "REJECTED";
 
-  const ra2Status = safeText(item.RA2_Status || item.ra2_Status || item.rA2_Status).toLowerCase().trim();
-  const ra1Status = safeText(item.RA1_Status || item.ra1_Status || item.rA1_Status).toLowerCase().trim();
-  const ra3Status = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase().trim();
-  const ra4Status = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase().trim();
-
-  if (ra2Status === "rejected") {
-    return `REJECTED BY ${String(item.RA2 || "RA2").toUpperCase()}`;
-  }
-  if (ra1Status === "rejected") {
-    return `REJECTED BY ${String(item.RA1 || "RA1").toUpperCase()}`;
-  }
-  if (ra3Status === "rejected") {
-    return `REJECTED BY ${String(item.RA3 || "RA3").toUpperCase()}`;
-  }
-  if (ra4Status === "rejected") {
-    return `REJECTED BY ${String(item.RA4 || "RA4").toUpperCase()}`;
-  }
-
   const raw = String(item?.L_status || "").trim();
   if (raw.toLowerCase().startsWith("rejected by")) {
     return raw.toUpperCase();
   }
-  if (raw.toLowerCase().includes("rejected")) {
-    const who = item.RA2 || item.RA1 || item.CurrentRA || "";
-    if (who && String(who).toLowerCase() !== "null") {
-      return `REJECTED BY ${String(who).toUpperCase()}`;
-    }
-    return raw.toUpperCase();
+
+  const rs1 = safeText(item.RA1_Status || item.ra1_Status || item.rA1_Status).toLowerCase();
+  const rs2 = safeText(item.RA2_Status || item.ra2_Status || item.rA2_Status).toLowerCase();
+  const rs3 = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase();
+  const rs4 = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase();
+
+  const isAppr = (s: string) => s.includes("accept") || s.includes("approv");
+  const isRej = (s: string) => s.includes("reject");
+
+  let who = "";
+  if (isRej(rs4) && isAppr(rs3)) who = item.RA4 || "RA4";
+  else if (isRej(rs3) && isAppr(rs2)) who = item.RA3 || "RA3";
+  else if (isRej(rs2) && isAppr(rs1)) who = item.RA2 || "RA2";
+  else if (isRej(rs1)) who = item.RA1 || "RA1";
+  else if (isRej(rs2)) who = item.RA2 || "RA2";
+  else if (isRej(rs3)) who = item.RA3 || "RA3";
+  else if (isRej(rs4)) who = item.RA4 || "RA4";
+  else if (raw.toLowerCase().includes("rejected")) {
+    const lvl = Number(item.CurrentLevel || item.currentLevel || 0);
+    if (lvl === 1) who = item.RA1 || "";
+    else if (lvl === 2) who = item.RA2 || "";
+    else if (lvl === 3) who = item.RA3 || "";
+    else if (lvl === 4) who = item.RA4 || "";
+    else if (item.CurrentRA) who = item.CurrentRA;
   }
 
-  return "REJECTED";
+  if (who && String(who).toLowerCase() !== "null") {
+    return `REJECTED BY ${String(who).toUpperCase()}`;
+  }
+
+  return raw.toUpperCase().includes("REJECTED") ? raw.toUpperCase() : "REJECTED";
 };
 
 const getRejectionInfo = (item: any) => {
   if (!item) return null;
 
-  const ra2Status = safeText(item.RA2_Status || item.ra2_Status || item.rA2_Status).toLowerCase().trim();
-  const ra1Status = safeText(item.RA1_Status || item.ra1_Status || item.rA1_Status).toLowerCase().trim();
-  const ra3Status = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase().trim();
-  const ra4Status = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase().trim();
+  const raw = String(item?.L_status || "").trim();
+  if (raw.toLowerCase().startsWith("rejected by")) return raw;
 
-  if (ra2Status === "rejected") {
-    return `Rejected by ${item.RA2 || "RA2"}`;
-  }
-  if (ra1Status === "rejected") {
-    return `Rejected by ${item.RA1 || "RA1"}`;
-  }
-  if (ra3Status === "rejected") {
-    return `Rejected by ${item.RA3 || "RA3"}`;
-  }
-  if (ra4Status === "rejected") {
-    return `Rejected by ${item.RA4 || "RA4"}`;
+  const rs1 = safeText(item.RA1_Status || item.ra1_Status || item.rA1_Status).toLowerCase();
+  const rs2 = safeText(item.RA2_Status || item.ra2_Status || item.rA2_Status).toLowerCase();
+  const rs3 = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase();
+  const rs4 = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase();
+
+  const isAppr = (s: string) => s.includes("accept") || s.includes("approv");
+  const isRej = (s: string) => s.includes("reject");
+
+  let who = "";
+  if (isRej(rs4) && isAppr(rs3)) who = item.RA4 || "RA4";
+  else if (isRej(rs3) && isAppr(rs2)) who = item.RA3 || "RA3";
+  else if (isRej(rs2) && isAppr(rs1)) who = item.RA2 || "RA2";
+  else if (isRej(rs1)) who = item.RA1 || "RA1";
+  else if (isRej(rs2)) who = item.RA2 || "RA2";
+  else if (isRej(rs3)) who = item.RA3 || "RA3";
+  else if (isRej(rs4)) who = item.RA4 || "RA4";
+  else if (raw.toLowerCase().includes("rejected")) {
+    const lvl = Number(item.CurrentLevel || item.currentLevel || 0);
+    if (lvl === 1) who = item.RA1 || "";
+    else if (lvl === 2) who = item.RA2 || "";
+    else if (lvl === 3) who = item.RA3 || "";
+    else if (lvl === 4) who = item.RA4 || "";
+    else if (item.CurrentRA) who = item.CurrentRA;
   }
 
-  if (item?.L_status) {
-    const status = String(item.L_status);
-    if (status.toLowerCase().includes("rejected")) {
-      return status;
-    }
+  if (who && String(who).toLowerCase() !== "null") {
+    return `Rejected by ${who}`;
   }
 
-  return null;
+  return raw.toLowerCase().includes("rejected") ? raw : null;
 };
 const RequestList: React.FC<Props> = ({ type, view, status }) => {
   const history = useHistory();
@@ -293,6 +305,15 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
   // team member) - set alongside dataDutyId at whichever link opened it.
   const [dataCanViewAll, setDataCanViewAll] = useState<boolean>(false);
   const [presentAlert] = useIonAlert();
+  const [toast, setToast] = useState<{ open: boolean; message: string; color: string }>({
+    open: false,
+    message: "",
+    color: "success",
+  });
+
+  const showToast = (message: string, color: string = "success") => {
+    setToast({ open: true, message, color });
+  };
   const [amountMap, setAmountMap] = useState<{ [key: string]: string }>({});
   const [commentMap, setCommentMap] = useState<{ [key: string]: string }>({});
   const handleAmountChange = (id: string, value: string) => {
@@ -671,14 +692,20 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         }
       }
 
-      if (isRej(rs4)) {
+      if (isRej(rs4) && isAppr(rs3)) {
         deducedStatus = `Rejected by ${r4 || "RA4"}`;
-      } else if (isRej(rs3)) {
+      } else if (isRej(rs3) && isAppr(rs2)) {
         deducedStatus = `Rejected by ${r3 || "RA3"}`;
-      } else if (isRej(rs2)) {
+      } else if (isRej(rs2) && isAppr(rs1)) {
         deducedStatus = `Rejected by ${r2 || "RA2"}`;
       } else if (isRej(rs1)) {
         deducedStatus = `Rejected by ${r1 || "RA1"}`;
+      } else if (isRej(rs2)) {
+        deducedStatus = `Rejected by ${r2 || "RA2"}`;
+      } else if (isRej(rs3)) {
+        deducedStatus = `Rejected by ${r3 || "RA3"}`;
+      } else if (isRej(rs4)) {
+        deducedStatus = `Rejected by ${r4 || "RA4"}`;
       } else if (deducedRA && deducedStatus.toLowerCase().includes("pending")) {
         const trimmed = deducedStatus.trim().toLowerCase();
         if (trimmed === "pending" || trimmed === "pending at") {
@@ -1152,11 +1179,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         }
       } catch { /* keep default msg */ }
 
-      presentAlert({
-        header: "Status Update",
-        message: displayMsg,
-        buttons: ["OK"],
-      });
+      showToast(displayMsg, "success");
       // Mark this item locally so buttons update immediately without waiting for reload
       setOndutyActionMap(prev => ({
         ...prev,
@@ -1170,11 +1193,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         (typeof e?.response?.data === "string" ? e.response.data : null) ||
         e?.message ||
         "Action failed. Please try again.";
-      presentAlert({
-        header: "Error",
-        message: msg,
-        buttons: ["OK"],
-      });
+      showToast(msg, "danger");
       console.error("updateOnDuty error:", e?.response ?? e);
     }
   };
@@ -1303,30 +1322,56 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     }
   };
 
+  const parseTimeToHHmm = (t: string) => {
+    if (!t) return "";
+    const s = String(t).trim();
+    if (/^\d{2}:\d{2}$/.test(s)) return s;
+    if (/^\d{1}:\d{2}$/.test(s)) return `0${s}`;
+    if (/^\d{2}:\d{2}:\d{2}/.test(s)) return s.substring(0, 5);
+    const m = moment(s, ["hh:mm A", "h:mm A", "HH:mm:ss", "HH:mm"]);
+    if (m.isValid()) return m.format("HH:mm");
+    return s;
+  };
+
   const openOvertimeEdit = (item: any) => {
+    const parsedFrom = parseTimeToHHmm(item.Fromtime);
+    const parsedTo = parseTimeToHHmm(item.Totime);
+
     const fromMinutes =
-      Number(item.Fromtime.split(":")[0]) * 60 +
-      Number(item.Fromtime.split(":")[1]);
+      Number((parsedFrom || item.Fromtime).split(":")[0]) * 60 +
+      Number((parsedFrom || item.Fromtime).split(":")[1]);
 
     const toMinutes =
-      Number(item.Totime.split(":")[0]) * 60 +
-      Number(item.Totime.split(":")[1]);
+      Number((parsedTo || item.Totime).split(":")[0]) * 60 +
+      Number((parsedTo || item.Totime).split(":")[1]);
 
-    const diff = toMinutes - fromMinutes;
+    const diff = toMinutes > fromMinutes ? toMinutes - fromMinutes : 0;
 
     setEditOT({
       lid: item.lid,
       empcode: item.empcode,
       date: moment(item.lfrom).format("YYYY-MM-DD"),
       client: item.College,
-      fromtime: item.Fromtime,
-      totime: item.Totime,
+      fromtime: parsedFrom || item.Fromtime,
+      totime: parsedTo || item.Totime,
       description: item.Remarks,
       minDiff: diff,
       finMinDiff: diff,
     });
 
     setEditOtModal(true);
+  };
+
+  const getOtDuration = (from: string, to: string) => {
+    if (!from || !to) return "";
+    const [fH, fM] = from.split(":").map(Number);
+    const [tH, tM] = to.split(":").map(Number);
+    if (isNaN(fH) || isNaN(fM) || isNaN(tH) || isNaN(tM)) return "";
+    const diff = tH * 60 + tM - (fH * 60 + fM);
+    if (diff <= 0) return "To time must be after From time";
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    return `${h > 0 ? `${h}h ` : ""}${m}m (${diff} mins)`;
   };
 
   const saveEditedOvertime = async () => {
@@ -1340,11 +1385,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         Number(editOT.totime.split(":")[1]);
 
       if (toMinutes <= fromMinutes) {
-        presentAlert({
-          header: "Validation Error",
-          message: "To time should be greater than From time",
-          buttons: ["OK"],
-        });
+        showToast("To time should be greater than From time", "warning");
         return;
       }
 
@@ -1376,11 +1417,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
       loadData(true);
 
-      presentAlert({
-        header: "Success",
-        message: "Overtime updated successfully",
-        buttons: ["OK"],
-      });
+      showToast("Overtime updated successfully", "success");
     } catch (e: any) {
       console.error("SAVE OT ERROR", e);
 
@@ -1391,11 +1428,7 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         e?.response?.data?.title ||
         "Failed to update overtime";
 
-      presentAlert({
-        header: "Error",
-        message: errorMsg,
-        buttons: ["OK"],
-      });
+      showToast(errorMsg, "danger");
     }
   };
 
@@ -1713,48 +1746,85 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     return null; // 🔥 completely hide OnDuty in My Requests
   }
 
+  const fmtMin = (mins: number) => {
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return `${hrs}h ${rem}m`;
+  };
+
+  const reconcilePermissionItem = async (x: any) => {
+    const targetEmp = String(x.empCode || x.EmpCode || "").trim();
+    if (!targetEmp) return;
+
+    // Giving P Time on card: 60m or 90m (or employee's configured total/default)
+    const totalMins = Number(x.totalAvailableMin || x.defaultPermissionMin || 60);
+
+    let appliedMins = 0;
+    try {
+      const permRes = await axios.get(
+        `${baseUrl}Permission/Load_Leave_Permission?Empcode=${targetEmp}&Seachdate=${selectedMonth}&LType=permission`
+      ).catch(() => null);
+
+      const rows = Array.isArray(permRes?.data) ? permRes.data : [];
+      rows.forEach((row: any) => {
+        const status = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
+        if (status.includes("reject") || status.includes("cancel")) return;
+
+        const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
+        const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
+        if (cat.includes("lop") || rem.includes("converted to lop")) return;
+
+        let mins = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
+        if (mins === 0) {
+          const match = rem.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/i);
+          if (match) mins = parseFloat(match[1]) || 0;
+        }
+        appliedMins += mins;
+      });
+    } catch {}
+
+    // Used is strictly within the permission time (60 or 90m)
+    const finalUsed = Math.min(totalMins, Math.max(Number(x.usedMin || 0), appliedMins));
+    const finalBal = Math.max(0, totalMins - finalUsed);
+
+    x.totalAvailableMin = totalMins;
+    x.usedMin = finalUsed;
+    x.balanceMin = finalBal;
+
+    x.totalAvailableDisplay = fmtMin(totalMins);
+    x.usedDisplay = fmtMin(finalUsed);
+    x.balanceDisplay = fmtMin(finalBal);
+  };
+
   const loadPermissionDashboard = async (empcode?: string) => {
     try {
-      const m =
-        moment(selectedMonth, "MMM-YYYY").month() + 1;
+      const m = moment(selectedMonth, "MMM-YYYY").month() + 1;
+      const y = moment(selectedMonth, "MMM-YYYY").year();
 
-      const y =
-        moment(selectedMonth, "MMM-YYYY").year();
+      const user = getUser();
+      const loggedInEmp = String(user?.empCode || user?.EmpCode || user?.empcode || "").trim();
 
-      let finalEmp = "";
-
-      // ✅ MY REQUESTS
-      if (view === "my") {
-        finalEmp = getUser()?.empCode;
-      }
-
-      // ✅ TEAM REQUESTS
-      else {
-        // selected employee
-        if (
-          selectedEmpCode &&
-          selectedEmpCode !== "0"
-        ) {
+      let finalEmp = String(empcode || "").trim();
+      if (!finalEmp) {
+        if (view === "my") {
+          finalEmp = loggedInEmp;
+        } else if (selectedEmpCode && selectedEmpCode !== "0") {
           finalEmp = selectedEmpCode;
-        }
-
-        // all reporting employees
-        else {
+        } else {
           finalEmp = "";
         }
       }
 
       const res = await axios.get(
         `${baseUrl}Permission/GetPermissionDashboard?EmpCode=${finalEmp}&Month=${m}&Year=${y}`,
-        {
-          headers: getAuthHeaders(),
-        }
+        { headers: getAuthHeaders() }
       );
 
-      setPermissionData(res.data || []);
+      const items = Array.isArray(res.data) ? res.data : [];
+      await Promise.all(items.map((x: any) => reconcilePermissionItem(x)));
 
+      setPermissionData([...items]);
       setPermissionModal(true);
-
     } catch (e) {
       console.error(e);
     }
@@ -1762,24 +1832,22 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
   const loadTeamPermissionDashboard = async () => {
     try {
+      const m = moment(selectedMonth, "MMM-YYYY").month() + 1;
+      const y = moment(selectedMonth, "MMM-YYYY").year();
 
-      const m =
-        moment(selectedMonth, "MMM-YYYY").month() + 1;
-
-      const y =
-        moment(selectedMonth, "MMM-YYYY").year();
+      const user = getUser();
+      const loggedInEmp = String(user?.empCode || user?.EmpCode || user?.empcode || "").trim();
 
       const res = await axios.get(
-        `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=${getUser()?.empCode}&Month=${m}&Year=${y}`,
-        {
-          headers: getAuthHeaders(),
-        }
+        `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=${loggedInEmp}&Month=${m}&Year=${y}`,
+        { headers: getAuthHeaders() }
       );
 
-      setPermissionData(res.data || []);
+      const items = Array.isArray(res.data) ? res.data : [];
+      await Promise.all(items.map((x: any) => reconcilePermissionItem(x)));
 
+      setPermissionData([...items]);
       setPermissionModal(true);
-
     } catch (e) {
       console.error(e);
     }
@@ -1985,6 +2053,8 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
               onClick={() => {
                 if (view === "my") {
                   loadPermissionDashboard();
+                } else if (selectedEmpCode && selectedEmpCode !== "0") {
+                  loadPermissionDashboard(selectedEmpCode);
                 } else {
                   loadTeamPermissionDashboard();
                 }
@@ -3137,70 +3207,91 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
       />
 
       {editOtModal && (
-        <div className="modal-overlay">
-          <div className="modal-container">
-
-            <div className="modal-header">
-              <h3>Edit Overtime</h3>
-
-              <button onClick={() => setEditOtModal(false)}>
-                ✖
+        <div className="modal-overlay" onClick={() => setEditOtModal(false)}>
+          <div className="ot-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="ot-modal-header">
+              <div>
+                <h3>Edit Overtime</h3>
+                {editOT.client && (
+                  <p>
+                    {editOT.client}{" "}
+                    {editOT.date ? `• ${moment(editOT.date).format("DD MMM YYYY")}` : ""}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="ot-close-btn"
+                onClick={() => setEditOtModal(false)}
+                title="Close"
+              >
+                <IonIcon icon={closeCircle} />
               </button>
             </div>
 
-            <div className="modal-body">
-
-              <div className="form-group">
-                <label>From Time</label>
-
-                <input
-                  type="time"
-                  value={editOT.fromtime}
-                  onChange={(e) =>
-                    setEditOT({
-                      ...editOT,
-                      fromtime: e.target.value,
-                    })
-                  }
-                />
+            <div className="ot-modal-body">
+              <div className="ot-time-row">
+                <div className="ot-input-group">
+                  <label>From Time</label>
+                  <input
+                    type="time"
+                    value={editOT.fromtime}
+                    onChange={(e) => setEditOT({ ...editOT, fromtime: e.target.value })}
+                    onClick={(e) => {
+                      try {
+                        (e.target as any).showPicker?.();
+                      } catch {}
+                    }}
+                  />
+                </div>
+                <div className="ot-input-group">
+                  <label>To Time</label>
+                  <input
+                    type="time"
+                    value={editOT.totime}
+                    onChange={(e) => setEditOT({ ...editOT, totime: e.target.value })}
+                    onClick={(e) => {
+                      try {
+                        (e.target as any).showPicker?.();
+                      } catch {}
+                    }}
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>To Time</label>
+              {editOT.fromtime && editOT.totime && (
+                <div className="ot-duration-badge">
+                  <IonIcon icon={timeOutline} />
+                  <span>Duration: {getOtDuration(editOT.fromtime, editOT.totime)}</span>
+                </div>
+              )}
 
-                <input
-                  type="time"
-                  value={editOT.totime}
-                  onChange={(e) =>
-                    setEditOT({
-                      ...editOT,
-                      totime: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-
+              <div className="ot-input-group">
+                <label>Work Description</label>
                 <textarea
+                  rows={3}
+                  placeholder="Describe overtime work done..."
                   value={editOT.description}
-                  onChange={(e) =>
-                    setEditOT({
-                      ...editOT,
-                      description: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setEditOT({ ...editOT, description: e.target.value })}
                 />
               </div>
 
-              <button
-                className="lr-action-btn approve"
-                onClick={saveEditedOvertime}
-              >
-                Save Changes
-              </button>
-
+              <div className="ot-modal-footer">
+                <button
+                  type="button"
+                  className="ot-btn-cancel"
+                  onClick={() => setEditOtModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ot-btn-save"
+                  onClick={saveEditedOvertime}
+                >
+                  Save OT
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3340,6 +3431,16 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
         </div>
       )}
       {!loading && finalData.length === 0 && <p>No data found</p>}
+
+      {/* ── TOAST NOTIFICATION ── */}
+      <IonToast
+        isOpen={toast.open}
+        message={toast.message}
+        color={toast.color}
+        duration={2500}
+        position="bottom"
+        onDidDismiss={() => setToast((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 };

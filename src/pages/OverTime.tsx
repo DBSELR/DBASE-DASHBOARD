@@ -448,14 +448,14 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
     <div className="onduties-page">
       <div className="onduties-content">
         <div style={{ padding: "20px 16px 10px" }}>
-          <h2 style={{ margin: 0, fontWeight: 700 }}>Over-Time Manager</h2>
+          <h2 style={{ margin: 0, fontWeight: 700, color: "var(--ion-text-color, #0f172a)" }}>Over-Time Manager</h2>
         </div>
 
         <div className="ion-padding-horizontal">
           <div style={{ width: "100%", overflowX: "hidden" }} className="overtime-form-container">
             <div className="overtime-form-title compact-title" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", fontWeight: "700" }}>
               <IonIcon icon={timeOutline} style={{ color: "var(--ion-color-primary)", fontSize: "20px" }} />
-              <span style={{ color: "#334155" }}>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
+              <span style={{ color: "var(--ion-text-color, #1e293b)" }}>{otEditingId ? "Edit OT Record" : "Add OT Record"}</span>
             </div>
 
             <IonModal
@@ -529,28 +529,28 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               </IonContent>
             </IonModal>
 
-            <div className="lr-bento-grid" style={{ alignItems: "stretch", marginBottom: "10px", gridTemplateColumns: "max-content minmax(0, 1fr) max-content max-content max-content" }}>
+            <div className="lr-bento-grid ot-form-grid">
               {/* OT Date */}
               <div
-                className="lr-field-box"
+                className="lr-field-box ot-field-date"
                 onClick={() => setDateModalOpen(true)}
                 style={{ cursor: "pointer" }}
               >
                 <label className="lr-field-label">OT Date</label>
                 <div className="lr-field-content">
                   <IonIcon icon={calendarOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: otDate ? "#1e293b" : "#94a3b8", whiteSpace: "nowrap" }}>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: otDate ? "var(--ion-text-color, #1e293b)" : "var(--ion-color-step-400, #94a3b8)", whiteSpace: "nowrap" }}>
                     {otDate ? moment(otDate).format("DD-MM-YYYY") : "Pick OT Date"}
                   </span>
                 </div>
               </div>
 
               {/* Client / College */}
-              <div className="lr-field-box" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
+              <div className="lr-field-box ot-field-client" onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}>
                 <label className="lr-field-label">Client / College</label>
                 <div className="lr-field-content" ref={clientTriggerRef}>
                   <IonIcon icon={personCircleOutline} className="lr-field-icon" />
-                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: otClient ? "#1e293b" : "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500", color: otClient ? "var(--ion-text-color, #1e293b)" : "var(--ion-color-step-400, #94a3b8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {otClient || "Select Client"}
                   </span>
                   <ChevronDown size={16} style={{ opacity: 0.7, color: "#94a3b8" }} />
@@ -598,7 +598,7 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
               </div>
 
               {/* FROM TIME */}
-              <div className="lr-field-box">
+              <div className="lr-field-box ot-field-from">
                 <label className="lr-field-label">From</label>
                 <div className="lr-field-content">
                   <IonIcon 
@@ -611,13 +611,13 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                     type="time"
                     value={otFrom}
                     onChange={(e) => setOTFrom(e.target.value)}
-                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "600" }}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "var(--ion-text-color, #1e293b)", fontSize: "14px", fontWeight: "600", width: "100%", minWidth: 0 }}
                   />
                 </div>
               </div>
 
               {/* TO TIME */}
-              <div className="lr-field-box">
+              <div className="lr-field-box ot-field-to">
                 <label className="lr-field-label">To</label>
                 <div className="lr-field-content">
                   <IonIcon 
@@ -630,34 +630,34 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                     type="time"
                     value={otTo}
                     onChange={(e) => setOTTo(e.target.value)}
-                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#1e293b", fontSize: "14px", fontWeight: "600" }}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "var(--ion-text-color, #1e293b)", fontSize: "14px", fontWeight: "600", width: "100%", minWidth: 0 }}
                   />
                 </div>
               </div>
 
               {/* Actual */}
-              <div className="lr-field-box">
+              <div className="lr-field-box ot-field-actual">
                 <label className="lr-field-label">Actual</label>
                 <div className="lr-field-content" style={{ justifyContent: "center" }}>
-                  <span style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", whiteSpace: "nowrap" }}>{otActualMin} Min</span>
+                  <span style={{ fontSize: "15px", fontWeight: "800", color: "var(--ion-text-color, #0f172a)", whiteSpace: "nowrap" }}>{otActualMin} Min</span>
                 </div>
               </div>
 
               {/* Approved */}
-              <div className="lr-field-box">
+              <div className="lr-field-box ot-field-approved">
                 <label className="lr-field-label">Approved</label>
                 <div className="lr-field-content">
                   <input
                     type="number"
                     value={otFinalMin}
                     onChange={(e) => setOTFinalMin(Number(e.target.value || 0))}
-                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "#6366f1", fontSize: "16px", fontWeight: "700", textAlign: "center" }}
+                    style={{ border: "none", outline: "none", background: "transparent", flex: 1, color: "var(--ion-color-primary, #6366f1)", fontSize: "15px", fontWeight: "700", textAlign: "center", width: "100%", minWidth: 0 }}
                   />
                 </div>
               </div>
 
               {/* Work Summary */}
-              <div className="lr-field-box" style={{ gridColumn: "span 4", padding: "8px 14px" }}>
+              <div className="lr-field-box ot-work-summary-box">
                 <label className="lr-field-label" style={{ marginBottom: "2px" }}>Work Summary</label>
                 <div className="lr-field-content" style={{ alignItems: "flex-start" }}>
                   <textarea
@@ -668,8 +668,8 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
                     style={{
                       flex: 1, border: "none", background: "transparent",
                       fontSize: 13, fontWeight: 500, outline: "none",
-                      resize: "none", color: "#1e293b", fontFamily: "inherit", width: "100%",
-                      lineHeight: "1.2"
+                      resize: "none", color: "var(--ion-text-color, #1e293b)", fontFamily: "inherit", width: "100%",
+                      lineHeight: "1.3"
                     }}
                   />
                 </div>
@@ -679,7 +679,18 @@ const OverTime: React.FC<{ view: "my" | "raised" }> = ({ view }) => {
             <div style={{ display: "flex", gap: "12px" }}>
               <button
                 className="lr-gradient-btn"
-                style={{ flex: 1, padding: "12px", borderRadius: "14px", fontSize: "15px", fontWeight: "700" }}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  borderRadius: "14px",
+                  fontSize: "15px",
+                  fontWeight: "700",
+                  background: "linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-secondary, var(--ion-color-primary)) 100%)",
+                  boxShadow: "0 8px 20px -4px var(--theme-shadow, rgba(0, 0, 0, 0.25))",
+                  color: "#ffffff",
+                  border: "none",
+                  cursor: "pointer"
+                }}
                 onClick={saveOT}
               >
                 {otEditingId ? "Update OT" : "Save OT"}

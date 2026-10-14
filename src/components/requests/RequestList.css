@@ -622,6 +622,7 @@
   padding-top: 12px;
   border-top: 1px solid #f1f5f9;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .lr-card-actions:empty {
@@ -690,8 +691,14 @@
 }
 
 .lr-action-btn.edit {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.28);
+  margin-left: auto;
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6), var(--ion-color-secondary, #00b4d8)) !important;
+  box-shadow: 0 4px 14px var(--theme-shadow, rgba(0, 119, 182, 0.35)) !important;
+}
+
+.lr-action-btn.edit:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px var(--theme-shadow, rgba(0, 119, 182, 0.45));
 }
 
 .lr-action-btn.receive {
@@ -1028,6 +1035,227 @@
 .modal-header button:hover {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+/* ═══════════════════════════════════════════════════
+   CLEAN & TRENDY OVERTIME MODAL (Auto-Adopt Theme)
+═══════════════════════════════════════════════════ */
+
+.ot-modal-card {
+  width: min(440px, 92vw);
+  max-height: 90vh;
+  background: var(--ion-card-background, var(--ion-background-color, #ffffff));
+  color: var(--ion-text-color, #0f172a);
+  border: 1px solid var(--ion-border-color, rgba(226, 232, 240, 0.8));
+  border-radius: 20px;
+  padding: 22px 24px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: modalShow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ot-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ion-border-color, #f1f5f9);
+}
+
+.ot-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ion-text-color, #0f172a);
+}
+
+.ot-modal-header p {
+  margin: 3px 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.ot-close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.ot-close-btn:hover {
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+.ot-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ot-time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ot-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ot-input-group label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.ot-input-group input,
+.ot-input-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--ion-item-background, #f8fafc);
+  border: 1.5px solid var(--ion-border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ion-text-color, #0f172a);
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.ot-input-group input:focus,
+.ot-input-group textarea:focus {
+  outline: none;
+  background: var(--ion-card-background, #ffffff);
+  border-color: var(--ion-color-primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.15);
+}
+
+.ot-input-group input[type="time"] {
+  cursor: pointer;
+}
+
+.ot-input-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  max-height: 260px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.ot-duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.08);
+  color: var(--ion-color-primary, #6366f1);
+  border: 1px solid rgba(var(--ion-color-primary-rgb, 99, 102, 241), 0.2);
+}
+
+.ot-duration-badge ion-icon {
+  font-size: 16px;
+}
+
+.ot-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ion-border-color, #f1f5f9);
+}
+
+.ot-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--ion-border-color, #e2e8f0);
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 9px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ot-btn-cancel:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--ion-text-color, #1e293b);
+  border-color: #cbd5e1;
+}
+
+.ot-btn-save {
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6), var(--ion-color-secondary, #00b4d8)) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 700 !important;
+  font-size: 0.92rem !important;
+  padding: 10px 22px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px var(--theme-shadow, rgba(0, 119, 182, 0.35)) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.ot-btn-save:hover {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px var(--theme-shadow, rgba(0, 119, 182, 0.45)) !important;
+}
+
+.ot-btn-save:active {
+  transform: translateY(0) !important;
+  filter: brightness(0.96) !important;
+}
+
+/* Dark mode */
+body.dark .ot-modal-card,
+.dark .ot-modal-card,
+body[color-theme="dark"] .ot-modal-card {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+}
+
+body.dark .ot-modal-header,
+.dark .ot-modal-header,
+body[color-theme="dark"] .ot-modal-header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .ot-input-group input,
+body.dark .ot-input-group textarea,
+.dark .ot-input-group input,
+.dark .ot-input-group textarea,
+body[color-theme="dark"] .ot-input-group input,
+body[color-theme="dark"] .ot-input-group textarea {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+body.dark .ot-modal-footer,
+.dark .ot-modal-footer,
+body[color-theme="dark"] .ot-modal-footer {
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ═══════════════════════════════════════════════════

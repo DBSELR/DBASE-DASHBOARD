@@ -26,7 +26,17 @@ import { API_BASE } from "../../config";
 import { apiService } from "../../utils/apiService";
 import "./LeaveForm.css";
 
-const getUser = () => JSON.parse(localStorage.getItem("user") || "{}");
+const getUser = () => {
+  try {
+    const stored =
+      localStorage.getItem("storedUser") ||
+      localStorage.getItem("user") ||
+      localStorage.getItem("userData");
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
 
 const fmtDMY = (iso: string | null) =>
   iso ? moment(iso).format("DD-MM-YYYY") : "";
@@ -248,6 +258,9 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       const maxSessions = rawMax > 0 ? rawMax : (finalCategory === "Permission" ? 6 : 0);
 
       let usedSessions = Number(res.data?.usedSessions || 0);
+      let permUsedMinutes = Number(res.data?.used || 0);
+      let permBalanceMinutes = Number(res.data?.balance || 0);
+
       if (finalCategory === "Permission" && targetDate) {
         const monthStr = moment(targetDate).format("MMM-YYYY");
         const monthIso = moment(targetDate).format("YYYY-MM");
@@ -262,6 +275,28 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
               return !rem.includes("converted to lop");
             }).length;
             usedSessions = Math.max(usedSessions, count);
+
+            // Sum permission minutes used for the month (excluding split secondary records converted to LOP)
+            let minsUsed = 0;
+            permListRes.data.forEach((row: any) => {
+              const status = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
+              if (status === "rejected" || status === "cancelled") return;
+
+              const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
+              const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
+              if (cat.includes("lop") || rem.includes("converted to lop")) return;
+
+              let m = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
+              if (m === 0) {
+                const match = rem.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/i);
+                if (match) m = parseFloat(match[1]) || 0;
+              }
+              minsUsed += m;
+            });
+
+            const totalPermAllocated = (permBalanceMinutes + permUsedMinutes > 0) ? (permBalanceMinutes + permUsedMinutes) : 60;
+            permUsedMinutes = Math.min(totalPermAllocated, Math.max(permUsedMinutes, minsUsed));
+            permBalanceMinutes = Math.max(0, totalPermAllocated - permUsedMinutes);
           }
         } catch (e) {
           const monthPerms = existingDates.filter((item: any) => {
@@ -280,8 +315,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       const displayedUsedSessions = maxSessions > 0 ? Math.min(usedSessions, maxSessions) : usedSessions;
 
       setBalance({
-        used: res.data?.used || 0,
-        balance: res.data?.balance || 0,
+        used: finalCategory === "Permission" ? permUsedMinutes : (res.data?.used || 0),
+        balance: finalCategory === "Permission" ? permBalanceMinutes : (res.data?.balance || 0),
         usedSessions: displayedUsedSessions,
         actualUsedSessions: usedSessions,
         maxSessions: maxSessions,
@@ -448,10 +483,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       const minutes = parseFloat(permTime || "0");
       const maxSessions = Number(balance.maxSessions || 6);
       const usedSessions = Number(balance.actualUsedSessions ?? balance.usedSessions ?? 0);
+      const isSessionExceeded = maxSessions > 0 && usedSessions >= maxSessions;
 
-      // ⛔ STRICT STOP: When max sessions reached (e.g. 6/6), strictly block further permissions (even LOP)
-      if (maxSessions > 0 && usedSessions >= maxSessions) {
-        return showToast(`Permission session limit reached (${balance.usedSessions}/${maxSessions}). No more permissions can be applied.`);
+      if (isSessionExceeded) {
+        setLopMessage("Session limit exceeded → Convert to LOP.");
+        setConfirmLOP(true);
+        return;
       }
 
       if (minutes > balance.balance) {
@@ -482,13 +519,8 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       const isSessionExceeded = maxSessions > 0 && usedSessions >= maxSessions;
       const requestedMinutes = parseFloat(permTime || "0");
 
-      if (isSessionExceeded) {
-        showToast(`Permission session limit reached (${balance?.usedSessions || maxSessions}/${maxSessions}). No more permissions can be applied.`);
-        return;
-      }
-
-      if (avail <= 0) {
-        // Balance is 0 - submit directly as single LOP record without split text
+      if (avail <= 0 || isSessionExceeded) {
+        // Balance is 0 or sessions exhausted - submit directly as single LOP record without split text
         await submitToServer(
           "LOP",
           startDate || undefined,
@@ -665,7 +697,7 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
     const finalPermTime =
       requestType === "Permission"
         ? (overridePermTime !== undefined ? overridePermTime : permTime)
-        : (overrideDays !== undefined ? String(overrideDays) : "");
+        : "";
 
     const activeInTime = overrideInTime !== undefined ? overrideInTime : inTime;
 
