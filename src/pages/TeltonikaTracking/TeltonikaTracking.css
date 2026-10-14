@@ -232,6 +232,108 @@
   to { transform: rotate(360deg); }
 }
 
+/* Realtime Auto-Fetch Cluster */
+.teltonika-autofetch-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teltonika-autofetch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.teltonika-autofetch-pill.active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+body.dark .teltonika-autofetch-pill.active,
+.dark .teltonika-autofetch-pill.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.25);
+}
+
+.teltonika-autofetch-pill.active:hover {
+  background: rgba(16, 185, 129, 0.22);
+  transform: translateY(-1px);
+}
+
+.teltonika-autofetch-pill.paused {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+body.dark .teltonika-autofetch-pill.paused,
+.dark .teltonika-autofetch-pill.paused {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.teltonika-autofetch-pill.paused:hover {
+  background: rgba(245, 158, 11, 0.22);
+  transform: translateY(-1px);
+}
+
+/* Pulsing radar dot */
+.autofetch-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  position: relative;
+}
+
+.teltonika-autofetch-pill.paused .autofetch-pulse-dot {
+  background: #f59e0b;
+}
+
+.autofetch-pulse-dot.pulsing::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  border: 2px solid #10b981;
+  animation: radar-pulse 1.8s infinite cubic-bezier(0, 0.2, 0.8, 1);
+  opacity: 0.8;
+}
+
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.spin-sync-icon {
+  animation: spin 1s linear infinite;
+}
+
+
 /* ==========================================================================
    MAIN LAYOUT & SIDEBAR
    ========================================================================== */
@@ -1728,4 +1830,435 @@ body.dark .teltonika-modal-content {
 body.dark .code-snippet {
   background: #020617;
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   FLEET EXPANSION: ALERTS, REPORTS, GEOFENCES, COMMANDS & SENSORS
+   ========================================================================== */
+
+/* Status Pills (AC, Door, Immobilizer) */
+.ac-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  user-select: none;
+}
+.ac-pill:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+.ac-pill.on {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(6, 182, 212, 0.16) 100%);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+body.dark .ac-pill.on,
+.dark .ac-pill.on {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(6, 182, 212, 0.25) 100%);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
+}
+.ac-pill.off {
+  background: rgba(148, 163, 184, 0.14);
+  color: #64748b;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+body.dark .ac-pill.off,
+.dark .ac-pill.off {
+  background: rgba(148, 163, 184, 0.18);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.ac-fan-spin {
+  animation: spin-slow 2.2s linear infinite;
+}
+@keyframes spin-slow {
+  100% { transform: rotate(360deg); }
+}
+
+.ac-card-active {
+  border-color: rgba(6, 182, 212, 0.5) !important;
+  background: linear-gradient(145deg, rgba(6, 182, 212, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%) !important;
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.15) !important;
+}
+body.dark .ac-card-active,
+.dark .ac-card-active {
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%) !important;
+  box-shadow: 0 4px 20px rgba(56, 189, 248, 0.2) !important;
+}
+
+.door-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.door-pill.closed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.door-pill.open {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.immob-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.immob-pill.active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.immob-pill.locked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Full View Sections (Alerts, Reports, Geofences, Commands) */
+.teltonika-tab-content-full {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px 20px;
+  background: var(--ion-background-color, #f8fafc);
+  gap: 16px;
+}
+
+/* Fleet KPI Summary Header */
+.fleet-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.fleet-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.fleet-kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fleet-kpi-icon.blue { background: rgba(2, 132, 199, 0.12); color: #0284c7; }
+.fleet-kpi-icon.emerald { background: rgba(16, 185, 129, 0.12); color: #059669; }
+.fleet-kpi-icon.amber { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.fleet-kpi-icon.rose { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.fleet-kpi-icon.slate { background: rgba(100, 116, 139, 0.12); color: #475569; }
+
+.fleet-kpi-info {
+  display: flex;
+  flex-direction: column;
+}
+.fleet-kpi-val {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+}
+.fleet-kpi-lbl {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Alerts Center */
+.alerts-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.alerts-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.alert-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  border-left-width: 4px;
+  transition: all 0.2s ease;
+}
+.alert-card.critical { border-left-color: #ef4444; }
+.alert-card.warning { border-left-color: #f59e0b; }
+.alert-card.info { border-left-color: #3b82f6; }
+.alert-card.acknowledged { opacity: 0.65; }
+
+.alert-card-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.alert-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.alert-card.critical .alert-icon-box { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.alert-card.warning .alert-icon-box { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.alert-card.info .alert-icon-box { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+
+.alert-message {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+.alert-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+.alert-ack-btn {
+  padding: 5px 12px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+.alert-ack-btn:hover {
+  background: #e2e8f0;
+}
+
+/* Command Center */
+.command-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .command-panel-grid { grid-template-columns: 1fr; }
+}
+
+.command-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.command-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.command-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.gprs-cmd-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  transition: all 0.2s;
+}
+.gprs-cmd-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.gprs-cmd-btn.danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+.gprs-cmd-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+.gprs-cmd-btn.success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+.gprs-cmd-btn.success:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.command-input-row {
+  display: flex;
+  gap: 8px;
+}
+.command-text-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-family: monospace;
+}
+
+/* Reports Tables */
+.fleet-table-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.fleet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.fleet-table th {
+  background: #f8fafc;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+.fleet-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+.fleet-table tr:hover {
+  background: #f8fafc;
+}
+
+/* Geofence Cards */
+.geofence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.geofence-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.geofence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.geofence-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Dark Mode Overrides for Expansion */
+body.dark .fleet-kpi-card,
+body.dark .alert-card,
+body.dark .command-card,
+body.dark .fleet-table-container,
+body.dark .geofence-card {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+body.dark .fleet-kpi-val,
+body.dark .alert-message,
+body.dark .command-card-title,
+body.dark .geofence-title,
+body.dark .fleet-table td {
+  color: #f8fafc;
+}
+body.dark .fleet-table th {
+  background: #1e293b;
+  color: #94a3b8;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+body.dark .fleet-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+body.dark .fleet-table tr:hover {
+  background: rgba(30, 41, 59, 0.5);
+}
+body.dark .gprs-cmd-btn {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+body.dark .command-text-input {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+body.dark .alert-ack-btn {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+}
+body.dark .teltonika-tab-content-full {
+  background: #090e1a;
 }
