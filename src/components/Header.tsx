@@ -5,6 +5,7 @@ import {
   IonButtons,
   IonMenuButton,
 } from "@ionic/react";
+import dbaseLogo from "../assets/dbase.png";
 
 const Header: React.FC = () => {
   return (
@@ -16,7 +17,7 @@ const Header: React.FC = () => {
           </IonButtons>
           <IonToolbar color="Tertiary" className="menu-toolbar">
             <img
-              src="./images/dbase.png"
+              src={dbaseLogo}
               alt="DBase Logo"
               className="menu-logo"
             />

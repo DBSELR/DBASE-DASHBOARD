@@ -20,6 +20,7 @@ import { useHistory } from "react-router-dom";
 import { apiService } from "../utils/apiService";
 import { IonIcon } from "@ionic/react";
 import { time, warningOutline } from "ionicons/icons";
+import dbaseLogo from "../assets/dbase.png";
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -396,7 +397,7 @@ const Home: React.FC = () => {
 
       {/* Premium Header */}
       <header className="home-header">
-        <img src="./images/dbase.png" alt="DBase Logo" className="home-logo" />
+        <img src={dbaseLogo} alt="DBase Logo" className="home-logo" />
       </header>
 
       {/* Status Widget */}

@@ -1,5 +1,7 @@
-export const API_BASE = import.meta.env.DEV
-  ? "http://localhost:25918/api/"
-  : (import.meta.env.VITE_API_BASE ?? "https://api.dbasesolutions.in/api/");
+import { Capacitor } from "@capacitor/core";
 
-// "http://localhost:25918/api/"
+export const API_BASE = Capacitor.isNativePlatform()
+  ? (import.meta.env.VITE_API_BASE ?? "https://api.dbasesolutions.in/api/")
+  : import.meta.env.DEV
+  ? "/api/"
+  : (import.meta.env.VITE_API_BASE ?? "https://api.dbasesolutions.in/api/");

@@ -10,8 +10,12 @@ export class SignalRService {
   ): void {
     if (this.connection) return;
 
+    const hubUrl = (API_BASE.startsWith('http')
+      ? API_BASE.replace(/\/api\/$/, '')
+      : (typeof window !== 'undefined' ? window.location.origin : '')) + '/trackingHub';
+
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(API_BASE.replace(/\/api\/$/, '') + '/trackingHub', {
+      .withUrl(hubUrl, {
         skipNegotiation: true,
         transport: signalR.HttpTransportType.WebSockets,
       })

@@ -4,6 +4,7 @@ import {
   Settings,
   LogOut,
   Calendar,
+  Cake,
   User,
   Phone,
   Mail,
@@ -48,6 +49,7 @@ import QRCode from "qrcode";
 import idCardFrontClean from "../assets/id_card_front_clean.png";
 import idCardBack from "../assets/id_card_back.png";
 import dbsCenterBadge from "../assets/dbs_center_badge.png";
+import defaultAvatar from "../assets/avatar.png";
 import { API_BASE } from "../config";
 import { apiService } from "../utils/apiService";
 import "./EmpProfile.css";
@@ -188,6 +190,88 @@ const EmpProfile: React.FC = () => {
     }).catch(() => { });
   };
 
+  const normalizeToDateInput = (val: any): string => {
+    if (!val || val === "null" || val === "NULL" || val === "undefined") return "";
+    const s = String(val).trim();
+    if (!s || s === "01/01/1900" || s === "1900-01-01" || s.startsWith("1900-01-01")) return "";
+
+    // Microsoft /Date(1234567890)/ format
+    if (s.startsWith("/Date(") && s.endsWith(")/")) {
+      const match = /\/Date\((\d+)\)\//.exec(s);
+      if (match) {
+        const d = new Date(parseInt(match[1], 10));
+        if (!isNaN(d.getTime())) {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+      }
+    }
+
+    // Isolate date portion if time exists (e.g., '1986-03-23T00:00:00' or '03/23/1986 00:00:00')
+    let datePart = s;
+    if (datePart.includes("T")) {
+      datePart = datePart.split("T")[0];
+    } else if (datePart.includes(" ")) {
+      datePart = datePart.split(" ")[0];
+    }
+    datePart = datePart.trim();
+
+    // If YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+
+    // If YYYY/MM/DD
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(datePart)) {
+      const [y, m, d] = datePart.split("/");
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+
+    // If DD-MM-YYYY or DD/MM/YYYY
+    if (/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.test(datePart)) {
+      const parts = datePart.split(/[-/]/);
+      const p1 = parseInt(parts[0], 10);
+      const p2 = parseInt(parts[1], 10);
+      const y = parts[2];
+      if (p1 > 12) {
+        return `${y}-${String(p2).padStart(2, "0")}-${String(p1).padStart(2, "0")}`;
+      } else if (p2 > 12) {
+        return `${y}-${String(p1).padStart(2, "0")}-${String(p2).padStart(2, "0")}`;
+      } else {
+        return `${y}-${String(p2).padStart(2, "0")}-${String(p1).padStart(2, "0")}`;
+      }
+    }
+
+    // Fallback: JS Date parse
+    try {
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear();
+        if (y > 1901) {
+          const m = String(parsed.getMonth() + 1).padStart(2, "0");
+          const d = String(parsed.getDate()).padStart(2, "0");
+          return `${y}-${m}-${d}`;
+        }
+      }
+    } catch {}
+
+    return "";
+  };
+
+  const formatDisplayDate = (raw: any): string => {
+    if (!raw) return "—";
+    const str = String(raw).trim();
+    if (!str || str === "null" || str === "NULL" || str === "1900-01-01" || str === "01/01/1900" || str.startsWith("1900-01-01")) return "—";
+    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(str)) return str.toUpperCase();
+    const iso = normalizeToDateInput(str);
+    if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      const [y, m, d] = iso.split("-");
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const monthName = months[parseInt(m, 10) - 1] || m;
+      return `${d}-${monthName}-${y}`;
+    }
+    return str;
+  };
+
   const formatCardDOJ = (raw: any): string => {
     if (!raw) return "07-FEB-2022";
     const str = String(raw).trim();
@@ -226,7 +310,7 @@ const EmpProfile: React.FC = () => {
       userData.profilePic ||
       (userData.empCode
         ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
-        : "/images/avatar.png");
+        : defaultAvatar);
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -629,14 +713,14 @@ const EmpProfile: React.FC = () => {
         userData.profilePic ||
         (userData.empCode
           ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
-          : "/images/avatar.png");
+          : defaultAvatar);
 
       const bgImage = side === "front" ? idCardFrontClean : idCardBack;
 
       // Safely convert an image source into a base64 Data URL to prevent CORS/taint issues in html2canvas
       const toDataUrl = (src: string): Promise<string> => {
         return new Promise((resolve) => {
-          if (!src) return resolve("/images/avatar.png");
+          if (!src) return resolve(defaultAvatar);
           if (src.startsWith("data:") || src.startsWith("blob:")) return resolve(src);
           const img = new Image();
           img.crossOrigin = "anonymous";
@@ -656,7 +740,7 @@ const EmpProfile: React.FC = () => {
             resolve(src);
           };
           img.onerror = () => {
-            resolve("/images/avatar.png");
+            resolve(defaultAvatar);
           };
           img.src = src;
         });
@@ -665,7 +749,7 @@ const EmpProfile: React.FC = () => {
       // Prepare a pristine, circular avatar directly on an offscreen canvas to completely eliminate html2canvas clipping/crescent bugs
       const toCircularAvatarDataUrl = (src: string): Promise<string> => {
         return new Promise((resolve) => {
-          if (!src) return resolve("/images/avatar.png");
+          if (!src) return resolve(defaultAvatar);
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => {
@@ -713,7 +797,7 @@ const EmpProfile: React.FC = () => {
             resolve(src);
           };
           img.onerror = () => {
-            resolve("/images/avatar.png");
+            resolve(defaultAvatar);
           };
           img.src = src;
         });
@@ -896,7 +980,7 @@ const EmpProfile: React.FC = () => {
               img.onload = () => res(true);
               img.onerror = () => {
                 if (img.id === "download-avatar") {
-                  img.src = "/images/avatar.png";
+                  img.src = defaultAvatar;
                   img.onload = () => res(true);
                   img.onerror = () => res(false);
                 } else {
@@ -1051,7 +1135,7 @@ const EmpProfile: React.FC = () => {
           setQrCodeUrl(canvas.toDataURL("image/png"));
         }
       })
-      .catch((err) => console.error("Error generating ID card QR Code with logo:", err));
+      .catch((err: unknown) => console.error("Error generating ID card QR Code with logo:", err));
 
     return () => {
       isCancelled = true;
@@ -1239,8 +1323,14 @@ const EmpProfile: React.FC = () => {
     }
 
     if (empCode) {
+      const cachedProfileJson = localStorage.getItem("cached_user_profile");
+      const cachedProfile = cachedProfileJson ? JSON.parse(cachedProfileJson) : {};
       const savedPic =
         localStorage.getItem(`user_profile_pic_${empCode}`) ||
+        cachedProfile?.Img ||
+        cachedProfile?.img ||
+        cachedProfile?.ProfileImage ||
+        cachedProfile?.profileImage ||
         user?.Image ||
         user?.image ||
         user?.profilePic ||
@@ -1249,6 +1339,12 @@ const EmpProfile: React.FC = () => {
         user?.Img;
       if (savedPic && typeof savedPic === "string" && savedPic.trim() && savedPic !== "0") {
         setUserData((prev: any) => ({ ...prev, empCode, profilePic: savedPic }));
+      } else {
+        setUserData((prev: any) => ({
+          ...prev,
+          empCode,
+          profilePic: `/images/Emp-Profile-Pics/${empCode}.jpg`,
+        }));
       }
       fetchUserProfile(empCode);
     } else {
@@ -1436,17 +1532,11 @@ const EmpProfile: React.FC = () => {
         : "N";
     const rowAny = (row && typeof row === "object") ? row as any : {};
 
-    const rawDoj = getValue(4, ["_Doj", "Doj", "doj"], "");
-    const dojStr = rawDoj ? (String(rawDoj).includes("T") ? String(rawDoj).split("T")[0] : String(rawDoj)) : "";
+    const rawDoj = getValue(4, ["_Doj", "Doj", "doj", "DOJ"], "");
+    const dojStr = normalizeToDateInput(rawDoj);
 
     const rawDob = getValue(45, ["_Dob", "Dob", "dob", "DOB"], "");
-    const dobStr = rawDob
-      ? String(rawDob).includes("T")
-        ? String(rawDob).split("T")[0]
-        : String(rawDob).includes("/")
-          ? String(rawDob).split("/").reverse().join("-")
-          : String(rawDob)
-      : "";
+    const dobStr = normalizeToDateInput(rawDob);
 
     const checkInVal = getValue(44, ["_CheckIn", "checkIn", "CheckIn", "InTime", "intime"], "");
     const legacyCheckInVal = getValue(43, ["intime1", "InTime1"], "");
@@ -1707,8 +1797,19 @@ const EmpProfile: React.FC = () => {
 
         // Resolve profile picture preserving saved upload across refreshes
         const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const cachedProfileJson = localStorage.getItem("cached_user_profile");
+        const cachedProfile = cachedProfileJson ? JSON.parse(cachedProfileJson) : {};
         const dedicatedPic = localStorage.getItem(`user_profile_pic_${empCode}`);
-        const savedPic = dedicatedPic || localUser.profilePic || localUser.ProfilePic || localUser.ProfileImage || localUser.Img;
+        const savedPic =
+          dedicatedPic ||
+          cachedProfile?.Img ||
+          cachedProfile?.img ||
+          cachedProfile?.ProfileImage ||
+          cachedProfile?.profileImage ||
+          localUser.profilePic ||
+          localUser.ProfilePic ||
+          localUser.ProfileImage ||
+          localUser.Img;
 
         const isValidPic = (p: any) =>
           typeof p === "string" && p.trim() && p !== "0" && p !== "1" && p !== "null" && p !== "undefined";
@@ -1716,8 +1817,8 @@ const EmpProfile: React.FC = () => {
         const resolvedPic = isValidPic(savedPic)
           ? savedPic
           : (Array.isArray(userProfile)
-            ? (isValidPic(userProfile[42]) ? userProfile[42] : (userData?.profilePic || `/images/Emp-Profile-Pics/${empCode}.jpg`))
-            : (isValidPic(userProfile.Img || userProfile.ProfileImage) ? (userProfile.Img || userProfile.ProfileImage) : (userData?.profilePic || `/images/Emp-Profile-Pics/${empCode}.jpg`)));
+            ? (isValidPic(userProfile[42]) ? userProfile[42] : `/images/Emp-Profile-Pics/${empCode}.jpg`)
+            : (isValidPic(userProfile.Img || userProfile.ProfileImage) ? (userProfile.Img || userProfile.ProfileImage) : `/images/Emp-Profile-Pics/${empCode}.jpg`));
 
         if (Array.isArray(userProfile)) {
           // Legacy array-based mapping using mapGetEmployeeResponse for robust indexing
@@ -1772,8 +1873,8 @@ const EmpProfile: React.FC = () => {
             empCode: userProfile.EmpCode || userProfile.Empcode,
             empName: userProfile.EmpName || userProfile.Empname,
             designation: userProfile.Designation,
-            joiningDate: userProfile.DOJ,
-            dob: userProfile.DOB || userProfile.Dob || userProfile.dob || "",
+            joiningDate: normalizeToDateInput(userProfile.DOJ || userProfile.Doj || userProfile.doj),
+            dob: normalizeToDateInput(userProfile.DOB || userProfile.Dob || userProfile.dob),
             bloodGroup: userProfile.Blood,
             contactNumber: userProfile.Mobile,
             pan: userProfile.PanNo,
@@ -1786,7 +1887,7 @@ const EmpProfile: React.FC = () => {
             profilePic: resolvedPic,
             department: userProfile.Department,
             salaryAccountNo: userProfile.Accountno,
-            doj: userProfile.DOJ,
+            doj: normalizeToDateInput(userProfile.DOJ || userProfile.Doj || userProfile.doj),
             pfNo: userProfile.PFNo,
             esiNo: userProfile.ESINo,
             ifscCode: userProfile.IFSCcode,
@@ -2142,9 +2243,16 @@ const EmpProfile: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const formatToDDMMYYYY = (dateStr: string) => {
-      if (!dateStr || !dateStr.includes("-")) return dateStr;
-      const [y, m, d] = dateStr.split("-");
-      return `${d}/${m}/${y}`;
+      if (!dateStr) return "";
+      const cleaned = String(dateStr).trim();
+      if (!cleaned || cleaned === "null" || cleaned === "NULL" || cleaned.startsWith("1900-01-01")) return "";
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleaned)) return cleaned;
+      const iso = normalizeToDateInput(cleaned);
+      if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-");
+        return `${d}/${m}/${y}`;
+      }
+      return cleaned;
     };
 
     setRegisterLoading(true);
@@ -2577,14 +2685,16 @@ const EmpProfile: React.FC = () => {
               <img
                 src={
                   userData.profilePic ||
-                  (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : "/images/avatar.png")
+                  (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : defaultAvatar)
                 }
                 alt={userData.empName || "Employee Profile"}
                 className="ep-avatar-img"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  if (!target.src.includes("avatar.png")) {
-                    target.src = "/images/avatar.png";
+                  if (userData.empCode && !target.src.includes(`/images/${userData.empCode}.jpg`)) {
+                    target.src = `/images/${userData.empCode}.jpg`;
+                  } else if (!target.src.includes("avatar")) {
+                    target.src = defaultAvatar;
                   }
                 }}
               />
@@ -2783,6 +2893,12 @@ const EmpProfile: React.FC = () => {
             />
             <InfoItem
               color="var(--ion-color-primary)"
+              icon={Cake}
+              label="Date of Birth"
+              value={formatDisplayDate(userData.dob)}
+            />
+            <InfoItem
+              color="var(--ion-color-primary)"
               icon={Droplet}
               label="Blood Group"
               value={userData.bloodGroup}
@@ -2819,7 +2935,7 @@ const EmpProfile: React.FC = () => {
               color="var(--ion-color-primary)"
               icon={Calendar}
               label="Joining Date"
-              value={userData.doj}
+              value={formatDisplayDate(userData.doj || userData.joiningDate)}
             />
             <InfoItem
               color="var(--ion-color-primary)"
@@ -3174,14 +3290,16 @@ const EmpProfile: React.FC = () => {
                   <img
                     src={
                       userData.profilePic ||
-                      (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : "/images/avatar.png")
+                      (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : defaultAvatar)
                     }
                     alt={userData.empName || "Employee Profile"}
                     className="ep-profile-card-avatar-img"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      if (!target.src.includes("avatar.png")) {
-                        target.src = "/images/avatar.png";
+                      if (userData.empCode && !target.src.includes(`/images/${userData.empCode}.jpg`)) {
+                        target.src = `/images/${userData.empCode}.jpg`;
+                      } else if (!target.src.includes("avatar")) {
+                        target.src = defaultAvatar;
                       }
                     }}
                   />
@@ -3340,14 +3458,16 @@ const EmpProfile: React.FC = () => {
                                     userData.profilePic ||
                                     (userData.empCode
                                       ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
-                                      : "/images/avatar.png")
+                                      : defaultAvatar)
                                   }
-                                  alt={userData.empName || "Employee"}
+                                  alt="Employee Photo"
                                   className="ep-idcard-avatar-img"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    if (!target.src.includes("avatar.png")) {
-                                      target.src = "/images/avatar.png";
+                                    if (userData.empCode && !target.src.includes(`/images/${userData.empCode}.jpg`)) {
+                                      target.src = `/images/${userData.empCode}.jpg`;
+                                    } else if (!target.src.includes("avatar")) {
+                                      target.src = defaultAvatar;
                                     }
                                   }}
                                 />
@@ -3419,14 +3539,16 @@ const EmpProfile: React.FC = () => {
                                 userData.profilePic ||
                                 (userData.empCode
                                   ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
-                                  : "/images/avatar.png")
+                                  : defaultAvatar)
                               }
-                              alt={userData.empName || "Employee"}
+                              alt="Employee Photo"
                               className="ep-idcard-avatar-img"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                if (!target.src.includes("avatar.png")) {
-                                  target.src = "/images/avatar.png";
+                                if (userData.empCode && !target.src.includes(`/images/${userData.empCode}.jpg`)) {
+                                  target.src = `/images/${userData.empCode}.jpg`;
+                                } else if (!target.src.includes("avatar")) {
+                                  target.src = defaultAvatar;
                                 }
                               }}
                             />
@@ -3874,6 +3996,27 @@ Website: https://dbasesolutions.in/`}
                     </button>
                   </div>
 
+                  {/* Date of Birth */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon ep-icon-dob">
+                      <Cake size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">Date of Birth</span>
+                      <span className="ep-detail-value">{formatDisplayDate(userData.dob)}</span>
+                    </div>
+                    {userData.dob && (
+                      <button
+                        type="button"
+                        className="ep-detail-copy-btn"
+                        title="Copy Date of Birth"
+                        onClick={() => handleCopyValue("dob", formatDisplayDate(userData.dob))}
+                      >
+                        {copiedField === "dob" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                      </button>
+                    )}
+                  </div>
+
                   {/* Blood Group */}
                   <div className="ep-detail-tile">
                     <div className="ep-detail-icon ep-icon-blood">
@@ -3993,14 +4136,16 @@ Website: https://dbasesolutions.in/`}
                     <img
                       src={
                         userData.profilePic ||
-                        (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : "/images/avatar.png")
+                        (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : defaultAvatar)
                       }
                       alt={userData.empName || "Profile Preview"}
                       className="ep-upload-current-avatar"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        if (!target.src.includes("avatar.png")) {
-                          target.src = "/images/avatar.png";
+                        if (userData.empCode && !target.src.includes(`/images/${userData.empCode}.jpg`)) {
+                          target.src = `/images/${userData.empCode}.jpg`;
+                        } else if (!target.src.includes("avatar")) {
+                          target.src = defaultAvatar;
                         }
                       }}
                     />

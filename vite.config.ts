@@ -10,15 +10,60 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        // target: "http://localhost:25918",
-        target: "http://127.0.0.1:25918",
-        changeOrigin: true,
+        target: "http://localhost:25918",
+        changeOrigin: false,
         secure: false,
+        headers: {
+          Host: "localhost:25918",
+        },
         configure: (proxy, options) => {
           proxy.on('error', (err, req, res) => {
             console.log('[vite] Proxy Error:', err);
           });
         }
+      },
+      "/teltonikaHub": {
+        target: "http://localhost:25918",
+        ws: true,
+        changeOrigin: false,
+        headers: {
+          Host: "localhost:25918",
+        },
+      },
+      "/notificationHub": {
+        target: "http://localhost:25918",
+        ws: true,
+        changeOrigin: false,
+        headers: {
+          Host: "localhost:25918",
+        },
+      },
+      "/trackingHub": {
+        target: "http://localhost:25918",
+        ws: true,
+        changeOrigin: false,
+        headers: {
+          Host: "localhost:25918",
+        },
+      },
+      "^/(uploads|upload|MeetingFiles|Issue_File|attendance_snaps|Equipments|images|img)": {
+        target: "http://localhost:25918",
+        changeOrigin: false,
+        secure: false,
+        headers: {
+          Host: "localhost:25918",
+        },
+        bypass: (req) => {
+          const url = req.url || "";
+          if (
+            url.includes("dbase.png") ||
+            url.includes("avatar.png") ||
+            url.includes("dbs-logo-short") ||
+            url.includes("Emp-Profile-Pics")
+          ) {
+            return req.url;
+          }
+        },
       },
       "/nominatim": {
         target: "https://nominatim.openstreetmap.org",

@@ -32,21 +32,25 @@ export class SessionManager {
         sessionType,
       });
 
-      if (response.status === 200 && response.data?.sessionId) {
-        const session: TrackingSession = {
-          sessionId: response.data.sessionId,
-          empCode: response.data.empCode,
-          sessionType: response.data.sessionType,
-          referenceId: response.data.referenceId,
-          clientName: response.data.clientName,
-          description: response.data.description,
-        };
+      if (response.status === 200) {
+        if (response.data?.sessionId && Number(response.data.sessionId) > 0) {
+          const session: TrackingSession = {
+            sessionId: response.data.sessionId,
+            empCode: response.data.empCode,
+            sessionType: response.data.sessionType,
+            referenceId: response.data.referenceId,
+            clientName: response.data.clientName,
+            description: response.data.description,
+          };
 
-        await SQLiteService.set(SESSION_KEY, JSON.stringify(session));
-        return session;
+          await SQLiteService.set(SESSION_KEY, JSON.stringify(session));
+          return session;
+        }
+        // No active on-duty record scheduled for employee today
+        return null;
       }
     } catch (e) {
-      console.error('[SessionManager] Failed to start tracking session:', e);
+      console.warn('[SessionManager] Unable to connect to auto-start-session endpoint:', e);
     }
     return null;
   }

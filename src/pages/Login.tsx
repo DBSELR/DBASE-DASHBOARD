@@ -8,6 +8,7 @@ import EnterKeyHandler from "../components/EnterKeyHandler";
 import { API_BASE } from "../config";
 import { registerNativePush } from "../services/pushNotification";
 import { User, Lock, Eye, EyeOff, Bot } from "lucide-react";
+import dbaseLogo from "../assets/dbase.png";
 
 import "./Login.css";
 
@@ -190,14 +191,14 @@ const Login: React.FC = () => {
           {/* Splash */}
           {step === 1 && (
             <div className="db-splash-screen">
-              <img src="./images/dbase.png" className="db-animated-logo-large" />
+              <img src={dbaseLogo} alt="DBase Logo" className="db-animated-logo-large" />
             </div>
           )}
 
           {/* Welcome */}
           {step === 2 && (
             <div className="db-welcome-screen">
-              <img src="./images/dbase.png" className="db-animated-logo-large" />
+              <img src={dbaseLogo} alt="DBase Logo" className="db-animated-logo-large" />
               <h1 className="db-welcome-title">WELCOME</h1>
               <button className="db-get-started-btn" onClick={handleGetStarted}>
                 Get Started

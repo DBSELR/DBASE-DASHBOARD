@@ -1799,6 +1799,11 @@ body[color-theme="dark"] .ep-avatar-badge-plus {
   color: #ef4444 !important;
 }
 
+.ep-icon-dob {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #f59e0b !important;
+}
+
 .ep-detail-info {
   display: flex;
   flex-direction: column;

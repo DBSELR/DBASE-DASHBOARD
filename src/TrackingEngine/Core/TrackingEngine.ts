@@ -50,7 +50,7 @@ export class TrackingEngine {
     // Start remote session
     const session = await SessionManager.startSession(empCode);
     if (!session) {
-      console.error('[TrackingEngine] Failed to initialize session on backend.');
+      console.info('[TrackingEngine] Standby: No active On-Duty duty assigned for today.');
       return false;
     }
 

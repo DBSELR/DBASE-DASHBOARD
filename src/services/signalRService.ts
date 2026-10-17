@@ -3,11 +3,12 @@ import * as signalR from "@microsoft/signalr";
 // Derive hub URL from the same base as the REST API
 const getHubUrl = (): string => {
   const isDev = import.meta.env.DEV;
-  const base = isDev
-    ? "http://localhost:25918"
-    : (import.meta.env.VITE_API_BASE
-        ? import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, "")
-        : "https://api.dbasesolutions.in");
+  if (isDev && typeof window !== "undefined" && !window.location.origin.includes("capacitor")) {
+    return `${window.location.origin}/notificationHub`;
+  }
+  const base = import.meta.env.VITE_API_BASE
+    ? import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, "")
+    : "https://api.dbasesolutions.in";
   return `${base}/notificationHub`;
 };
 

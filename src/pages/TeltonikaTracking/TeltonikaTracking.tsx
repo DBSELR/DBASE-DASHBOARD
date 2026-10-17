@@ -50,6 +50,10 @@ import {
   Eye,
   Crosshair,
   UserCheck,
+  Grid,
+  Map as MapIcon,
+  Globe,
+  Target,
 } from "lucide-react";
 import axios from "axios";
 import * as signalR from "@microsoft/signalr";
@@ -352,21 +356,24 @@ const TeltonikaTracking: React.FC = () => {
     []
   );
 
-  // Effective speed calculation (falls back to CAN speed if GPS speed is 0)
+  // Effective speed calculation (falls back to CAN speed only if engine is on/charging and not resting)
   const effectiveSpeed = (currentDevice?.speed && currentDevice.speed > 0)
     ? currentDevice.speed
-    : (currentDevice?.canSpeed && currentDevice.canSpeed > 0)
+    : (currentDevice?.canSpeed && currentDevice.canSpeed > 0 && (currentDevice?.ignition || (currentDevice?.externalVoltage && currentDevice.externalVoltage >= 13.0)))
     ? currentDevice.canSpeed
     : 0;
 
   // Smart Multi-Source Engine State Evaluation
-  const isAlternatorCharging = Boolean(currentDevice?.externalVoltage && currentDevice.externalVoltage >= 13.0);
-  const isRpmActive = Boolean(currentDevice?.engineRpm && currentDevice.engineRpm > 300);
-  const isMoving = Boolean(effectiveSpeed > 3);
-  const isRawIgnActive = Boolean(currentDevice?.ignition);
-  const isEngineRunning = isRawIgnActive || isAlternatorCharging || isRpmActive || isMoving;
+  const isImmobilized = Boolean(currentDevice?.immobilizer);
+  const isAlternatorCharging = Boolean(!isImmobilized && currentDevice?.externalVoltage && currentDevice.externalVoltage >= 13.0);
+  const isRpmActive = Boolean(!isImmobilized && currentDevice?.engineRpm && currentDevice.engineRpm > 300);
+  const isMoving = Boolean(!isImmobilized && effectiveSpeed > 3);
+  const isRawIgnActive = Boolean(!isImmobilized && currentDevice?.ignition);
+  const isEngineRunning = !isImmobilized && (isRawIgnActive || isAlternatorCharging || isRpmActive || isMoving);
 
-  const engineStateReason = isAlternatorCharging
+  const engineStateReason = isImmobilized
+    ? "IMMOBILIZED: Starter Cut-Off Relay (DOUT1) Engaged • Engine Disabled"
+    : isAlternatorCharging
     ? `Alternator: ${currentDevice?.externalVoltage?.toFixed(2)}V (Charging Active)`
     : isRpmActive
     ? `Combustion: ${currentDevice?.engineRpm} RPM`
@@ -378,28 +385,51 @@ const TeltonikaTracking: React.FC = () => {
     ? `Resting Battery: ${currentDevice.externalVoltage.toFixed(2)}V (Engine Off)`
     : `Alternator Inactive (Engine Off)`;
 
-  // Smart Multi-Source Air Conditioner (AC) State Evaluation
-  const isAcEngagedBySignal = Boolean(currentDevice?.acStatus);
-  const isAcEngagedByEngineLoad = Boolean(
-    isEngineRunning && currentDevice?.engineLoad && currentDevice.engineLoad >= 17
-  );
-  const isAcEngagedByAlternatorRpm = Boolean(
-    isEngineRunning && isAlternatorCharging && currentDevice?.engineRpm && currentDevice.engineRpm > 600
-  );
+  // Smart Air Conditioner (AC) State Evaluation
+  // AC mechanically requires the engine running and not immobilized
+  const effectiveAcStatus = Boolean(!isImmobilized && isEngineRunning && currentDevice?.acStatus);
 
-  const effectiveAcStatus = Boolean(
-    isAcEngagedBySignal || isAcEngagedByEngineLoad || isAcEngagedByAlternatorRpm
-  );
-
-  const acStateReason = !isEngineRunning
+  const acStateReason = isImmobilized
+    ? "Engine Cut (Compressor Disabled)"
+    : !isEngineRunning
     ? "Engine Off (Compressor Inactive)"
-    : isAcEngagedBySignal
-    ? "Direct CAN/DIN Signal Active"
-    : isAcEngagedByEngineLoad
-    ? `Compressor Engaged (Engine Load ${currentDevice?.engineLoad}%)`
-    : isAcEngagedByAlternatorRpm
-    ? `Combustion & Alternator Active (${currentDevice?.engineRpm} RPM)`
-    : "Compressor Disengaged (Idle Load < 16%)";
+    : effectiveAcStatus
+    ? "AC Active (Compressor Engaged • Cooling ON)"
+    : "AC Inactive (Compressor Disengaged • Vent/Off)";
+
+  // Detailed Telemetry Evaluation Console Logger
+  const lastLoggedTelemetryRef = useRef<string>("");
+  useEffect(() => {
+    if (!currentDevice) return;
+
+    const signature = `${currentDevice.imei}_${isEngineRunning}_${isImmobilized}_${effectiveAcStatus}_${currentDevice.engineRpm}_${currentDevice.speed}_${currentDevice.externalVoltage}_${currentDevice.engineLoad}`;
+    if (lastLoggedTelemetryRef.current === signature) return;
+    lastLoggedTelemetryRef.current = signature;
+
+    console.groupCollapsed(
+      `%c🚗 [Teltonika Telemetry Evaluation] ${currentDevice.vehicleNo || currentDevice.imei} | Engine: ${isImmobilized ? "🛑 IMMOBILIZED (CUT)" : isEngineRunning ? "🟢 ENGINE ON" : "⚪ ENGINE OFF"} | AC: ${effectiveAcStatus ? "❄️ ON" : "💨 OFF"}`,
+      `color: ${isImmobilized ? "#ef4444" : isEngineRunning ? "#10b981" : "#64748b"}; font-weight: bold; font-size: 11px; padding: 2px 4px;`
+    );
+    console.table({
+      "Vehicle": currentDevice.vehicleNo || "N/A",
+      "IMEI": currentDevice.imei,
+      "Immobilizer (DOUT1 Relay)": isImmobilized ? "ENGAGED (Relay 1 - Engine Cut)" : "DISENGAGED (Relay 0 - Normal)",
+      "Smart Engine State": isImmobilized ? "IMMOBILIZED / CUT OFF" : isEngineRunning ? "RUNNING" : "STOPPED / OFF",
+      "Engine State Reason": engineStateReason,
+      "Raw Ignition (DIN1)": currentDevice.ignition ? "ON (True)" : "OFF (False)",
+      "Alternator Voltage": `${currentDevice.externalVoltage?.toFixed(2) ?? "N/A"} V (${isAlternatorCharging ? "Charging" : "Resting"})`,
+      "Engine Combustion RPM": `${currentDevice.engineRpm ?? 0} RPM`,
+      "Engine Load": `${currentDevice.engineLoad ?? 0} %`,
+      "Speed": `${effectiveSpeed} km/h`,
+      "Air Conditioner (AC)": effectiveAcStatus ? "AC: ON" : "AC: OFF",
+      "AC Evaluation Reason": acStateReason,
+      "Door State": currentDevice.doorStatus ? "OPEN" : "CLOSED",
+      "Last Telemetry Recv": currentDevice.lastCommunicationTime ? new Date(currentDevice.lastCommunicationTime).toLocaleTimeString() : "N/A",
+      "Device Status": currentDevice.deviceStatus
+    });
+    console.log("%cTelemetry Raw Payload Object:", "color: #94a3b8; font-style: italic;", currentDevice);
+    console.groupEnd();
+  }, [currentDevice, isEngineRunning, isImmobilized, effectiveAcStatus, effectiveSpeed, engineStateReason, acStateReason, isAlternatorCharging]);
 
   // Overspeed evaluation
   const speedLimit = currentDevice?.speedLimit ?? 80;
@@ -783,6 +813,39 @@ const TeltonikaTracking: React.FC = () => {
   const confirmToggleImmobilizer = async () => {
     setShowImmobilizerConfirmModal(false);
     const cmd = pendingImmobilizerState ? "setdigout 1" : "setdigout 0";
+
+    console.warn(
+      `%c🛑 [Teltonika Remote Engine Immobilizer] Executing '${cmd}' for vehicle: ${currentDevice?.vehicleNo || currentDevice?.imei}`,
+      "color: #ef4444; font-weight: bold; font-size: 13px;"
+    );
+    console.table({
+      "Action": pendingImmobilizerState ? "ENGAGE IMMOBILIZER (CUT ENGINE)" : "DISENGAGE IMMOBILIZER (RESTORE POWER)",
+      "Target Relay": "DOUT1 (Starter / Fuel Cut-Off Relay)",
+      "Command Sent": cmd,
+      "Vehicle": currentDevice?.vehicleNo || currentDevice?.imei,
+      "IMEI": currentDevice?.imei,
+      "Expected Outcome": pendingImmobilizerState ? "Engine Switches OFF, Speed -> 0, RPM -> 0, AC -> OFF" : "Engine Starter Relay Restored"
+    });
+
+    // Optimistic device state update: immediately force engine cut if locking
+    if (currentDevice?.imei) {
+      setDevices((prev) =>
+        prev.map((d) =>
+          d.imei === currentDevice.imei
+            ? {
+                ...d,
+                immobilizer: pendingImmobilizerState,
+                ignition: pendingImmobilizerState ? false : d.ignition,
+                engineRpm: pendingImmobilizerState ? 0 : d.engineRpm,
+                speed: pendingImmobilizerState ? 0 : d.speed,
+                acStatus: pendingImmobilizerState ? false : d.acStatus,
+                deviceStatus: pendingImmobilizerState ? "Stopped" : d.deviceStatus,
+              }
+            : d
+        )
+      );
+    }
+
     await sendCommand(cmd);
   };
 
@@ -942,7 +1005,9 @@ const TeltonikaTracking: React.FC = () => {
             res.data
           );
         }
-        await fetchDevices();
+        if (!isSilent || hubStatus !== "connected") {
+          await fetchDevices();
+        }
       } else if (!isSilent) {
         setToastMsg(res.data?.message || "Sync completed with no new records.");
       }
@@ -958,7 +1023,7 @@ const TeltonikaTracking: React.FC = () => {
         setIsAutoSyncing(false);
       }
     }
-  }, [cleanApiBase, addLog, fetchDevices]);
+  }, [cleanApiBase, addLog, fetchDevices, hubStatus]);
 
   // Automatic Realtime Gateway Poller (Runs every 1.5 seconds)
   useEffect(() => {
@@ -979,26 +1044,54 @@ const TeltonikaTracking: React.FC = () => {
     if (e) e.stopPropagation();
     if (!currentDevice?.imei) return;
 
+    if (isImmobilized) {
+      setToastMsg("Cannot operate AC while vehicle engine is remotely immobilized.");
+      console.warn("[Teltonika AC Control] Blocked: Vehicle engine is remotely immobilized.");
+      return;
+    }
+
     const nextState = !effectiveAcStatus;
+
+    console.info(
+      `%c❄️ [Teltonika AC Control] Toggling AC for vehicle ${currentDevice?.vehicleNo || currentDevice?.imei}: ${effectiveAcStatus ? 'ON' : 'OFF'} -> ${nextState ? 'ON' : 'OFF'}`,
+      "color: #06b6d4; font-weight: bold; font-size: 13px;"
+    );
+    console.table({
+      "Vehicle": currentDevice?.vehicleNo || currentDevice?.imei,
+      "IMEI": currentDevice.imei,
+      "Previous AC State": effectiveAcStatus ? "ON" : "OFF",
+      "Requested State": nextState ? "ON" : "OFF",
+      "Engine Running": isEngineRunning ? "YES" : "NO",
+      "Engine RPM": currentDevice?.engineRpm ?? 0,
+      "Immobilizer": isImmobilized ? "ACTIVE (CUT)" : "OFF",
+      "Endpoint": `${cleanApiBase}/TeltonikaTracking/toggle-ac?imei=${currentDevice.imei}&acStatus=${nextState}`
+    });
+
+    // Optimistic update
+    setDevices((prev) =>
+      prev.map((d) => (d.imei === currentDevice.imei ? { ...d, acStatus: nextState } : d))
+    );
+
     try {
       const res = await axios.post(`${cleanApiBase}/TeltonikaTracking/toggle-ac`, null, {
         params: { imei: currentDevice.imei, acStatus: nextState },
       });
       if (res.data && res.data.success) {
-        setDevices((prev) =>
-          prev.map((d) => (d.imei === currentDevice.imei ? { ...d, acStatus: nextState } : d))
-        );
         setToastMsg(`AC status switched to ${nextState ? "ON" : "OFF"}`);
         addLog("COMMAND", "info", `AC override dispatched: ${nextState ? "ON" : "OFF"}`);
       }
     } catch (err: any) {
       setToastMsg(`Failed to toggle AC: ${err.message}`);
+      console.error("[Teltonika AC Control] Toggle AC error:", err);
+      await fetchDevices();
     }
   };
 
   // SignalR Hub Connection
   useEffect(() => {
-    const hubUrl = API_BASE.replace(/\/api\/$/, "") + "/teltonikaHub";
+    const hubUrl = (API_BASE.startsWith("http")
+      ? API_BASE.replace(/\/api\/$/, "")
+      : window.location.origin) + "/teltonikaHub";
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
         skipNegotiation: true,
@@ -1023,8 +1116,16 @@ const TeltonikaTracking: React.FC = () => {
       setDevices((prev) => {
         const idx = prev.findIndex((d) => d.imei === incomingDevice.imei);
         if (idx >= 0) {
+          const existing = prev[idx];
           const updated = [...prev];
-          updated[idx] = { ...updated[idx], ...incomingDevice };
+          updated[idx] = {
+            ...existing,
+            ...incomingDevice,
+            vehicleNo: incomingDevice.vehicleNo || existing.vehicleNo,
+            deviceName: incomingDevice.deviceName || existing.deviceName,
+            vin: incomingDevice.vin || existing.vin,
+            speedLimit: incomingDevice.speedLimit || existing.speedLimit,
+          };
           return updated;
         }
         return [incomingDevice, ...prev];
@@ -1151,18 +1252,21 @@ const TeltonikaTracking: React.FC = () => {
                 <button
                   className={`teltonika-tab-btn ${activeTab === "live" ? "active" : ""}`}
                   onClick={() => setActiveTab("live")}
+                  title="Live Telematics & GPS Map"
                 >
-                  <Navigation size={14} /> Live Map
+                  <Navigation size={14} /> Live
                 </button>
                 <button
                   className={`teltonika-tab-btn ${activeTab === "history" ? "active" : ""}`}
                   onClick={() => setActiveTab("history")}
+                  title="Trip & Route History Playback"
                 >
-                  <RotateCcw size={14} /> Trip History
+                  <RotateCcw size={14} /> History
                 </button>
                 <button
                   className={`teltonika-tab-btn ${activeTab === "alerts" ? "active" : ""}`}
                   onClick={() => setActiveTab("alerts")}
+                  title="Fleet Alerts & Diagnostics"
                 >
                   <Bell size={14} /> Alerts
                   {alerts.filter((a) => !a.isAcknowledged).length > 0 && (
@@ -1174,31 +1278,35 @@ const TeltonikaTracking: React.FC = () => {
                 <button
                   className={`teltonika-tab-btn ${activeTab === "reports" ? "active" : ""}`}
                   onClick={() => setActiveTab("reports")}
+                  title="Fleet Utilization & Trip Reports"
                 >
                   <TrendingUp size={14} /> Reports
                 </button>
                 <button
                   className={`teltonika-tab-btn ${activeTab === "geofences" ? "active" : ""}`}
                   onClick={() => setActiveTab("geofences")}
+                  title="Geofences & Safety Perimeters"
                 >
                   <MapPin size={14} /> Geofences
                 </button>
                 <button
                   className={`teltonika-tab-btn ${activeTab === "commands" ? "active" : ""}`}
                   onClick={() => setActiveTab("commands")}
+                  title="Remote GPRS Commands & Engine Immobilizer"
                 >
                   <Send size={14} /> Commands
                 </button>
                 <button
                   className={`teltonika-tab-btn ${activeTab === "setup" ? "active" : ""}`}
                   onClick={() => setActiveTab("setup")}
+                  title="Teltonika Device & Server Setup Guide"
                 >
-                  <Server size={14} /> Setup Guide
+                  <Server size={14} /> Setup
                 </button>
                 <button
                   className={`teltonika-tab-btn ${showConsole ? "active" : ""}`}
                   onClick={() => setShowConsole((prev) => !prev)}
-                  title="Toggle Diagnostic Console"
+                  title="Toggle Diagnostic Terminal Console"
                 >
                   <Terminal size={14} /> Console
                 </button>
@@ -1272,8 +1380,8 @@ const TeltonikaTracking: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className={`status-badge ${(currentDevice?.deviceStatus || "offline").toLowerCase()}`}>
-                        {currentDevice?.deviceStatus || "Offline"}
+                      <div className={`status-badge ${isImmobilized ? "danger" : (currentDevice?.deviceStatus || "offline").toLowerCase()}`} style={isImmobilized ? { background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.4)", fontWeight: 700 } : undefined}>
+                        {isImmobilized ? "IMMOBILIZED (CUT)" : currentDevice?.deviceStatus || "Offline"}
                       </div>
                     </div>
 
@@ -1292,18 +1400,25 @@ const TeltonikaTracking: React.FC = () => {
                     </div>
 
                     {devices.length > 1 && (
-                      <select
-                        className="history-date-input"
-                        style={{ marginTop: "10px", width: "100%" }}
-                        value={selectedImei}
-                        onChange={(e) => setSelectedImei(e.target.value)}
-                      >
-                        {devices.map((d) => (
-                          <option key={d.imei} value={d.imei}>
-                            {d.vehicleNo ? `${d.vehicleNo} - ${d.deviceName}` : d.deviceName} ({d.imei})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="vehicle-selector-wrapper">
+                        <label className="vehicle-selector-label">
+                          <Car size={12} /> Switch Fleet Unit ({devices.length} Available)
+                        </label>
+                        <div className="vehicle-select-control">
+                          <select
+                            className="vehicle-dropdown-select"
+                            value={selectedImei}
+                            onChange={(e) => setSelectedImei(e.target.value)}
+                          >
+                            {devices.map((d) => (
+                              <option key={d.imei} value={d.imei}>
+                                {d.vehicleNo || d.deviceName} • {d.deviceModel || "FMC003"} ({d.imei.slice(-6)})
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown size={14} className="vehicle-select-arrow" />
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1314,9 +1429,8 @@ const TeltonikaTracking: React.FC = () => {
                     {/* OBD-II Fault Codes Banner */}
                     {(() => {
                       const dtcs = parseDtcCodes(currentDevice?.dtcFaultCodes);
-                      const count = currentDevice?.dtcCount ?? dtcs.length;
-                      if (count > 0 || dtcs.length > 0) {
-                        const displayDtcs = dtcs.length > 0 ? dtcs : [{ code: "U04B1", standard: "OBDII" }];
+                      const hasActiveDtc = dtcs.length > 0;
+                      if (hasActiveDtc) {
                         return (
                           <div className="dtc-alert-box active">
                             <div className="dtc-alert-header">
@@ -1324,22 +1438,32 @@ const TeltonikaTracking: React.FC = () => {
                                 <AlertTriangle size={18} className="dtc-icon" />
                                 <span className="dtc-title">Active OBD-II Fault Code</span>
                               </div>
-                              <span className="dtc-count-pill">{count || 1} MIL Code</span>
+                              <span className="dtc-count-pill">{dtcs.length} MIL Code{dtcs.length > 1 ? "s" : ""}</span>
                             </div>
                             <div className="dtc-list">
-                              {displayDtcs.map((dtc: any, idx: number) => (
-                                <div key={idx} className="dtc-item">
-                                  <div className="dtc-code-badge">{dtc.code || "U04B1"}</div>
-                                  <div className="dtc-item-details">
-                                    <div className="dtc-code-name">
-                                      {dtc.code === "U04B1"
-                                        ? "Invalid Data From Headlamp Module"
-                                        : "Diagnostic Trouble Code"}
+                              {dtcs.map((dtc: any, idx: number) => {
+                                const codeStr = String(dtc.code || dtc || "").toUpperCase();
+                                const systemName = codeStr.startsWith("P")
+                                  ? "Powertrain System (Engine & Transmission)"
+                                  : codeStr.startsWith("C")
+                                  ? "Chassis System (Brakes & Steering)"
+                                  : codeStr.startsWith("B")
+                                  ? "Body Electronics (Lighting & Climate)"
+                                  : codeStr.startsWith("U")
+                                  ? "Network & Bus Communication"
+                                  : "Diagnostic Trouble Code";
+                                return (
+                                  <div key={idx} className="dtc-item">
+                                    <div className="dtc-code-badge">{codeStr}</div>
+                                    <div className="dtc-item-details">
+                                      <div className="dtc-code-name">
+                                        {dtc.description || (codeStr === "U04B1" ? "Invalid Data From Headlamp Module" : "CAN Telematics DTC")}
+                                      </div>
+                                      <div className="dtc-code-system">Standard: {dtc.standard || "OBDII"} • {systemName}</div>
                                     </div>
-                                    <div className="dtc-code-system">Standard: {dtc.standard || "OBDII"}</div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1352,42 +1476,68 @@ const TeltonikaTracking: React.FC = () => {
                       );
                     })()}
 
-                    {/* Sensor & Accessories Quick Indicators Bar */}
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "10px 0" }}>
+                    {/* Sensor & Accessories Quick Indicators Grid */}
+                    <div className="quick-indicators-grid">
                       {/* AC Status */}
                       <button
                         type="button"
-                        className={`ac-pill ${effectiveAcStatus ? "on" : "off"}`}
+                        className={`quick-indicator-item ac-item ${effectiveAcStatus ? "on" : "off"}`}
                         onClick={handleToggleAc}
-                        title={`Air Conditioner: ${effectiveAcStatus ? "ON" : "OFF"} (${acStateReason}) • Click to toggle/override`}
+                        title={`Air Conditioner: ${effectiveAcStatus ? "ON" : "OFF"} (${acStateReason}) • Click to test/toggle`}
                       >
-                        <Wind size={13} className={effectiveAcStatus ? "ac-fan-spin" : ""} />
-                        <span>AC: {effectiveAcStatus ? "ON" : "OFF"}</span>
+                        <div className="quick-indicator-icon">
+                          <Wind size={14} className={effectiveAcStatus ? "ac-fan-spin" : ""} />
+                        </div>
+                        <div className="quick-indicator-content">
+                          <span className="quick-indicator-label">Air Conditioner</span>
+                          <span className="quick-indicator-val" style={{ color: effectiveAcStatus ? "#06b6d4" : undefined }}>
+                            {effectiveAcStatus ? "ACTIVE (ON)" : "INACTIVE (OFF)"}
+                          </span>
+                        </div>
                       </button>
 
                       {/* Door Status */}
-                      <span className={`door-pill ${currentDevice?.doorStatus ? "open" : "closed"}`}>
-                        <ShieldAlert size={13} />
-                        <span>Door: {currentDevice?.doorStatus ? "OPEN" : "CLOSED"}</span>
-                      </span>
+                      <div className={`quick-indicator-item door-item ${currentDevice?.doorStatus ? "open" : "closed"}`}>
+                        <div className="quick-indicator-icon">
+                          <ShieldAlert size={14} />
+                        </div>
+                        <div className="quick-indicator-content">
+                          <span className="quick-indicator-label">Vehicle Doors</span>
+                          <span className="quick-indicator-val" style={{ color: currentDevice?.doorStatus ? "#d97706" : "#059669" }}>
+                            {currentDevice?.doorStatus ? "DOOR OPEN" : "ALL CLOSED"}
+                          </span>
+                        </div>
+                      </div>
 
                       {/* Immobilizer Relay */}
-                      <span className={`immob-pill ${currentDevice?.immobilizer ? "locked" : "active"}`}>
-                        {currentDevice?.immobilizer ? <Lock size={13} /> : <Unlock size={13} />}
-                        <span>Relay: {currentDevice?.immobilizer ? "LOCKED" : "ACTIVE"}</span>
-                      </span>
+                      <div className={`quick-indicator-item relay-item ${isImmobilized ? "locked" : "active"}`}>
+                        <div className="quick-indicator-icon">
+                          {isImmobilized ? <Lock size={14} /> : <Unlock size={14} />}
+                        </div>
+                        <div className="quick-indicator-content">
+                          <span className="quick-indicator-label">Starter Relay</span>
+                          <span className="quick-indicator-val" style={{ color: isImmobilized ? "#dc2626" : "#059669" }}>
+                            {isImmobilized ? "ENGINE CUT" : "RELAY NORMAL"}
+                          </span>
+                        </div>
+                      </div>
 
                       {/* Driver ID */}
-                      <span className="driver-chip" style={{ fontSize: "0.72rem", background: "rgba(148,163,184,0.15)", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <UserCheck size={13} />
-                        <span>{currentDevice?.driverId || "Unassigned"}</span>
-                      </span>
+                      <div className="quick-indicator-item driver-item">
+                        <div className="quick-indicator-icon">
+                          <UserCheck size={14} />
+                        </div>
+                        <div className="quick-indicator-content">
+                          <span className="quick-indicator-label">Assigned Driver</span>
+                          <span className="quick-indicator-val">{currentDevice?.driverId || "Unassigned"}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="section-label">Realtime Telematics & Health</div>
 
                     <div className="telemetry-grid">
-                      {/* Speed */}
+                      {/* 1. Speed */}
                       <div className={`telemetry-card ${effectiveSpeed > 0 ? "highlight" : ""} ${isOverspeeding ? "engine-on-active" : ""}`}>
                         <div className="telemetry-card-top">
                           <span>Speed</span>
@@ -1397,26 +1547,32 @@ const TeltonikaTracking: React.FC = () => {
                           <span className="telemetry-value">{effectiveSpeed}</span>
                           <span className="telemetry-unit">km/h</span>
                         </div>
-                        <div style={{ fontSize: "0.68rem", color: isOverspeeding ? "#ef4444" : "#94a3b8", marginTop: "3px", fontWeight: isOverspeeding ? 700 : 500 }}>
-                          {isOverspeeding ? `⚠️ OVERSPEED (Limit ${speedLimit} km/h)` : `Limit: ${speedLimit} km/h`}
+                        <div className="telemetry-subtext" style={{ color: isOverspeeding ? "#ef4444" : undefined }}>
+                          {isOverspeeding ? `⚠️ OVERSPEED (Limit ${speedLimit} km/h)` : `Speed Limit: ${speedLimit} km/h`}
                         </div>
                       </div>
 
-                      {/* Engine & Ignition */}
-                      <div className={`telemetry-card ${isEngineRunning ? "engine-on-active" : ""}`}>
+                      {/* 2. Smart Engine */}
+                      <div className={`telemetry-card ${isImmobilized ? "engine-cut-active" : isEngineRunning ? "engine-on-active" : ""}`}>
                         <div className="telemetry-card-top">
                           <span>Smart Engine</span>
-                          <Zap size={16} className={isEngineRunning ? "text-emerald-400 glow-spark" : "text-slate-400"} />
+                          {isImmobilized ? (
+                            <Lock size={16} className="text-rose-500" />
+                          ) : (
+                            <Zap size={16} className={isEngineRunning ? "text-emerald-400 glow-spark" : "text-slate-400"} />
+                          )}
                         </div>
-                        <div style={{ marginTop: "4px" }}>
-                          <span className={`ignition-pill ${isEngineRunning ? "on" : "off"}`}>
-                            {isEngineRunning ? "ENGINE ON" : "ENGINE OFF"}
+                        <div className="telemetry-value-wrap">
+                          <span className={`ignition-pill ${isImmobilized ? "cut" : isEngineRunning ? "on" : "off"}`}>
+                            {isImmobilized ? "ENGINE CUT" : isEngineRunning ? "ENGINE ON" : "ENGINE OFF"}
                           </span>
-                          <div className="engine-subtext">{engineStateReason}</div>
+                        </div>
+                        <div className="telemetry-subtext" style={{ color: isImmobilized ? "#ef4444" : isEngineRunning ? "#059669" : undefined }} title={engineStateReason}>
+                          {engineStateReason}
                         </div>
                       </div>
 
-                      {/* Engine RPM */}
+                      {/* 3. Engine RPM */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>Engine RPM</span>
@@ -1426,9 +1582,12 @@ const TeltonikaTracking: React.FC = () => {
                           <span className="telemetry-value">{currentDevice?.engineRpm ?? 0}</span>
                           <span className="telemetry-unit">rpm</span>
                         </div>
+                        <div className="telemetry-subtext">
+                          {isEngineRunning ? (currentDevice?.engineRpm ? `${currentDevice.engineRpm} RPM Combustion` : "Idle Baseline") : "Combustion Inactive"}
+                        </div>
                       </div>
 
-                      {/* Engine Load */}
+                      {/* 4. Engine Load */}
                       <div className="telemetry-card highlight-cyan">
                         <div className="telemetry-card-top">
                           <span>Engine Load</span>
@@ -1438,15 +1597,17 @@ const TeltonikaTracking: React.FC = () => {
                           <span className="telemetry-value">{currentDevice?.engineLoad ?? 18}</span>
                           <span className="telemetry-unit">%</span>
                         </div>
-                        <div className="engine-load-bar-wrap">
-                          <div
-                            className="engine-load-bar-fill"
-                            style={{ width: `${Math.min(100, Math.max(0, currentDevice?.engineLoad ?? 18))}%` }}
-                          />
+                        <div>
+                          <div className="engine-load-bar-wrap">
+                            <div
+                              className="engine-load-bar-fill"
+                              style={{ width: `${Math.min(100, Math.max(0, currentDevice?.engineLoad ?? 18))}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      {/* Air Conditioning (AC) */}
+                      {/* 5. Air Conditioner (AC) */}
                       <div
                         className={`telemetry-card ${effectiveAcStatus ? "highlight-cyan ac-card-active" : ""}`}
                         onClick={handleToggleAc}
@@ -1457,18 +1618,17 @@ const TeltonikaTracking: React.FC = () => {
                           <span>Air Conditioner</span>
                           <Wind size={16} className={effectiveAcStatus ? "ac-fan-spin text-cyan-400" : "text-slate-400"} />
                         </div>
-                        <div style={{ marginTop: "4px" }}>
-                          <span className={`ac-pill ${effectiveAcStatus ? "on" : "off"}`}>
-                            <Wind size={13} className={effectiveAcStatus ? "ac-fan-spin" : ""} />
-                            <span>AC: {effectiveAcStatus ? "ON" : "OFF"}</span>
+                        <div className="telemetry-value-wrap">
+                          <span className="telemetry-value" style={{ fontSize: "1.05rem", color: effectiveAcStatus ? "#0891b2" : "#64748b" }}>
+                            {effectiveAcStatus ? "COOLING ACTIVE" : "OFF / VENT"}
                           </span>
-                          <div className="engine-subtext" style={{ fontSize: "0.68rem", marginTop: "4px" }}>
-                            {acStateReason}
-                          </div>
+                        </div>
+                        <div className="telemetry-subtext" style={{ color: effectiveAcStatus ? "#06b6d4" : undefined }} title={acStateReason}>
+                          {acStateReason}
                         </div>
                       </div>
 
-                      {/* Fuel Volume */}
+                      {/* 6. Fuel Volume */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>Fuel Volume</span>
@@ -1478,9 +1638,12 @@ const TeltonikaTracking: React.FC = () => {
                           <span className="telemetry-value">{currentDevice?.fuelVolume ?? 22}</span>
                           <span className="telemetry-unit">L</span>
                         </div>
+                        <div className="telemetry-subtext">
+                          Tank Capacity: ~48% Full
+                        </div>
                       </div>
 
-                      {/* Cluster Mileage */}
+                      {/* 7. Cluster Mileage */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>Cluster Mileage</span>
@@ -1496,9 +1659,12 @@ const TeltonikaTracking: React.FC = () => {
                           </span>
                           <span className="telemetry-unit">km</span>
                         </div>
+                        <div className="telemetry-subtext">
+                          Digital CAN Odometer
+                        </div>
                       </div>
 
-                      {/* Battery Voltage */}
+                      {/* 8. Battery Voltage */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>Battery Voltage</span>
@@ -1514,12 +1680,12 @@ const TeltonikaTracking: React.FC = () => {
                           </span>
                           <span className="telemetry-unit">V</span>
                         </div>
-                        <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: "2px" }}>
-                          Backup: {currentDevice?.batteryVoltage ? `${currentDevice.batteryVoltage.toFixed(2)}V` : "3.7V"}
+                        <div className="telemetry-subtext">
+                          Backup: {currentDevice?.batteryVoltage ? `${currentDevice.batteryVoltage.toFixed(2)}V` : "4.10V"}
                         </div>
                       </div>
 
-                      {/* Coolant Temp */}
+                      {/* 9. Coolant Temp */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>Coolant Temp</span>
@@ -1529,9 +1695,12 @@ const TeltonikaTracking: React.FC = () => {
                           <span className="telemetry-value">{currentDevice?.coolantTemp ?? 88}</span>
                           <span className="telemetry-unit">°C</span>
                         </div>
+                        <div className="telemetry-subtext">
+                          Optimal Range (80–95°C)
+                        </div>
                       </div>
 
-                      {/* Satellites */}
+                      {/* 10. GPS Satellites */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>GPS Satellites</span>
@@ -1541,9 +1710,12 @@ const TeltonikaTracking: React.FC = () => {
                           <span className="telemetry-value">{currentDevice?.satellites ?? 14}</span>
                           <span className="telemetry-unit">locked</span>
                         </div>
+                        <div className="telemetry-subtext">
+                          3D GNSS Fix • HDOP 1.0
+                        </div>
                       </div>
 
-                      {/* GSM Signal */}
+                      {/* 11. GSM Signal */}
                       <div className="telemetry-card">
                         <div className="telemetry-card-top">
                           <span>GSM Signal</span>
@@ -1552,6 +1724,24 @@ const TeltonikaTracking: React.FC = () => {
                         <div className="telemetry-value-wrap">
                           <span className="telemetry-value">{currentDevice?.gsmSignal ?? 100}</span>
                           <span className="telemetry-unit">%</span>
+                        </div>
+                        <div className="telemetry-subtext">
+                          4G LTE Network Connected
+                        </div>
+                      </div>
+
+                      {/* 12. Altitude & Fix */}
+                      <div className="telemetry-card">
+                        <div className="telemetry-card-top">
+                          <span>Altitude & Fix</span>
+                          <Navigation size={16} />
+                        </div>
+                        <div className="telemetry-value-wrap">
+                          <span className="telemetry-value">{currentDevice?.altitude ? Math.round(currentDevice.altitude) : 34}</span>
+                          <span className="telemetry-unit">m</span>
+                        </div>
+                        <div className="telemetry-subtext">
+                          Heading: {Math.round(currentDevice?.heading ?? 0)}° • MSL Elevation
                         </div>
                       </div>
                     </div>
@@ -1670,64 +1860,35 @@ const TeltonikaTracking: React.FC = () => {
               <div className="teltonika-map-container">
                 <div id="teltonika-map" ref={mapContainerRef}></div>
 
-                {/* Map Style & Follower Toggle Bar */}
-                <div className="map-style-toggle-bar">
-                  <button
-                    className={`map-style-btn ${mapStyle === "grid" ? "active" : ""}`}
-                    onClick={() => changeMapStyle("grid")}
-                  >
-                    Tactical Grid
-                  </button>
-                  <button
-                    className={`map-style-btn ${mapStyle === "streets" ? "active" : ""}`}
-                    onClick={() => changeMapStyle("streets")}
-                  >
-                    Streets
-                  </button>
-                  <button
-                    className={`map-style-btn ${mapStyle === "voyager" ? "active" : ""}`}
-                    onClick={() => changeMapStyle("voyager")}
-                  >
-                    Voyager
-                  </button>
-                  <button
-                    className={`map-style-btn ${mapStyle === "satellite" ? "active" : ""}`}
-                    onClick={() => changeMapStyle("satellite")}
-                  >
-                    Satellite
-                  </button>
-
-                  <button
-                    className={`map-style-btn ${followVehicle ? "active" : ""}`}
-                    onClick={() => setFollowVehicle(!followVehicle)}
-                    title="Automatically keep vehicle centered"
-                  >
-                    <Crosshair size={13} style={{ marginRight: "4px" }} /> Follow: {followVehicle ? "ON" : "OFF"}
-                  </button>
-                </div>
-
-                {/* Proxy Notice */}
-                {tileBlocked && (
-                  <div className="proxy-notice-pill">
-                    <span>🔒 Intranet Proxy Active • Tactical Offline Grid Running</span>
-                  </div>
-                )}
-
-                {/* Floating Metric Overlay */}
+                {/* Floating Metric HUD Overlay - Pinned to Top-Right */}
                 <div className="map-overlay-card">
                   <div className="overlay-metric">
                     <span className="overlay-label">Device</span>
-                    <span className="overlay-val" style={{ fontSize: "0.95rem" }}>
+                    <span className="overlay-val overlay-badge-chip">
                       {currentDevice?.deviceModel || "FMC003"}
                     </span>
                   </div>
+                  <div className="overlay-divider" />
                   <div className="overlay-metric">
                     <span className="overlay-label">Vehicle</span>
-                    <span className="overlay-val overlay-val-vin">
+                    <span className="overlay-val overlay-val-vehicle">
                       {currentDevice?.vehicleNo || "AP-16-TEST"}
                     </span>
                   </div>
-                  <div className="overlay-metric">
+                  <div className="overlay-divider" />
+                  <div
+                    className="overlay-metric"
+                    onClick={() => {
+                      if (currentDevice?.latitude && currentDevice?.longitude) {
+                        navigator.clipboard?.writeText(
+                          `${currentDevice.latitude.toFixed(5)}, ${currentDevice.longitude.toFixed(5)}`
+                        );
+                        setToastMsg("📋 Coordinates copied to clipboard");
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                    title="Click to copy coordinates"
+                  >
                     <span className="overlay-label">Coordinates</span>
                     <span className="overlay-val overlay-val-mono">
                       {currentDevice?.latitude
@@ -1735,12 +1896,118 @@ const TeltonikaTracking: React.FC = () => {
                         : "No GPS Fix"}
                     </span>
                   </div>
+                  <div className="overlay-divider" />
                   <div className="overlay-metric">
                     <span className="overlay-label">Protocol</span>
                     <span className="overlay-val overlay-val-protocol">
-                      Codec 8 Ext (0x8E) / Codec 12
+                      Codec 8 Ext / 12
                     </span>
                   </div>
+                  <div className="overlay-divider" />
+                  <div className="overlay-metric">
+                    <span className="overlay-label">Motion State</span>
+                    <span
+                      className={`overlay-status-pill ${
+                        isImmobilized
+                          ? "cut"
+                          : isEngineRunning
+                          ? effectiveSpeed > 0
+                            ? "moving"
+                            : "idle"
+                          : "stopped"
+                      }`}
+                    >
+                      {isImmobilized
+                        ? "IMMOBILIZED"
+                        : isEngineRunning
+                        ? effectiveSpeed > 0
+                          ? `MOVING ${effectiveSpeed} km/h`
+                          : "ENGINE IDLE"
+                        : "STOPPED"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tactical Offline Grid Notice */}
+                {tileBlocked && (
+                  <div className="proxy-notice-pill">
+                    <span>🔒 Intranet Proxy Active • Tactical Offline Grid Running</span>
+                    <button
+                      type="button"
+                      className="proxy-dismiss-btn"
+                      onClick={() => setTileBlocked(false)}
+                      title="Dismiss notice"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* Map Style & Follower Control Dock - Pinned to Bottom-Left */}
+                <div className="map-style-toggle-bar">
+                  <div className="map-style-group">
+                    <button
+                      className={`map-style-btn ${mapStyle === "grid" ? "active" : ""}`}
+                      onClick={() => changeMapStyle("grid")}
+                      title="Tactical Offline Grid"
+                    >
+                      <Grid size={13} /> Grid
+                    </button>
+                    <button
+                      className={`map-style-btn ${mapStyle === "streets" ? "active" : ""}`}
+                      onClick={() => changeMapStyle("streets")}
+                      title="OpenStreetMap Standard"
+                    >
+                      <MapIcon size={13} /> Streets
+                    </button>
+                    <button
+                      className={`map-style-btn ${mapStyle === "voyager" ? "active" : ""}`}
+                      onClick={() => changeMapStyle("voyager")}
+                      title="CARTO Voyager"
+                    >
+                      <Compass size={13} /> Voyager
+                    </button>
+                    <button
+                      className={`map-style-btn ${mapStyle === "satellite" ? "active" : ""}`}
+                      onClick={() => changeMapStyle("satellite")}
+                      title="ArcGIS Satellite Imagery"
+                    >
+                      <Globe size={13} /> Satellite
+                    </button>
+                  </div>
+
+                  <div className="map-control-divider" />
+
+                  {/* Follow Center Toggle */}
+                  <button
+                    className={`map-style-btn follow-btn ${followVehicle ? "active" : ""}`}
+                    onClick={() => setFollowVehicle(!followVehicle)}
+                    title={
+                      followVehicle
+                        ? "Vehicle auto-centering is ACTIVE. Click to disable."
+                        : "Click to automatically center vehicle"
+                    }
+                  >
+                    <Crosshair size={13} /> Follow: {followVehicle ? "ON" : "OFF"}
+                  </button>
+
+                  {/* Recenter Button */}
+                  <button
+                    className="map-style-btn recenter-btn"
+                    onClick={() => {
+                      if (mapInstanceRef.current && currentDevice?.latitude && currentDevice?.longitude) {
+                        mapInstanceRef.current.setView(
+                          [Number(currentDevice.latitude), Number(currentDevice.longitude)],
+                          15,
+                          { animate: true }
+                        );
+                        setFollowVehicle(true);
+                      }
+                    }}
+                    title="Center view on vehicle"
+                  >
+                    <Target size={13} /> Center
+                  </button>
                 </div>
               </div>
             </div>
@@ -2530,14 +2797,14 @@ const TeltonikaTracking: React.FC = () => {
                   {pendingImmobilizerState ? (
                     <div style={{ color: "#ef4444", fontSize: "0.85rem", lineHeight: 1.5 }}>
                       ⚠️ <b>CRITICAL SAFETY WARNING:</b> You are about to engage the starter cut-off relay (DOUT1) for vehicle{" "}
-                      <b>{currentDevice?.vehicleNo || currentDevice?.imei}</b> via Teltonika GPRS Codec 12 command <code>setdigout 1</code>.
+                      <b>{currentDevice?.vehicleNo ? `${currentDevice.vehicleNo} (${currentDevice.imei})` : (currentDevice?.imei || selectedImei)}</b> via Teltonika GPRS Codec 12 command <code>setdigout 1</code>.
                       <br />
                       Ensure the vehicle is stationary or safe to disable to prevent traffic accidents.
                     </div>
                   ) : (
                     <div style={{ color: "#10b981", fontSize: "0.85rem", lineHeight: 1.5 }}>
                       Disengage cut-off relay (DOUT1) and restore starter power for vehicle{" "}
-                      <b>{currentDevice?.vehicleNo || currentDevice?.imei}</b> via Codec 12 command <code>setdigout 0</code>.
+                      <b>{currentDevice?.vehicleNo ? `${currentDevice.vehicleNo} (${currentDevice.imei})` : (currentDevice?.imei || selectedImei)}</b> via Codec 12 command <code>setdigout 0</code>.
                     </div>
                   )}
 
