@@ -113,6 +113,31 @@ const Menu: React.FC = () => {
     };
   }, []);
 
+  // Listen for real-time profile picture update broadcasts
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      const updatedPic = e?.detail?.profilePic;
+      if (updatedPic) {
+        setUserData((prev: any) => ({
+          ...prev,
+          profilePic: updatedPic,
+          ProfilePic: updatedPic,
+          profileImage: updatedPic,
+        }));
+        setUserProfile((prev: any) => ({
+          ...prev,
+          ProfileImage: updatedPic,
+          profileImage: updatedPic,
+          Img: updatedPic,
+        }));
+      }
+    };
+    window.addEventListener("profile:updated", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("profile:updated", handleProfileUpdate);
+    };
+  }, []);
+
   const dummyProfilePic = "/images/avatar.png";
 
   const fetchMenuData = async (empCode: string) => {
@@ -271,14 +296,21 @@ const Menu: React.FC = () => {
       ""
     ).trim() === "1501";
 
+  const customSavedPic = empCodeDisplay
+    ? localStorage.getItem(`user_profile_pic_${empCodeDisplay}`)
+    : null;
+
   const picSrc =
+    customSavedPic ||
+    userData?.profilePic ||
+    userData?.ProfilePic ||
+    userData?.Image ||
+    userData?.image ||
+    userData?.profileImage ||
     userProfile?.ProfileImage ||
     userProfile?.profileImage ||
     userProfile?.Img ||
     userProfile?.img ||
-    userData?.profilePic ||
-    userData?.ProfilePic ||
-    userData?.profileImage ||
     dummyProfilePic;
 
   return (

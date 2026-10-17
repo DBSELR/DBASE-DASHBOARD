@@ -2104,37 +2104,49 @@ const Transactions: React.FC = () => {
                   No vouchers found.
                 </div>
               ) : (
-                vouchers.map((v) => (
-                  <div key={v.VID} className="txn-card" onClick={() => {
-                    console.log("[Transactions] Selected voucher for preview:", v);
-                    setImgLoadErrors({});
-                    setCurrentVoucher(v);
-                    setVerifyAmount(String(v.amount));
-                    setOpenVoucherModal(true);
-                  }}>
-                    <div className="txn-icon" style={{ background: '#f1f5f9', color: 'var(--ion-color-primary)' }}>
-                      <IonIcon icon={arrowForward} style={{ transform: 'rotate(-45deg)' }} />
-                    </div>
-                    <div className="txn-info">
-                      <div className="txn-header">
-                        <div className="txn-title" style={{ color: 'red' }}>{v.EmpID}</div>
-                        <div className="txn-amount">
-                          <div className="amt-value" style={{ color: 'red' }}>₹{v.amount}</div>
+                vouchers.map((v) => {
+                  const isVerified =
+                    v.isVerified === "Y" ||
+                    String(v.isVerified).toUpperCase() === "Y" ||
+                    String(v.isVerified).toUpperCase() === "VERIFIED";
+                  const voucherColor = isVerified ? '#16a34a' : 'red';
+
+                  return (
+                    <div
+                      key={v.VID}
+                      className={`txn-card ${isVerified ? 'txn-card--verified' : 'txn-card--unverified'}`}
+                      onClick={() => {
+                        console.log("[Transactions] Selected voucher for preview:", v);
+                        setImgLoadErrors({});
+                        setCurrentVoucher(v);
+                        setVerifyAmount(String(v.amount));
+                        setOpenVoucherModal(true);
+                      }}
+                    >
+                      <div className="txn-icon" style={{ background: '#f1f5f9', color: 'var(--ion-color-primary)' }}>
+                        <IonIcon icon={arrowForward} style={{ transform: 'rotate(-45deg)' }} />
+                      </div>
+                      <div className="txn-info">
+                        <div className="txn-header">
+                          <div className="txn-title" style={{ color: voucherColor }}>{v.EmpID}</div>
+                          <div className="txn-amount">
+                            <div className="amt-value" style={{ color: voucherColor }}>₹{v.amount}</div>
+                          </div>
+                        </div>
+                        <div className="txn-footer">
+                          <div className="txn-meta">
+                            <span>{v.Date}</span>
+                            <span>• {v.VDescription || "No Description"}</span>
+                            <span>• {v.Remarks || "No Remarks"}</span>
+                          </div>
+                          <div className={`amt-status status--${v.isVerified}`} style={{ color: voucherColor }}>
+                            {v.isVerified === "Y" ? 'Verified' : v.isVerified === "U" ? 'Updated' : 'Pending'}
+                          </div>
                         </div>
                       </div>
-                      <div className="txn-footer">
-                        <div className="txn-meta">
-                          <span>{v.Date}</span>
-                          <span>• {v.VDescription || "No Description"}</span>
-                          <span>• {v.Remarks || "No Remarks"}</span>
-                        </div>
-                        <div className={`amt-status status--${v.isVerified}`}>
-                          {v.isVerified === "Y" ? 'Verified' : v.isVerified === "U" ? 'Updated' : 'Pending'}
-                        </div>
-                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -2362,7 +2374,7 @@ const Transactions: React.FC = () => {
                       <div className="insight-icon"><IonIcon icon={person} /></div>
                       <div className="insight-data">
                         <span className="insight-label">Requested By</span>
-                        <span className="insight-value" style={{ color: 'red' }}>{currentVoucher.EmpID}</span>
+                        <span className="insight-value" style={{ color: currentVoucher.isVerified === "Y" ? '#16a34a' : 'red' }}>{currentVoucher.EmpID}</span>
                       </div>
                     </div>
                   </div>

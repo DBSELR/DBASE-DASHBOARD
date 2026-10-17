@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useHistory } from "react-router-dom";
 import {
   Settings,
@@ -15,6 +15,7 @@ import {
   Layout,
   Truck,
   ShieldCheck,
+  Plus,
   PlusCircle,
   FileText,
   Fingerprint,
@@ -32,8 +33,21 @@ import {
   Loader2,
   ChevronRight,
   ArrowLeft,
+  ArrowRight,
   Save,
+  Upload,
+  Download,
+  Copy,
+  Check,
+  Printer,
+  QrCode,
+  RotateCw,
+  Eye,
 } from "lucide-react";
+import QRCode from "qrcode";
+import idCardFrontClean from "../assets/id_card_front_clean.png";
+import idCardBack from "../assets/id_card_back.png";
+import dbsCenterBadge from "../assets/dbs_center_badge.png";
 import { API_BASE } from "../config";
 import { apiService } from "../utils/apiService";
 import "./EmpProfile.css";
@@ -121,6 +135,7 @@ const EmpProfile: React.FC = () => {
     hourDA: "",
     dAperKM: "1",
     tAperKM: "0",
+    teamAllowance: "0",
   });
   const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -134,6 +149,924 @@ const EmpProfile: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Profile Image & Personal Details Card Modal State
+  const [showImageProfileModal, setShowImageProfileModal] = useState(false);
+  const [imageModalTab, setImageModalTab] = useState<"idcard" | "details" | "upload">("idcard");
+  const [idCardSide, setIdCardSide] = useState<"both" | "front" | "back">("both");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [showScannedDataPreview, setShowScannedDataPreview] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [downloadingCard, setDownloadingCard] = useState<string | null>(null);
+  const [cardOrientation, setCardOrientation] = useState<"landscape" | "portrait">("landscape");
+  const [cardRotation, setCardRotation] = useState<90 | 270>(90);
+  const frontCardRef = useRef<HTMLDivElement>(null);
+  const backCardRef = useRef<HTMLDivElement>(null);
+  const modalFileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    const scrollToTop = () => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    };
+    scrollToTop();
+    const t = setTimeout(scrollToTop, 100);
+    return () => clearTimeout(t);
+  }, [loading]);
+
+  const handleCopyValue = (fieldKey: string, text: string) => {
+    if (!text || text === "—") return;
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedField(fieldKey);
+      setTimeout(() => setCopiedField(null), 2000);
+    }).catch(() => { });
+  };
+
+  const formatCardDOJ = (raw: any): string => {
+    if (!raw) return "07-FEB-2022";
+    const str = String(raw).trim();
+    if (!str) return "07-FEB-2022";
+    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(str)) {
+      return str.toUpperCase();
+    }
+    try {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, "0");
+        const months = [
+          "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+          "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+        ];
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      }
+    } catch (e) {}
+    return str.toUpperCase();
+  };
+
+  const handlePrintIdCards = (side: "both" | "front" | "back" = idCardSide) => {
+    const empCodeDisplay = userData.empCode
+      ? String(userData.empCode).startsWith("DBS")
+        ? String(userData.empCode)
+        : `DBS${userData.empCode}`
+      : "Employee Id";
+    const empName = userData.empName || "Employee name";
+    const designation = (userData.designation || "designation").toUpperCase();
+    const doj = formatCardDOJ(userData.doj || userData.joiningDate);
+    const bloodGroup = userData.bloodGroup || "Blood group";
+    const mobile = userData.contactNumber || "Mobile number";
+    const avatarSrc =
+      userData.profilePic ||
+      (userData.empCode
+        ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
+        : "/images/avatar.png");
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const isLandscapeTray = cardOrientation === "landscape";
+
+    const commonCardInnerStyles = `
+      * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .idcard-inner-card {
+        width: 6cm;
+        height: 9cm;
+        position: relative;
+        overflow: hidden;
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: #ffffff;
+        border-radius: 6px;
+      }
+      .avatar-wrap {
+        position: absolute;
+        top: 26.6%;
+        left: 27.75%;
+        width: 44.5%;
+        height: 29.8%;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .avatar-img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #ffffff;
+      }
+      .card-name {
+        position: absolute;
+        top: 59.4%;
+        left: 4%;
+        right: 4%;
+        text-align: center;
+        color: #ffffff !important;
+        font-size: 8.5pt;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card-desig {
+        position: absolute;
+        top: 64.0%;
+        left: 4%;
+        right: 4%;
+        text-align: center;
+        color: #ffffff !important;
+        font-size: 6.4pt;
+        font-weight: 900 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .fields-block {
+        position: absolute;
+        top: 68.6%;
+        left: 14%;
+        right: 6%;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .field-row {
+        display: grid;
+        grid-template-columns: 50px 8px 1fr;
+        align-items: center;
+        white-space: nowrap;
+        line-height: 1.25;
+        font-size: 6pt;
+        font-weight: 900;
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .phone-row {
+        position: absolute;
+        top: 83.5%;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        font-size: 6.6pt;
+        font-weight: 900;
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .phone-icon {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        border: 1.5px solid #ffffff;
+        background: #ea580c;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 7.5px;
+      }
+      .qr-box {
+        position: absolute;
+        top: 7.6%;
+        left: 26.5%;
+        width: 46.2%;
+        height: 29.5%;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 0;
+      }
+      .qr-img {
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        display: block;
+      }
+    `;
+
+    const frontInnerHtml = `
+      <div class="idcard-inner-card" style="background-image: url('${idCardFrontClean}');">
+        <div class="avatar-wrap">
+          <img class="avatar-img" src="${avatarSrc}" onerror="this.src='/images/avatar.png'" />
+        </div>
+        <div class="card-name">${empName}</div>
+        <div class="card-desig">${designation}</div>
+        <div class="fields-block">
+          <div class="field-row">
+            <span>EMP. ID</span><span>:</span><span>${empCodeDisplay}</span>
+          </div>
+          <div class="field-row">
+            <span>DOJ</span><span>:</span><span>${doj}</span>
+          </div>
+          <div class="field-row">
+            <span>Blood Group</span><span>:</span><span>${bloodGroup}</span>
+          </div>
+        </div>
+        <div class="phone-row">
+          <span class="phone-icon">&#9742;</span>
+          <span>${mobile}</span>
+        </div>
+      </div>
+    `;
+
+    const backInnerHtml = `
+      <div class="idcard-inner-card" style="background-image: url('${idCardBack}');">
+        <div class="qr-box">
+          <img class="qr-img" src="${qrCodeUrl}" />
+        </div>
+      </div>
+    `;
+
+    let html = "";
+
+    if (isLandscapeTray) {
+      // Epson L805 Tray Layout (Matching Photoshop Template: 3.2cm - 11.8cm, Landscape 8.6cm x 5.4cm)
+      html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Epson L805 PVC Tray - ${side.toUpperCase()} - ${empCodeDisplay}</title>
+  <style>
+    @page {
+      size: 130mm 220mm;
+      margin: 0;
+    }
+    @media print {
+      html, body {
+        width: 130mm !important;
+        height: 220mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        background: #ffffff !important;
+      }
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      width: 130mm;
+      height: 220mm;
+      position: relative;
+      background: #ffffff;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      overflow: hidden;
+    }
+    ${commonCardInnerStyles}
+    .l805-tray-slot {
+      position: absolute;
+      left: 3.2cm;
+      width: 9cm;
+      height: 6cm;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .l805-slot-1 {
+      top: 1.0cm;
+    }
+    .l805-slot-2 {
+      top: 7.0cm;
+    }
+    .rotated-card-holder {
+      width: 6cm;
+      height: 9cm;
+      transform: rotate(${cardRotation}deg);
+      transform-origin: center center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  ${(side === "both" || side === "front") ? `
+    <div class="l805-tray-slot l805-slot-1">
+      <div class="rotated-card-holder">
+        ${frontInnerHtml}
+      </div>
+    </div>
+  ` : ""}
+  ${(side === "both" || side === "back") ? `
+    <div class="l805-tray-slot l805-slot-2">
+      <div class="rotated-card-holder">
+        ${backInnerHtml}
+      </div>
+    </div>
+  ` : ""}
+</body>
+</html>`;
+    } else {
+      // Portrait Mode
+      html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ID Card - ${side.toUpperCase()} - ${empCodeDisplay}</title>
+  <style>
+    @page {
+      size: ${side === "both" ? "A4 portrait" : "auto"};
+      margin: ${side === "both" ? "10mm" : "0"};
+    }
+    body {
+      margin: 0;
+      padding: ${side === "both" ? "12mm 0" : "0"};
+      background: #ffffff;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      ${side !== "both" ? "min-height: 100vh;" : ""}
+    }
+    ${commonCardInnerStyles}
+    .cards-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 15mm;
+    }
+    .card-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .card-tag {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #475569;
+      margin-bottom: 3mm;
+    }
+  </style>
+</head>
+<body>
+  ${side === "both" ? `
+    <div class="cards-row">
+      <div class="card-wrap">
+        <span class="card-tag">Slot 1 - Front</span>
+        ${frontInnerHtml}
+      </div>
+      <div class="card-wrap">
+        <span class="card-tag">Slot 2 - Back</span>
+        ${backInnerHtml}
+      </div>
+    </div>
+  ` : side === "front" ? frontInnerHtml : backInnerHtml}
+</body>
+</html>`;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const doPrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        window.print();
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 2000);
+      }
+    };
+
+    // Wait for images to load before opening print dialog
+    const images = doc.images;
+    let loadedCount = 0;
+    const totalImages = images.length;
+
+    if (totalImages === 0) {
+      setTimeout(doPrint, 300);
+    } else {
+      let isPrinted = false;
+      const onImageDone = () => {
+        loadedCount++;
+        if (loadedCount >= totalImages && !isPrinted) {
+          isPrinted = true;
+          setTimeout(doPrint, 250);
+        }
+      };
+
+      for (let i = 0; i < totalImages; i++) {
+        if (images[i].complete) {
+          onImageDone();
+        } else {
+          images[i].onload = onImageDone;
+          images[i].onerror = onImageDone;
+        }
+      }
+      setTimeout(() => {
+        if (!isPrinted) {
+          isPrinted = true;
+          doPrint();
+        }
+      }, 1500);
+    }
+  };  const handleDownloadCard = async (
+    side: "front" | "back",
+    format: "landscape" | "portrait" = "landscape",
+    fileType: "jpg" | "png" = "jpg"
+  ) => {
+    const downloadKey = `${side}_${format}_${fileType}`;
+    try {
+      setDownloadingCard(downloadKey);
+
+      const empCodeDisplay = userData.empCode
+        ? String(userData.empCode).startsWith("DBS")
+          ? String(userData.empCode)
+          : `DBS${userData.empCode}`
+        : "DBS1614";
+      const empName = userData.empName || "PALURI YESURAJU";
+      const designation = (userData.designation || "DEVELOPER").toUpperCase();
+      const doj = formatCardDOJ(userData.doj || userData.joiningDate);
+      const bloodGroup = userData.bloodGroup || "A-";
+      const mobile = userData.contactNumber || "9866992847";
+      const avatarSrc =
+        userData.profilePic ||
+        (userData.empCode
+          ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
+          : "/images/avatar.png");
+
+      const bgImage = side === "front" ? idCardFrontClean : idCardBack;
+
+      // Safely convert an image source into a base64 Data URL to prevent CORS/taint issues in html2canvas
+      const toDataUrl = (src: string): Promise<string> => {
+        return new Promise((resolve) => {
+          if (!src) return resolve("/images/avatar.png");
+          if (src.startsWith("data:") || src.startsWith("blob:")) return resolve(src);
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const c = document.createElement("canvas");
+              c.width = img.naturalWidth || img.width;
+              c.height = img.naturalHeight || img.height;
+              const ctx = c.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                return resolve(c.toDataURL("image/png"));
+              }
+            } catch (e) {
+              // Canvas tainted or cross-origin issue
+            }
+            resolve(src);
+          };
+          img.onerror = () => {
+            resolve("/images/avatar.png");
+          };
+          img.src = src;
+        });
+      };
+
+      // Prepare a pristine, circular avatar directly on an offscreen canvas to completely eliminate html2canvas clipping/crescent bugs
+      const toCircularAvatarDataUrl = (src: string): Promise<string> => {
+        return new Promise((resolve) => {
+          if (!src) return resolve("/images/avatar.png");
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const size = 500;
+              const c = document.createElement("canvas");
+              c.width = size;
+              c.height = size;
+              const ctx = c.getContext("2d");
+              if (ctx) {
+                const nw = img.naturalWidth || img.width;
+                const nh = img.naturalHeight || img.height;
+                const minSide = Math.min(nw, nh);
+                const sx = (nw - minSide) / 2;
+                const sy = (nh - minSide) / 2;
+
+                // White circular base
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Circular clip for avatar image
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+                ctx.clip();
+
+                // Draw cropped image covering circle
+                ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+                ctx.restore();
+
+                // Crisp white outer border ring
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+
+                return resolve(c.toDataURL("image/png"));
+              }
+            } catch (e) {
+              // Canvas tainted or cross-origin fallback
+            }
+            resolve(src);
+          };
+          img.onerror = () => {
+            resolve("/images/avatar.png");
+          };
+          img.src = src;
+        });
+      };
+
+      const [resolvedAvatar, resolvedBg] = await Promise.all([
+        side === "front" ? toCircularAvatarDataUrl(avatarSrc) : Promise.resolve(""),
+        toDataUrl(bgImage),
+      ]);
+
+      // Base dimensions: 400px x 600px (exact 2:3 aspect ratio matching 6cm x 9cm card)
+      const baseW = 400;
+      const baseH = 600;
+
+      const wrap = document.createElement("div");
+      wrap.style.position = "fixed";
+      wrap.style.left = "-9999px";
+      wrap.style.top = "0";
+      wrap.style.width = `${baseW}px`;
+      wrap.style.height = `${baseH}px`;
+      wrap.style.zIndex = "-99999";
+      wrap.style.background = "#ffffff";
+      wrap.style.overflow = "hidden";
+      wrap.style.pointerEvents = "none";
+
+      const cardEl = document.createElement("div");
+      cardEl.style.width = `${baseW}px`;
+      cardEl.style.height = `${baseH}px`;
+      cardEl.style.position = "relative";
+      cardEl.style.backgroundImage = `url("${resolvedBg}")`;
+      cardEl.style.backgroundSize = "100% 100%";
+      cardEl.style.backgroundRepeat = "no-repeat";
+      cardEl.style.backgroundPosition = "center";
+      cardEl.style.backgroundColor = "#ffffff";
+      cardEl.style.overflow = "hidden";
+      cardEl.style.fontFamily = 'Arial, "Helvetica Neue", sans-serif';
+
+      if (side === "front") {
+        cardEl.innerHTML = `
+          <div style="
+            position: absolute;
+            top: 26.6%;
+            left: 27.75%;
+            width: 44.5%;
+            height: 29.8%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <img
+              id="download-avatar"
+              src="${resolvedAvatar}"
+              crossorigin="anonymous"
+              style="width: 100%; height: 100%; display: block;"
+            />
+          </div>
+          <div style="
+            position: absolute;
+            top: 59.4%;
+            left: 4%;
+            right: 4%;
+            text-align: center;
+            color: #ffffff !important;
+            font-size: 15px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          ">
+            ${empName}
+          </div>
+          <div style="
+            position: absolute;
+            top: 64.0%;
+            left: 4%;
+            right: 4%;
+            text-align: center;
+            color: #ffffff !important;
+            font-size: 11.5px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          ">
+            ${designation}
+          </div>
+          <div style="
+            position: absolute;
+            top: 68.6%;
+            left: 14%;
+            right: 6%;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          ">
+            <div style="display: grid; grid-template-columns: 82px 10px 1fr; align-items: center; white-space: nowrap; font-size: 10.5px; font-weight: 900; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+              <span>EMP. ID</span><span>:</span><span>${empCodeDisplay}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 82px 10px 1fr; align-items: center; white-space: nowrap; font-size: 10.5px; font-weight: 900; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+              <span>DOJ</span><span>:</span><span>${doj}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 82px 10px 1fr; align-items: center; white-space: nowrap; font-size: 10.5px; font-weight: 900; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+              <span>Blood Group</span><span>:</span><span>${bloodGroup}</span>
+            </div>
+          </div>
+          <div style="
+            position: absolute;
+            top: 83.5%;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 11.5px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+          ">
+            <span style="
+              width: 16px;
+              height: 16px;
+              border-radius: 50%;
+              border: 1.5px solid #ffffff;
+              background: #ea580c;
+              color: #ffffff;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+            ">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </span>
+            <span style="letter-spacing: 0.7px;">${mobile}</span>
+          </div>
+        `;
+      } else {
+        cardEl.innerHTML = `
+          <div style="
+            position: absolute;
+            top: 7.6%;
+            left: 26.5%;
+            width: 46.2%;
+            height: 29.5%;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0;
+          ">
+            <img
+              id="download-qr"
+              src="${qrCodeUrl}"
+              crossorigin="anonymous"
+              style="width: 100%; height: 100%; object-fit: fill; display: block;"
+            />
+          </div>
+        `;
+      }
+
+      wrap.appendChild(cardEl);
+      document.body.appendChild(wrap);
+
+      // Wait for all images inside cardEl to load
+      const imgs = cardEl.querySelectorAll("img");
+      await Promise.all(
+        Array.from(imgs).map(
+          (img) =>
+            new Promise((res) => {
+              if (img.complete && img.naturalWidth > 0) return res(true);
+              img.onload = () => res(true);
+              img.onerror = () => {
+                if (img.id === "download-avatar") {
+                  img.src = "/images/avatar.png";
+                  img.onload = () => res(true);
+                  img.onerror = () => res(false);
+                } else {
+                  res(false);
+                }
+              };
+            })
+        )
+      );
+
+      // Give browser a moment to ensure fonts and layout are settled
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(cardEl, {
+        scale: 3, // ~300 DPI high resolution for printing onto PVC card (1200 x 1800)
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      document.body.removeChild(wrap);
+
+      let finalCanvas = canvas;
+      if (format === "landscape") {
+        const trayCanvas = document.createElement("canvas");
+        trayCanvas.width = canvas.height;
+        trayCanvas.height = canvas.width;
+        const ctx = trayCanvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, trayCanvas.width, trayCanvas.height);
+          if (cardRotation === 90) {
+            ctx.translate(trayCanvas.width, 0);
+            ctx.rotate(Math.PI / 2);
+          } else {
+            ctx.translate(0, trayCanvas.height);
+            ctx.rotate(-Math.PI / 2);
+          }
+          ctx.drawImage(canvas, 0, 0);
+          finalCanvas = trayCanvas;
+        }
+      }
+
+      const sideName = side === "front" ? "Front" : "Back";
+      const modeSuffix = format === "landscape" ? "L805_Tray_Landscape" : "Portrait_6x9cm";
+      const isJpg = fileType === "jpg";
+      const mimeType = isJpg ? "image/jpeg" : "image/png";
+      const ext = isJpg ? "jpg" : "png";
+
+      const link = document.createElement("a");
+      link.download = `ID_Card_${sideName}_${modeSuffix}_${empCodeDisplay}.${ext}`;
+      link.href = finalCanvas.toDataURL(mimeType, isJpg ? 0.98 : 1.0);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading ID card image:", error);
+      alert("Could not download ID card image. Please try again.");
+    } finally {
+      setDownloadingCard(null);
+    }
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+    const empCodeDisplay = userData.empCode
+      ? String(userData.empCode).startsWith("DBS")
+        ? String(userData.empCode)
+        : `DBS${userData.empCode}`
+      : "employee id";
+
+    const fullName = userData.empName || "Employee name";
+    const nameParts = fullName.trim().split(/\s+/);
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+    const designation = (userData.designation || "designation").toUpperCase();
+    const contact = userData.contactNumber || "contact number"
+    const email = userData.email || (userData.empName ? `${String(userData.empName).toLowerCase().replace(/[^a-z0-9]/g, "")}@dbasesolutions.in` : "info@dbasesolutions.in");
+    const address = "Sai Sadan, Sri Sairam Nagar;Hanuman Nagar, Eluru Rural;Andhra Pradesh;534001;India";
+    const doj = formatCardDOJ(userData.doj || userData.joiningDate);
+    const bloodGroup = userData.bloodGroup || "blood group";
+
+    const vcard = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      `N:${lastName};${firstName}`,
+      `FN:${fullName}`,
+      `TITLE:${designation}`,
+      `ORG:Dbasesolutions PVT. LTD`,
+      "URL:https://dbasesolutions.in/",
+      `EMAIL;TYPE=INTERNET:${email}`,
+      `TEL;TYPE=voice,pref:${contact}`,
+      `ADR:;;${address}`,
+      `NOTE:Emp ID: ${empCodeDisplay} | DOJ: ${doj} | Blood Group: ${bloodGroup}`,
+      "END:VCARD",
+    ].join("\n");
+
+    const canvas = document.createElement("canvas");
+    const size = 440;
+    canvas.width = size;
+    canvas.height = size;
+
+    QRCode.toCanvas(canvas, vcard, {
+      errorCorrectionLevel: "H",
+      margin: 0,
+      width: size,
+      color: {
+        dark: "#000000",
+        light: "#ffffff",
+      },
+    })
+      .then(async () => {
+        if (isCancelled) return;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const cx = size / 2;
+          const cy = size / 2;
+          const rx = size * 0.165;
+          const ry = size * 0.118;
+
+          // Draw pure white filled ellipse in the center
+          ctx.save();
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // Load official DBS center badge
+          const badgeImg = new Image();
+          badgeImg.src = dbsCenterBadge;
+          await new Promise<void>((resolve) => {
+            badgeImg.onload = () => resolve();
+            badgeImg.onerror = () => resolve();
+          });
+
+          if (!isCancelled && badgeImg.width > 0) {
+            const targetW = Math.round(size * 0.33);
+            const targetH = Math.round(targetW * (badgeImg.height / badgeImg.width));
+            ctx.drawImage(
+              badgeImg,
+              (size - targetW) / 2,
+              (size - targetH) / 2,
+              targetW,
+              targetH
+            );
+          }
+          ctx.restore();
+        }
+        if (!isCancelled) {
+          setQrCodeUrl(canvas.toDataURL("image/png"));
+        }
+      })
+      .catch((err) => console.error("Error generating ID card QR Code with logo:", err));
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    userData.empCode,
+    userData.empName,
+    userData.designation,
+    userData.department,
+    userData.contactNumber,
+    userData.doj,
+    userData.joiningDate,
+    userData.bloodGroup,
+    userData.email,
+  ]);
 
   // Reporting Matrix State
   const [showReportingModal, setShowReportingModal] = useState(false);
@@ -299,17 +1232,42 @@ const EmpProfile: React.FC = () => {
     loadBaseData();
     const userJson = localStorage.getItem("user");
     const user = JSON.parse(userJson || "{}");
-    const empCode = user?.empCode;
+    const empCode = user?.empCode || user?.EmpCode || user?.userName || user?.username;
 
-    if (user?.userType) {
-      setLoggedInUserType(user.userType);
+    if (user?.userType || user?.UserType) {
+      setLoggedInUserType(user.userType || user.UserType);
     }
 
     if (empCode) {
+      const savedPic =
+        localStorage.getItem(`user_profile_pic_${empCode}`) ||
+        user?.Image ||
+        user?.image ||
+        user?.profilePic ||
+        user?.ProfilePic ||
+        user?.ProfileImage ||
+        user?.Img;
+      if (savedPic && typeof savedPic === "string" && savedPic.trim() && savedPic !== "0") {
+        setUserData((prev: any) => ({ ...prev, empCode, profilePic: savedPic }));
+      }
       fetchUserProfile(empCode);
     } else {
       setLoading(false);
     }
+  }, []);
+
+  // Listen for real-time profile picture update broadcasts
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      const updatedPic = e?.detail?.profilePic;
+      if (updatedPic) {
+        setUserData((prev: any) => ({ ...prev, profilePic: updatedPic }));
+      }
+    };
+    window.addEventListener("profile:updated", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("profile:updated", handleProfileUpdate);
+    };
   }, []);
 
 
@@ -540,12 +1498,12 @@ const EmpProfile: React.FC = () => {
       _P_Time: normalizeTimeValue(pTimeVal),
       _dayDA: safeStrVal(47, ["_dayDA", "dayDA", "DayDA", "dayDa", "day_da"], "0"),
       _hourDA: safeStrVal(48, ["_hourDA", "hourDA", "HourDA", "hourDa", "hour_da"], "0"),
-      _teamAllowance: safeStrVal(-1, ["_teamAllowance", "teamAllowance"], "0"),
+      _teamAllowance: safeStrVal(54, ["_teamAllowance", "teamAllowance", "TeamAllowance", "_TeamAllowance"], "0"),
       _RequestTo: safeStrVal(15, ["_RequestTo", "RequestTo", "requestTo", "ReportTO"], ""),
       _Project: safeStrVal(51, ["_Project", "Project", "project"], ""),
       _LocationType: safeStrVal(52, ["_LocationType", "LocationType", "locationType"], ""),
       _Location1: safeStrVal(53, ["_Location1", "Location1", "location1", "branch"], ""),
-      _BranchDept: safeStrVal(-1, ["_BranchDept", "BranchDept", "branchDept"], ""),
+      _BranchDept: safeStrVal(63, ["_BranchDept", "BranchDept", "branchDept", "Branch_Dept"], ""),
       _TAperKM: safeStrVal(64, ["_TAperKM", "TAperKM", "taPerKm", "taperkm"], "0"),
       _DAperKM:
         safeStrVal(
@@ -613,12 +1571,16 @@ const EmpProfile: React.FC = () => {
         esiNo: safeStr(details._ESINo),
         pfNo: safeStr(details._PFNo),
         ReportTO: safeStr(details._RequestTo),
-        profilePic: safeStr(Array.isArray(row) ? row[42] : (row as any)?.profilePic, userData?.profilePic || ""),
+        profilePic:
+          localStorage.getItem(`user_profile_pic_${details._Ecode}`) ||
+          (Array.isArray(row) ? "" : ((row as any)?.profilePic || (row as any)?.ProfilePic || (row as any)?.ProfileImage)) ||
+          `/images/Emp-Profile-Pics/${details._Ecode}.jpg`,
         status: details._IsActive === "N" ? "InActive" : "Active",
         dayDA: safeStr(details._dayDA, "0"),
         hourDA: safeStr(details._hourDA, "0"),
         tAperKM: safeStr(details._TAperKM, "0"),
         dAperKM: safeStr(details._DAperKM, "1"),
+        teamAllowance: safeStr(details._teamAllowance, "0"),
         leave: safeStr(details._Allowed_CL, "12"),
         sick: safeStr(details._Allowed_SL, "10"),
         p_time: safeStr(details._P_Time, "60"),
@@ -690,21 +1652,26 @@ const EmpProfile: React.FC = () => {
       if (allowanceValue !== null && allowanceValue !== undefined) {
         setTeamAllowance(String(allowanceValue));
         setShowTeamAllowance(true);
-        setFormData((prev) => ({ ...prev, _teamAllowance: String(allowanceValue) }));
+        // Only prefill suggestion if current value is not already set from tbl_Employee
+        setFormData((prev) => {
+          const current = prev._teamAllowance;
+          const hasSaved = current && current !== "0" && current !== "0.00" && current !== "";
+          return {
+            ...prev,
+            _teamAllowance: hasSaved ? current : String(allowanceValue),
+          };
+        });
       } else {
-        setShowTeamAllowance(false);
         setTeamAllowance("");
-        setFormData((prev) => ({ ...prev, _teamAllowance: "0" }));
       }
     } catch (error) {
       console.warn("Team allowance unavailable or invalid designation:", error);
-      setShowTeamAllowance(false);
       setTeamAllowance("");
     }
   };
 
   useEffect(() => {
-    if (showRegisterModal && formData._Ecode) {
+    if (showRegisterModal && formData._Ecode && (!formData._teamAllowance || formData._teamAllowance === "0" || formData._teamAllowance === "0.00")) {
       fetchTeamAllowance(formData._Ecode);
     }
   }, [showRegisterModal, formData._Ecode]);
@@ -737,6 +1704,20 @@ const EmpProfile: React.FC = () => {
             ? userProfile[2]
             : userProfile.EmpName || userProfile?.Empname,
         });
+
+        // Resolve profile picture preserving saved upload across refreshes
+        const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const dedicatedPic = localStorage.getItem(`user_profile_pic_${empCode}`);
+        const savedPic = dedicatedPic || localUser.profilePic || localUser.ProfilePic || localUser.ProfileImage || localUser.Img;
+
+        const isValidPic = (p: any) =>
+          typeof p === "string" && p.trim() && p !== "0" && p !== "1" && p !== "null" && p !== "undefined";
+
+        const resolvedPic = isValidPic(savedPic)
+          ? savedPic
+          : (Array.isArray(userProfile)
+            ? (isValidPic(userProfile[42]) ? userProfile[42] : (userData?.profilePic || `/images/Emp-Profile-Pics/${empCode}.jpg`))
+            : (isValidPic(userProfile.Img || userProfile.ProfileImage) ? (userProfile.Img || userProfile.ProfileImage) : (userData?.profilePic || `/images/Emp-Profile-Pics/${empCode}.jpg`)));
 
         if (Array.isArray(userProfile)) {
           // Legacy array-based mapping using mapGetEmployeeResponse for robust indexing
@@ -771,12 +1752,13 @@ const EmpProfile: React.FC = () => {
             esiNo: details._ESINo,
             pfNo: details._PFNo,
             ReportTO: details._RequestTo,
-            profilePic: userProfile[42] || userData?.profilePic,
+            profilePic: resolvedPic,
             status: details._IsActive === "N" ? "InActive" : "Active",
             dayDA: details._dayDA,
             hourDA: details._hourDA,
             tAperKM: details._TAperKM,
             dAperKM: details._DAperKM,
+            teamAllowance: details._teamAllowance,
             leave: details._Allowed_CL,
             sick: details._Allowed_SL,
             p_time: details._P_Time,
@@ -801,7 +1783,7 @@ const EmpProfile: React.FC = () => {
             email2: userProfile.Email2,
             performanceScore: userProfile.UnseenCredits,
             pendingLeaves: userProfile.AVAIL_LS,
-            profilePic: userProfile.Img || userProfile.ProfileImage,
+            profilePic: resolvedPic,
             department: userProfile.Department,
             salaryAccountNo: userProfile.Accountno,
             doj: userProfile.DOJ,
@@ -840,6 +1822,7 @@ const EmpProfile: React.FC = () => {
             hourDA: userProfile.hourDA ?? userProfile.HourDA ?? userProfile.hourDa ?? userProfile.HourDa ?? userProfile.hourda ?? userProfile.hour_da ?? "0",
             tAperKM: userProfile.TAperKM ?? userProfile.taPerKM ?? userProfile.taPerKm ?? userProfile.taperkm ?? "0",
             dAperKM: userProfile.DAperKM ?? userProfile.daPerKM ?? userProfile.daPerKm ?? userProfile.daperkm ?? "1",
+            teamAllowance: userProfile.teamAllowance ?? userProfile.TeamAllowance ?? userProfile._teamAllowance ?? userProfile._TeamAllowance ?? "0",
           });
         }
 
@@ -865,12 +1848,30 @@ const EmpProfile: React.FC = () => {
       return;
     }
 
+    const currentEmpCode = String(
+      userData.empCode ||
+      formData._Ecode ||
+      JSON.parse(localStorage.getItem("user") || "{}")?.empCode ||
+      JSON.parse(localStorage.getItem("user") || "{}")?.EmpCode ||
+      ""
+    ).trim();
+
+    if (!currentEmpCode) {
+      alert("Employee code not found. Please refresh and try again.");
+      return;
+    }
+
+    // Instant optimistic preview
+    const previewUrl = URL.createObjectURL(file);
+    const previousPic = userData.profilePic;
+    setUserData((prev: any) => ({ ...prev, profilePic: previewUrl }));
+
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
+    const uploadFormData = new FormData();
+    uploadFormData.append("file", file);
 
     try {
-      const url = `${API_BASE}Login/UploadProfileImage?empCode=${userData.empCode}`;
+      const url = `${API_BASE}Login/UploadProfileImage?empCode=${currentEmpCode}`;
       console.log("[EmpProfile] Uploading image to:", url);
 
       const response = await fetch(url, {
@@ -878,9 +1879,8 @@ const EmpProfile: React.FC = () => {
         headers: {
           Accept: "*/*",
           ...getAuthHeaders(),
-          // Content-Type MUST NOT be set here, browser will set it with boundary
         },
-        body: formData,
+        body: uploadFormData,
       });
 
       console.log("[EmpProfile] Upload response status:", response.status);
@@ -888,26 +1888,73 @@ const EmpProfile: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log("[EmpProfile] Upload success response:", data);
-        // Assuming the API returns the new image URL in a field named 'image' according to the user request info
-        // Response format as per user: { "message": "Image uploaded successfully", "image": "URL" }
-        setUserData((prev: any) => ({ ...prev, profilePic: data.image }));
 
-        // Update local memory user object as well if it stores the image
+        // Backend returns: Ok(new { Message = "Image uploaded successfully", Image = imageUrl })
+        const rawImg = data?.Image || data?.image || data?.ImageUrl || data?.imageUrl;
+        let finalUrl = "";
+        if (rawImg && typeof rawImg === "string") {
+          const apiOrigin = API_BASE.replace(/\/api\/?$/i, "").replace(/\/$/, "");
+          const fullUrl = rawImg.startsWith("http")
+            ? rawImg
+            : `${apiOrigin}${rawImg.startsWith("/") ? "" : "/"}${rawImg}`;
+          finalUrl = `${fullUrl}${fullUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+        } else {
+          finalUrl = previewUrl;
+        }
+
+        // 1. Update component state
+        setUserData((prev: any) => ({ ...prev, profilePic: finalUrl }));
+
+        // 2. Update local storage user object with all case variations
         const localUser = JSON.parse(localStorage.getItem("user") || "{}");
-        localUser.profilePic = data.image; // Using profilePic for consistency
+        localUser.profilePic = finalUrl;
+        localUser.ProfilePic = finalUrl;
+        localUser.ProfileImage = finalUrl;
+        localUser.Img = finalUrl;
         localStorage.setItem("user", JSON.stringify(localUser));
 
-        console.log("[EmpProfile] Image upload SUCCESS", data);
+        // 3. Update cached_user_profile so Side Menu cache doesn't override it
+        try {
+          const cached = JSON.parse(localStorage.getItem("cached_user_profile") || "{}");
+          if (Array.isArray(cached)) {
+            cached[42] = finalUrl;
+          } else if (cached && typeof cached === "object") {
+            cached.ProfileImage = finalUrl;
+            cached.profileImage = finalUrl;
+            cached.Img = finalUrl;
+            cached.img = finalUrl;
+            cached.profilePic = finalUrl;
+            cached.ProfilePic = finalUrl;
+          }
+          localStorage.setItem("cached_user_profile", JSON.stringify(cached));
+        } catch { }
+
+        // 4. Save dedicated key for this employee
+        localStorage.setItem(`user_profile_pic_${currentEmpCode}`, finalUrl);
+
+        // 5. Broadcast to the Side Menu (Menu.tsx) so it updates in real time
+        window.dispatchEvent(
+          new CustomEvent("profile:updated", {
+            detail: { empCode: currentEmpCode, profilePic: finalUrl },
+          })
+        );
+
+        console.log("[EmpProfile] Image upload SUCCESS, saved as:", finalUrl);
         alert("Profile picture updated successfully!");
       } else {
         const errorText = await response.text();
+        setUserData((prev: any) => ({ ...prev, profilePic: previousPic }));
         alert("Upload failed: " + errorText);
       }
     } catch (error) {
       console.error("Error uploading image:", error);
+      setUserData((prev: any) => ({ ...prev, profilePic: previousPic }));
       alert("An error occurred during image upload.");
     } finally {
       setUploading(false);
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -1122,6 +2169,9 @@ const EmpProfile: React.FC = () => {
         // the Branch Dept dropdown already holds the name (its ids come from a
         // ROW_NUMBER over distinct values and are not stable), so no lookup
         _BranchDept: (formData._BranchDept ?? "").trim(),
+        _teamAllowance: String(formData._teamAllowance ?? "0"),
+        teamAllowance: String(formData._teamAllowance ?? "0"),
+        TeamAllowance: String(formData._teamAllowance ?? "0"),
         _Doj: formatToDDMMYYYY(formData._Doj),
         _Dob: formatToDDMMYYYY(formData._Dob),
         _UpdatedBy: (() => {
@@ -1226,7 +2276,7 @@ const EmpProfile: React.FC = () => {
       _PFNo: "",
       _dayDA: "0",
       _hourDA: "0",
-      _teamAllowance: "0",
+      _teamAllowance: "",
       _Project: "",
       _LocationType: "",
       _Location1: "",
@@ -1463,11 +2513,9 @@ const EmpProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div
-        className="ep-container"
-        style={{ justifyContent: "center", alignItems: "center" }}
-      >
-        <div className="loader">Loading...</div>
+      <div className="ep-container ep-loading-screen">
+        <div className="loader"></div>
+        <p className="ep-loading-text">Loading...</p>
       </div>
     );
   }
@@ -1504,55 +2552,102 @@ const EmpProfile: React.FC = () => {
   };
 
   return (
-    <div className="ep-container">
-      {/* Native-style header */}
-      <header className="ep-header-section">
-        <div className="ep-header-content">
-          <div className={`ep-avatar-wrapper ${uploading ? "uploading" : ""}`}>
-            <img
-              src={userData.profilePic || "./images/avatar.png"}
-              alt="Profile"
-              className="ep-avatar-img"
-              onError={(e) => {
-                console.error(
-                  "[EmpProfile] Profile image 404 or load error, falling back to default",
-                );
-                (e.target as HTMLImageElement).src = "./images/avatar.png";
-              }}
-            />
-            <label className="ep-upload-btn">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={uploading}
-                className="ep-hidden-input"
+    <div className="ep-container" ref={containerRef}>
+      {/* Modern Executive Profile Hero Header */}
+      <header className="ep-profile-hero">
+        <div className="ep-profile-hero-inner">
+          {/* Avatar Section */}
+          <div
+            className="ep-avatar-container"
+            onClick={() => {
+              setImageModalTab("idcard");
+              setShowImageProfileModal(true);
+            }}
+            title="Click here to open Official ID Card & Profile Overview"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                setImageModalTab("idcard");
+                setShowImageProfileModal(true);
+              }
+            }}
+          >
+            <div className={`ep-avatar-box ${uploading ? "uploading" : ""} ep-avatar-box-interactive`}>
+              <img
+                src={
+                  userData.profilePic ||
+                  (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : "/images/avatar.png")
+                }
+                alt={userData.empName || "Employee Profile"}
+                className="ep-avatar-img"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes("avatar.png")) {
+                    target.src = "/images/avatar.png";
+                  }
+                }}
               />
-              {uploading ? (
-                <Loader2 className="ep-spin" size={18} />
-              ) : (
-                <Camera size={18} />
-              )}
-            </label>
+              <span className="ep-avatar-badge-plus" title="Add / View Profile Details">
+                <Plus size={18} strokeWidth={2.5} />
+              </span>
+            </div>
           </div>
-          <h2 className="ep-user-name">Welcome, {typeof userData.empName === "object" ? "" : (userData.empName || "")}!</h2>
-          <p className="ep-user-designation">
-            {typeof userData.designation === "object" ? "" : (userData.designation || "")}
-            {/* ({userData.userType}) */}
-          </p>
-          <div className="ep-profile-status-row">
-            <div className="ep-profile-badges">
-              <span className="ep-user-code">ID: {typeof userData.empCode === "object" ? "" : (userData.empCode || "")}</span>
-              <span
-                className={`ep-status-pill ${String(userData.status ?? "").toLowerCase()}`}
-              >
-                {typeof userData.status === "object" ? "" : (userData.status || "")}
+
+          {/* Profile Details */}
+          <div className="ep-hero-details">
+            <div className="ep-hero-top-row">
+              <div className="ep-hero-name-badge">
+                <h1 className="ep-hero-name">
+                  {typeof userData.empName === "object" ? "" : (userData.empName || "Employee Name")}
+                </h1>
+                {userData.status && (
+                  <span className={`ep-status-badge ${String(userData.status ?? "").toLowerCase()}`}>
+                    <span className="ep-status-dot"></span>
+                    {typeof userData.status === "object" ? "" : userData.status}
+                  </span>
+                )}
+              </div>
+
+              <div className="ep-hero-role-row">
+                <span className="ep-hero-designation">
+                  {typeof userData.designation === "object" ? "" : (userData.designation || "Staff Member")}
+                </span>
+                {userData.department && (
+                  <>
+                    <span className="ep-hero-sep">•</span>
+                    <span className="ep-hero-dept">
+                      {typeof userData.department === "object" ? "" : userData.department}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Meta Info Bar (ID) */}
+            <div className="ep-hero-meta-bar">
+              <span className="ep-meta-chip ep-chip-id">
+                <span className="ep-chip-label">ID:</span>
+                <span>{typeof userData.empCode === "object" ? "" : (userData.empCode || "—")}</span>
               </span>
             </div>
 
-            <div className="ep-profile-actions">
+            {/* Action Buttons */}
+            <div className="ep-hero-actions">
               <button
-                className={`ep-profile-action-btn ep-btn-policies ${isNavigating ? "navigating" : ""}`}
+                className="ep-hero-btn ep-btn-idcard"
+                onClick={() => {
+                  setImageModalTab("idcard");
+                  setShowImageProfileModal(true);
+                }}
+                title="View Official Employee ID Card (Front & Back)"
+              >
+                <CreditCard size={15} />
+                <span>ID Card</span>
+              </button>
+
+              <button
+                className={`ep-hero-btn ep-btn-policies ${isNavigating ? "navigating" : ""}`}
                 onClick={() => {
                   setIsNavigating(true);
                   setTimeout(() => {
@@ -1560,12 +2655,12 @@ const EmpProfile: React.FC = () => {
                   }, 300);
                 }}
               >
-                <FileText size={14} />
+                <FileText size={15} />
                 <span>Policies</span>
               </button>
 
               <button
-                className={`ep-profile-action-btn ep-btn-face ${isNavigating ? "navigating" : ""}`}
+                className={`ep-hero-btn ep-btn-face ${isNavigating ? "navigating" : ""}`}
                 onClick={() => {
                   setIsNavigating(true);
                   setTimeout(() => {
@@ -1573,117 +2668,106 @@ const EmpProfile: React.FC = () => {
                   }, 300);
                 }}
               >
-                <Camera size={14} />
+                <Camera size={15} />
                 <span>Face Enrollment</span>
               </button>
 
               <button
-                className="ep-profile-action-btn ep-btn-password"
+                className="ep-hero-btn ep-btn-password"
                 onClick={() => {
                   history.push("/change-password");
                 }}
               >
-                <span>🔒 Change Password</span>
+                <span>🔐 Change Password</span>
               </button>
-            </div>
-          </div>
 
-          <div className="ep-header-actions">
-            {(loggedInUserType === "Admin" ||
-              loggedInUserType === "ACCOUNTANT") && (
+              {(loggedInUserType === "Admin" ||
+                loggedInUserType === "ACCOUNTANT") && (
+                  <>
+                    <button
+                      className="ep-hero-btn ep-btn-find"
+                      onClick={() => setShowEmployeeSearch(true)}
+                    >
+                      <Users size={15} />
+                      <span>Find</span>
+                    </button>
+                    <button
+                      className="ep-hero-btn ep-btn-add"
+                      onClick={openAddModal}
+                    >
+                      <PlusCircle size={15} />
+                      <span>Add</span>
+                    </button>
+                  </>
+                )}
+
+              {!isManagementView && (
                 <>
                   <button
-                    className="ep-action-btn ep-btn-search"
-                    onClick={() => setShowEmployeeSearch(true)}
+                    type="button"
+                    className="ep-hero-btn ep-btn-del"
+                    onClick={() => history.push("/account-deletion")}
                   >
-                    <Users color="var(--ion-color-primary)" size={18} />
-                    Find
+                    Account Deletion
                   </button>
                   <button
-                    className="ep-action-btn ep-btn-add"
-                    onClick={openAddModal}
+                    type="button"
+                    className="ep-hero-btn ep-btn-logout"
+                    onClick={handleLogout}
                   >
-                    <PlusCircle color="var(--ion-color-primary)" size={18} />
-                    Add
+                    <LogOut size={15} />
+                    <span>Logout</span>
                   </button>
                 </>
               )}
-            {!isManagementView && (
-              <>
-                <button
-                  type="button"
-                  // className="db-login-footer-link-item"
-
-                  className="ep-action-btn ep-btn-logout"
-                  onClick={() => history.push("/account-deletion")}
-                >
-                  Account Deletion
-                </button>
-                <button
-                  className="ep-action-btn ep-btn-logout"
-                  onClick={handleLogout}
-                >
-                  <LogOut size={18} />
-                  Logout
-                </button>
-              </>
-            )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="ep-content">
-        {/* Settings / Controls */}
+        {/* Unified Personal Details & App Settings Card */}
         <div className="ep-card">
-          <h3 className="ep-card-title">
-            <Settings color="var(--ion-color-primary)" size={20} /> App Settings
-          </h3>
+          <div className="ep-card-header-with-settings">
+            <h3 className="ep-card-title">
+              <Info color="var(--ion-color-primary)" size={20} /> Personal Details
+            </h3>
 
-          <div className="ep-settings-item">
-            <div className="ep-settings-label">
-              {darkMode ? (
-                <Moon color="var(--ion-color-primary)" size={20} />
-              ) : (
-                <Sun color="var(--ion-color-primary)" size={20} />
-              )}
-              Dark Mode
+            <div className="ep-card-settings-group">
+              <label className="ep-setting-pill" title="Toggle Dark Mode">
+                {darkMode ? (
+                  <Moon color="var(--ion-color-primary)" size={16} />
+                ) : (
+                  <Sun color="var(--ion-color-primary)" size={16} />
+                )}
+                <span>Dark Mode</span>
+                <div className="ep-toggle-compact">
+                  <input
+                    type="checkbox"
+                    checked={darkMode}
+                    onChange={() => setDarkMode(!darkMode)}
+                  />
+                  <span className="ep-slider-compact"></span>
+                </div>
+              </label>
+
+              <button
+                type="button"
+                className="ep-setting-pill clickable"
+                onClick={() => setShowColorModal(true)}
+                title="Change Theme Color"
+              >
+                <Palette color="var(--ion-color-primary)" size={16} />
+                <span>Theme Color</span>
+                <span
+                  className="ep-setting-swatch"
+                  style={{ backgroundColor: "var(--ion-color-primary)" }}
+                ></span>
+              </button>
             </div>
-            <label className="ep-toggle">
-              <input
-                type="checkbox"
-                checked={darkMode}
-                onChange={() => setDarkMode(!darkMode)}
-              />
-              <span className="ep-slider"></span>
-            </label>
           </div>
 
-          <div
-            className="ep-settings-item"
-            onClick={() => setShowColorModal(true)}
-            style={{ cursor: "pointer" }}
-          >
-            <div className="ep-settings-label">
-              <Palette color="var(--ion-color-primary)" size={20} />
-              Theme Color
-            </div>
-            <div
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                backgroundColor: "var(--ion-color-primary)",
-              }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Personal Info */}
-        <div className="ep-card">
-          <h3 className="ep-card-title">
-            <Info color="var(--ion-color-primary)" size={20} /> Personal Details
-          </h3>
           <div className="ep-info-grid">
             <InfoItem
               color="var(--ion-color-primary)"
@@ -1853,6 +2937,12 @@ const EmpProfile: React.FC = () => {
               icon={TrendingUp}
               label="TA per KM (Public Transport)"
               value={userData.tAperKM}
+            />
+
+            <InfoItem
+              icon={TrendingUp}
+              label="Team Allowance"
+              value={userData.teamAllowance}
             />
 
             {/* Leave */}
@@ -2046,6 +3136,938 @@ const EmpProfile: React.FC = () => {
                 <div className="ep-no-results">No employees found.</div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Image & Personal Details Card Modal */}
+      {showImageProfileModal && (
+        <div
+          className="ep-overlay ep-image-modal-overlay"
+          onClick={() => setShowImageProfileModal(false)}
+        >
+          <div
+            className="ep-modal ep-profile-card-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ep-modal-handle"></div>
+
+            {/* Modal Header */}
+            <div className="ep-modal-header ep-profile-card-header">
+              <div className="ep-profile-card-title-group">
+                <span className="ep-profile-card-badge">Profile Card</span>
+                <h3 className="ep-profile-card-heading">Employee Overview</h3>
+              </div>
+              <button
+                className="ep-close-btn"
+                onClick={() => setShowImageProfileModal(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Hero Profile Mini Header inside Card (shown only on Details and Upload tabs) */}
+            {imageModalTab !== "idcard" && (
+              <div className="ep-profile-card-hero">
+                <div className="ep-profile-card-avatar-wrap">
+                  <img
+                    src={
+                      userData.profilePic ||
+                      (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : "/images/avatar.png")
+                    }
+                    alt={userData.empName || "Employee Profile"}
+                    className="ep-profile-card-avatar-img"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (!target.src.includes("avatar.png")) {
+                        target.src = "/images/avatar.png";
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="ep-profile-card-hero-meta">
+                  <h4 className="ep-profile-card-name">
+                    {typeof userData.empName === "object" ? "" : (userData.empName || "PALURI YESURAJU")}
+                  </h4>
+                  <div className="ep-profile-card-sub">
+                    <span className="ep-profile-card-role">
+                      {typeof userData.designation === "object" ? "" : (userData.designation || "Developer")}
+                    </span>
+                    {(userData.department || "IT") && (
+                      <>
+                        <span className="ep-hero-sep">•</span>
+                        <span className="ep-profile-card-dept">
+                          {typeof userData.department === "object" ? "" : (userData.department || "IT")}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="ep-profile-card-chips">
+                    <span className="ep-profile-card-chip">
+                      ID: <strong>{userData.empCode || "1614"}</strong>
+                    </span>
+                    <span className="ep-status-badge active">
+                      <span className="ep-status-dot"></span>
+                      {userData.status || "Active"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Options Tabs: ID Card | Personal Details | Upload Image */}
+            <div className="ep-profile-card-options-nav ep-profile-card-options-nav-3">
+              <button
+                type="button"
+                className={`ep-profile-option-btn ${imageModalTab === "idcard" ? "active" : ""}`}
+                onClick={() => setImageModalTab("idcard")}
+              >
+                <CreditCard size={16} />
+                <span>ID Card</span>
+              </button>
+              <button
+                type="button"
+                className={`ep-profile-option-btn ${imageModalTab === "details" ? "active" : ""}`}
+                onClick={() => setImageModalTab("details")}
+              >
+                <Fingerprint size={16} />
+                <span>Personal Details</span>
+              </button>
+              <button
+                type="button"
+                className={`ep-profile-option-btn ${imageModalTab === "upload" ? "active" : ""}`}
+                onClick={() => setImageModalTab("upload")}
+              >
+                <Camera size={16} />
+                <span>Upload Image</span>
+              </button>
+            </div>
+
+            {/* Option 0: Official ID Card (Front & Back - 6cm x 9cm) */}
+            {imageModalTab === "idcard" && (
+              <div className="ep-idcard-content">
+                {/* ID Card Sub-toolbar */}
+                <div className="ep-idcard-toolbar">
+                  <div className="ep-idcard-side-tabs">
+                    <button
+                      type="button"
+                      className={`ep-idcard-side-btn ${idCardSide === "both" ? "active" : ""}`}
+                      onClick={() => setIdCardSide("both")}
+                    >
+                      Both Slots (L805 Tray)
+                    </button>
+                    <button
+                      type="button"
+                      className={`ep-idcard-side-btn ${idCardSide === "front" ? "active" : ""}`}
+                      onClick={() => setIdCardSide("front")}
+                    >
+                      Slot 1: Front
+                    </button>
+                    <button
+                      type="button"
+                      className={`ep-idcard-side-btn ${idCardSide === "back" ? "active" : ""}`}
+                      onClick={() => setIdCardSide("back")}
+                    >
+                      Slot 2: Back
+                    </button>
+                  </div>
+
+                  <div className="ep-idcard-toolbar-controls">
+                    <button
+                      type="button"
+                      className="ep-idcard-toggle-mode-btn"
+                      onClick={() => setCardOrientation(cardOrientation === "landscape" ? "portrait" : "landscape")}
+                      title="Switch between Landscape L805 Tray Mode and Portrait"
+                    >
+                      {cardOrientation === "landscape" ? "📐 L805 Tray (Horizontal)" : "📱 Portrait Mode"}
+                    </button>
+
+                    {cardOrientation === "landscape" && (
+                      <button
+                        type="button"
+                        className="ep-idcard-rotate-btn"
+                        onClick={() => setCardRotation(cardRotation === 90 ? 270 : 90)}
+                        title="Toggle card rotation (90° or 270°)"
+                      >
+                        <RotateCw size={12} />
+                        <span>{cardRotation}°</span>
+                      </button>
+                    )}
+
+                    <div className="ep-idcard-dimensions-tag" title="Epson L805 Tray Template Coordinates">
+                      <span>{cardOrientation === "landscape" ? "3.2cm – 11.8cm (9cm × 6cm Tray Slot)" : "6cm × 9cm (ID Card)"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ID Cards Display Container */}
+                <div className="ep-idcard-cards-container">
+                  {/* FRONT CARD (Slot 1) */}
+                  <div
+                    className={`ep-idcard-item ${idCardSide === "back" ? "ep-screen-hidden" : ""}`}
+                  >
+                    {cardOrientation === "landscape" ? (
+                      <div className="ep-tray-slot-wrapper">
+                        <div className="ep-tray-slot-header">
+                          <span className="ep-tray-slot-name">Slot 1 &bull; Front Card</span>
+                          <span className="ep-tray-slot-coord">3.2 cm – 11.8 cm</span>
+                        </div>
+                        <div className="ep-tray-physical-slot">
+                          {/* 2 Eject Holes as shown in user physical tray photo */}
+                          <div className="ep-tray-hole hole-left" title="Card Eject Hole 1" />
+                          <div className="ep-tray-hole hole-right" title="Card Eject Hole 2" />
+
+                          <div
+                            ref={frontCardRef}
+                            className="ep-tray-card-landscape"
+                          >
+                            <div
+                              className="ep-idcard-frame ep-idcard-front-frame"
+                              style={{
+                                width: "6cm",
+                                height: "9cm",
+                                transform: `rotate(${cardRotation}deg)`,
+                                transformOrigin: "center center",
+                                backgroundImage: `url(${idCardFrontClean})`,
+                              }}
+                            >
+                              {/* Employee Profile Photo Frame inside Circle */}
+                              <div className="ep-idcard-avatar-wrap">
+                                <img
+                                  src={
+                                    userData.profilePic ||
+                                    (userData.empCode
+                                      ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
+                                      : "/images/avatar.png")
+                                  }
+                                  alt={userData.empName || "Employee"}
+                                  className="ep-idcard-avatar-img"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    if (!target.src.includes("avatar.png")) {
+                                      target.src = "/images/avatar.png";
+                                    }
+                                  }}
+                                />
+                              </div>
+
+                              {/* Employee Name */}
+                              <div className="ep-idcard-name" title={userData.empName || "PALURI YESURAJU"}>
+                                {userData.empName || "PALURI YESURAJU"}
+                              </div>
+
+                              {/* Employee Designation */}
+                              <div className="ep-idcard-desig" title={userData.designation || "DEVELOPER"}>
+                                {(userData.designation || "DEVELOPER").toUpperCase()}
+                              </div>
+
+                              {/* Details Rows (EMP. ID, DOJ, Blood Group) */}
+                              <div className="ep-idcard-fields-block">
+                                <div className="ep-idcard-row">
+                                  <span className="ep-idcard-field-key">EMP. ID</span>
+                                  <span className="ep-idcard-colon">:</span>
+                                  <span className="ep-idcard-field-val">
+                                    {userData.empCode
+                                      ? String(userData.empCode).startsWith("DBS")
+                                        ? String(userData.empCode)
+                                        : `DBS${userData.empCode}`
+                                      : "DBS1614"}
+                                  </span>
+                                </div>
+                                <div className="ep-idcard-row">
+                                  <span className="ep-idcard-field-key">DOJ</span>
+                                  <span className="ep-idcard-colon">:</span>
+                                  <span className="ep-idcard-field-val">
+                                    {formatCardDOJ(userData.doj || userData.joiningDate)}
+                                  </span>
+                                </div>
+                                <div className="ep-idcard-row">
+                                  <span className="ep-idcard-field-key">Blood Group</span>
+                                  <span className="ep-idcard-colon">:</span>
+                                  <span className="ep-idcard-field-val">
+                                    {userData.bloodGroup || "A-"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Phone Row */}
+                              <div className="ep-idcard-phone-row">
+                                <span className="ep-idcard-phone-bubble">
+                                  <Phone size={8} strokeWidth={2.5} />
+                                </span>
+                                <span className="ep-idcard-phone-val">
+                                  {userData.contactNumber || "9866992847"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="ep-idcard-label-badge">Front Side &bull; Slot 1</div>
+                        <div
+                          ref={frontCardRef}
+                          className="ep-idcard-frame ep-idcard-front-frame"
+                          style={{ backgroundImage: `url(${idCardFrontClean})` }}
+                        >
+                          <div className="ep-idcard-avatar-wrap">
+                            <img
+                              src={
+                                userData.profilePic ||
+                                (userData.empCode
+                                  ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
+                                  : "/images/avatar.png")
+                              }
+                              alt={userData.empName || "Employee"}
+                              className="ep-idcard-avatar-img"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (!target.src.includes("avatar.png")) {
+                                  target.src = "/images/avatar.png";
+                                }
+                              }}
+                            />
+                          </div>
+
+                          <div className="ep-idcard-name" title={userData.empName || "PALURI YESURAJU"}>
+                            {userData.empName || "PALURI YESURAJU"}
+                          </div>
+
+                          <div className="ep-idcard-desig" title={userData.designation || "DEVELOPER"}>
+                            {(userData.designation || "DEVELOPER").toUpperCase()}
+                          </div>
+
+                          <div className="ep-idcard-fields-block">
+                            <div className="ep-idcard-row">
+                              <span className="ep-idcard-field-key">EMP. ID</span>
+                              <span className="ep-idcard-colon">:</span>
+                              <span className="ep-idcard-field-val">
+                                {userData.empCode
+                                  ? String(userData.empCode).startsWith("DBS")
+                                    ? String(userData.empCode)
+                                    : `DBS${userData.empCode}`
+                                  : "DBS1614"}
+                              </span>
+                            </div>
+                            <div className="ep-idcard-row">
+                              <span className="ep-idcard-field-key">DOJ</span>
+                              <span className="ep-idcard-colon">:</span>
+                              <span className="ep-idcard-field-val">
+                                {formatCardDOJ(userData.doj || userData.joiningDate)}
+                              </span>
+                            </div>
+                            <div className="ep-idcard-row">
+                              <span className="ep-idcard-field-key">Blood Group</span>
+                              <span className="ep-idcard-colon">:</span>
+                              <span className="ep-idcard-field-val">
+                                {userData.bloodGroup || "A-"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="ep-idcard-phone-row">
+                            <span className="ep-idcard-phone-bubble">
+                              <Phone size={8} strokeWidth={2.5} />
+                            </span>
+                            <span className="ep-idcard-phone-val">
+                              {userData.contactNumber || "9866992847"}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* BACK CARD (Slot 2) */}
+                  <div
+                    className={`ep-idcard-item ${idCardSide === "front" ? "ep-screen-hidden" : ""}`}
+                  >
+                    {cardOrientation === "landscape" ? (
+                      <div className="ep-tray-slot-wrapper">
+                        <div className="ep-tray-slot-header">
+                          <span className="ep-tray-slot-name">Slot 2 &bull; Back Card</span>
+                          <span className="ep-tray-slot-coord">3.2 cm – 11.8 cm</span>
+                        </div>
+                        <div className="ep-tray-physical-slot">
+                          {/* 2 Eject Holes as shown in user physical tray photo */}
+                          <div className="ep-tray-hole hole-left" title="Card Eject Hole 1" />
+                          <div className="ep-tray-hole hole-right" title="Card Eject Hole 2" />
+
+                          <div
+                            ref={backCardRef}
+                            className="ep-tray-card-landscape"
+                          >
+                            <div
+                              className="ep-idcard-frame ep-idcard-back-frame"
+                              style={{
+                                width: "6cm",
+                                height: "9cm",
+                                transform: `rotate(${cardRotation}deg)`,
+                                transformOrigin: "center center",
+                                backgroundImage: `url(${idCardBack})`,
+                              }}
+                            >
+                              {/* Scannable Barcode / QR Code inside top white square */}
+                              <div className="ep-idcard-qr-box">
+                                {qrCodeUrl ? (
+                                  <img
+                                    src={qrCodeUrl}
+                                    alt={`Scannable details for ${userData.empName || "Employee"}`}
+                                    className="ep-idcard-qr-image"
+                                  />
+                                ) : (
+                                  <div className="ep-idcard-qr-placeholder">
+                                    <QrCode size={34} color="#0077b6" />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="ep-idcard-label-badge">Back Side &bull; Slot 2</div>
+                        <div
+                          ref={backCardRef}
+                          className="ep-idcard-frame ep-idcard-back-frame"
+                          style={{ backgroundImage: `url(${idCardBack})` }}
+                        >
+                          <div className="ep-idcard-qr-box">
+                            {qrCodeUrl ? (
+                              <img
+                                src={qrCodeUrl}
+                                alt={`Scannable details for ${userData.empName || "Employee"}`}
+                                className="ep-idcard-qr-image"
+                              />
+                            ) : (
+                              <div className="ep-idcard-qr-placeholder">
+                                <QrCode size={34} color="#0077b6" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* ID Card Actions */}
+                <div className="ep-idcard-actions-panel">
+                  <div className="ep-idcard-scan-hint">
+                    <QrCode size={15} />
+                    <span>Scan QR Code on back to view full employee details</span>
+                    <span className="ep-idcard-tray-pill">
+                      {cardOrientation === "landscape"
+                        ? "L805 Tray: 3.2cm – 11.8cm (9cm × 6cm) • 2 Holes Align"
+                        : "Standard 6cm × 9cm (ID Card)"}
+                    </span>
+                  </div>
+
+                  <div className="ep-idcard-buttons-row">
+                    {idCardSide === "front" && (
+                      <>
+                        <button
+                          type="button"
+                          className="ep-idcard-btn primary"
+                          onClick={() => handleDownloadCard("front", "landscape", "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download high-resolution Front Card for Epson L805 Tray (Landscape JPG)"
+                        >
+                          {downloadingCard === "front_landscape_jpg" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>
+                            {downloadingCard === "front_landscape_jpg"
+                              ? "Downloading..."
+                              : "Download Front (Epson L805 Tray • JPG)"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("front", "landscape", "png")}
+                          disabled={downloadingCard !== null}
+                          title="Download Front Card for Epson L805 Tray (Landscape PNG)"
+                        >
+                          {downloadingCard === "front_landscape_png" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>
+                            {downloadingCard === "front_landscape_png"
+                              ? "Downloading..."
+                              : "PNG (L805 Tray)"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("front", "portrait", "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download Portrait 6cm × 9cm Front Card"
+                        >
+                          {downloadingCard === "front_portrait_jpg" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Portrait (6cm × 9cm)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handlePrintIdCards("front")}
+                          title="Print Front Card directly onto Epson L805 Tray Slot 1"
+                        >
+                          <Printer size={14} />
+                          <span>Print Front (L805 Slot 1)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn nav-side"
+                          onClick={() => setIdCardSide("back")}
+                          title="Go to Backside Card (Slot 2)"
+                        >
+                          <span>Slot 2: Backside</span>
+                          <ArrowRight size={13} />
+                        </button>
+                      </>
+                    )}
+
+                    {idCardSide === "back" && (
+                      <>
+                        <button
+                          type="button"
+                          className="ep-idcard-btn primary"
+                          onClick={() => handleDownloadCard("back", "landscape", "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download high-resolution Backside Card for Epson L805 Tray (Landscape JPG)"
+                        >
+                          {downloadingCard === "back_landscape_jpg" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>
+                            {downloadingCard === "back_landscape_jpg"
+                              ? "Downloading..."
+                              : "Download Back (Epson L805 Tray • JPG)"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("back", "landscape", "png")}
+                          disabled={downloadingCard !== null}
+                          title="Download Backside Card for Epson L805 Tray (Landscape PNG)"
+                        >
+                          {downloadingCard === "back_landscape_png" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>
+                            {downloadingCard === "back_landscape_png"
+                              ? "Downloading..."
+                              : "PNG (L805 Tray)"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("back", "portrait", "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download Portrait 6cm × 9cm Backside Card"
+                        >
+                          {downloadingCard === "back_portrait_jpg" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Portrait (6cm × 9cm)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handlePrintIdCards("back")}
+                          title="Print Backside Card directly onto Epson L805 Tray Slot 2"
+                        >
+                          <Printer size={14} />
+                          <span>Print Backside (L805 Slot 2)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn nav-side"
+                          onClick={() => setIdCardSide("front")}
+                          title="Go to Front Card (Slot 1)"
+                        >
+                          <ArrowLeft size={13} />
+                          <span>Slot 1: Front</span>
+                        </button>
+                      </>
+                    )}
+
+                    {idCardSide === "both" && (
+                      <>
+                        <button
+                          type="button"
+                          className="ep-idcard-btn primary"
+                          onClick={() => handlePrintIdCards("both")}
+                          title="Print Both Sides formatted for Epson L805 2-Slot Tray (3.2cm - 11.8cm)"
+                        >
+                          <Printer size={14} />
+                          <span>Print Both (L805 Tray • Slot 1 & 2)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("front", "landscape", "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download Front Card for Epson L805 Tray (Landscape JPG)"
+                        >
+                          {downloadingCard === "front_landscape_jpg" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Download Front (L805 Tray)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("back", "landscape", "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download Back Card for Epson L805 Tray (Landscape JPG)"
+                        >
+                          {downloadingCard === "back_landscape_jpg" ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Download Back (L805 Tray)</span>
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      className="ep-idcard-btn subtle"
+                      onClick={() => setShowScannedDataPreview(!showScannedDataPreview)}
+                    >
+                      <Eye size={14} />
+                      <span>{showScannedDataPreview ? "Hide Data" : "Preview Scanned Data"}</span>
+                    </button>
+                  </div>
+
+                  {showScannedDataPreview && (
+                    <div className="ep-idcard-scanned-preview-box">
+                      <div className="ep-scanned-preview-title">
+                        <span>Data Encoded in Barcode / QR Code:</span>
+                        <button
+                          type="button"
+                          className="ep-scanned-copy-btn"
+                          onClick={() => {
+                            const empCodeDisplay = userData.empCode
+                              ? String(userData.empCode).startsWith("DBS")
+                                ? String(userData.empCode)
+                                : `DBS${userData.empCode}`
+                              : "DBS1614";
+                            const text = `Designation: ${(userData.designation || "DEVELOPER").toUpperCase()}
+DbasesolutionsPVT.LTD
+Contact Details: ${userData.contactNumber || "9866992847"}
+Email: ${userData.email || "support@dbasesolutions.in"}
+Address: D.No. 16-58/33, Sai Sadan, Sri Sairam Nagar, Hanuman Nagar, Eluru - 534001, Eluru Dist, A.P, India.
+Employee: ${userData.empName || "PALURI YESURAJU"}
+Emp ID: ${empCodeDisplay}
+DOJ: ${formatCardDOJ(userData.doj || userData.joiningDate)}
+Blood Group: ${userData.bloodGroup || "AB-"}
+Website: https://dbasesolutions.in/`;
+                            navigator.clipboard.writeText(text);
+                            setCopiedField("scannedQr");
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                        >
+                          {copiedField === "scannedQr" ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                          <span>{copiedField === "scannedQr" ? "Copied" : "Copy Details"}</span>
+                        </button>
+                      </div>
+                      <pre className="ep-scanned-preview-code">
+{`Designation: ${(userData.designation || "DEVELOPER").toUpperCase()}
+Company: Dbasesolutions PVT. LTD
+Contact Details: ${userData.contactNumber || "9866992847"}
+Email: ${userData.email || "support@dbasesolutions.in"}
+Address: D.No. 16-58/33, Sai Sadan, Sri Sairam Nagar, Hanuman Nagar, Eluru - 534001, Eluru Dist, A.P, India.
+Employee: ${userData.empName || "PALURI YESURAJU"}
+Emp ID: ${
+  userData.empCode
+    ? String(userData.empCode).startsWith("DBS")
+      ? String(userData.empCode)
+      : `DBS${userData.empCode}`
+    : "DBS1614"
+}
+DOJ: ${formatCardDOJ(userData.doj || userData.joiningDate)}
+Blood Group: ${userData.bloodGroup || "AB-"}
+Website: https://dbasesolutions.in/`}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Option 1: Personal Details */}
+            {imageModalTab === "details" && (
+              <div className="ep-profile-details-content">
+                <div className="ep-profile-details-grid">
+                  {/* Emp Code */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon">
+                      <Fingerprint size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">Emp Code</span>
+                      <span className="ep-detail-value">{userData.empCode || "1614"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ep-detail-copy-btn"
+                      title="Copy Emp Code"
+                      onClick={() => handleCopyValue("empCode", userData.empCode || "1614")}
+                    >
+                      {copiedField === "empCode" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+
+                  {/* Name */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon">
+                      <User size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">Name</span>
+                      <span className="ep-detail-value">{userData.empName || "PALURI YESURAJU"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ep-detail-copy-btn"
+                      title="Copy Name"
+                      onClick={() => handleCopyValue("empName", userData.empName || "PALURI YESURAJU")}
+                    >
+                      {copiedField === "empName" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+
+                  {/* Blood Group */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon ep-icon-blood">
+                      <Droplet size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">Blood Group</span>
+                      <span className="ep-detail-value ep-blood-badge">{userData.bloodGroup || "AB-"}</span>
+                    </div>
+                  </div>
+
+                  {/* Mobile */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon">
+                      <Phone size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">Mobile</span>
+                      <a
+                        href={`tel:${userData.contactNumber || "9866992847"}`}
+                        className="ep-detail-value ep-link-value"
+                      >
+                        {userData.contactNumber || "9866992847"}
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      className="ep-detail-copy-btn"
+                      title="Copy Mobile"
+                      onClick={() => handleCopyValue("mobile", userData.contactNumber || "9866992847")}
+                    >
+                      {copiedField === "mobile" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+
+                  {/* PAN */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon">
+                      <FileText size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">PAN</span>
+                      <span className="ep-detail-value ep-mono-value">{userData.pan || "CRVPP5881Q"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ep-detail-copy-btn"
+                      title="Copy PAN"
+                      onClick={() => handleCopyValue("pan", userData.pan || "CRVPP5881Q")}
+                    >
+                      {copiedField === "pan" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+
+                  {/* AADHAR */}
+                  <div className="ep-detail-tile">
+                    <div className="ep-detail-icon">
+                      <CreditCard size={17} />
+                    </div>
+                    <div className="ep-detail-info">
+                      <span className="ep-detail-label">AADHAR</span>
+                      <span className="ep-detail-value ep-mono-value">{userData.aadhar || "832072843977"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ep-detail-copy-btn"
+                      title="Copy AADHAR"
+                      onClick={() => handleCopyValue("aadhar", userData.aadhar || "832072843977")}
+                    >
+                      {copiedField === "aadhar" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ep-profile-details-actions">
+                  <button
+                    type="button"
+                    className="ep-profile-action-btn primary"
+                    onClick={() => {
+                      setImageModalTab("upload");
+                      setTimeout(() => modalFileInputRef.current?.click(), 100);
+                    }}
+                  >
+                    <Camera size={15} />
+                    <span>Upload New Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ep-profile-action-btn secondary"
+                    onClick={() => setShowImageProfileModal(false)}
+                  >
+                    <span>Close</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Option 2: Upload Image */}
+            {imageModalTab === "upload" && (
+              <div className="ep-profile-upload-content">
+                <input
+                  type="file"
+                  ref={modalFileInputRef}
+                  accept="image/*"
+                  onChange={(e) => {
+                    handleImageUpload(e);
+                  }}
+                  disabled={uploading}
+                  className="ep-hidden-input"
+                />
+
+                <div
+                  className={`ep-profile-upload-dropzone ${uploading ? "uploading" : ""}`}
+                  onClick={() => !uploading && modalFileInputRef.current?.click()}
+                >
+                  <div className="ep-upload-dropzone-preview">
+                    <img
+                      src={
+                        userData.profilePic ||
+                        (userData.empCode ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg` : "/images/avatar.png")
+                      }
+                      alt={userData.empName || "Profile Preview"}
+                      className="ep-upload-current-avatar"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.includes("avatar.png")) {
+                          target.src = "/images/avatar.png";
+                        }
+                      }}
+                    />
+                    <div className="ep-upload-icon-bubble">
+                      {uploading ? (
+                        <Loader2 className="ep-spin" size={16} />
+                      ) : (
+                        <Upload size={16} />
+                      )}
+                    </div>
+                  </div>
+
+                  <h5 className="ep-upload-title">
+                    {uploading ? "Uploading photo..." : "Upload Profile Photo"}
+                  </h5>
+                  <p className="ep-upload-desc">
+                    {uploading
+                      ? "Please wait while your image is being uploaded and saved..."
+                      : "Click here or browse from your device to select a new profile photo."}
+                  </p>
+
+                  <button
+                    type="button"
+                    className="ep-upload-select-btn"
+                    disabled={uploading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      modalFileInputRef.current?.click();
+                    }}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="ep-spin" size={15} />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera size={15} />
+                        <span>Choose Photo</span>
+                      </>
+                    )}
+                  </button>
+
+                  <span className="ep-upload-footnote">
+                    Supports JPG, PNG or WEBP (Max 5MB)
+                  </span>
+                </div>
+
+                <div className="ep-profile-details-actions">
+                  <button
+                    type="button"
+                    className="ep-profile-action-btn secondary"
+                    onClick={() => setImageModalTab("details")}
+                  >
+                    <ChevronRight size={15} style={{ transform: "rotate(180deg)" }} />
+                    <span>Back to Personal Details</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ep-profile-action-btn secondary"
+                    onClick={() => setShowImageProfileModal(false)}
+                  >
+                    <span>Close</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2619,17 +4641,18 @@ const EmpProfile: React.FC = () => {
                     />
                   </div>
 
-                  {showTeamAllowance && (
-                    <div className="ep-input-group">
-                      <label>Team Allowance</label>
-                      <input
-                        type="text"
-                        name="_teamAllowance"
-                        value={formData._teamAllowance}
-                        readOnly
-                      />
-                    </div>
-                  )}
+                  <div className="ep-input-group">
+                    <label>Team Allowance</label>
+                    <input
+                      type="number"
+                      name="_teamAllowance"
+                      value={formData._teamAllowance}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      min="0"
+                      step="any"
+                    />
+                  </div>
 
                 </div>
 

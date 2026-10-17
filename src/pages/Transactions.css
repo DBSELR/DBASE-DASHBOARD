@@ -314,6 +314,29 @@
     letter-spacing: 0.3px;
 }
 
+/* Voucher Verification Status Colors */
+.amt-status.status--Y {
+    color: #16a34a;
+}
+
+.amt-status.status--N {
+    color: red;
+}
+
+.amt-status.status--U {
+    color: #2563eb;
+}
+
+.txn-card--verified .txn-title,
+.txn-card--verified .amt-value {
+    color: #16a34a !important;
+}
+
+.txn-card--unverified .txn-title,
+.txn-card--unverified .amt-value {
+    color: red !important;
+}
+
 /* --- Responsive Helpers --- */
 @media (min-width: 768px) {
     .transactions-container {
