@@ -32,7 +32,14 @@ import {
   Check,
   X,
   ChevronLeft,
-  ShieldAlert
+  ShieldAlert,
+  Clock,
+  Lock,
+  ListChecks,
+  AlertTriangle,
+  Layers,
+  Sparkles,
+  AlertCircle
 } from "lucide-react";
 import {
   personOutline,
@@ -45,6 +52,9 @@ import {
 import { IonIcon } from "@ionic/react";
 import moment from "moment";
 import { API_BASE } from "../config";
+import { apiService } from "../utils/apiService";
+import { workReportQueueService, QueuedActivity } from "../services/workReportQueueService";
+import { PendingTasksAlertModal, PendingTaskItem } from "../components/PendingTasksAlertModal";
 import "./WorkReports.css";
 import { useHistory } from "react-router-dom";
 
@@ -92,7 +102,7 @@ const WorkReports: React.FC = () => {
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [toastType, setToastType] = useState<"success" | "danger">("success");
+  const [toastType, setToastType] = useState<"success" | "danger" | "warning">("success");
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -111,11 +121,53 @@ const WorkReports: React.FC = () => {
     }
   });
 
+  const checkIsAllowedTime = (): boolean => {
+    const now = moment().utcOffset("+05:30");
+    const hour = now.hour();
+    const minute = now.minute();
+    return hour > 18 || (hour === 18 && minute >= 29);
+  };
+
+  const [isAllowedTime, setIsAllowedTime] = useState<boolean>(checkIsAllowedTime);
+  const [timeRemainingStr, setTimeRemainingStr] = useState<string>("");
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = moment().utcOffset("+05:30");
+      const allowed = now.hour() > 18 || (now.hour() === 18 && now.minute() >= 29);
+      setIsAllowedTime(allowed);
+
+      if (!allowed) {
+        const target = moment().utcOffset("+05:30").hour(18).minute(29).second(0);
+        const diffMs = target.diff(now);
+        if (diffMs > 0) {
+          const dur = moment.duration(diffMs);
+          const h = String(Math.floor(dur.asHours())).padStart(2, '0');
+          const m = String(dur.minutes()).padStart(2, '0');
+          const s = String(dur.seconds()).padStart(2, '0');
+          setTimeRemainingStr(`${h}h ${m}m ${s}s`);
+        } else {
+          setTimeRemainingStr("00h 00m 00s");
+        }
+      } else {
+        setTimeRemainingStr("");
+      }
+    };
+
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const markTodaySubmitted = () => {
     try {
       const now = moment().utcOffset("+05:30");
       const todayKey = `${now.year()}-${now.month() + 1}-${now.date()}`;
-      const slot = (now.hour() > 18 || (now.hour() === 18 && now.minute() >= 20)) ? "18_20" : "18_00";
+      const slot = (now.hour() > 20 || (now.hour() === 20 && now.minute() >= 30))
+        ? "20_30"
+        : (now.hour() > 19 || (now.hour() === 19 && now.minute() >= 30))
+          ? "19_30"
+          : "18_29";
       localStorage.setItem(`work_report_submitted_${todayKey}`, "true");
       localStorage.setItem("work_report_dismissed_time", `${todayKey}_${slot}`);
       setIsTodayReportSubmitted(true);
@@ -124,6 +176,198 @@ const WorkReports: React.FC = () => {
       console.error("Error setting work report submitted state", err);
     }
   };
+
+  // Activity Queue States
+  const [queuedActivities, setQueuedActivities] = useState<QueuedActivity[]>([]);
+
+  const loadQueue = () => {
+    const empCode = _user?.empCode || _user?.EmpCode;
+    const list = workReportQueueService.getQueuedActivities(empCode);
+    setQueuedActivities(list);
+  };
+
+  useEffect(() => {
+    loadQueue();
+    const handleQueueUpdated = () => {
+      loadQueue();
+      if (!canViewAllEmployees) {
+        checkPendingTasksDailyUpdates();
+      }
+    };
+    window.addEventListener("work-report-queue-updated", handleQueueUpdated);
+    return () => window.removeEventListener("work-report-queue-updated", handleQueueUpdated);
+  }, []);
+
+  const handlePopulateFromQueue = () => {
+    let empCode = "";
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      empCode = u?.empCode || u?.EmpCode || _user?.empCode || _user?.EmpCode || "";
+    } catch {
+      empCode = _user?.empCode || _user?.EmpCode || "";
+    }
+    const formatted = workReportQueueService.formatQueueForReport(empCode);
+    if (!formatted) {
+      setToastType("danger");
+      setToastMessage("No queued activities to populate.");
+      setShowToast(true);
+      return;
+    }
+
+    setReportContent(prev => {
+      const trimmed = prev.trim();
+      if (!trimmed) return formatted;
+      return `${trimmed}\n\nToday's Activities:\n${formatted}`;
+    });
+
+    if (!selectedClient && clients.length > 0) {
+      const inHouse = clients.find(c => c.name.toLowerCase().includes("in-house") || c.name.toLowerCase().includes("internal") || c.name.toLowerCase().includes("dbase"));
+      setSelectedClient(String(inHouse ? inHouse.id : clients[0].id));
+    }
+
+    setToastType("success");
+    setToastMessage("Queued activities populated into description!");
+    setShowToast(true);
+  };
+
+  // Pending Tasks Validation States
+  const [pendingTasksModalOpen, setPendingTasksModalOpen] = useState(false);
+  const [unupdatedPendingTasks, setUnupdatedPendingTasks] = useState<PendingTaskItem[]>([]);
+  const [isCheckingPendingTasks, setIsCheckingPendingTasks] = useState(false);
+
+  const checkPendingTasksDailyUpdates = async (): Promise<PendingTaskItem[]> => {
+    let empCode = "";
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      empCode = u?.empCode || u?.EmpCode || _user?.empCode || _user?.EmpCode || "";
+    } catch {
+      empCode = _user?.empCode || _user?.EmpCode || "";
+    }
+    if (!empCode) return [];
+
+    setIsCheckingPendingTasks(true);
+    try {
+      let receivedRaw: any = [];
+      try {
+        receivedRaw = await apiService.loadReceivedTasks(empCode);
+      } catch (e) {
+        console.log("No received tasks found or API 400 error:", e);
+        receivedRaw = [];
+      }
+
+      let receivedList: any[] = [];
+      if (Array.isArray(receivedRaw)) {
+        receivedList = receivedRaw;
+      } else if (typeof receivedRaw === "string") {
+        try {
+          receivedList = JSON.parse(receivedRaw);
+        } catch {
+          receivedList = [];
+        }
+      }
+
+      // Filter for active pending tasks assigned to this employee
+      const pending = receivedList.filter((t: any) => {
+        const status = String(t.Status || t.status || "").trim().toLowerCase();
+        if (status === "closed" || status === "quit" || status === "cancelled" || status === "completed") {
+          return false;
+        }
+        // Exclude CC'd / tagged tasks where employee is not the primary assignee
+        if (t.IsTagged === true || t.isTagged === true || t.IsTagged === 1 || t.isTagged === 1) {
+          return false;
+        }
+        return true;
+      });
+
+      console.log(`[checkPendingTasksDailyUpdates] Found ${pending.length} pending task(s) for emp ${empCode}:`, pending);
+
+      const now = moment().utcOffset("+05:30");
+      const todayFormats = [
+        now.format("DD-MM-YYYY"),
+        now.format("D-MM-YYYY"),
+        now.format("DD/MM/YYYY"),
+        now.format("D/M/YYYY"),
+        now.format("YYYY-MM-DD")
+      ];
+
+      const queueActivities = workReportQueueService.getQueuedActivities(empCode);
+
+      // Check all pending tasks in parallel concurrently
+      const checkPromises = pending.map(async (task: any) => {
+        const tid = task.TID ?? task.tid ?? task[0];
+        if (!tid) return null;
+
+        // Check if employee already recorded an update or 'No Change' in today's local queue
+        const hasQueuedUpdate = queueActivities.some(
+          q => q.type === "task" && String(q.referenceId) === String(tid)
+        );
+
+        if (hasQueuedUpdate) {
+          console.log(`[checkPendingTasksDailyUpdates] Task #${tid} already has an update in today's queue.`);
+          return null;
+        }
+
+        let hasUpdateToday = false;
+        try {
+          const rawHistory = await apiService.loadViewTask(String(tid));
+          let historyList: any[] = [];
+          if (Array.isArray(rawHistory)) {
+            historyList = rawHistory;
+          } else if (typeof rawHistory === "string") {
+            try {
+              historyList = JSON.parse(rawHistory);
+            } catch {
+              historyList = [];
+            }
+          }
+
+          if (Array.isArray(historyList) && historyList.length > 0) {
+            hasUpdateToday = historyList.some((item: any) => {
+              const dateVal = String(
+                (Array.isArray(item) ? item[9] : (item?.date || item?.Date || item?._StatusDate || item?.[9])) || ""
+              ).trim();
+              if (!dateVal) return false;
+              return todayFormats.some(fmt => dateVal.includes(fmt));
+            });
+          }
+        } catch (e) {
+          // If 400 Bad Request or fetch error, this task has NO history yet!
+          console.log(`[checkPendingTasksDailyUpdates] Task #${tid} has no history records in DB:`, e);
+          hasUpdateToday = false;
+        }
+
+        if (!hasUpdateToday) {
+          console.log(`[checkPendingTasksDailyUpdates] Task #${tid} requires update for today!`);
+          return {
+            TID: tid,
+            TDesc: task.TDesc || task.tdesc || task[7] || `Task #${tid}`,
+            TPriority: task.TPriority || task.tpriority || task[10] || "Normal",
+            TDt: task.TDt || task.tdt || task[4] || "",
+            SenEName: task.SenEName || task.senename || task[1] || ""
+          } as PendingTaskItem;
+        }
+        return null;
+      });
+
+      const results = await Promise.all(checkPromises);
+      const unupdated = results.filter((item): item is PendingTaskItem => item !== null);
+
+      setUnupdatedPendingTasks(unupdated);
+      return unupdated;
+    } catch (e) {
+      console.error("Error checking pending tasks:", e);
+      return [];
+    } finally {
+      setIsCheckingPendingTasks(false);
+    }
+  };
+
+  // Run pending tasks check on component mount if employee
+  useEffect(() => {
+    if (!canViewAllEmployees) {
+      checkPendingTasksDailyUpdates();
+    }
+  }, []);
   // Searchable Dropdown States
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [empSearchTerm, setEmpSearchTerm] = useState("");
@@ -194,11 +438,11 @@ const WorkReports: React.FC = () => {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      await loadTeamReportAccess();
+      loadTeamReportAccess().catch(err => console.error("Error loading team access:", err));
       try {
         const clientsRes = await axios.get(
           `${baseUrl}/Workreport/Load_Clients?College`,
-          { headers: getAuthHeaders() }
+          { headers: getAuthHeaders(), timeout: 10000 }
         );
         setClients(
           clientsRes.data.map(([id, name]: [number, string]) => ({
@@ -224,11 +468,11 @@ const WorkReports: React.FC = () => {
           designation === "In-Charge F&A";
 
         if (isAdminUser) {
-
           const empRes = await axios.get(
             `${baseUrl}/Employee/Load_Employees?SearchEmp`,
             {
-              headers: getAuthHeaders()
+              headers: getAuthHeaders(),
+              timeout: 10000
             }
           );
 
@@ -252,7 +496,6 @@ const WorkReports: React.FC = () => {
         }
 
         if (user?.empCode) {
-
           const defaultEmpCode =
             user.empCode;
 
@@ -267,14 +510,10 @@ const WorkReports: React.FC = () => {
             defaultMonth
           );
 
-          await fetchMonths(
-            defaultEmpCode
-          );
-
-          await fetchReports(
-            defaultEmpCode,
-            defaultMonth
-          );
+          await Promise.allSettled([
+            fetchMonths(defaultEmpCode),
+            fetchReports(defaultEmpCode, defaultMonth)
+          ]);
         }
       } catch (err) {
         console.error("Error loading employees", err);
@@ -368,16 +607,38 @@ const WorkReports: React.FC = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!selectedClient || !workLocation || !reportContent.trim()) {
+  const handleSubmit = async (bypassPendingCheck: boolean = false) => {
+    // 1. Time restriction: Work report must be taken 6:29 PM onwards
+    const nowMoment = moment().utcOffset("+05:30");
+    const isAllowed = nowMoment.hour() > 18 || (nowMoment.hour() === 18 && nowMoment.minute() >= 29);
+    if (!isAllowed && !canViewAllEmployees) {
       setToastType("danger");
-      setToastMessage("All fields are required!");
+      setToastMessage("Work report submission is only allowed from 6:29 PM onwards!");
       setShowToast(true);
       return;
     }
 
-    const userData = JSON.parse(localStorage.getItem("user") || "{}");
-    const empCode = userData?.empCode;
+    // 2. Pending tasks check: Verify today's update
+    // Strictly verify boolean true to prevent SyntheticEvent from bypassing
+    const shouldCheckPending = !canViewAllEmployees && bypassPendingCheck !== true;
+    if (shouldCheckPending) {
+      const unupdated = await checkPendingTasksDailyUpdates();
+      if (unupdated.length > 0) {
+        setPendingTasksModalOpen(true);
+        setToastType("warning");
+        setToastMessage(`Please give today's update on ${unupdated.length} pending task(s) before submitting work report!`);
+        setShowToast(true);
+        return;
+      }
+    }
+
+    let empCode = "";
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      empCode = userData?.empCode || userData?.EmpCode || _user?.empCode || _user?.EmpCode || "";
+    } catch {
+      empCode = _user?.empCode || _user?.EmpCode || "";
+    }
 
     if (!empCode) {
       setToastType("danger");
@@ -386,10 +647,34 @@ const WorkReports: React.FC = () => {
       return;
     }
 
+    // Fallback: auto-fill from queue if user reportContent is empty
+    let finalContent = reportContent.trim();
+    if (!finalContent) {
+      const queueText = workReportQueueService.formatQueueForReport(empCode);
+      if (queueText) {
+        finalContent = queueText;
+        setReportContent(queueText);
+      }
+    }
+
+    let clientToUse = selectedClient;
+    if (!clientToUse && clients.length > 0) {
+      const inHouse = clients.find(c => c.name.toLowerCase().includes("in-house") || c.name.toLowerCase().includes("internal") || c.name.toLowerCase().includes("dbase"));
+      clientToUse = String(inHouse ? inHouse.id : clients[0].id);
+      setSelectedClient(clientToUse);
+    }
+
+    if (!clientToUse || !workLocation || !finalContent) {
+      setToastType("danger");
+      setToastMessage("All fields are required!");
+      setShowToast(true);
+      return;
+    }
+
     const payload = {
-      _clientId: Number(selectedClient),
+      _clientId: Number(clientToUse),
       _work_location: workLocation,
-      _work_report: reportContent,
+      _work_report: finalContent,
       _empcode: empCode
     };
 
@@ -409,6 +694,26 @@ const WorkReports: React.FC = () => {
 
       if (response.data && (typeof response.data === 'string' ? (response.data.includes("saved successfully") || response.data.includes("Save successfully")) : response.data.message?.includes("success"))) {
         markTodaySubmitted();
+
+        // Submit any queued ticket work reports
+        const ticketItems = queuedActivities.filter(item => item.type === "ticket" && item.payload);
+        for (const tItem of ticketItems) {
+          try {
+            await axios.post(`${baseUrl}/Tickets/SaveWorkReport_TicketWise`, tItem.payload, {
+              headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json; charset=utf-8'
+              }
+            });
+          } catch (err) {
+            console.warn("Error submitting queued ticket report:", err);
+          }
+        }
+
+        // Clear queued activities for today
+        workReportQueueService.clearQueuedActivities(empCode);
+        setQueuedActivities([]);
+
         setToastType("success");
         setToastMessage("Work report submitted successfully!");
         handleClear();
@@ -432,7 +737,26 @@ const WorkReports: React.FC = () => {
         // Fallback for different responses
         if (response.data === "Save successfully" || response.data?.status === "success") {
           markTodaySubmitted();
-          // still treat as success if it matches somehow
+
+          // Submit any queued ticket work reports
+          const ticketItems = queuedActivities.filter(item => item.type === "ticket" && item.payload);
+          for (const tItem of ticketItems) {
+            try {
+              await axios.post(`${baseUrl}/Tickets/SaveWorkReport_TicketWise`, tItem.payload, {
+                headers: {
+                  ...getAuthHeaders(),
+                  'Content-Type': 'application/json; charset=utf-8'
+                }
+              });
+            } catch (err) {
+              console.warn("Error submitting queued ticket report:", err);
+            }
+          }
+
+          // Clear queued activities for today
+          workReportQueueService.clearQueuedActivities(empCode);
+          setQueuedActivities([]);
+
           setToastType("success");
           setToastMessage("Work report submitted successfully!");
           handleClear();
@@ -753,6 +1077,90 @@ const WorkReports: React.FC = () => {
                   )}
                 </div>
 
+                {/* 6:29 PM Timing Constraint Banner */}
+                {!canViewAllEmployees && (
+                  <div className={`wr-timing-banner ${isAllowedTime ? "wr-tb-open" : "wr-tb-locked"}`}>
+                    <div className="wr-tb-icon-box">
+                      {isAllowedTime ? <Check size={18} /> : <Clock size={18} />}
+                    </div>
+                    <div className="wr-tb-text-sec">
+                      <span className="wr-tb-title">
+                        {isAllowedTime ? "Submissions Open" : "Submissions Locked Until 6:29 PM"}
+                      </span>
+                      <span className="wr-tb-subtitle">
+                        {isAllowedTime
+                          ? "Evening submissions are active. Review your activities and submit before leaving."
+                          : <>Work reports are only accepted 6:29 PM onwards. Opens in <strong className="wr-countdown-pill">{timeRemainingStr || "calculating..."}</strong></>}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending Tasks Enforcement Warning Banner */}
+                {!canViewAllEmployees && unupdatedPendingTasks.length > 0 && (
+                  <div
+                    className="wr-pending-tasks-banner"
+                    onClick={() => setPendingTasksModalOpen(true)}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(220, 38, 38, 0.04) 100%)",
+                      border: "1.5px solid rgba(239, 68, 68, 0.3)",
+                      borderRadius: "14px",
+                      padding: "12px 16px",
+                      marginBottom: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 8px rgba(239, 68, 68, 0.08)"
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "10px",
+                        background: "#fee2e2",
+                        color: "#dc2626",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0
+                      }}
+                    >
+                      <AlertCircle size={20} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "14px", fontWeight: 700, color: "#b91c1c", marginBottom: "2px" }}>
+                        Action Required: {unupdatedPendingTasks.length} Pending Task{unupdatedPendingTasks.length > 1 ? "s" : ""} Need Today&apos;s Update
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                        Work report cannot be submitted until each pending task has at least a &quot;No Change&quot; or progress update for today.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingTasksModalOpen(true);
+                      }}
+                      style={{
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "8px 14px",
+                        borderRadius: "8px",
+                        fontWeight: 600,
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        boxShadow: "0 2px 6px rgba(220, 38, 38, 0.3)"
+                      }}
+                    >
+                      Update Tasks
+                    </button>
+                  </div>
+                )}
+
                 <div className={`wr-form-row-1 ${canViewAllEmployees ? 'has-emp-col' : 'no-emp-col'}`}>
                   {/* Field 1: Client Name (Custom Dropdown) */}
                   {(() => {
@@ -1058,7 +1466,20 @@ const WorkReports: React.FC = () => {
                 {/* Row 2: Description and Buttons */}
                 <div className={`wr-form-row-2 ${canViewAllEmployees ? 'has-emp-col' : 'no-emp-col'}`}>
                   <div className="wr-input-group wr-desc-group">
-                    <label className="wr-label">Description</label>
+                    <div className="wr-desc-header-row">
+                      <label className="wr-label">Description</label>
+                      {queuedActivities.length > 0 && (
+                        <button
+                          type="button"
+                          className="wr-merge-queue-btn"
+                          onClick={handlePopulateFromQueue}
+                          title="Append all queued activities into your description"
+                        >
+                          <Sparkles size={13} />
+                          <span>Auto-Fill from Queue ({queuedActivities.length})</span>
+                        </button>
+                      )}
+                    </div>
                     <textarea
                       className="wr-textarea"
                       value={reportContent}
@@ -1074,12 +1495,94 @@ const WorkReports: React.FC = () => {
                       Clear
                     </button>
 
-                    <button className="wr-btn wr-btn-primary" onClick={handleSubmit}>
-                      <Send size={16} />
-                      Submit
+                    <button
+                      className={`wr-btn ${(!isAllowedTime && !canViewAllEmployees) ? "wr-btn-locked" : "wr-btn-primary"}`}
+                      onClick={() => handleSubmit(false)}
+                      disabled={!isAllowedTime && !canViewAllEmployees}
+                      title={!isAllowedTime && !canViewAllEmployees ? `Submission opens at 6:29 PM (in ${timeRemainingStr})` : "Submit report"}
+                    >
+                      {!isAllowedTime && !canViewAllEmployees ? (
+                        <>
+                          <Lock size={15} />
+                          <span>Locked Until 6:29 PM ({timeRemainingStr || "Wait"})</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={16} />
+                          <span>Submit Report {queuedActivities.length > 0 ? `(${queuedActivities.length} Queued)` : ''}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Today's Activity Queue Section (Tasks & Tickets) */}
+              <div className="wr-queue-container-card">
+                <div className="wr-queue-header">
+                  <div className="wr-queue-header-left">
+                    <div className="wr-queue-icon-circle">
+                      <Layers size={18} />
+                    </div>
+                    <div>
+                      <h3 className="wr-queue-title">Today&apos;s Activity Queue</h3>
+                      <p className="wr-queue-subtitle">Tasks completed & tickets closed today awaiting submission</p>
+                    </div>
+                  </div>
+                  <div className="wr-queue-header-right">
+                    <span className="wr-queue-counter-pill">
+                      {queuedActivities.length} {queuedActivities.length === 1 ? "Activity" : "Activities"}
+                    </span>
+                    {queuedActivities.length > 0 && (
+                      <button
+                        type="button"
+                        className="wr-queue-quick-fill-btn"
+                        onClick={handlePopulateFromQueue}
+                      >
+                        <Sparkles size={14} />
+                        <span>Fill into Report</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {queuedActivities.length > 0 ? (
+                  <div className="wr-queue-items-list">
+                    {queuedActivities.map((item) => (
+                      <div key={item.id} className={`wr-queue-item-card wr-queue-type-${item.type}`}>
+                        <div className="wr-qi-left">
+                          <div className="wr-qi-tags">
+                            <span className={`wr-qi-type-badge ${item.type}`}>
+                              {item.type === "ticket" ? "Ticket" : "Task"}
+                            </span>
+                            <span className="wr-qi-time">
+                              <Clock size={12} />
+                              {item.timeFormatted}
+                            </span>
+                            {item.clientName && (
+                              <span className="wr-qi-client">
+                                {item.clientName}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="wr-qi-title">{item.title}</h4>
+                          <p className="wr-qi-desc">{item.description}</p>
+                          {item.remarks && (
+                            <p className="wr-qi-remarks">
+                              <strong>Details:</strong> {item.remarks}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="wr-queue-empty">
+                    <ListChecks size={30} className="wr-queue-empty-icon" />
+                    <p className="wr-queue-empty-text">No activities queued today yet.</p>
+                    <span className="wr-queue-empty-hint">When you close tickets or progress tasks, they will be accumulated here for 6:29 PM submission.</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1262,6 +1765,42 @@ const WorkReports: React.FC = () => {
             </div>
           </div>
         </IonModal>
+
+        {/* Pending Tasks Daily Update Alert Modal */}
+        <PendingTasksAlertModal
+          isOpen={pendingTasksModalOpen}
+          tasks={unupdatedPendingTasks}
+          currentEmpCode={(() => {
+            try {
+              const u = JSON.parse(localStorage.getItem("user") || "{}");
+              return u?.empCode || u?.EmpCode || _user?.empCode || _user?.EmpCode || "";
+            } catch {
+              return _user?.empCode || _user?.EmpCode || "";
+            }
+          })()}
+          currentEmpName={(() => {
+            try {
+              const u = JSON.parse(localStorage.getItem("user") || "{}");
+              return u?.empName || u?.EmpName || _user?.empName || _user?.EmpName || "";
+            } catch {
+              return _user?.empName || _user?.EmpName || "";
+            }
+          })()}
+          onDismiss={() => setPendingTasksModalOpen(false)}
+          onAllUpdated={() => {
+            setPendingTasksModalOpen(false);
+            setUnupdatedPendingTasks([]);
+            setToastType("success");
+            setToastMessage("All pending tasks updated! Submitting work report now...");
+            setShowToast(true);
+            setTimeout(() => {
+              handleSubmit(true);
+            }, 400);
+          }}
+          onTasksChanged={(remaining) => {
+            setUnupdatedPendingTasks(remaining);
+          }}
+        />
       </IonContent>
     </IonPage>
   );

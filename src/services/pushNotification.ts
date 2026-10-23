@@ -1,4 +1,5 @@
 import { PushNotifications } from "@capacitor/push-notifications";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { Capacitor } from "@capacitor/core";
 import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
@@ -18,13 +19,30 @@ const VAPID_KEY = "BD7X_0fm0eL8JFSg3dFrk8m4SCfST3FUcK7L6RlT8tQshFlOmt0tGPHBBIqJ0
 
 let nativeListenersRegistered = false;
 let webListenerRegistered = false;
+let currentActiveEmpCode = "";
+
+// Helper to determine slot based on time
+const getNotificationSlot = (now: Date = new Date()): string => {
+  const h = now.getHours();
+  const m = now.getMinutes();
+  if (h > 20 || (h === 20 && m >= 30)) return "20_30";
+  if (h > 19 || (h === 19 && m >= 30)) return "19_30";
+  return "18_29";
+};
 
 // POST token to backend
 const savePushTokenToBackend = async (empCode: string, token: string, isNative: boolean) => {
-  if (empCode === "anonymous") {
-    console.log("ℹ️ [Push] Anonymous registration, skipping backend token upload.");
+  if (!empCode || empCode === "anonymous") {
+    console.log("ℹ️ [Push] Anonymous registration, caching token locally until user logs in.");
+    try {
+      localStorage.setItem("last_native_push_token", token);
+    } catch {}
     return true;
   }
+
+  try {
+    localStorage.setItem("last_native_push_token", token);
+  } catch {}
 
   const jwtToken = localStorage.getItem("token");
   const saveUrl = `${API_BASE}Notifications/SavePushToken`;
@@ -54,10 +72,99 @@ const savePushTokenToBackend = async (empCode: string, token: string, isNative: 
   }
 };
 
+// Schedule Local Notifications across Android, iOS & Web
+export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const perm = await LocalNotifications.checkPermissions();
+      if (perm.display !== "granted") {
+        await LocalNotifications.requestPermissions();
+      }
+
+      // Create Android channel
+      if (Capacitor.getPlatform() === "android") {
+        await LocalNotifications.createChannel({
+          id: "work_report_high_importance",
+          name: "Daily Work Report Reminders",
+          description: "High importance alarms for daily work reports",
+          importance: 5,
+          visibility: 1,
+          sound: "default",
+          vibration: true,
+          lights: true,
+          lightColor: "#DC2626"
+        });
+      }
+
+      // Schedule alarms for 6:29 PM, 7:30 PM, and 8:30 PM
+      await LocalNotifications.cancel({ notifications: [{ id: 1829 }, { id: 1930 }, { id: 2030 }] }).catch(() => {});
+
+      const now = new Date();
+
+      const getScheduleDate = (hour: number, minute: number) => {
+        const target = new Date();
+        target.setHours(hour, minute, 0, 0);
+        if (target.getTime() <= now.getTime()) {
+          target.setDate(target.getDate() + 1);
+        }
+        return target;
+      };
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: 1829,
+            title: "📝 DAILY WORK REPORT: Submissions Open!",
+            body: "It's 6:29 PM! Submissions are now open. Review your activities and submit your work report.",
+            schedule: { at: getScheduleDate(18, 29), repeats: true, every: "day" },
+            channelId: "work_report_high_importance",
+            sound: "default",
+            smallIcon: "notification_icon",
+            extra: { url: "/workreport", slot: "18_29" }
+          },
+          {
+            id: 1930,
+            title: "⚠️ REMINDER: Submit Your Work Report!",
+            body: "It's 7:30 PM! You have not submitted today's work report yet. Please submit now.",
+            schedule: { at: getScheduleDate(19, 30), repeats: true, every: "day" },
+            channelId: "work_report_high_importance",
+            sound: "default",
+            smallIcon: "notification_icon",
+            extra: { url: "/workreport", slot: "19_30" }
+          },
+          {
+            id: 2030,
+            title: "🚨 URGENT FINAL REMINDER: Daily Work Report Pending!",
+            body: "It's 8:30 PM! Final call to submit your daily work report before day close.",
+            schedule: { at: getScheduleDate(20, 30), repeats: true, every: "day" },
+            channelId: "work_report_high_importance",
+            sound: "default",
+            smallIcon: "notification_icon",
+            extra: { url: "/workreport", slot: "20_30" }
+          }
+        ]
+      });
+
+      console.log("✅ [LocalNotifications] Daily 6:29 PM, 7:30 PM, 8:30 PM alarms scheduled successfully.");
+    }
+  } catch (e) {
+    console.warn("⚠️ [LocalNotifications] Failed to schedule daily alarms:", e);
+  }
+};
+
 // Register Native Push Notifications (Capacitor)
 const registerNative = async (empCode: string) => {
+  currentActiveEmpCode = empCode;
+
   try {
     console.log("🚀 [Push] Registering Native Push for:", empCode);
+
+    // If we have a cached native token and a valid empCode, upload immediately
+    const cachedToken = localStorage.getItem("last_native_push_token");
+    if (cachedToken && empCode && empCode !== "anonymous") {
+      console.log("⚡ [Push] Found cached native token, syncing with backend for:", empCode);
+      await savePushTokenToBackend(empCode, cachedToken, true);
+    }
 
     let permission = await PushNotifications.checkPermissions();
     if (permission.receive === "prompt") {
@@ -69,6 +176,9 @@ const registerNative = async (empCode: string) => {
       return;
     }
 
+    // Schedule local notifications for guaranteed alarms
+    await scheduleDailyWorkReportAlarms();
+
     // Create Android High Importance Channel for Heads-up floating notifications
     if (Capacitor.getPlatform() === 'android') {
       try {
@@ -76,8 +186,8 @@ const registerNative = async (empCode: string) => {
           id: 'work_report_high_importance',
           name: 'Work Report High Importance Alerts',
           description: 'Heads-up banner alerts for daily work report reminders',
-          importance: 5, // 5 = IMPORTANCE_HIGH (Floating Heads-Up Banner on Android)
-          visibility: 1, // PUBLIC (Show on lockscreen)
+          importance: 5,
+          visibility: 1,
           sound: 'default',
           vibration: true,
           lights: true,
@@ -93,16 +203,35 @@ const registerNative = async (empCode: string) => {
       nativeListenersRegistered = true;
 
       await PushNotifications.addListener("registration", async (token) => {
-        console.log("✅ [Push] Native APNs/FCM Token:", token.value);
-        await savePushTokenToBackend(empCode, token.value, true);
+        console.log("✅ [Push] Native APNs/FCM Token Received:", token.value);
+        await savePushTokenToBackend(currentActiveEmpCode || empCode, token.value, true);
       });
 
       await PushNotifications.addListener("registrationError", (error) => {
         console.error("❌ [Push] Native registration error:", error);
       });
 
-      await PushNotifications.addListener("pushNotificationReceived", (notification) => {
+      // Handle Foreground Push
+      await PushNotifications.addListener("pushNotificationReceived", async (notification) => {
         console.log("📩 [Push] Foreground Push Received:", notification);
+        // Show heads-up floating banner via Local Notifications when in foreground
+        try {
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                id: Math.floor(Math.random() * 100000),
+                title: notification.title || "Notification",
+                body: notification.body || "",
+                channelId: "work_report_high_importance",
+                sound: "default",
+                smallIcon: "notification_icon",
+                extra: notification.data
+              }
+            ]
+          });
+        } catch (localErr) {
+          console.warn("Could not display foreground local banner:", localErr);
+        }
       });
 
       await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
@@ -111,6 +240,16 @@ const registerNative = async (empCode: string) => {
         const targetUrl = data?.url || data?.targetUrl || "/workreport";
         window.location.href = targetUrl;
       });
+
+      // Tap on Local Notification
+      try {
+        LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
+          console.log("📩 [LocalNotification] Tap action performed:", action);
+          const data = action.notification?.extra;
+          const targetUrl = data?.url || data?.targetUrl || "/workreport";
+          window.location.href = targetUrl;
+        });
+      } catch (e) {}
     }
 
     await PushNotifications.register();
@@ -119,7 +258,6 @@ const registerNative = async (empCode: string) => {
   }
 };
 
-// Guard to avoid duplicate registrations or infinite retry spam on network tunnel failures
 let webRegistrationInProgress = false;
 let webRegistrationAttempted = false;
 
@@ -178,7 +316,6 @@ const registerWeb = async (empCode: string) => {
       onMessage(messaging, (payload) => {
         console.log("📩 [Push] Foreground Web Message:", payload);
 
-        // Safeguard: verify empCode if present in payload data
         try {
           const u = JSON.parse(localStorage.getItem("user") ?? "{}");
           const myEmpCode = (u?.empCode || u?.EmpCode) ? String(u.empCode || u.EmpCode) : null;
@@ -197,7 +334,7 @@ const registerWeb = async (empCode: string) => {
         // Check if work report reminder was already dismissed or submitted today
         if (type === "work_report_reminder" || type === "WORK_REPORT_REMINDER") {
           const now = new Date();
-          const slot = (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 20)) ? "18_20" : "18_00";
+          const slot = getNotificationSlot(now);
           const dismissed = localStorage.getItem("work_report_dismissed_time") === `${todayStr}_${slot}`;
           const submitted = localStorage.getItem(`work_report_submitted_${todayStr}`) === "true";
           if (dismissed || submitted) {
@@ -206,7 +343,7 @@ const registerWeb = async (empCode: string) => {
           }
         }
 
-        const slot = payload.data?.slot || ((new Date().getHours() > 18 || (new Date().getHours() === 18 && new Date().getMinutes() >= 20)) ? "18_20" : "18_00");
+        const slot = payload.data?.slot || getNotificationSlot();
         const title = payload.notification?.title || payload.data?.title || "Notification";
         const body = payload.notification?.body || payload.data?.body || "";
         const tag = `${type}_${todayStr}_${slot}`;
@@ -228,7 +365,7 @@ const registerWeb = async (empCode: string) => {
   } catch (error: any) {
     webRegistrationAttempted = true;
     if (error?.message?.includes("Failed to fetch") || error?.name === "TypeError" || String(error).includes("Failed to fetch")) {
-      console.warn("⚠️ [Push] Firebase Installations endpoint is unreachable (network proxy or firewall blocking firebaseinstallations.googleapis.com). Skipping web push.");
+      console.warn("⚠️ [Push] Firebase Installations endpoint is unreachable. Skipping web push.");
     } else {
       console.error("❌ [Push] Web registration failed:", error);
     }
@@ -238,6 +375,8 @@ const registerWeb = async (empCode: string) => {
 };
 
 export const registerNativePush = async (empCode: string): Promise<void> => {
+  currentActiveEmpCode = empCode;
+
   if (Capacitor.isNativePlatform()) {
     await registerNative(empCode);
   } else {

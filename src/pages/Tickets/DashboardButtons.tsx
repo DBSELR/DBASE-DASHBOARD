@@ -18,6 +18,7 @@ import {
   AlertCircle,
   CheckCircle2
 } from "lucide-react";
+import { workReportQueueService } from "../../services/workReportQueueService";
 import "./DashboardButtons.css";
 
 type Props = {
@@ -395,9 +396,7 @@ export default function DashboardButtons(props: Props) {
   }
 
   async function saveWorkReport() {
-    console.log("--------------------------------------------------");
     console.log("[DashboardButtons] saveWorkReport: START");
-    // Removed mandatory check for workDesc as per user request
     if (!workDesc.trim()) {
       console.log("[DashboardButtons] saveWorkReport: Proceeding with empty description (Optional)");
     }
@@ -414,46 +413,28 @@ export default function DashboardButtons(props: Props) {
       _SERVICE_TYPE: String(serviceType)
     };
 
-    const url = `${apiBase}Tickets/SaveWorkReport_TicketWise`;
-    const headers = getHeaders();
-
-    console.log("[DashboardButtons] saveWorkReport CONFIG:", {
-      url,
-      method: "POST",
-      headers,
-      payload
-    });
-
     try {
-      console.log("[DashboardButtons] saveWorkReport: Fetching...");
-      const res = await fetch(url, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload)
+      // Queue activity for today's 6:29 PM work report
+      workReportQueueService.addQueuedActivity(empCode, {
+        type: "ticket",
+        title: `Ticket #${workModal.ticket.TICKETID}`,
+        description: workModal.ticket.Remarks || `Ticket #${workModal.ticket.TICKETID}`,
+        remarks: workDesc.trim() || closeRem || "Progress logged",
+        referenceId: String(workModal.ticket.TICKETID),
+        clientName: String(workModal.ticket.Client || ""),
+        projectName: String(workModal.ticket.Project || ""),
+        serviceType: String(serviceType),
+        payload: payload
       });
 
-      console.log("[DashboardButtons] saveWorkReport HTTP STATUS:", res.status, res.statusText);
-
-      const resText = await res.text();
-      console.log("[DashboardButtons] saveWorkReport RAW RESPONSE:", resText);
-
-      if (res.ok) {
-        console.log("[DashboardButtons] saveWorkReport: Success!");
-        showToast("Work report saved", "success");
-        setWorkModal({ open: false, ticket: null });
-        setWorkDesc("");
-        await refreshCounts();
-        await loadData(status);
-      } else {
-        console.error("[DashboardButtons] saveWorkReport: Server returned non-OK status", res.status);
-        showToast(resText || "Failed to save report", "error");
-      }
+      showToast("Activity queued for 6:29 PM Work Report", "success");
+      setWorkModal({ open: false, ticket: null });
+      setWorkDesc("");
+      await refreshCounts();
+      await loadData(status);
     } catch (err) {
-      console.error("[DashboardButtons] saveWorkReport FATAL ERROR:", err);
-      showToast("Failed to save report", "error");
-    } finally {
-      console.log("[DashboardButtons] saveWorkReport: END");
-      console.log("--------------------------------------------------");
+      console.error("[DashboardButtons] saveWorkReport ERROR:", err);
+      showToast("Failed to queue report", "error");
     }
   }
 

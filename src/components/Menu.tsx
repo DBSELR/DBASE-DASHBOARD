@@ -41,6 +41,7 @@ import {
   location,
   map,
   radio,
+  notificationsOutline,
 } from "ionicons/icons";
 
 import "../theme/Common.css";
@@ -282,19 +283,26 @@ const Menu: React.FC = () => {
     userData?.username ||
     "";
 
-  const isTeltonikaAllowed =
-    String(
-      empCodeDisplay ||
-      userData?.EmpCode ||
-      userData?.empCode ||
-      userData?.emp_code ||
-      userData?.Empcode ||
-      userData?.userName ||
-      userData?.username ||
-      userProfile?.EmpCode ||
-      userProfile?.empCode ||
-      ""
-    ).trim() === "1501";
+  const NOTIFICATION_CENTER_ALLOWED_USERS = ["1501", "1601", "1508"];
+  const currentEmpCode = String(
+    empCodeDisplay ||
+    userData?.EmpCode ||
+    userData?.empCode ||
+    userData?.emp_code ||
+    userData?.Empcode ||
+    userData?.userName ||
+    userData?.username ||
+    userProfile?.EmpCode ||
+    userProfile?.empCode ||
+    ""
+  ).trim();
+
+  const normalizedEmpCode = currentEmpCode.split("-")[0].trim();
+  const isTeltonikaAllowed = currentEmpCode === "1501" || normalizedEmpCode === "1501";
+  const isNotificationCenterAllowed =
+    NOTIFICATION_CENTER_ALLOWED_USERS.includes(currentEmpCode) ||
+    NOTIFICATION_CENTER_ALLOWED_USERS.includes(normalizedEmpCode);
+
 
   const customSavedPic = empCodeDisplay
     ? localStorage.getItem(`user_profile_pic_${empCodeDisplay}`)
@@ -417,13 +425,31 @@ const Menu: React.FC = () => {
                 </IonItem>
               )}
 
+              {/* Notification Center - Restricted to 1501, 1601, 1508 */}
+              {isNotificationCenterAllowed && (
+                <IonItem
+                  button
+                  lines="none"
+                  onClick={() => handleTabClick("/notification-center")}
+                  className={location.pathname === "/notification-center" ? "item-active" : ""}
+                  style={{ "--item-index": (menuItems.length || 0) + (isTeltonikaAllowed ? 2 : 1) } as React.CSSProperties}
+                >
+                  <div className="menu-item-row" title="Notification Center">
+                    <div className="menu-icon-chip" style={{ background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6" }}>
+                      <IonIcon icon={notificationsOutline} />
+                    </div>
+                    <span className="menu-item-label" style={{ fontWeight: 600 }}>Notification Center</span>
+                  </div>
+                </IonItem>
+              )}
+
               {/* Logout Button */}
               <IonItem
                 button
                 lines="none"
                 onClick={handleLogout}
                 className="logout-item"
-                style={{ "--item-index": (menuItems.length || 0) + (isTeltonikaAllowed ? 2 : 1) } as React.CSSProperties}
+                style={{ "--item-index": (menuItems.length || 0) + (isTeltonikaAllowed ? 1 : 0) + (isNotificationCenterAllowed ? 1 : 0) + 1 } as React.CSSProperties}
               >
                 <div className="menu-item-row" title="Logout">
                   <div className="menu-icon-chip">

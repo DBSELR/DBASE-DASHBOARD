@@ -23,13 +23,34 @@ const getFormHeaders = () => {
     };
 };
 
+const DEFAULT_TIMEOUT_MS = 10000; // 10 seconds
+
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+        });
+        clearTimeout(timer);
+        return response;
+    } catch (error: any) {
+        clearTimeout(timer);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timed out after ${timeoutMs / 1000}s. Server or database is not responding.`);
+        }
+        throw error;
+    }
+};
+
 export const apiService = {
-    get: async (endpoint: string) => {
+    get: async (endpoint: string, timeoutMs = DEFAULT_TIMEOUT_MS) => {
         console.log(`GET Request: ${BASE_URL}${endpoint}`);
-        const response = await fetch(`${BASE_URL}${endpoint}`, {
+        const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
             method: "GET",
             headers: getHeaders(true),
-        });
+        }, timeoutMs);
         console.log(`GET Response Status (${endpoint}):`, response.status);
         if (!response.ok) {
             const errorText = await response.text();
@@ -39,13 +60,13 @@ export const apiService = {
         return response.json();
     },
 
-    post: async (endpoint: string, data: any) => {
+    post: async (endpoint: string, data: any, timeoutMs = DEFAULT_TIMEOUT_MS) => {
         console.log(`POST Request: ${BASE_URL}${endpoint}`, data);
-        const response = await fetch(`${BASE_URL}${endpoint}`, {
+        const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
             method: "POST",
             headers: getHeaders(),
             body: JSON.stringify(data),
-        });
+        }, timeoutMs);
         console.log(`POST Response Status (${endpoint}):`, response.status);
         if (!response.ok) {
             const errorText = await response.text();
@@ -57,6 +78,26 @@ export const apiService = {
             return JSON.parse(text);
         } catch (e) {
             return text; // Fallback to plain text
+        }
+    },
+
+    delete: async (endpoint: string, timeoutMs = DEFAULT_TIMEOUT_MS) => {
+        console.log(`DELETE Request: ${BASE_URL}${endpoint}`);
+        const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
+            method: "DELETE",
+            headers: getHeaders(true),
+        }, timeoutMs);
+        console.log(`DELETE Response Status (${endpoint}):`, response.status);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`DELETE Error Response (${endpoint}):`, errorText);
+            throw new Error(errorText || `API Error: ${response.statusText}`);
+        }
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            return text;
         }
     },
 
@@ -479,5 +520,30 @@ export const apiService = {
             console.error("Failed to load penalty details count fallback:", e);
         }
         return { success: false, count: 0 };
+    },
+
+    // Notification Center Module
+    getNotificationEmployees: async (empCode?: string) => {
+        const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
+        return apiService.get(`/NotificationCenter/GetEmployees${q}`);
+    },
+
+    getNotificationHistory: async (empCode?: string) => {
+        const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
+        return apiService.get(`/NotificationCenter/GetHistory${q}`);
+    },
+
+    getBroadcastDetails: async (broadcastId: number, empCode?: string) => {
+        const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
+        return apiService.get(`/NotificationCenter/GetBroadcastDetails/${broadcastId}${q}`);
+    },
+
+    sendBroadcastNotification: async (payload: any) => {
+        return apiService.post("/NotificationCenter/SendBroadcast", payload);
+    },
+
+    deleteBroadcastNotification: async (broadcastId: number, empCode?: string) => {
+        const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
+        return apiService.delete(`/NotificationCenter/DeleteBroadcast/${broadcastId}${q}`);
     },
 };

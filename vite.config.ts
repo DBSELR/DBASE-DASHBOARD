@@ -59,6 +59,7 @@ export default defineConfig({
             url.includes("dbase.png") ||
             url.includes("avatar.png") ||
             url.includes("dbs-logo-short") ||
+            url.includes("wallpaper") ||
             url.includes("Emp-Profile-Pics")
           ) {
             return req.url;

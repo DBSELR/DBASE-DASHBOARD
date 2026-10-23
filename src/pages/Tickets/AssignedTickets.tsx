@@ -5,6 +5,7 @@ import {
 } from "@ionic/react";
 import { downloadOutline, eyeOutline, checkmarkCircleOutline, timeOutline, calendarOutline, clipboardOutline, searchOutline, closeCircle, checkmarkCircle, chevronDownOutline, chevronUpOutline } from "ionicons/icons";
 import moment from "moment";
+import { workReportQueueService } from "../../services/workReportQueueService";
 import "./AssignedTickets.css";
 
 type Props = {
@@ -434,20 +435,22 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
               _SERVICE_TYPE: String(serviceType)
             };
 
-            console.log("[AssignedTickets] Auto-saving Work Report for Closed Ticket:", wrPayload);
-            const wrRes = await fetch(`${apiBase}Tickets/SaveWorkReport_TicketWise`, {
-              method: "POST",
-              headers: getHeaders(),
-              body: JSON.stringify(wrPayload)
+            // Queue activity for today's 6:29 PM work report
+            workReportQueueService.addQueuedActivity(empCode, {
+              type: "ticket",
+              title: `Closed Ticket #${ticket.TICKETID}`,
+              description: ticket.Remarks || `Ticket #${ticket.TICKETID}`,
+              remarks: `Closed Ticket: ${up.closingRemarks}`.trim(),
+              referenceId: String(ticket.TICKETID),
+              clientName: String(ticket.Client || ""),
+              projectName: String(ticket.Project || ""),
+              serviceType: String(serviceType),
+              payload: wrPayload
             });
 
-            if (wrRes.ok) {
-              console.log("[AssignedTickets] Auto Work Report Saved Successfully");
-            } else {
-              console.error("[AssignedTickets] Auto Work Report Save Failed");
-            }
+            console.log("[AssignedTickets] Auto Work Report Queued Successfully for Ticket #", ticket.TICKETID);
           } catch (wrErr) {
-            console.error("[AssignedTickets] Auto-save Work Report error:", wrErr);
+            console.error("[AssignedTickets] Auto-queue Work Report error:", wrErr);
           }
         }
 
@@ -479,22 +482,25 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
     };
 
     try {
-      const res = await fetch(`${apiBase}Tickets/SaveWorkReport_TicketWise`, {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(payload)
+      // Queue activity for today's 6:29 PM work report
+      workReportQueueService.addQueuedActivity(empCode, {
+        type: "ticket",
+        title: `Ticket #${activeWorkTicket.TICKETID}`,
+        description: activeWorkTicket.Remarks || `Ticket #${activeWorkTicket.TICKETID}`,
+        remarks: workDescription.trim(),
+        referenceId: String(activeWorkTicket.TICKETID),
+        clientName: String(activeWorkTicket.Client || ""),
+        projectName: String(activeWorkTicket.Project || ""),
+        serviceType: String(serviceType),
+        payload: payload
       });
-      if (res.ok) {
-        setToast({ open: true, msg: "Work Report Saved Successfully", color: "success" });
-        setWorkReportModalOpen(false);
-        setWorkDescription("");
-      } else {
-        const errText = await res.text();
-        setToast({ open: true, msg: errText || "Save Failed", color: "danger" });
-      }
+
+      setToast({ open: true, msg: "Work Report Queued for 6:29 PM submission", color: "success" });
+      setWorkReportModalOpen(false);
+      setWorkDescription("");
     } catch (err) {
       console.error("[AssignedTickets] onSaveWorkReport ERROR:", err);
-      setToast({ open: true, msg: "Save Failed", color: "danger" });
+      setToast({ open: true, msg: "Queue Failed", color: "danger" });
     } finally {
       setLoading(false);
     }

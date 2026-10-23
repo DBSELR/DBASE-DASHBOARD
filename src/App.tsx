@@ -102,6 +102,7 @@ import FieldDutyStatusPage from "./pages/FieldDutyStatusPage";
 import RAManagement from "./pages/RAManagement";
 import TeltonikaTracking from "./pages/TeltonikaTracking/TeltonikaTracking";
 import AMClogDashboard from "./pages/AMClogDashboard";
+import NotificationCenter from "./pages/NotificationCenter";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -280,6 +281,8 @@ const App: React.FC = () => {
                   <Route exact path="/account-deletion" component={AccountDeletion} />
                   <Route exact path="/ras" component={RAManagement} />
                   <Route exact path="/amc-log-dashboard" component={AMClogDashboard} />
+                  <Route exact path="/notification-center" component={NotificationCenter} />
+                  <Route exact path="/notifications-center" component={NotificationCenter} />
                   <Redirect from="*" to="/home" />
                 </Switch>
               </ErrorBoundary>

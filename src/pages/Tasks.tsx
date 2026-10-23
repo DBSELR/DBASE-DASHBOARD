@@ -60,6 +60,7 @@ import {
 import { useHistory } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { apiService } from "../utils/apiService";
+import { workReportQueueService } from "../services/workReportQueueService";
 import { API_BASE } from "../config";
 import "./Tasks.css";
 
@@ -528,77 +529,94 @@ const Tasks: React.FC = () => {
     try {
       console.group("Fetching Initial Data");
 
-      // 1. Load Employees (API 1)
-      const emps = await apiService.loadEmployees("Active");
-      setEmployees(emps);
-      // Debug: print first employee to check structure
-      if (emps && emps.length > 0) {
-        console.log("🔑 [Employee Structure] First employee:", JSON.stringify(emps[0]), "| Keys:", Object.keys(emps[0] || {}));
+      // Parallelize fetching to avoid serial waterfall stalls
+      const [empsRes, sentRes, receivedRes] = await Promise.allSettled([
+        apiService.loadEmployees("Active"),
+        apiService.loadSentTasks(empCode),
+        apiService.loadReceivedTasks(empCode)
+      ]);
+
+      if (empsRes.status === "fulfilled") {
+        const emps = empsRes.value;
+        setEmployees(emps);
+        if (emps && emps.length > 0) {
+          console.log("🔑 [Employee Structure] First employee:", JSON.stringify(emps[0]), "| Keys:", Object.keys(emps[0] || {}));
+        }
+      } else {
+        console.warn("Employees fetch failed or timed out:", empsRes.reason);
       }
 
-      // 3. Load Sent Tasks (API 3)
-      const sent = await apiService.loadSentTasks(empCode);
-      const mappedSent = (sent || []).map((t: any) => ({
-        TID: t.TID || t[0],
-        SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
-        RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
-        ADt: typeof t.ADt === 'string' ? t.ADt : "",
-        TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
-        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (() => {
-          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime;
-          let [h, m] = timeStr.split(':');
-          if (!h || !m) return timeStr;
-          const isPM = timeStr.toLowerCase().includes('pm');
-          const isAM = timeStr.toLowerCase().includes('am');
-          const ampm = isPM ? 'PM' : (isAM ? 'AM' : (Number(h) >= 12 ? 'PM' : 'AM'));
-          h = (Number(h) % 12 || 12).toString();
-          return `${h}:${m} ${ampm}`;
-        })() : "",
-        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) : "",
-        TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
-        Status: typeof t.Status === 'string' ? t.Status : "",
-        TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
-        ReopenRemarks: typeof t.ReopenRemarks === 'string' ? t.ReopenRemarks : "",
-        IsTransferred: t.IsTransferred === true || t.IsTransferred === 1 || t.isTransferred === true || t.isTransferred === 1 || false,
-      }));
-      setSentTasks(mappedSent);
+      if (sentRes.status === "fulfilled") {
+        const sent = sentRes.value;
+        const mappedSent = (sent || []).map((t: any) => ({
+          TID: t.TID || t[0],
+          SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
+          RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
+          ADt: typeof t.ADt === 'string' ? t.ADt : "",
+          TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
+          TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (() => {
+            const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime;
+            let [h, m] = timeStr.split(':');
+            if (!h || !m) return timeStr;
+            const isPM = timeStr.toLowerCase().includes('pm');
+            const isAM = timeStr.toLowerCase().includes('am');
+            const ampm = isPM ? 'PM' : (isAM ? 'AM' : (Number(h) >= 12 ? 'PM' : 'AM'));
+            h = (Number(h) % 12 || 12).toString();
+            return `${h}:${m} ${ampm}`;
+          })() : "",
+          DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) : "",
+          TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
+          Status: typeof t.Status === 'string' ? t.Status : "",
+          TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
+          ReopenRemarks: typeof t.ReopenRemarks === 'string' ? t.ReopenRemarks : "",
+          IsTransferred: t.IsTransferred === true || t.IsTransferred === 1 || t.isTransferred === true || t.isTransferred === 1 || false,
+        }));
+        setSentTasks(mappedSent);
+      } else {
+        console.warn("Sent tasks fetch failed or timed out:", sentRes.reason);
+      }
 
-      // 4. Load Received Tasks (API 4)
-      const received = await apiService.loadReceivedTasks(empCode);
-      console.log("RECEIVED TASKS RAW:", received);
-      const mappedReceived = (received || []).map((t: any) => ({
-        TID: t.TID ?? t[0],
-        SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
-        RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
-        ADt: typeof t.ADt === 'string' ? t.ADt : "",
-        TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
-        TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (() => {
-          const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime;
-          let [h, m] = timeStr.split(':');
-          if (!h || !m) return timeStr;
-          const isPM = timeStr.toLowerCase().includes('pm');
-          const isAM = timeStr.toLowerCase().includes('am');
-          const ampm = isPM ? 'PM' : (isAM ? 'AM' : (Number(h) >= 12 ? 'PM' : 'AM'));
-          h = (Number(h) % 12 || 12).toString();
-          return `${h}:${m} ${ampm}`;
-        })() : "",
-        DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) : "",
-        TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
-        Status: typeof t.Status === 'string' ? t.Status : "",
-        TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
-        TargetDays: typeof t.TargetDays === 'number' ? t.TargetDays : (parseInt(t.TargetDays) || 0),
-        ReopenRemarks: typeof t.ReopenRemarks === 'string' ? t.ReopenRemarks : "",
-        IsTagged: t.IsTagged === true || t.IsTagged === 1 || t.isTagged === true || t.isTagged === 1 || false,
-        IsTransferred: t.IsTransferred === true || t.IsTransferred === 1 || t.isTransferred === true || t.isTransferred === 1 || false,
-      }));
-      setReceivedTasks(mappedReceived);
+      if (receivedRes.status === "fulfilled") {
+        const received = receivedRes.value;
+        console.log("RECEIVED TASKS RAW:", received);
+        const mappedReceived = (received || []).map((t: any) => ({
+          TID: t.TID ?? t[0],
+          SenEName: typeof t.SenEName === 'string' ? t.SenEName : "",
+          RecEName: typeof t.RecEName === 'string' ? t.RecEName : "",
+          ADt: typeof t.ADt === 'string' ? t.ADt : "",
+          TDt: typeof t.TDt === 'string' ? t.TDt.split(/[ T]/)[0] : "",
+          TargetTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (() => {
+            const timeStr = t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime;
+            let [h, m] = timeStr.split(':');
+            if (!h || !m) return timeStr;
+            const isPM = timeStr.toLowerCase().includes('pm');
+            const isAM = timeStr.toLowerCase().includes('am');
+            const ampm = isPM ? 'PM' : (isAM ? 'AM' : (Number(h) >= 12 ? 'PM' : 'AM'));
+            h = (Number(h) % 12 || 12).toString();
+            return `${h}:${m} ${ampm}`;
+          })() : "",
+          DTime: typeof (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) === 'string' ? (t.DTime || t.dTime || t.Dtime || t.dtime || t.TargetTime || t.targetTime) : "",
+          TDesc: typeof t.TDesc === 'string' ? t.TDesc : "",
+          Status: typeof t.Status === 'string' ? t.Status : "",
+          TPriority: typeof t.TPriority === 'string' ? t.TPriority : "Low",
+          TargetDays: typeof t.TargetDays === 'number' ? t.TargetDays : (parseInt(t.TargetDays) || 0),
+          ReopenRemarks: typeof t.ReopenRemarks === 'string' ? t.ReopenRemarks : "",
+          IsTagged: t.IsTagged === true || t.IsTagged === 1 || t.isTagged === true || t.isTagged === 1 || false,
+          IsTransferred: t.IsTransferred === true || t.IsTransferred === 1 || t.isTransferred === true || t.isTransferred === 1 || false,
+        }));
+        setReceivedTasks(mappedReceived);
+      } else {
+        console.warn("Received tasks fetch failed or timed out:", receivedRes.reason);
+      }
+
+      if (empsRes.status === "rejected" && sentRes.status === "rejected" && receivedRes.status === "rejected") {
+        setToastMessage("Server or database is not responding. Please try again shortly.");
+      }
 
       console.groupEnd();
     } catch (error) {
       console.error("Error fetching data:", error);
-      // setToastMessage("Failed to load data");
-
-      setToastMessage("No Data Found");
+      setToastMessage("Failed to load task data. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -813,10 +831,11 @@ const Tasks: React.FC = () => {
   const saveAutoWorkReportForTask = async (actionType: "Completed" | "No Change" | "Updated", remarks: string) => {
     if (!activeTask) return;
     try {
-      console.log(`Saving auto work report for task ${actionType}...`);
+      console.log(`Queueing auto work report for task ${actionType}...`);
       
       let clientId = 1; // Fallback default client ID
-      const clientsRes = await apiService.loadWorkReportClients();
+      let clientName = "In-House";
+      const clientsRes = await apiService.loadWorkReportClients().catch(() => []);
       if (Array.isArray(clientsRes) && clientsRes.length > 0) {
         const match = clientsRes.find((c: any) => {
           if (!Array.isArray(c)) return false;
@@ -825,19 +844,21 @@ const Tasks: React.FC = () => {
         });
         if (match) {
           clientId = Number(match[0]);
+          clientName = String(match[1] || "In-House");
         } else {
           clientId = Number(clientsRes[0][0]);
+          clientName = String(clientsRes[0][1] || "In-House");
         }
       }
       
-      const taskDesc = activeTask.TDesc || "";
+      const taskDesc = (activeTask.TDesc || "").trim();
       let reportContent = "";
       if (actionType === "Completed") {
         reportContent = `Completed Task #${activeTask.TID}: ${taskDesc}${remarks && remarks !== "Task completed" ? ` - Remarks: ${remarks}` : ""}`.trim();
       } else if (actionType === "No Change") {
-        reportContent = `Task Progress Update #${activeTask.TID}: ${taskDesc} - Status: No Change`.trim();
+        reportContent = `Task #${activeTask.TID}: ${taskDesc} - Status: No Change`.trim();
       } else {
-        reportContent = `Task Progress Update #${activeTask.TID}: ${taskDesc} - Status: Updated - Remarks: ${remarks}`.trim();
+        reportContent = `Task #${activeTask.TID}: ${taskDesc} - Status: Updated - Remarks: ${remarks}`.trim();
       }
       
       const reportPayload = {
@@ -847,13 +868,20 @@ const Tasks: React.FC = () => {
         _empcode: currentEmpCode
       };
       
-      console.log("Submitting Auto Work Report Payload:", reportPayload);
-      const reportResponse = await apiService.saveWorkReport(reportPayload);
-      console.log("Auto Work Report Save Response:", reportResponse);
+      // Queue activity for today's 6:29 PM work report
+      workReportQueueService.addQueuedActivity(currentEmpCode, {
+        type: "task",
+        title: `Task #${activeTask.TID} (${actionType})`,
+        description: taskDesc || `Task #${activeTask.TID}`,
+        remarks: actionType === "Completed" ? (remarks || "Completed") : remarks,
+        referenceId: String(activeTask.TID),
+        clientName: clientName,
+        payload: reportPayload
+      });
 
-
+      console.log("✅ Task activity queued in workReportQueueService:", reportPayload);
     } catch (wrError) {
-      console.error("⚠️ Failed to automatically save work report:", wrError);
+      console.error("⚠️ Failed to queue work report activity:", wrError);
     }
   };
 
