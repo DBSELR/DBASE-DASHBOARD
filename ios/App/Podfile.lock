@@ -22,9 +22,11 @@ PODS:
     - Capacitor
   - CapacitorKeyboard (7.0.0):
     - Capacitor
+  - CapacitorLocalNotifications (8.3.1):
+    - Capacitor
   - CapacitorPreferences (7.0.4):
     - Capacitor
-  - CapacitorPushNotifications (8.1.1):
+  - CapacitorPushNotifications (8.1.2):
     - Capacitor
   - CapacitorStatusBar (7.0.0):
     - Capacitor
@@ -43,6 +45,7 @@ DEPENDENCIES:
   - "CapacitorGeolocation (from `../../node_modules/@capacitor/geolocation`)"
   - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
   - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
+  - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
@@ -75,6 +78,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/haptics"
   CapacitorKeyboard:
     :path: "../../node_modules/@capacitor/keyboard"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/@capacitor/local-notifications"
   CapacitorPreferences:
     :path: "../../node_modules/@capacitor/preferences"
   CapacitorPushNotifications:
@@ -94,12 +99,13 @@ SPEC CHECKSUMS:
   CapacitorGeolocation: ab54d708e2fcf99a7bafe0219eaa6f7a932f001a
   CapacitorHaptics: 7be406a91e4eb87287f321c6c68e1709d6837b3a
   CapacitorKeyboard: 4db71e694e7afb5d7c0be09b05495c19f7d6c914
+  CapacitorLocalNotifications: e0747a329ddde3074d52dc74a003688af90e42be
   CapacitorPreferences: 69d9991307507aeab8ef8019c10b9babfda0e9ca
-  CapacitorPushNotifications: ec08d589c226a2c0db7c032ec1bf5b044ec85f8e
+  CapacitorPushNotifications: 32a7f840815f319fd9ba1c1c9b0b914be9d95237
   CapacitorStatusBar: a8c4c83ed2e973bdafb979e80e4b00d027832cb7
   IONFilesystemLib: 21a63377696b2d8fab5632ecfb7d2ac67bddb68a
   IONGeolocationLib: 20f9d0248a0b5264511fb57a37e25dd2badf797a
 
-PODFILE CHECKSUM: 9b9749adb28e984265923b0776068f861033fc11
+PODFILE CHECKSUM: ee3fbf7290a9890d95e49eb6da8ed34f5d6acbeb
 
 COCOAPODS: 1.17.0
