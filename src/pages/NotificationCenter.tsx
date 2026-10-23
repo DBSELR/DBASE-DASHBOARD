@@ -87,6 +87,11 @@ interface RecipientDetail {
   EmpName: string;
   IsRead: boolean;
   CreatedDate: string;
+  Department?: string;
+  Mobile?: string;
+  Status?: string;
+  ReadTime?: string | null;
+  ErrorMessage?: string | null;
 }
 
 const TEMPLATES = [
@@ -265,6 +270,7 @@ const normalizeRecipient = (r: any): RecipientDetail => ({
   Mobile: String(r?.Mobile ?? r?.mobile ?? "").trim(),
   Status: String(r?.Status ?? r?.status ?? "Sent").trim(),
   IsRead: Boolean(r?.IsRead ?? r?.isRead ?? false),
+  CreatedDate: String(r?.CreatedDate ?? r?.createdDate ?? "").trim(),
   ReadTime: r?.ReadTime ?? r?.readTime ? String(r?.ReadTime ?? r?.readTime) : null,
   ErrorMessage: r?.ErrorMessage ?? r?.errorMessage ? String(r?.ErrorMessage ?? r?.errorMessage) : null
 });
