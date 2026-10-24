@@ -7,10 +7,10 @@ import "./WorkReportReminderModal.css";
 export const WorkReportReminderModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
-  const [activeSlot, setActiveSlot] = useState<string>("18_29");
-  const [slotTitle, setSlotTitle] = useState<string>("6:29 PM Daily Reminder");
+  const [activeSlot, setActiveSlot] = useState<string>("18_30");
+  const [slotTitle, setSlotTitle] = useState<string>("6:30 PM Daily Reminder");
   const [slotDescription, setSlotDescription] = useState<string>(
-    "It's 6:29 PM! Work reports are now open. Please review your activities and submit your daily work report."
+    "It's 6:30 PM! Work reports are now open. Please review your activities and submit your daily work report."
   );
   const history = useHistory();
   const location = useLocation();
@@ -68,13 +68,13 @@ export const WorkReportReminderModal: React.FC = () => {
         desc: "It's past 7:30 PM! You have not submitted today's work report yet. Please submit now."
       };
     }
-    // After 6:29 PM (18:29)
-    if (hours > 18 || (hours === 18 && minutes >= 29)) {
+    // After 6:30 PM (18:30)
+    if (hours > 18 || (hours === 18 && minutes >= 30)) {
       return {
-        slot: "18_29",
+        slot: "18_30",
         isUrgent: false,
-        title: "6:29 PM Daily Reminder",
-        desc: "It's 6:29 PM! Submissions are now open. Please review today's activities and submit your work report."
+        title: "6:30 PM Daily Reminder",
+        desc: "It's 6:30 PM! Submissions are now open. Please review today's activities and submit your work report."
       };
     }
     return null;
@@ -116,7 +116,7 @@ export const WorkReportReminderModal: React.FC = () => {
 
     const handleTestAlert = (e: CustomEvent<{ isUrgent?: boolean; slot?: string }>) => {
       setIsUrgent(!!e.detail?.isUrgent);
-      const slot = e.detail?.slot || (e.detail?.isUrgent ? "20_30" : "18_29");
+      const slot = e.detail?.slot || (e.detail?.isUrgent ? "20_30" : "18_30");
       setActiveSlot(slot);
       if (slot === "20_30") {
         setSlotTitle("8:30 PM Final Reminder");
@@ -125,8 +125,8 @@ export const WorkReportReminderModal: React.FC = () => {
         setSlotTitle("7:30 PM Reminder");
         setSlotDescription("It's past 7:30 PM! You have not submitted today's work report yet. Please submit now.");
       } else {
-        setSlotTitle("6:29 PM Daily Reminder");
-        setSlotDescription("It's 6:29 PM! Submissions are now open. Please review today's activities and submit your work report.");
+        setSlotTitle("6:30 PM Daily Reminder");
+        setSlotDescription("It's 6:30 PM! Submissions are now open. Please review today's activities and submit your work report.");
       }
       setIsOpen(true);
     };
@@ -156,13 +156,13 @@ export const WorkReportReminderModal: React.FC = () => {
       ) {
         const now = new Date();
         const info = getCurrentReminderSlot(now);
-        const slot = data?.slot || info?.slot || "18_29";
+        const slot = data?.slot || info?.slot || "18_30";
 
         if (!checkIfAlreadySubmittedToday() && !checkIfDismissedForSlot(slot)) {
           setActiveSlot(slot);
           const urgent = slot === "20_30" || slot === "19_30" || data?.message?.includes("8:30") || data?.message?.includes("7:30");
           setIsUrgent(urgent);
-          setSlotTitle(urgent ? (slot === "20_30" ? "8:30 PM Final Reminder" : "7:30 PM Reminder") : "6:29 PM Daily Reminder");
+          setSlotTitle(urgent ? (slot === "20_30" ? "8:30 PM Final Reminder" : "7:30 PM Reminder") : "6:30 PM Daily Reminder");
           setSlotDescription(data?.message || (info ? info.desc : "Please submit your daily work report."));
           setIsOpen(true);
         }
@@ -189,7 +189,7 @@ export const WorkReportReminderModal: React.FC = () => {
   const handleDismiss = () => {
     const now = new Date();
     const info = getCurrentReminderSlot(now);
-    const slot = activeSlot || info?.slot || "18_29";
+    const slot = activeSlot || info?.slot || "18_30";
     markDismissed(slot);
     setIsOpen(false);
   };
@@ -242,7 +242,7 @@ export const WorkReportReminderModal: React.FC = () => {
           <div className="wrr-warning-box">
             <AlertTriangle size={18} className="wrr-warning-icon" />
             <div>
-              <strong>Daily Policy:</strong> Work report submission must be done 6:29 PM onwards with all pending tasks updated.
+              <strong>Daily Policy:</strong> Work report submission must be done 6:30 PM onwards with all pending tasks updated.
             </div>
           </div>
 

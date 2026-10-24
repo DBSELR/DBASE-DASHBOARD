@@ -124,23 +124,33 @@ export const useTaskNotification = () => {
         return;
       }
 
-      // Ignore non-task notifications (handled by dedicated modals)
+      // Ignore non-task notifications (handled by dedicated modals or broadcast center)
       if (
         payload.type === "penalty" ||
         payload.type === "slip_transfer_request" ||
         payload.type === "work_report_reminder" ||
+        payload.type === "general_broadcast" ||
+        payload.broadcastId ||
+        payload.actionUrl ||
         payload.slipType ||
         payload.penaltyType
       ) {
         return;
       }
 
-      const tid = String(payload.tID ?? payload.TID ?? Date.now());
+      // Ensure this is a valid task with a positive numeric TID
+      const rawTid = payload.tID ?? payload.TID;
+      const numTid = Number(rawTid);
+      if (!rawTid || isNaN(numTid) || numTid <= 0 || numTid > 2147483647) {
+        return;
+      }
+
+      const tid = String(numTid);
       const dismissed = getDismissedFromStorage();
       if (dismissed.has(tid)) return;
 
       const notif: TaskNotification = {
-        NotificationId: Number(payload.tID ?? payload.TID ?? Date.now()),
+        NotificationId: numTid,
         TID: tid,
         SenderName: payload.senderName ?? payload.SenderName ?? "",
         TDesc: payload.tDesc ?? payload.TDesc ?? "",

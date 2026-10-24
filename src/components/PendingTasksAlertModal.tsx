@@ -133,7 +133,9 @@ export const PendingTasksAlertModal: React.FC<Props> = ({
         description: task.TDesc || `Task #${tidStr}`,
         remarks: "Status: No Change",
         referenceId: tidStr,
+        clientId: 1,
         clientName: "In-House",
+        workLocation: "In-House",
         payload: {
           _clientId: 1,
           _work_location: "In-House",
@@ -280,7 +282,9 @@ export const PendingTasksAlertModal: React.FC<Props> = ({
         description: task.TDesc || `Task #${tidStr}`,
         remarks: `Remarks: ${remark}`,
         referenceId: tidStr,
+        clientId: 1,
         clientName: "In-House",
+        workLocation: "In-House",
         payload: {
           _clientId: 1,
           _work_location: "In-House",

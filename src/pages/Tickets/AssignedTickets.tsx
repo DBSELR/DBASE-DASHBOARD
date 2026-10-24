@@ -435,14 +435,16 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
               _SERVICE_TYPE: String(serviceType)
             };
 
-            // Queue activity for today's 6:29 PM work report
+            // Queue activity for today's 6:30 PM work report
             workReportQueueService.addQueuedActivity(empCode, {
               type: "ticket",
               title: `Closed Ticket #${ticket.TICKETID}`,
               description: ticket.Remarks || `Ticket #${ticket.TICKETID}`,
               remarks: `Closed Ticket: ${up.closingRemarks}`.trim(),
               referenceId: String(ticket.TICKETID),
+              clientId: ticket.ClientID || ticket.ClientId || ticket.ClientId_FK || ticket.clientId,
               clientName: String(ticket.Client || ""),
+              workLocation: String(serviceType).toLowerCase().includes("on-site") || String(serviceType).toLowerCase().includes("onsite") ? "On-Site" : "In-House",
               projectName: String(ticket.Project || ""),
               serviceType: String(serviceType),
               payload: wrPayload
@@ -482,20 +484,22 @@ export default function AssignedTickets({ apiBase, fromDate, toDate, clientId, p
     };
 
     try {
-      // Queue activity for today's 6:29 PM work report
+      // Queue activity for today's 6:30 PM work report
       workReportQueueService.addQueuedActivity(empCode, {
         type: "ticket",
         title: `Ticket #${activeWorkTicket.TICKETID}`,
         description: activeWorkTicket.Remarks || `Ticket #${activeWorkTicket.TICKETID}`,
         remarks: workDescription.trim(),
         referenceId: String(activeWorkTicket.TICKETID),
+        clientId: activeWorkTicket.ClientID || activeWorkTicket.ClientId || activeWorkTicket.ClientId_FK || activeWorkTicket.clientId,
         clientName: String(activeWorkTicket.Client || ""),
+        workLocation: String(serviceType).toLowerCase().includes("on-site") || String(serviceType).toLowerCase().includes("onsite") ? "On-Site" : "In-House",
         projectName: String(activeWorkTicket.Project || ""),
         serviceType: String(serviceType),
         payload: payload
       });
 
-      setToast({ open: true, msg: "Work Report Queued for 6:29 PM submission", color: "success" });
+      setToast({ open: true, msg: "Work Report Queued for 6:30 PM submission", color: "success" });
       setWorkReportModalOpen(false);
       setWorkDescription("");
     } catch (err) {

@@ -27,7 +27,7 @@ const getNotificationSlot = (now: Date = new Date()): string => {
   const m = now.getMinutes();
   if (h > 20 || (h === 20 && m >= 30)) return "20_30";
   if (h > 19 || (h === 19 && m >= 30)) return "19_30";
-  return "18_29";
+  return "18_30";
 };
 
 // POST token to backend
@@ -96,8 +96,8 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
         });
       }
 
-      // Schedule alarms for 6:29 PM, 7:30 PM, and 8:30 PM
-      await LocalNotifications.cancel({ notifications: [{ id: 1829 }, { id: 1930 }, { id: 2030 }] }).catch(() => {});
+      // Schedule alarms for 6:30 PM, 7:30 PM, and 8:30 PM
+      await LocalNotifications.cancel({ notifications: [{ id: 1829 }, { id: 1830 }, { id: 1930 }, { id: 2030 }] }).catch(() => {});
 
       const now = new Date();
 
@@ -113,14 +113,14 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
       await LocalNotifications.schedule({
         notifications: [
           {
-            id: 1829,
+            id: 1830,
             title: "📝 DAILY WORK REPORT: Submissions Open!",
-            body: "It's 6:29 PM! Submissions are now open. Review your activities and submit your work report.",
-            schedule: { at: getScheduleDate(18, 29), repeats: true, every: "day" },
+            body: "It's 6:30 PM! Submissions are now open. Review your activities and submit your work report.",
+            schedule: { at: getScheduleDate(18, 30), repeats: true, every: "day" },
             channelId: "work_report_high_importance",
             sound: "default",
             smallIcon: "notification_icon",
-            extra: { url: "/workreport", slot: "18_29" }
+            extra: { url: "/workreport", slot: "18_30" }
           },
           {
             id: 1930,
@@ -145,7 +145,7 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
         ]
       });
 
-      console.log("✅ [LocalNotifications] Daily 6:29 PM, 7:30 PM, 8:30 PM alarms scheduled successfully.");
+      console.log("✅ [LocalNotifications] Daily 6:30 PM, 7:30 PM, 8:30 PM alarms scheduled successfully.");
     }
   } catch (e) {
     console.warn("⚠️ [LocalNotifications] Failed to schedule daily alarms:", e);

@@ -414,20 +414,22 @@ export default function DashboardButtons(props: Props) {
     };
 
     try {
-      // Queue activity for today's 6:29 PM work report
+      // Queue activity for today's 6:30 PM work report
       workReportQueueService.addQueuedActivity(empCode, {
         type: "ticket",
         title: `Ticket #${workModal.ticket.TICKETID}`,
         description: workModal.ticket.Remarks || `Ticket #${workModal.ticket.TICKETID}`,
         remarks: workDesc.trim() || closeRem || "Progress logged",
         referenceId: String(workModal.ticket.TICKETID),
+        clientId: workModal.ticket.ClientID || workModal.ticket.ClientId || workModal.ticket.ClientId_FK || workModal.ticket.clientId,
         clientName: String(workModal.ticket.Client || ""),
+        workLocation: String(serviceType).toLowerCase().includes("on-site") || String(serviceType).toLowerCase().includes("onsite") ? "On-Site" : "In-House",
         projectName: String(workModal.ticket.Project || ""),
         serviceType: String(serviceType),
         payload: payload
       });
 
-      showToast("Activity queued for 6:29 PM Work Report", "success");
+      showToast("Activity queued for 6:30 PM Work Report", "success");
       setWorkModal({ open: false, ticket: null });
       setWorkDesc("");
       await refreshCounts();

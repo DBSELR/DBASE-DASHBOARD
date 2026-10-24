@@ -117,9 +117,14 @@ export const apiService = {
         return apiService.post("/Notifications/Send", payload);
     },
 
-    markTaskAsRead: async (tid: string, empCode: string) => {
-        console.log("API: Mark Task As Read", { tid, empCode });
-        return apiService.post("/Notifications/MarkTaskAsRead", { TID: Number(tid), EmpCode: empCode });
+    markTaskAsRead: async (tid: string | number, empCode: string) => {
+        const numTid = Number(tid);
+        if (!tid || isNaN(numTid) || numTid <= 0 || numTid > 2147483647) {
+            console.log("API: Skipping MarkTaskAsRead — non-task or invalid TID:", tid);
+            return Promise.resolve({ success: true, skipped: true });
+        }
+        console.log("API: Mark Task As Read", { tid: numTid, empCode });
+        return apiService.post("/Notifications/MarkTaskAsRead", { TID: numTid, EmpCode: empCode });
     },
 
     loadSentTasks: async (empCode: string) => {

@@ -868,14 +868,16 @@ const Tasks: React.FC = () => {
         _empcode: currentEmpCode
       };
       
-      // Queue activity for today's 6:29 PM work report
+      // Queue activity for today's 6:30 PM work report
       workReportQueueService.addQueuedActivity(currentEmpCode, {
         type: "task",
         title: `Task #${activeTask.TID} (${actionType})`,
         description: taskDesc || `Task #${activeTask.TID}`,
         remarks: actionType === "Completed" ? (remarks || "Completed") : remarks,
         referenceId: String(activeTask.TID),
+        clientId: clientId,
         clientName: clientName,
+        workLocation: "In-House",
         payload: reportPayload
       });
 
