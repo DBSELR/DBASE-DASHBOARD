@@ -33,6 +33,7 @@ import moment from "moment";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { API_BASE } from "../config";
+import { apiService } from "../utils/apiService";
 import "./LeaveDashboard.css";
 
 /* ---------------- helpers ---------------- */
@@ -63,21 +64,16 @@ const checkIsAdmin = (user: any) => {
 };
 
 const generateMonthList = () => {
-  const months: string[] = [];
-  const startYear = 2026;
-  const current = moment().add(1, "month");
+  const current = moment();
   const currentYear = current.year();
+  const currentMonthStr = current.format("MMM-YYYY");
+  const prevMonthStr = moment().subtract(1, "month").format("MMM-YYYY");
 
-  for (let y = currentYear; y >= startYear; y--) {
-    // Add the yearly report option for the year y
-    months.push(`Year-${y}`);
-
-    const endMonth = y === currentYear ? current.month() : 11;
-    for (let m = endMonth; m >= 0; m--) {
-      months.push(moment().year(y).month(m).format("MMM-YYYY"));
-    }
-  }
-  return months;
+  return [
+    `Year-${currentYear}`,
+    currentMonthStr,
+    prevMonthStr
+  ];
 };
 
 const getApiDateFromMonthStr = (monthStr: string) => {
@@ -210,6 +206,7 @@ const LeaveDashboard: React.FC = () => {
     moment().format("MMM-YYYY")
   );
   const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+  const [canSelectEmployee, setCanSelectEmployee] = useState<boolean>(false);
   const [selectedEmpCode, setSelectedEmpCode] = useState<string>("");
   const [selectedEmpName, setSelectedEmpName] = useState<string>("");
   const [fallbackManager, setFallbackManager] = useState("Team. Manager");
@@ -284,30 +281,83 @@ const LeaveDashboard: React.FC = () => {
     }
   }, [isPeriodDropdownOpen]);
 
-  // Load employee list on mount (if admin/HR/manager)
+  // Load employee list on mount using role-based hierarchy API
   useEffect(() => {
+    let isMounted = true;
+
     const fetchEmployees = async () => {
+      const code = String(loggedInUser?.empCode || loggedInUser?.EmpCode || "").trim();
+      const name = String(loggedInUser?.empName || loggedInUser?.EmpName || "Me").trim();
+
+      setSelectedEmpCode(code);
+      setSelectedEmpName(name);
+
+      if (!code) {
+        setEmployees([]);
+        setCanSelectEmployee(false);
+        return;
+      }
+
       try {
-        const url = `${API_BASE}Employee/Load_Employees?SearchEmp=`;
-        const res = await axios.get(url, { headers: getAuthHeaders() });
-        const mapped = (res.data || []).map((emp: any[]) => ({
-          id: emp[0]?.toString() || "",
-          name: emp[1] || ""
-        }));
-        setEmployees(mapped);
+        let rawData: any[] = [];
+        // 1. Try calling the role-based API endpoint
+        try {
+          const res = await apiService.loadEmployeesByRole(code);
+          rawData = Array.isArray(res) ? res : (res?.data && Array.isArray(res.data) ? res.data : []);
+        } catch (apiErr) {
+          console.warn("Load_Employees_By_Role endpoint not available, falling back:", apiErr);
+          // Fallback A: Call Load_Employees?SearchEmp=code
+          try {
+            const res = await apiService.loadEmployees(code);
+            rawData = Array.isArray(res) ? res : (res?.data && Array.isArray(res.data) ? res.data : []);
+          } catch {
+            // Fallback B: If admin, load all employees
+            if (isAdmin) {
+              const res = await apiService.loadEmployees("");
+              rawData = Array.isArray(res) ? res : (res?.data && Array.isArray(res.data) ? res.data : []);
+            }
+          }
+        }
+
+        const mapped = (rawData || [])
+          .map((emp: any) => ({
+            id: (Array.isArray(emp) ? emp[0] : emp.EmpCode || emp.empCode || "").toString().trim(),
+            name: (Array.isArray(emp) ? emp[1] : emp.EmpName || emp.empName || "").toString().trim()
+          }))
+          .filter((emp) => emp.id);
+
+        if (isMounted) {
+          const isEligibleToSelect = isAdmin || mapped.length > 1 || (mapped.length === 1 && mapped[0].id !== code);
+
+          if (isEligibleToSelect) {
+            // Ensure logged in user is at the top if not already present
+            const hasSelf = mapped.some((e) => e.id === code);
+            const finalList = hasSelf
+              ? mapped
+              : [{ id: code, name: `${code} - ${name} (Me)` }, ...mapped];
+
+            setEmployees(finalList);
+            setCanSelectEmployee(true);
+          } else {
+            // Only self returned (normal employee) -> lock dropdown to self
+            setEmployees(mapped.length > 0 ? mapped : [{ id: code, name: `${code} - ${name} (Me)` }]);
+            setCanSelectEmployee(false);
+          }
+        }
       } catch (err) {
         console.error("Error loading employees list:", err);
+        if (isMounted) {
+          setEmployees([{ id: code, name: `${code} - ${name} (Me)` }]);
+          setCanSelectEmployee(isAdmin);
+        }
       }
     };
 
-    if (isAdmin) {
-      fetchEmployees();
-    }
+    fetchEmployees();
 
-    const initialCode = loggedInUser?.empCode || loggedInUser?.EmpCode || "";
-    const initialName = loggedInUser?.empName || loggedInUser?.EmpName || "Me";
-    setSelectedEmpCode(initialCode);
-    setSelectedEmpName(initialName);
+    return () => {
+      isMounted = false;
+    };
   }, [isAdmin, loggedInUser]);
 
   // Load details and balance on employee or month change
@@ -369,9 +419,17 @@ const LeaveDashboard: React.FC = () => {
 
       let rawLeaves: any[] = [];
       let rawPerms: any[] = [];
-      const isYearly = month.startsWith("Year-");
-      const yearVal = isYearly ? month.replace("Year-", "") : "";
-      const targetMonths = months.filter(m => m.endsWith("-" + yearVal) && !m.startsWith("Year-"));
+      const isYearly = month.startsWith("Year");
+      const yearVal = isYearly ? (month.includes("-") ? month.split("-")[1] : String(moment().year())) : "";
+      const targetMonths: string[] = [];
+      if (isYearly) {
+        const y = parseInt(yearVal, 10) || moment().year();
+        const currentMoment = moment();
+        const maxMonth = (y === currentMoment.year()) ? currentMoment.month() : 11;
+        for (let m = maxMonth; m >= 0; m--) {
+          targetMonths.push(moment().year(y).month(m).format("MMM-YYYY"));
+        }
+      }
 
       if (isYearly) {
         const fetchPromises = targetMonths.map(async (mStr) => {
@@ -1199,7 +1257,7 @@ const LeaveDashboard: React.FC = () => {
             <span className="ld-control-label">
               <IonIcon icon={personOutline} /> Employee
             </span>
-            {isAdmin ? (
+            {canSelectEmployee ? (
               <div
                 className="ld-selector-trigger"
                 ref={employeeTriggerRef}

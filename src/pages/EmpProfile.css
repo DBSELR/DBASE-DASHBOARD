@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Michroma&family=Montserrat:wght@800;900&family=Orbitron:wght@700;800;900&display=swap');
+
 /* 
   Employee Profile - Native Style CSS
   Unique Class Prefix: ep-
@@ -132,9 +134,10 @@
 }
 
 .ep-profile-hero-inner {
-  max-width: 1200px;
+  max-width: min(97%, 1680px);
+  width: 100%;
   margin: 0 auto;
-  padding: 30px 28px 46px;
+  padding: 30px 24px 46px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -364,10 +367,10 @@
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 12px 10px;
   flex-wrap: wrap;
   width: 100%;
-  margin: 0;
+  margin: 6px 0 0 0;
 }
 
 .ep-hero-btn {
@@ -384,6 +387,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.ep-btn-idcard,
 .ep-btn-policies,
 .ep-btn-face,
 .ep-btn-password {
@@ -393,6 +397,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
 }
 
+.ep-btn-idcard:hover,
 .ep-btn-policies:hover,
 .ep-btn-face:hover,
 .ep-btn-password:hover {
@@ -402,6 +407,7 @@
   color: #0f172a !important;
 }
 
+.ep-btn-idcard svg,
 .ep-btn-policies svg,
 .ep-btn-face svg {
   color: var(--ion-color-primary, #588157) !important;
@@ -409,7 +415,8 @@
 }
 
 .ep-btn-find,
-.ep-btn-add {
+.ep-btn-add,
+.ep-btn-activelist {
   background: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.35) !important;
@@ -418,17 +425,26 @@
 }
 
 .ep-btn-find:hover,
-.ep-btn-add:hover {
+.ep-btn-add:hover,
+.ep-btn-activelist:hover {
   background: rgba(255, 255, 255, 0.35) !important;
   border-color: rgba(255, 255, 255, 0.6) !important;
   color: #ffffff !important;
   transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
 }
 
 .ep-btn-find svg,
-.ep-btn-add svg {
+.ep-btn-add svg,
+.ep-btn-activelist svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
+}
+
+.ep-btn-activelist:disabled {
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
 }
 
 .ep-btn-del {
@@ -580,25 +596,31 @@ body[color-theme="dark"] .ep-hero-dept {
 /* Content Area */
 .ep-content {
   flex-shrink: 0;
-  padding: 20px;
-  margin-top: -24px;
+  padding: 24px 20px;
+  margin-top: 1px;
   position: relative;
   z-index: 5;
-  max-width: 1200px;
+  max-width: min(97%, 1680px);
   margin-left: auto;
   margin-right: auto;
   width: 100%;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* Info Cards */
 .ep-card {
   background: #ffffff;
   border-radius: 24px;
-  padding: 24px;
-  margin-bottom: 20px;
+  padding: 26px 32px;
+  margin-bottom: 0;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(0, 0, 0, 0.04);
+  width: 100%;
+  box-sizing: border-box;
+  transition: box-shadow 0.25s ease, transform 0.2s ease;
 }
 
 .ep-card-title {
@@ -630,7 +652,7 @@ body[color-theme="dark"] .ep-hero-dept {
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.ep-card-header-with-settings + .ep-info-grid {
+.ep-card-header-with-settings+.ep-info-grid {
   margin-top: 12px;
 }
 
@@ -727,11 +749,11 @@ body[color-theme="dark"] .ep-hero-dept {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
-.ep-toggle-compact input:checked + .ep-slider-compact {
+.ep-toggle-compact input:checked+.ep-slider-compact {
   background-color: var(--ion-color-primary, #0077b6);
 }
 
-.ep-toggle-compact input:checked + .ep-slider-compact:before {
+.ep-toggle-compact input:checked+.ep-slider-compact:before {
   transform: translateX(16px);
 }
 
@@ -799,15 +821,18 @@ body[color-theme="dark"] .ep-setting-swatch {
 
 .ep-info-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  margin-top: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px 24px;
+  margin-top: 18px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ep-info-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
 }
 
 .ep-icon-box {
@@ -1307,7 +1332,7 @@ input:checked+.ep-slider:before {
 /* Responsive Media Queries */
 @media screen and (min-width: 480px) {
   .ep-info-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
 
@@ -1333,7 +1358,8 @@ input:checked+.ep-slider:before {
   }
 
   .ep-info-grid {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px 28px;
   }
 
   .ep-form-grid {
@@ -1342,12 +1368,26 @@ input:checked+.ep-slider:before {
   }
 
   .ep-content {
-    max-width: 900px;
-    margin: 0 auto;
+    max-width: min(97%, 1680px);
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 24px 20px;
   }
 
   .ep-modal-handle {
     display: none;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  .ep-info-grid {
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 22px 32px;
+  }
+
+  .ep-content {
+    max-width: min(98%, 1720px);
   }
 }
 
@@ -1978,8 +2018,8 @@ body[color-theme="dark"] .ep-avatar-badge-plus {
   margin: 0 0 14px;
   font-size: 0.8rem;
   color: #64748b;
-  max-width: 280px;
-  line-height: 1.4;
+  max-width: 320px;
+  line-height: 1.45;
 }
 
 .ep-upload-select-btn {
@@ -2159,7 +2199,7 @@ body[color-theme="dark"] .ep-upload-desc {
 }
 
 /* =========================================================
-   OFFICIAL ID CARD (FRONT & BACK - 6cm x 9cm)
+   OFFICIAL ID CARD (FRONT & BACK - 5.4cm x 8.6cm CR-80)
    ========================================================= */
 
 .ep-profile-card-options-nav-3 {
@@ -2296,10 +2336,10 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-tray-physical-slot {
   position: relative;
-  width: 9cm;
-  height: 6cm;
+  width: 8.6cm;
+  height: 5.4cm;
   background: linear-gradient(145deg, #1e293b, #0f172a);
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.25);
   border: 2px solid #334155;
   display: flex;
@@ -2332,8 +2372,8 @@ body[color-theme="dark"] .ep-upload-desc {
 }
 
 .ep-tray-card-landscape {
-  width: 9cm;
-  height: 6cm;
+  width: 8.6cm;
+  height: 5.4cm;
   position: relative;
   z-index: 2;
   border-radius: 6px;
@@ -2374,12 +2414,12 @@ body[color-theme="dark"] .ep-upload-desc {
   border-radius: 12px;
 }
 
-/* Physical Card Frame - EXACTLY 6cm x 9cm */
+/* Physical Card Frame - EXACTLY 5.4cm x 8.6cm (Standard CR-80) */
 .ep-idcard-frame {
-  width: 6cm;
-  height: 9cm;
+  width: 5.4cm;
+  height: 8.6cm;
   position: relative;
-  border-radius: 8px;
+  border-radius: 7px;
   overflow: hidden;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.08);
   background-size: 100% 100%;
@@ -2393,10 +2433,10 @@ body[color-theme="dark"] .ep-upload-desc {
 /* Front Card Elements */
 .ep-idcard-avatar-wrap {
   position: absolute;
-  top: 26.6%;
-  left: 27.75%;
-  width: 44.5%;
-  height: 29.8%;
+  top: 28.8%;
+  left: 26.7%;
+  width: 45.8%;
+  height: 29.2%;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -2417,16 +2457,17 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-name {
   position: absolute;
   top: 59.4%;
-  left: 4%;
-  right: 4%;
+  left: 2%;
+  right: 2%;
   text-align: center;
-  color: #ffffff !important;
-  font-family: Arial, "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.68rem;
+  color: #262262 !important;
+  font-family: 'Arial Black', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.74rem;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  letter-spacing: 0.2px;
+  -webkit-text-stroke: 0.25px #ffffff;
+  text-shadow: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2436,16 +2477,16 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-desig {
   position: absolute;
   top: 64.0%;
-  left: 4%;
-  right: 4%;
+  left: 2%;
+  right: 2%;
   text-align: center;
   color: #ffffff !important;
-  font-family: Arial, "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Michroma', 'Orbitron', 'Eurostile', sans-serif;
   font-size: 0.52rem;
-  font-weight: 900 !important;
+  font-weight: 700 !important;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2455,8 +2496,8 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-fields-block {
   position: absolute;
   top: 68.6%;
-  left: 14%;
-  right: 6%;
+  left: 12%;
+  right: 4%;
   display: flex;
   flex-direction: column;
   gap: 3.5px;
@@ -2465,7 +2506,7 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-idcard-row {
   display: grid;
-  grid-template-columns: 58px 8px 1fr;
+  grid-template-columns: 60px 10px 1fr;
   align-items: center;
   white-space: nowrap;
   line-height: 1.25;
@@ -2473,8 +2514,8 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-idcard-field-key {
   color: #ffffff !important;
-  font-family: Arial, "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.50rem;
+  font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.48rem;
   font-weight: 900 !important;
   letter-spacing: 0.2px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -2483,8 +2524,8 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-idcard-colon {
   color: #ffffff !important;
-  font-family: Arial, "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.50rem;
+  font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.48rem;
   font-weight: 900 !important;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -2492,8 +2533,8 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-idcard-field-val {
   color: #ffffff !important;
-  font-family: Arial, "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 0.50rem;
+  font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.48rem;
   font-weight: 900 !important;
   letter-spacing: 0.4px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -2505,11 +2546,9 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-phone-row {
   position: absolute;
   top: 83.5%;
-  left: 0;
-  right: 0;
+  left: 12%;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   z-index: 3;
 }
@@ -2522,7 +2561,7 @@ body[color-theme="dark"] .ep-upload-desc {
   height: 14px;
   border-radius: 50%;
   border: 1.5px solid #ffffff;
-  background: #ea580c;
+  background: transparent;
   color: #ffffff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
@@ -2530,9 +2569,9 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-idcard-phone-val {
   color: #ffffff !important;
-  font-family: Arial, "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 900 !important;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.5px;
   font-size: 0.54rem;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
@@ -2541,8 +2580,8 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-qr-box {
   position: absolute;
   top: 7.6%;
-  left: 26.5%;
-  width: 46.2%;
+  left: 21.8%;
+  width: 50.9%;
   height: 29.5%;
   background: #ffffff;
   display: flex;
@@ -2680,6 +2719,7 @@ body[color-theme="dark"] .ep-upload-desc {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -2729,11 +2769,7 @@ body[color-theme="dark"] .ep-upload-desc {
   color: #38bdf8;
 }
 
-/* Hero ID Card Quick Button */
-.ep-btn-idcard {
-  background: linear-gradient(135deg, #0077b6, #0096c7);
-  color: #ffffff;
-}
+
 
 /* Screen hidden helper for ID card side toggle: Keeps element computed in DOM for html2canvas */
 .ep-idcard-item.ep-screen-hidden {
@@ -2750,7 +2786,7 @@ body[color-theme="dark"] .ep-upload-desc {
   display: none !important;
 }
 
-/* Print Styles for 6cm x 9cm */
+/* Print Styles for 5.4cm x 8.6cm CR-80 */
 @media print {
   @page {
     size: A4 portrait;
@@ -2864,17 +2900,24 @@ body[color-theme="dark"] .ep-upload-desc {
   }
 
   .ep-idcard-frame {
-    width: 6cm !important;
-    height: 9cm !important;
-    min-width: 6cm !important;
-    min-height: 9cm !important;
-    max-width: 6cm !important;
-    max-height: 9cm !important;
+    width: 5.4cm !important;
+    height: 8.6cm !important;
+    min-width: 5.4cm !important;
+    min-height: 8.6cm !important;
+    max-width: 5.4cm !important;
+    max-height: 8.6cm !important;
     position: relative !important;
-    border-radius: 8px !important;
+    border-radius: 7px !important;
     overflow: hidden !important;
     box-shadow: 0 0 0 1px #94a3b8 !important;
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
+  }
+
+  .ep-idcard-phone-row *,
+  .ep-idcard-phone-val {
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

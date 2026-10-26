@@ -261,6 +261,39 @@
   display: none;
 }
 
+.pr-compact-filter-bar {
+  gap: 0;
+  padding-bottom: 6px;
+}
+
+.pr-compact-filter-bar .pr-tabs-row-1 {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pr-tabs-chips-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.pr-inline-period-compact {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .pr-compact-filter-bar .pr-tabs-row-1 {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pr-compact-filter-bar .pr-inline-period-compact {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
 .pr-tabs-row-2 {
   display: flex;
   align-items: center;

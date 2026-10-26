@@ -42,6 +42,7 @@ import {
   map,
   radio,
   notificationsOutline,
+  timeOutline,
 } from "ionicons/icons";
 
 import "../theme/Common.css";
@@ -302,6 +303,9 @@ const Menu: React.FC = () => {
   const isNotificationCenterAllowed =
     NOTIFICATION_CENTER_ALLOWED_USERS.includes(currentEmpCode) ||
     NOTIFICATION_CENTER_ALLOWED_USERS.includes(normalizedEmpCode);
+  const isPendingRequestsAllowed =
+    (currentEmpCode === "2001" || normalizedEmpCode === "2001") &&
+    !menuItems.some((m) => m[4] === "/pending-requests");
 
 
   const customSavedPic = empCodeDisplay
@@ -443,13 +447,39 @@ const Menu: React.FC = () => {
                 </IonItem>
               )}
 
+              {/* Pending Requests - For employee 2001 in side menu */}
+              {isPendingRequestsAllowed && (
+                <IonItem
+                  button
+                  lines="none"
+                  onClick={() => handleTabClick("/pending-requests")}
+                  className={location.pathname === "/pending-requests" ? "item-active" : ""}
+                  style={{
+                    "--item-index":
+                      (menuItems.length || 0) +
+                      (isTeltonikaAllowed ? 1 : 0) +
+                      (isNotificationCenterAllowed ? 1 : 0) +
+                      1,
+                  } as React.CSSProperties}
+                >
+                  <div className="menu-item-row" title="Pending Requests">
+                    <div className="menu-icon-chip">
+                      <IonIcon icon={timeOutline} />
+                    </div>
+                    <span className="menu-item-label">
+                      Pending Requests
+                    </span>
+                  </div>
+                </IonItem>
+              )}
+
               {/* Logout Button */}
               <IonItem
                 button
                 lines="none"
                 onClick={handleLogout}
                 className="logout-item"
-                style={{ "--item-index": (menuItems.length || 0) + (isTeltonikaAllowed ? 1 : 0) + (isNotificationCenterAllowed ? 1 : 0) + 1 } as React.CSSProperties}
+                style={{ "--item-index": (menuItems.length || 0) + (isTeltonikaAllowed ? 1 : 0) + (isNotificationCenterAllowed ? 1 : 0) + (isPendingRequestsAllowed ? 1 : 0) + 1 } as React.CSSProperties}
               >
                 <div className="menu-item-row" title="Logout">
                   <div className="menu-icon-chip">

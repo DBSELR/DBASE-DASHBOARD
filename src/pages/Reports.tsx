@@ -12,7 +12,8 @@ import {
   calendarOutline,
   timeOutline,
   checkmarkCircleOutline,
-  personOutline
+  personOutline,
+  peopleOutline
 } from "ionicons/icons";
 import { createPortal } from "react-dom";
 
@@ -20,10 +21,45 @@ import "./Stock.css";
 import "./Meetings/MeetingMaster.css";
 import "../components/requests/RequestList.css";
 import "./Reports.css";
+import { PDFDocument } from "pdf-lib";
 
 const LOG = (...args: any[]) => console.log("[Reports]", ...args);
 const GROUP = (title: string) => console.group("[Reports]", title);
 const GROUP_END = () => console.groupEnd();
+
+const cropPdfToPayslip = async (pdfBlob: Blob, cropRatio = 0.62): Promise<Blob> => {
+  if (!pdfBlob || pdfBlob.size === 0) return pdfBlob;
+  try {
+    const arrayBuffer = await pdfBlob.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+    const pages = pdfDoc.getPages();
+
+    for (const page of pages) {
+      const mediaBox = page.getMediaBox ? page.getMediaBox() : { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() };
+      const x = mediaBox.x || 0;
+      const y = mediaBox.y || 0;
+      const width = mediaBox.width || page.getWidth();
+      const height = mediaBox.height || page.getHeight();
+      const cropHeight = Math.round(height * cropRatio);
+
+      page.setSize(width, cropHeight);
+      page.setMediaBox(x, y, width, cropHeight);
+      page.setCropBox(x, y, width, cropHeight);
+    }
+
+    const croppedBytes = await pdfDoc.save();
+    return new Blob([croppedBytes as any], { type: "application/pdf" });
+  } catch (err) {
+    console.error("[cropPdfToPayslip] Error cropping payslip PDF:", err);
+    return pdfBlob;
+  }
+};
+
+const isPrivilegedUser = (desig?: string, code?: string) => {
+  const privilegedDesigs = ["Director", "HR", "In-Charge F&A"];
+  const privilegedCodes = ["1501", "1601", "1635", "1509", "1508", "1541"];
+  return privilegedDesigs.includes(desig || "") || privilegedCodes.includes(String(code || ""));
+};
 
 const monthsList = [
   "January", "February", "March", "April",
@@ -46,6 +82,15 @@ const Reports: React.FC = () => {
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(false);
   const [isExportingHdfc, setIsExportingHdfc] = useState<boolean>(false);
   const [isExportingNonHdfc, setIsExportingNonHdfc] = useState<boolean>(false);
+  const [isDownloadingPayslip, setIsDownloadingPayslip] = useState<boolean>(false);
+  const [isPayslipModalOpen, setIsPayslipModalOpen] = useState<boolean>(false);
+  const [modalFromMonth, setModalFromMonth] = useState<number>(0);
+  const [modalFromYear, setModalFromYear] = useState<number>(new Date().getFullYear());
+  const [modalToMonth, setModalToMonth] = useState<number>(new Date().getMonth());
+  const [modalToYear, setModalToYear] = useState<number>(new Date().getFullYear());
+  const [downloadScope, setDownloadScope] = useState<'self' | 'all'>('self');
+  const [isModalDownloading, setIsModalDownloading] = useState<boolean>(false);
+  const [modalProgressText, setModalProgressText] = useState<string>("");
   const previewRef = useRef<HTMLDivElement>(null);
 
   // ── Dropdown States ──────────────────────────────────────────────
@@ -146,11 +191,7 @@ const Reports: React.FC = () => {
       try {
         const parsed = JSON.parse(user);
         setUserData(parsed);
-        if (
-          parsed.designation !== "Director" &&
-          parsed.designation !== "HR" &&
-          parsed.designation !== "In-Charge F&A"
-        ) {
+        if (!isPrivilegedUser(parsed.designation, parsed.empCode)) {
           setReportType("Salary Generation Details");
         }
         LOG("User loaded:", parsed);
@@ -189,7 +230,8 @@ const Reports: React.FC = () => {
     const formattedFrom = moment(fromDate).format("MM-DD-YYYY");
     const formattedTo = moment(toDate).format("MM-DD-YYYY");
     const monthYearSend = moment(monthYear).format("MM-YYYY");
-    const Empcode = userDesig === "Director" || userDesig === "HR" || userDesig === "In-Charge F&A" ? "" : empCode;
+    const isPrivileged = isPrivilegedUser(userDesig, empCode);
+    const Empcode = isPrivileged ? "" : empCode;
 
     GROUP("build api url");
     LOG("Report Type Selected:", reportType);
@@ -383,12 +425,206 @@ const Reports: React.FC = () => {
     }
   };
 
+  const currentYear = new Date().getFullYear();
+  const modalYearsList = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+
+  const openPayslipModal = () => {
+    if (monthYear) {
+      const m = moment(monthYear, "YYYY-MM");
+      setModalToMonth(m.month());
+      setModalToYear(m.year());
+      setModalFromMonth(0); // Default From: January of that year
+      setModalFromYear(m.year());
+    }
+    setDownloadScope('self');
+    setIsPayslipModalOpen(true);
+  };
+
+  const getSelectedRangeMonths = () => {
+    const start = moment([modalFromYear, modalFromMonth, 1]);
+    const end = moment([modalToYear, modalToMonth, 1]);
+    const isReversed = start.isAfter(end);
+    const actualStart = isReversed ? end : start;
+    const actualEnd = isReversed ? start : end;
+
+    const list: moment.Moment[] = [];
+    const curr = actualStart.clone();
+    while (curr.isSameOrBefore(actualEnd, "month")) {
+      list.push(curr.clone());
+      curr.add(1, "month");
+    }
+    return list;
+  };
+
+  const selectedRangeMonths = getSelectedRangeMonths();
+
+  const handleModalDownload = async () => {
+    const empCode = userData?.empCode || "";
+    if (!empCode) {
+      alert("Employee code not found. Please log in again.");
+      return;
+    }
+
+    const monthsToFetch = getSelectedRangeMonths();
+    if (monthsToFetch.length === 0) {
+      alert("Please select a valid month range.");
+      return;
+    }
+
+    const isPrivileged = isPrivilegedUser(userData?.designation, userData?.empCode);
+    const isDownloadingSelf = !isPrivileged || downloadScope === 'self';
+    const targetEmpCode = isDownloadingSelf ? empCode : "";
+
+    // Optimization: If exactly 1 month is selected and preview is already loaded with the same scope:
+    // Notice: preview (pdfUrl) has ALL EMPLOYEES if isPrivileged is true, but individual employee if isPrivileged is false.
+    const canReusePreview = pdfUrl && (
+      (!isPrivileged && isDownloadingSelf) ||
+      (isPrivileged && !isDownloadingSelf)
+    );
+
+    if (monthsToFetch.length === 1 && canReusePreview) {
+      const targetMonthStr = monthsToFetch[0].format("YYYY-MM");
+      const currentViewStr = moment(monthYear).format("YYYY-MM");
+      if (targetMonthStr === currentViewStr) {
+        try {
+          setIsModalDownloading(true);
+          setModalProgressText("Preparing payslip...");
+          const resp = await fetch(pdfUrl);
+          const blob = await resp.blob();
+          const payslipBlob = isDownloadingSelf ? await cropPdfToPayslip(blob) : blob;
+          const downloadUrl = URL.createObjectURL(payslipBlob);
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          const empStr = isDownloadingSelf ? (userData?.empCode ? `_${userData.empCode}` : '') : '_Company';
+          const monthStr = `_${monthsToFetch[0].format("MMM_YYYY")}`;
+          a.download = isDownloadingSelf ? `Payslip${empStr}${monthStr}.pdf` : `SalaryDetails${empStr}${monthStr}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+          setIsPayslipModalOpen(false);
+          return;
+        } catch (err) {
+          console.error("[Reports] Error in single month direct download:", err);
+        } finally {
+          setIsModalDownloading(false);
+          setModalProgressText("");
+        }
+      }
+    }
+
+    const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+    setIsModalDownloading(true);
+    setModalProgressText("Starting download...");
+
+    try {
+      const validPdfs: { month: moment.Moment; arrayBuffer: ArrayBuffer }[] = [];
+
+      for (let i = 0; i < monthsToFetch.length; i++) {
+        const m = monthsToFetch[i];
+        const monthYearSend = m.format("MM-YYYY");
+        setModalProgressText(`Fetching (${i + 1}/${monthsToFetch.length}): ${m.format("MMM YYYY")}...`);
+
+        const path = `ProxyReports/Load_SalaryGenerationDetails?EMPCODE=${targetEmpCode}&MY=${monthYearSend}`;
+        const fullPath = API_BASE.endsWith("/") && path.startsWith("/")
+          ? API_BASE + path.slice(1)
+          : API_BASE + path;
+
+        try {
+          const res = await fetch(fullPath, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/pdf"
+            }
+          });
+
+          if (!res.ok) continue;
+          const rawBlob = await res.blob();
+          if (!rawBlob || rawBlob.size === 0) continue;
+
+          const arrayBuffer = await rawBlob.arrayBuffer();
+          const doc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+          if (doc.getPageCount() > 0) {
+            validPdfs.push({ month: m, arrayBuffer });
+          }
+        } catch (fetchErr) {
+          console.warn(`[Reports] Payslip not available for ${monthYearSend}:`, fetchErr);
+        }
+      }
+
+      if (validPdfs.length === 0) {
+        alert("No payslip records found for the selected month range.");
+        return;
+      }
+
+      setModalProgressText(`Processing ${validPdfs.length} ${isDownloadingSelf ? "payslip" : "report"}${validPdfs.length > 1 ? "s" : ""}...`);
+
+      // Ensure chronological order
+      validPdfs.sort((a, b) => a.month.valueOf() - b.month.valueOf());
+
+      const mergedPdf = await PDFDocument.create();
+
+      for (const item of validPdfs) {
+        const doc = await PDFDocument.load(item.arrayBuffer, { ignoreEncryption: true });
+        const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+
+        for (const page of copiedPages) {
+          if (isDownloadingSelf) {
+            const mediaBox = page.getMediaBox ? page.getMediaBox() : { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() };
+            const x = mediaBox.x || 0;
+            const y = mediaBox.y || 0;
+            const width = mediaBox.width || page.getWidth();
+            const height = mediaBox.height || page.getHeight();
+            const cropHeight = Math.round(height * 0.62);
+
+            page.setSize(width, cropHeight);
+            page.setMediaBox(x, y, width, cropHeight);
+            page.setCropBox(x, y, width, cropHeight);
+          }
+          mergedPdf.addPage(page);
+        }
+      }
+
+      const mergedBytes = await mergedPdf.save();
+      const mergedBlob = new Blob([mergedBytes as any], { type: "application/pdf" });
+      const downloadUrl = URL.createObjectURL(mergedBlob);
+
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      const empStr = isDownloadingSelf ? (userData?.empCode ? `_${userData.empCode}` : "") : "_Company";
+      const startStr = validPdfs[0].month.format("MMM_YYYY");
+      const endStr = validPdfs[validPdfs.length - 1].month.format("MMM_YYYY");
+      if (isDownloadingSelf) {
+        a.download = validPdfs.length === 1
+          ? `Payslip${empStr}_${startStr}.pdf`
+          : `Payslips${empStr}_${startStr}_to_${endStr}.pdf`;
+      } else {
+        a.download = validPdfs.length === 1
+          ? `Company_SalaryDetails_${startStr}.pdf`
+          : `Company_SalaryDetails_${startStr}_to_${endStr}.pdf`;
+      }
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+
+      setIsPayslipModalOpen(false);
+
+    } catch (err: any) {
+      console.error("[Reports] Error downloading payslips range:", err);
+      alert("Error generating merged payslip PDF: " + (err?.message || err));
+    } finally {
+      setIsModalDownloading(false);
+      setModalProgressText("");
+    }
+  };
+
   const userDesig = userData?.designation;
+  const isPrivileged = isPrivilegedUser(userDesig, userData?.empCode);
 
   const reportOptions =
-    userDesig === "Director" ||
-      userDesig === "HR" ||
-      userDesig === "In-Charge F&A"
+    isPrivileged
       ? [
         "Employee List",
         "Salary Statement",
@@ -552,7 +788,7 @@ const Reports: React.FC = () => {
                 <IonIcon icon={refreshOutline} style={{ fontSize: '18px' }} /> Clear
               </button>
 
-              {(userDesig === "Director" || userDesig === "HR" || userDesig === "In-Charge F&A") && (
+              {isPrivileged && (
                 <>
                   <button
                     className="stock-button stock-button--secondary"
@@ -585,6 +821,24 @@ const Reports: React.FC = () => {
                     {isExportingNonHdfc ? "Exporting..." : "Non-HDFC Format"}
                   </button>
                 </>
+              )}
+
+              {reportType === "Salary Generation Details" && (
+                <button
+                  className="stock-button stock-button--secondary"
+                  onClick={openPayslipModal}
+                  disabled={isModalDownloading || isLoadingReport}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} />
+                  Download Payslip PDF
+                </button>
               )}
             </div>
           </div>
@@ -663,18 +917,53 @@ const Reports: React.FC = () => {
                     >
                       <IonIcon icon={printOutline} style={{ fontSize: '18px' }} /> Fullscreen / Print
                     </a>
-                    <button
-                      className="stock-button"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                      onClick={() => {
-                        const a = document.createElement("a");
-                        a.href = pdfUrl;
-                        a.download = `${reportType || "report"}.pdf`;
-                        a.click();
-                      }}
-                    >
-                      <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Download PDF
-                    </button>
+
+                    {reportType === "Salary Generation Details" ? (
+                      <>
+                        <button
+                          className="stock-button"
+                          disabled={isModalDownloading}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            opacity: isModalDownloading ? 0.75 : 1,
+                            cursor: isModalDownloading ? 'not-allowed' : 'pointer'
+                          }}
+                          onClick={openPayslipModal}
+                        >
+                          <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} />
+                          {isModalDownloading ? (modalProgressText || "Preparing Payslips...") : "Download Payslip PDF"}
+                        </button>
+                        <button
+                          className="stock-button stock-button--secondary"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = pdfUrl;
+                            const monthStr = monthYear ? `_${moment(monthYear).format("MMM_YYYY")}` : '';
+                            a.download = `Salary_Generation_Details${monthStr}.pdf`;
+                            a.click();
+                          }}
+                        >
+                          <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Download Full Report
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="stock-button"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = pdfUrl;
+                          a.download = `${reportType || "report"}.pdf`;
+                          a.click();
+                        }}
+                      >
+                        <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} /> Download PDF
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -1253,6 +1542,227 @@ const Reports: React.FC = () => {
             </div>
           </div>
         </>,
+        document.body
+      )}
+
+      {/* ── Payslip Month Range Modal Card ── */}
+      {isPayslipModalOpen && createPortal(
+        <div
+          className="payslip-modal-backdrop"
+          onClick={() => !isModalDownloading && setIsPayslipModalOpen(false)}
+        >
+          <div
+            className="payslip-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="payslip-modal-header">
+              <div className="payslip-modal-title-wrap">
+                <div className="payslip-modal-icon-badge">
+                  <IonIcon icon={downloadOutline} style={{ fontSize: '20px' }} />
+                </div>
+                <div>
+                  <h3 className="payslip-modal-title">Download Payslip PDF</h3>
+                  <p className="payslip-modal-subtitle">Select month & year range to merge into a single PDF</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="payslip-modal-close-btn"
+                disabled={isModalDownloading}
+                onClick={() => setIsPayslipModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="payslip-modal-body">
+              {isPrivileged && (
+                <div className="payslip-scope-container">
+                  <label className="payslip-field-label">Download For</label>
+                  <div className="payslip-scope-tabs">
+                    <button
+                      type="button"
+                      className={`payslip-scope-tab ${downloadScope === 'self' ? 'active' : ''}`}
+                      onClick={() => setDownloadScope('self')}
+                      disabled={isModalDownloading}
+                    >
+                      <IonIcon icon={personOutline} style={{ fontSize: '15px' }} />
+                      <span>My Own Payslip ({userData?.empCode})</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`payslip-scope-tab ${downloadScope === 'all' ? 'active' : ''}`}
+                      onClick={() => setDownloadScope('all')}
+                      disabled={isModalDownloading}
+                    >
+                      <IonIcon icon={peopleOutline} style={{ fontSize: '15px' }} />
+                      <span>All Employees (Company)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Presets */}
+              <div className="payslip-quick-presets">
+                <button
+                  type="button"
+                  className="payslip-preset-pill"
+                  onClick={() => {
+                    const m = moment(monthYear || undefined);
+                    setModalFromMonth(m.month());
+                    setModalFromYear(m.year());
+                    setModalToMonth(m.month());
+                    setModalToYear(m.year());
+                  }}
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  className="payslip-preset-pill"
+                  onClick={() => {
+                    const toM = moment(monthYear || undefined);
+                    const fromM = toM.clone().subtract(2, 'months');
+                    setModalToMonth(toM.month());
+                    setModalToYear(toM.year());
+                    setModalFromMonth(fromM.month());
+                    setModalFromYear(fromM.year());
+                  }}
+                >
+                  Last 3 Months
+                </button>
+                <button
+                  type="button"
+                  className="payslip-preset-pill"
+                  onClick={() => {
+                    const toM = moment(monthYear || undefined);
+                    const fromM = toM.clone().subtract(3, 'months');
+                    setModalToMonth(toM.month());
+                    setModalToYear(toM.year());
+                    setModalFromMonth(fromM.month());
+                    setModalFromYear(fromM.year());
+                  }}
+                >
+                  Last 4 Months
+                </button>
+                <button
+                  type="button"
+                  className="payslip-preset-pill"
+                  onClick={() => {
+                    const toM = moment(monthYear || undefined);
+                    setModalToMonth(toM.month());
+                    setModalToYear(toM.year());
+                    setModalFromMonth(0); // January
+                    setModalFromYear(toM.year());
+                  }}
+                >
+                  Jan to Current
+                </button>
+              </div>
+
+              {/* Month & Year Selectors */}
+              <div className="payslip-range-grid">
+                {/* From Month & Year */}
+                <div className="payslip-field-group">
+                  <label className="payslip-field-label">From Month & Year</label>
+                  <div className="payslip-select-row">
+                    <select
+                      className="payslip-select"
+                      value={modalFromMonth}
+                      onChange={(e) => setModalFromMonth(parseInt(e.target.value, 10))}
+                      disabled={isModalDownloading}
+                    >
+                      {monthsList.map((mName, idx) => (
+                        <option key={mName} value={idx}>{mName}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="payslip-select"
+                      value={modalFromYear}
+                      onChange={(e) => setModalFromYear(parseInt(e.target.value, 10))}
+                      disabled={isModalDownloading}
+                    >
+                      {modalYearsList.map((yr) => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* To Month & Year */}
+                <div className="payslip-field-group">
+                  <label className="payslip-field-label">To Month & Year</label>
+                  <div className="payslip-select-row">
+                    <select
+                      className="payslip-select"
+                      value={modalToMonth}
+                      onChange={(e) => setModalToMonth(parseInt(e.target.value, 10))}
+                      disabled={isModalDownloading}
+                    >
+                      {monthsList.map((mName, idx) => (
+                        <option key={mName} value={idx}>{mName}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="payslip-select"
+                      value={modalToYear}
+                      onChange={(e) => setModalToYear(parseInt(e.target.value, 10))}
+                      disabled={isModalDownloading}
+                    >
+                      {modalYearsList.map((yr) => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary / Confirmation Box */}
+              <div className="payslip-info-box">
+                <div className="payslip-info-title">
+                  <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '17px' }} />
+                  {isPrivileged && downloadScope === 'all'
+                    ? `Company Payslips: ${selectedRangeMonths.length} Month${selectedRangeMonths.length > 1 ? 's' : ''}`
+                    : `My Payslip (${userData?.empCode}): ${selectedRangeMonths.length} Month${selectedRangeMonths.length > 1 ? 's' : ''}`}
+                </div>
+                <div className="payslip-info-desc">
+                  {isPrivileged && downloadScope === 'all'
+                    ? (selectedRangeMonths.length === 1
+                        ? `All company employees' payslips for ${monthsList[modalFromMonth]} ${modalFromYear} will be downloaded.`
+                        : `All company employees' payslips for the selected ${selectedRangeMonths.length} months will be downloaded.`)
+                    : (selectedRangeMonths.length === 1
+                        ? `Your own personal payslip for ${monthsList[modalFromMonth]} ${modalFromYear} will be cropped and downloaded.`
+                        : `Your own personal payslips for the selected ${selectedRangeMonths.length} months will be cropped and merged into a single PDF.`)}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="payslip-modal-footer">
+              <button
+                type="button"
+                className="payslip-btn-cancel"
+                disabled={isModalDownloading}
+                onClick={() => setIsPayslipModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="payslip-btn-done"
+                disabled={isModalDownloading}
+                onClick={handleModalDownload}
+              >
+                <IonIcon icon={downloadOutline} style={{ fontSize: '18px' }} />
+                {isModalDownloading
+                  ? (modalProgressText || "Downloading...")
+                  : "Done & Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>,
         document.body
       )}
     </IonPage>

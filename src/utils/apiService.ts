@@ -428,6 +428,24 @@ export const apiService = {
         return apiService.get(`/Employee/Load_Employees?SearchEmp=${status}`);
     },
 
+    loadEmployeesByRole: async (loginEmpCode: string, searchEmp: string = "") => {
+        console.log("API: Load Employees By Role", { loginEmpCode, searchEmp });
+        const params = new URLSearchParams();
+        if (loginEmpCode) params.append("loginEmpCode", loginEmpCode);
+        if (searchEmp) params.append("searchEmp", searchEmp);
+        return apiService.get(`/Employee/Load_Employees_By_Role?${params.toString()}`);
+    },
+
+    loadActiveEmployeesExport: async (empId: string = "") => {
+        console.log("API: Load Active Employees Export", { empId });
+        const params = empId ? `?EMPID=${encodeURIComponent(empId)}` : "";
+        try {
+            return await apiService.get(`/Employee/App_Get_ActiveEmployeesListExport${params}`);
+        } catch (err) {
+            return await apiService.get(`/Reports/App_Get_ActiveEmployeesListExport${params}`);
+        }
+    },
+
     loadDepartments: async () => {
         console.log("API: Load Departments");
         return apiService.get("/Sources/Load_Department");

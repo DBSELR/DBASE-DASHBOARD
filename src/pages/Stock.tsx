@@ -18,7 +18,7 @@ const stockTypes = [
   "Others",
 ];
 const BASE_URL = `${API_BASE}Stock`;
-const stockEntryStatuses = ["In Stock", "Damaged"];
+const stockEntryStatuses = ["In Stock", "Issued", "Returned", "Damaged"];
 const stockIssueStatuses = ["Issued", "Returned", "Damaged"];
 const BARCODE_CLOSE_DELAY_MS = 350;
 
@@ -130,9 +130,41 @@ type StockIssueState = {
   _Tid: number;
 };
 
-const formatDate = (value: string) => {
-  if (!value) return "";
-  return value.split("T")[0];
+const isInvalidOr1900Date = (value?: string | null): boolean => {
+  if (!value) return true;
+  const s = String(value).trim();
+  if (
+    !s ||
+    s === "null" ||
+    s === "NULL" ||
+    s === "undefined" ||
+    s === "0" ||
+    s === "-" ||
+    s === "—" ||
+    s.startsWith("1900-01-01") ||
+    s.startsWith("01/01/1900") ||
+    s.startsWith("01-01-1900") ||
+    s.startsWith("1900/01/01")
+  ) {
+    return true;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime()) && d.getFullYear() <= 1900) {
+    return true;
+  }
+  return false;
+};
+
+const formatDate = (value: string | null | undefined): string => {
+  if (!value || isInvalidOr1900Date(value)) return "";
+  const s = String(value).trim();
+  return s.split("T")[0];
+};
+
+const formatDisplayDate = (value: any): string => {
+  if (!value || isInvalidOr1900Date(value)) return "-";
+  const s = String(value).trim();
+  return s.split("T")[0] || "-";
 };
 
 const isDateLike = (value: string) => {
@@ -157,7 +189,7 @@ const parseStockIssueRow = (row: StockIssueRow) => {
 };
 
 const makeApiDate = (value: string) => {
-  if (!value) return "";
+  if (!value || isInvalidOr1900Date(value)) return "";
   if (value.includes("T")) return value;
   return `${value}T00:00:00`;
 };
@@ -251,21 +283,25 @@ if (!isAuthorized) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // --- Employee Dropdown State ---
-  const empTriggerRef = useRef<HTMLDivElement>(null);
-  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const entryEmpTriggerRef = useRef<HTMLDivElement>(null);
+  const issueEmpTriggerRef = useRef<HTMLDivElement>(null);
+  const [employeeDropdownTarget, setEmployeeDropdownTarget] = useState<"entry" | "issue" | null>(null);
   const [empSearchTerm, setEmpSearchTerm] = useState("");
   const [employeeDropdownPos, setEmployeeDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
-    if (isEmployeeDropdownOpen && empTriggerRef.current) {
-      const rect = empTriggerRef.current.getBoundingClientRect();
-      setEmployeeDropdownPos({
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
+    if (employeeDropdownTarget) {
+      const activeRef = employeeDropdownTarget === "entry" ? entryEmpTriggerRef : issueEmpTriggerRef;
+      if (activeRef.current) {
+        const rect = activeRef.current.getBoundingClientRect();
+        setEmployeeDropdownPos({
+          top: rect.bottom + window.scrollY + 8,
+          left: rect.left + window.scrollX,
+          width: rect.width
+        });
+      }
     }
-  }, [isEmployeeDropdownOpen]);
+  }, [employeeDropdownTarget]);
 
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
@@ -399,10 +435,17 @@ if (!isAuthorized) {
 
   const saveStock = async () => {
     try {
+      const cleanIssueDate = makeApiDate(stockEntry._IssueDate);
+      const cleanWdate = makeApiDate(stockEntry._Wdate);
       const payload = {
         ...stockEntry,
-        _IssueDate: makeApiDate(stockEntry._IssueDate),
-        _Wdate: makeApiDate(stockEntry._Wdate),
+        _IssueDate: cleanIssueDate,
+        IssueDate: cleanIssueDate,
+        _IssueName: stockEntry._IssuedName,
+        IssueName: stockEntry._IssuedName,
+        IssuedName: stockEntry._IssuedName,
+        _Wdate: cleanWdate,
+        Wdate: cleanWdate,
       };
       const response = await fetch(`${BASE_URL}/Save_Stock`, {
         method: "POST",
@@ -415,6 +458,7 @@ if (!isAuthorized) {
       if (data?.status) {
         alert(data.message || "Stock saved successfully");
         loadStock();
+        loadStockIssues();
       } else {
         alert(data?.message || "Failed to save stock");
       }
@@ -426,9 +470,14 @@ if (!isAuthorized) {
 
   const saveStockIssue = async () => {
     try {
+      const cleanIssueDate = makeApiDate(stockIssue._IssueDate);
       const payload = {
         ...stockIssue,
-        _IssueDate: makeApiDate(stockIssue._IssueDate),
+        _IssueDate: cleanIssueDate,
+        IssueDate: cleanIssueDate,
+        _IssueName: stockIssue._IssuedName,
+        IssueName: stockIssue._IssuedName,
+        IssuedName: stockIssue._IssuedName,
       };
       const response = await fetch(`${BASE_URL}/Save_Stock_Status`, {
         method: "POST",
@@ -440,6 +489,7 @@ if (!isAuthorized) {
       const data = await response.text();
       alert(data || "Stock issue saved successfully");
       loadStockIssues();
+      loadStock();
     } catch (error) {
       console.error("Save_Stock_Status failed", error);
       alert("Unable to save stock issue. Check the API and network.");
@@ -447,12 +497,22 @@ if (!isAuthorized) {
   };
 
   const editStock = (row: StockRow) => {
+    const rawIssuedName = String(row[4] || "").trim();
+    const cleanIssuedName =
+      rawIssuedName === "-" ||
+      rawIssuedName === "—" ||
+      rawIssuedName.toLowerCase() === "null" ||
+      rawIssuedName.toLowerCase() === "none" ||
+      rawIssuedName === "0"
+        ? ""
+        : rawIssuedName;
+
     setStockEntry({
       _Sid: Number(row[0] || 0),
       _StockCode: row[1] || "",
       _StockName: row[2] || "",
       _Details: row[3] || "",
-      _IssuedName: row[4] || "",
+      _IssuedName: cleanIssuedName,
       _IssueDate: formatDate(String(row[5] || "")),
       _Make: row[6] || "",
       _Sno: row[7] || "",
@@ -1077,9 +1137,9 @@ if (!isAuthorized) {
               <div className="stock-field">
                 <label>Stock Code</label>
                 <input
-                  readOnly
                   value={stockEntry._StockCode}
-                  placeholder="Auto-generated"
+                  onChange={(e) => setStockEntry({ ...stockEntry, _StockCode: e.target.value })}
+                  placeholder="Enter or auto-generated code"
                   className="stock-input"
                 />
               </div>
@@ -1124,13 +1184,110 @@ if (!isAuthorized) {
               <div className="stock-field">
                 <label>W Date</label>
                 <div id="wdate-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: stockEntry._Wdate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
-                  {stockEntry._Wdate ? new Date(stockEntry._Wdate).toLocaleDateString() : "Select Date"}
+                  {stockEntry._Wdate && !isInvalidOr1900Date(stockEntry._Wdate) ? new Date(stockEntry._Wdate).toLocaleDateString() : "Select Date"}
                 </div>
                 <IonPopover trigger="wdate-trigger" triggerAction="click" alignment="start">
                   <IonDatetime
                     presentation="date"
                     value={stockEntry._Wdate}
                     onIonChange={(e) => setStockEntry({ ...stockEntry, _Wdate: (e.detail.value as string).split('T')[0] })}
+                  />
+                </IonPopover>
+              </div>
+
+              <div className="stock-field">
+                <label>Issued Name</label>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div
+                    ref={entryEmpTriggerRef}
+                    className={`dbase-inline-select searchable-trigger ${employeeDropdownTarget === 'entry' ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEmployeeDropdownTarget(employeeDropdownTarget === 'entry' ? null : 'entry');
+                    }}
+                    style={{
+                      flex: 1,
+                      minHeight: '38px',
+                      background: 'var(--stock-panel-bg)',
+                      border: '1px solid var(--stock-border)',
+                      borderRadius: 'var(--stock-radius-md)'
+                    }}
+                  >
+                    <span
+                      className="dbase-select-text"
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: stockEntry._IssuedName ? 'var(--stock-text)' : 'var(--stock-muted)'
+                      }}
+                    >
+                      {stockEntry._IssuedName || "Select Employee"}
+                    </span>
+                    <IonIcon icon={chevronDown} className="select-chevron" />
+                  </div>
+                  {stockEntry._IssuedName && (
+                    <button
+                      type="button"
+                      className="stock-button stock-button--secondary stock-button--small"
+                      style={{ padding: '0 8px', minHeight: '38px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStockEntry((prev) => ({
+                          ...prev,
+                          _IssuedName: "",
+                          _IssueDate: "",
+                          _IS_RETURNED: "In Stock"
+                        }));
+                      }}
+                      title="Clear Employee"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="stock-field">
+                <label>Issue Date</label>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div
+                    id="entry-issue-date-trigger"
+                    className="stock-input"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      minHeight: '38px',
+                      color: stockEntry._IssueDate ? 'var(--stock-text)' : 'var(--stock-muted)'
+                    }}
+                  >
+                    {stockEntry._IssueDate && !isInvalidOr1900Date(stockEntry._IssueDate)
+                      ? new Date(stockEntry._IssueDate).toLocaleDateString()
+                      : "Select Date"}
+                  </div>
+                  {stockEntry._IssueDate && (
+                    <button
+                      type="button"
+                      className="stock-button stock-button--secondary stock-button--small"
+                      style={{ padding: '0 8px', minHeight: '38px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStockEntry((prev) => ({ ...prev, _IssueDate: "" }));
+                      }}
+                      title="Clear Issue Date"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <IonPopover trigger="entry-issue-date-trigger" triggerAction="click" alignment="start">
+                  <IonDatetime
+                    presentation="date"
+                    value={stockEntry._IssueDate}
+                    onIonChange={(e) =>
+                      setStockEntry({ ...stockEntry, _IssueDate: (e.detail.value as string).split('T')[0] })
+                    }
                   />
                 </IonPopover>
               </div>
@@ -1373,8 +1530,8 @@ if (!isAuthorized) {
                     </td>
                     <td className="stock-col stock-col--name">{row[2]}</td>
                     <td className="stock-col stock-col--details">{row[3]}</td>
-                    <td>{row[4]}</td>
-                    <td>{formatDate(String(row[5] || ""))}</td>
+                    <td>{row[4] || "-"}</td>
+                    <td>{formatDisplayDate(row[5])}</td>
                     <td className="stock-col stock-col--make">{row[6]}</td>
                     <td className="stock-col stock-col--serial">{row[7]}</td>
                     <td>{row[8]}</td>
@@ -1474,11 +1631,11 @@ if (!isAuthorized) {
             <div className="stock-field">
               <label>Select Employee</label>
               <div
-                ref={empTriggerRef}
-                className={`dbase-inline-select searchable-trigger ${isEmployeeDropdownOpen ? 'active' : ''}`}
+                ref={issueEmpTriggerRef}
+                className={`dbase-inline-select searchable-trigger ${employeeDropdownTarget === 'issue' ? 'active' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen);
+                  setEmployeeDropdownTarget(employeeDropdownTarget === 'issue' ? null : 'issue');
                 }}
                 style={{ width: '100%', minHeight: '38px', background: 'var(--stock-panel-bg)', border: '1px solid var(--stock-border)', borderRadius: 'var(--stock-radius-md)' }}
               >
@@ -1492,7 +1649,7 @@ if (!isAuthorized) {
             <div className="stock-field">
               <label>Date</label>
               <div id="issue-date-trigger" className="stock-input" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minHeight: '38px', color: stockIssue._IssueDate ? 'var(--stock-text)' : 'var(--stock-muted)' }}>
-                {stockIssue._IssueDate ? new Date(stockIssue._IssueDate).toLocaleDateString() : "Select Date"}
+                {stockIssue._IssueDate && !isInvalidOr1900Date(stockIssue._IssueDate) ? new Date(stockIssue._IssueDate).toLocaleDateString() : "Select Date"}
               </div>
               <IonPopover trigger="issue-date-trigger" triggerAction="click" alignment="start">
                 <IonDatetime
@@ -1574,10 +1731,10 @@ if (!isAuthorized) {
                       <td>{issue.sno}</td>
                       <td>{issue.stockCode}</td>
                       <td>{issue.stockName}</td>
-                      <td>{formatDate(String(issue.issueDate || ""))}</td>
-                      <td>{issue.issueName}</td>
-                      <td>{issue.isReturned}</td>
-                      <td>{formatDate(String(issue.returnDate || ""))}</td>
+                      <td>{formatDisplayDate(issue.issueDate)}</td>
+                      <td>{issue.issueName || "-"}</td>
+                      <td>{issue.isReturned || "-"}</td>
+                      <td>{formatDisplayDate(issue.returnDate)}</td>
                     </tr>
                   );
                 })}
@@ -1588,9 +1745,9 @@ if (!isAuthorized) {
       )}
 
       {/* Employee Dropdown Portal */}
-      {isEmployeeDropdownOpen && createPortal(
+      {employeeDropdownTarget && createPortal(
         <>
-          <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setIsEmployeeDropdownOpen(false); }} />
+          <div className="dropdown-outside-click-layer" onClick={(e) => { e.stopPropagation(); setEmployeeDropdownTarget(null); }} />
           <div
             className="custom-inline-dropdown"
             onMouseDown={(e) => e.stopPropagation()}
@@ -1626,7 +1783,9 @@ if (!isAuthorized) {
                 if (empName.startsWith(empId + "-")) {
                   empName = empName.replace(empId + "-", "").trim();
                 }
-                const isSelected = stockIssue._IssuedName === emp[1];
+                const currentSelected =
+                  employeeDropdownTarget === "entry" ? stockEntry._IssuedName : stockIssue._IssuedName;
+                const isSelected = currentSelected === emp[1];
                 const cleanNameForInitials = empName.includes("-")
                   ? empName.split("-").slice(1).join("-").trim()
                   : empName;
@@ -1637,8 +1796,17 @@ if (!isAuthorized) {
                     key={index}
                     className={`dropdown-emp-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => {
-                      setStockIssue({ ...stockIssue, _IssuedName: emp[1] });
-                      setIsEmployeeDropdownOpen(false);
+                      if (employeeDropdownTarget === "entry") {
+                        setStockEntry((prev) => ({
+                          ...prev,
+                          _IssuedName: emp[1],
+                          _IS_RETURNED: prev._IS_RETURNED === "In Stock" ? "Issued" : prev._IS_RETURNED,
+                          _IssueDate: prev._IssueDate || formatDate(new Date().toISOString()),
+                        }));
+                      } else {
+                        setStockIssue((prev) => ({ ...prev, _IssuedName: emp[1] }));
+                      }
+                      setEmployeeDropdownTarget(null);
                       setEmpSearchTerm("");
                     }}
                   >

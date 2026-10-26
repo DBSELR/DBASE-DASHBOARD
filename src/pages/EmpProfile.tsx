@@ -34,7 +34,6 @@ import {
   Loader2,
   ChevronRight,
   ArrowLeft,
-  ArrowRight,
   Save,
   Upload,
   Download,
@@ -43,10 +42,12 @@ import {
   Printer,
   QrCode,
   RotateCw,
-  Eye,
+  FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import moment from "moment";
 import QRCode from "qrcode";
-import idCardFrontClean from "../assets/id_card_front_clean.png";
+import idCardFront from "../assets/id_card_front.png";
 import idCardBack from "../assets/id_card_back.png";
 import dbsCenterBadge from "../assets/dbs_center_badge.png";
 import defaultAvatar from "../assets/avatar.png";
@@ -157,7 +158,6 @@ const EmpProfile: React.FC = () => {
   const [imageModalTab, setImageModalTab] = useState<"idcard" | "details" | "upload">("idcard");
   const [idCardSide, setIdCardSide] = useState<"both" | "front" | "back">("both");
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const [showScannedDataPreview, setShowScannedDataPreview] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [downloadingCard, setDownloadingCard] = useState<string | null>(null);
   const [cardOrientation, setCardOrientation] = useState<"landscape" | "portrait">("landscape");
@@ -252,7 +252,7 @@ const EmpProfile: React.FC = () => {
           return `${y}-${m}-${d}`;
         }
       }
-    } catch {}
+    } catch { }
 
     return "";
   };
@@ -291,7 +291,7 @@ const EmpProfile: React.FC = () => {
         const year = d.getFullYear();
         return `${day}-${month}-${year}`;
       }
-    } catch (e) {}
+    } catch (e) { }
     return str.toUpperCase();
   };
 
@@ -332,28 +332,29 @@ const EmpProfile: React.FC = () => {
     const isLandscapeTray = cardOrientation === "landscape";
 
     const commonCardInnerStyles = `
+      @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Montserrat:wght@800;900&family=Orbitron:wght@700;800;900&display=swap');
       * {
         box-sizing: border-box;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .idcard-inner-card {
-        width: 6cm;
-        height: 9cm;
+        width: 5.4cm;
+        height: 8.6cm;
         position: relative;
         overflow: hidden;
         background-size: 100% 100%;
         background-repeat: no-repeat;
         background-position: center;
         background-color: #ffffff;
-        border-radius: 6px;
+        border-radius: 3.2mm;
       }
       .avatar-wrap {
         position: absolute;
-        top: 26.6%;
-        left: 27.75%;
-        width: 44.5%;
-        height: 29.8%;
+        top: 28.8%;
+        left: 26.7%;
+        width: 45.8%;
+        height: 29.2%;
         border-radius: 50%;
         overflow: hidden;
         display: flex;
@@ -370,15 +371,17 @@ const EmpProfile: React.FC = () => {
       .card-name {
         position: absolute;
         top: 59.4%;
-        left: 4%;
-        right: 4%;
+        left: 2%;
+        right: 2%;
         text-align: center;
-        color: #ffffff !important;
-        font-size: 8.5pt;
+        color: #262262 !important;
+        font-family: 'Arial Black', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 8.8pt;
         font-weight: 900;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+        letter-spacing: 0.2px;
+        -webkit-text-stroke: 0.25px #ffffff;
+        text-shadow: none;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -386,15 +389,16 @@ const EmpProfile: React.FC = () => {
       .card-desig {
         position: absolute;
         top: 64.0%;
-        left: 4%;
-        right: 4%;
+        left: 2%;
+        right: 2%;
         text-align: center;
         color: #ffffff !important;
+        font-family: 'Michroma', 'Orbitron', 'Eurostile', sans-serif;
         font-size: 6.4pt;
-        font-weight: 900 !important;
+        font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.8px;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -402,54 +406,56 @@ const EmpProfile: React.FC = () => {
       .fields-block {
         position: absolute;
         top: 68.6%;
-        left: 14%;
-        right: 6%;
+        left: 12%;
+        right: 4%;
         display: flex;
         flex-direction: column;
         gap: 3px;
+        font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
       }
       .field-row {
         display: grid;
-        grid-template-columns: 50px 8px 1fr;
+        grid-template-columns: 58px 10px 1fr;
         align-items: center;
         white-space: nowrap;
         line-height: 1.25;
-        font-size: 6pt;
+        font-size: 6.0pt;
         font-weight: 900;
+        letter-spacing: 0.2px;
         color: #ffffff;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
       }
       .phone-row {
         position: absolute;
         top: 83.5%;
-        left: 0;
-        right: 0;
+        left: 12%;
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 5px;
+        gap: 6px;
+        font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
         font-size: 6.6pt;
         font-weight: 900;
+        letter-spacing: 0.4px;
         color: #ffffff;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
       }
       .phone-icon {
-        width: 13px;
-        height: 13px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
         border: 1.5px solid #ffffff;
-        background: #ea580c;
+        background: transparent;
         color: #ffffff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 7.5px;
+        font-size: 8px;
       }
       .qr-box {
         position: absolute;
         top: 7.6%;
-        left: 26.5%;
-        width: 46.2%;
+        left: 21.8%;
+        width: 50.9%;
         height: 29.5%;
         background: #ffffff;
         display: flex;
@@ -467,7 +473,7 @@ const EmpProfile: React.FC = () => {
     `;
 
     const frontInnerHtml = `
-      <div class="idcard-inner-card" style="background-image: url('${idCardFrontClean}');">
+      <div class="idcard-inner-card" style="background-image: url('${idCardFront}');">
         <div class="avatar-wrap">
           <img class="avatar-img" src="${avatarSrc}" onerror="this.src='/images/avatar.png'" />
         </div>
@@ -502,60 +508,83 @@ const EmpProfile: React.FC = () => {
     let html = "";
 
     if (isLandscapeTray) {
-      // Epson L805 Tray Layout (Matching Photoshop Template: 3.2cm - 11.8cm, Landscape 8.6cm x 5.4cm)
+      // Epson L805 Tray Layout (Calibrated for Physical 2-Card Tray: 147mm x 246mm, Landscape 8.56cm x 5.40cm)
       html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Epson L805 PVC Tray - ${side.toUpperCase()} - ${empCodeDisplay}</title>
+  <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Montserrat:wght@800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     @page {
-      size: 130mm 220mm;
+      size: 147mm 246mm;
       margin: 0;
     }
     @media print {
       html, body {
-        width: 130mm !important;
-        height: 220mm !important;
+        width: 147mm !important;
+        height: 246mm !important;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
         background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
     }
     body {
       margin: 0;
       padding: 0;
-      width: 130mm;
-      height: 220mm;
+      width: 147mm;
+      height: 246mm;
       position: relative;
       background: #ffffff;
       font-family: Arial, "Helvetica Neue", sans-serif;
       overflow: hidden;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     ${commonCardInnerStyles}
     .l805-tray-slot {
       position: absolute;
-      left: 3.2cm;
-      width: 9cm;
-      height: 6cm;
-      overflow: hidden;
+      left: 3.74cm;
+      width: 8.56cm;
+      height: 5.40cm;
+      overflow: hidden !important;
       display: flex;
       align-items: center;
       justify-content: center;
+      border-radius: 3.18mm;
     }
     .l805-slot-1 {
-      top: 1.0cm;
+      top: 0.81cm;
     }
     .l805-slot-2 {
-      top: 7.0cm;
+      top: 6.61cm;
     }
     .rotated-card-holder {
-      width: 6cm;
-      height: 9cm;
+      width: 5.40cm;
+      height: 8.56cm;
       transform: rotate(${cardRotation}deg);
       transform-origin: center center;
       flex-shrink: 0;
+      border-radius: 3.18mm;
+      overflow: hidden !important;
+    }
+    .idcard-inner-card {
+      width: 5.40cm !important;
+      height: 8.56cm !important;
+      border-radius: 3.18mm !important;
+      overflow: hidden !important;
+    }
+    /* Exact CR-80 standard card structure (85.6mm x 54.0mm) without overflow */
+    .l805-tray-slot .idcard-inner-card,
+    .l805-tray-slot .rotated-card-holder,
+    .l805-tray-slot {
+      border-radius: 3.18mm !important;
+      overflow: hidden !important;
     }
   </style>
 </head>
@@ -582,15 +611,30 @@ const EmpProfile: React.FC = () => {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>ID Card - ${side.toUpperCase()} - ${empCodeDisplay}</title>
+  <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Montserrat:wght@800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     @page {
       size: ${side === "both" ? "A4 portrait" : "auto"};
-      margin: ${side === "both" ? "10mm" : "0"};
+      margin: 0 !important;
+    }
+    @media print {
+      @page {
+        margin: 0 !important;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: ${side === "both" ? "20mm 0" : "0"} !important;
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
     body {
       margin: 0;
-      padding: ${side === "both" ? "12mm 0" : "0"};
+      padding: ${side === "both" ? "20mm 0" : "0"};
       background: #ffffff;
       font-family: Arial, "Helvetica Neue", sans-serif;
       display: flex;
@@ -598,6 +642,8 @@ const EmpProfile: React.FC = () => {
       align-items: center;
       justify-content: center;
       ${side !== "both" ? "min-height: 100vh;" : ""}
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     ${commonCardInnerStyles}
     .cards-row {
@@ -612,25 +658,15 @@ const EmpProfile: React.FC = () => {
       flex-direction: column;
       align-items: center;
     }
-    .card-tag {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #475569;
-      margin-bottom: 3mm;
-    }
   </style>
 </head>
 <body>
   ${side === "both" ? `
     <div class="cards-row">
       <div class="card-wrap">
-        <span class="card-tag">Slot 1 - Front</span>
         ${frontInnerHtml}
       </div>
       <div class="card-wrap">
-        <span class="card-tag">Slot 2 - Back</span>
         ${backInnerHtml}
       </div>
     </div>
@@ -654,48 +690,51 @@ const EmpProfile: React.FC = () => {
           if (document.body.contains(iframe)) {
             document.body.removeChild(iframe);
           }
-        }, 2000);
+        }, 3000);
       }
     };
 
-    // Wait for images to load before opening print dialog
-    const images = doc.images;
-    let loadedCount = 0;
-    const totalImages = images.length;
-
-    if (totalImages === 0) {
-      setTimeout(doPrint, 300);
-    } else {
-      let isPrinted = false;
-      const onImageDone = () => {
-        loadedCount++;
-        if (loadedCount >= totalImages && !isPrinted) {
-          isPrinted = true;
-          setTimeout(doPrint, 250);
+    // Ensure fonts and images are ready before opening print dialog
+    const triggerPrintWhenReady = async () => {
+      try {
+        if ((doc as any).fonts && (doc as any).fonts.ready) {
+          await (doc as any).fonts.ready;
         }
-      };
-
-      for (let i = 0; i < totalImages; i++) {
-        if (images[i].complete) {
-          onImageDone();
-        } else {
-          images[i].onload = onImageDone;
-          images[i].onerror = onImageDone;
-        }
+      } catch (e) {
+        // Fallback if fonts API is unavailable
       }
-      setTimeout(() => {
-        if (!isPrinted) {
-          isPrinted = true;
-          doPrint();
-        }
-      }, 1500);
-    }
-  };  const handleDownloadCard = async (
-    side: "front" | "back",
+
+      const images = Array.from(doc.images);
+      if (images.length > 0) {
+        await Promise.all(
+          images.map(
+            (img) =>
+              new Promise((res) => {
+                if (img.complete) return res(true);
+                img.onload = () => res(true);
+                img.onerror = () => res(false);
+              })
+          )
+        );
+      }
+
+      setTimeout(doPrint, 250);
+    };
+
+    setTimeout(triggerPrintWhenReady, 100);
+  };
+
+  const handleDownloadCard = async (
+    side: "front" | "back" | "both",
     format: "landscape" | "portrait" = "landscape",
-    fileType: "jpg" | "png" = "jpg"
+    fileType: "jpg" | "png" = "jpg",
+    layout: "tray" | "compact" = "tray"
   ) => {
-    const downloadKey = `${side}_${format}_${fileType}`;
+    const downloadKey = layout === "compact"
+      ? `${side}_${format}_${fileType}_compact`
+      : `${side}_${format}_${fileType}`;
+
+    let wrap: HTMLDivElement | null = null;
     try {
       setDownloadingCard(downloadKey);
 
@@ -707,7 +746,7 @@ const EmpProfile: React.FC = () => {
       const empName = userData.empName || "PALURI YESURAJU";
       const designation = (userData.designation || "DEVELOPER").toUpperCase();
       const doj = formatCardDOJ(userData.doj || userData.joiningDate);
-      const bloodGroup = userData.bloodGroup || "A-";
+      const bloodGroup = userData.bloodGroup || "AB-";
       const mobile = userData.contactNumber || "9866992847";
       const avatarSrc =
         userData.profilePic ||
@@ -715,10 +754,9 @@ const EmpProfile: React.FC = () => {
           ? `/images/Emp-Profile-Pics/${userData.empCode}.jpg`
           : defaultAvatar);
 
-      const bgImage = side === "front" ? idCardFrontClean : idCardBack;
-
       // Safely convert an image source into a base64 Data URL to prevent CORS/taint issues in html2canvas
-      const toDataUrl = (src: string): Promise<string> => {
+      // Upscales raster card backgrounds to 300 DPI high resolution with smoothing and micro-contrast sharpening so id_card_back.png details render razor sharp in html2canvas
+      const toDataUrl = (src: string, isCardBg: boolean = false): Promise<string> => {
         return new Promise((resolve) => {
           if (!src) return resolve(defaultAvatar);
           if (src.startsWith("data:") || src.startsWith("blob:")) return resolve(src);
@@ -727,11 +765,44 @@ const EmpProfile: React.FC = () => {
           img.onload = () => {
             try {
               const c = document.createElement("canvas");
-              c.width = img.naturalWidth || img.width;
-              c.height = img.naturalHeight || img.height;
+              const nw = img.naturalWidth || img.width || 400;
+              const nh = img.naturalHeight || img.height || 600;
+              const scale = isCardBg ? 3 : 1;
+              const w = nw * scale;
+              const h = nh * scale;
+              c.width = w;
+              c.height = h;
               const ctx = c.getContext("2d");
               if (ctx) {
-                ctx.drawImage(img, 0, 0);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
+                ctx.drawImage(img, 0, 0, w, h);
+
+                if (isCardBg) {
+                  try {
+                    const imgData = ctx.getImageData(0, 0, w, h);
+                    const d = imgData.data;
+                    const copy = new Uint8ClampedArray(d);
+                    const a = 0.22;
+                    const center = 1 + 4 * a;
+                    for (let y = 1; y < h - 1; y++) {
+                      const row = y * w;
+                      for (let x = 1; x < w - 1; x++) {
+                        const idx = (row + x) * 4;
+                        const up = ((y - 1) * w + x) * 4;
+                        const down = ((y + 1) * w + x) * 4;
+                        const left = (row + (x - 1)) * 4;
+                        const right = (row + (x + 1)) * 4;
+                        for (let k = 0; k < 3; k++) {
+                          const val = copy[idx + k] * center - (copy[up + k] + copy[down + k] + copy[left + k] + copy[right + k]) * a;
+                          d[idx + k] = val < 0 ? 0 : val > 255 ? 255 : val;
+                        }
+                      }
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                  } catch (filterErr) { }
+                }
+
                 return resolve(c.toDataURL("image/png"));
               }
             } catch (e) {
@@ -775,7 +846,7 @@ const EmpProfile: React.FC = () => {
                 // Circular clip for avatar image
                 ctx.save();
                 ctx.beginPath();
-                ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+                ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
                 ctx.clip();
 
                 // Draw cropped image covering circle
@@ -784,9 +855,9 @@ const EmpProfile: React.FC = () => {
 
                 // Crisp white outer border ring
                 ctx.beginPath();
-                ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+                ctx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
                 ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 5;
+                ctx.lineWidth = 3;
                 ctx.stroke();
 
                 return resolve(c.toDataURL("image/png"));
@@ -803,46 +874,40 @@ const EmpProfile: React.FC = () => {
         });
       };
 
-      const [resolvedAvatar, resolvedBg] = await Promise.all([
-        side === "front" ? toCircularAvatarDataUrl(avatarSrc) : Promise.resolve(""),
-        toDataUrl(bgImage),
+      const needFront = side === "front" || side === "both";
+      const needBack = side === "back" || side === "both";
+
+      const [resolvedAvatar, resolvedFrontBg, resolvedBackBg] = await Promise.all([
+        needFront ? toCircularAvatarDataUrl(avatarSrc) : Promise.resolve(""),
+        needFront ? toDataUrl(idCardFront, true) : Promise.resolve(""),
+        needBack ? toDataUrl(idCardBack, true) : Promise.resolve(""),
       ]);
 
-      // Base dimensions: 400px x 600px (exact 2:3 aspect ratio matching 6cm x 9cm card)
-      const baseW = 400;
-      const baseH = 600;
+      // Base dimensions: 360px x 573px (exact 5.4cm x 8.6cm CR-80 aspect ratio; at scale 3 = 1080px x 1720px)
+      const baseW = 360;
+      const baseH = 573;
 
-      const wrap = document.createElement("div");
-      wrap.style.position = "fixed";
-      wrap.style.left = "-9999px";
-      wrap.style.top = "0";
-      wrap.style.width = `${baseW}px`;
-      wrap.style.height = `${baseH}px`;
-      wrap.style.zIndex = "-99999";
-      wrap.style.background = "#ffffff";
-      wrap.style.overflow = "hidden";
-      wrap.style.pointerEvents = "none";
-
-      const cardEl = document.createElement("div");
-      cardEl.style.width = `${baseW}px`;
-      cardEl.style.height = `${baseH}px`;
-      cardEl.style.position = "relative";
-      cardEl.style.backgroundImage = `url("${resolvedBg}")`;
-      cardEl.style.backgroundSize = "100% 100%";
-      cardEl.style.backgroundRepeat = "no-repeat";
-      cardEl.style.backgroundPosition = "center";
-      cardEl.style.backgroundColor = "#ffffff";
-      cardEl.style.overflow = "hidden";
-      cardEl.style.fontFamily = 'Arial, "Helvetica Neue", sans-serif';
-
-      if (side === "front") {
+      const createFrontCardElement = () => {
+        const cardEl = document.createElement("div");
+        cardEl.style.width = `${baseW}px`;
+        cardEl.style.height = `${baseH}px`;
+        cardEl.style.position = "relative";
+        cardEl.style.backgroundImage = `url("${resolvedFrontBg}")`;
+        cardEl.style.backgroundSize = "100% 100%";
+        cardEl.style.backgroundRepeat = "no-repeat";
+        cardEl.style.backgroundPosition = "center";
+        cardEl.style.backgroundColor = "#ffffff";
+        cardEl.style.overflow = "hidden";
+        cardEl.style.fontFamily = 'Arial, "Helvetica Neue", sans-serif';
+        cardEl.style.color = "#ffffff";
+        cardEl.style.fontWeight = "900";
         cardEl.innerHTML = `
           <div style="
             position: absolute;
-            top: 26.6%;
-            left: 27.75%;
-            width: 44.5%;
-            height: 29.8%;
+            top: 28.8%;
+            left: 26.7%;
+            width: 45.8%;
+            height: 29.2%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -857,15 +922,17 @@ const EmpProfile: React.FC = () => {
           <div style="
             position: absolute;
             top: 59.4%;
-            left: 4%;
-            right: 4%;
+            left: 2%;
+            right: 2%;
             text-align: center;
-            color: #ffffff !important;
-            font-size: 15px;
-            font-weight: 900;
+            color: #262262 !important;
+            font-family: 'Arial Black', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 20.5px;
+            font-weight: 900 !important;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+            letter-spacing: 0.2px;
+            -webkit-text-stroke: 0.25px #ffffff;
+            text-shadow: none;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -875,15 +942,16 @@ const EmpProfile: React.FC = () => {
           <div style="
             position: absolute;
             top: 64.0%;
-            left: 4%;
-            right: 4%;
+            left: 2%;
+            right: 2%;
             text-align: center;
             color: #ffffff !important;
-            font-size: 11.5px;
-            font-weight: 900;
+            font-family: 'Michroma', 'Orbitron', 'Eurostile', sans-serif;
+            font-size: 15px;
+            font-weight: 700 !important;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -893,62 +961,81 @@ const EmpProfile: React.FC = () => {
           <div style="
             position: absolute;
             top: 68.6%;
-            left: 14%;
-            right: 6%;
+            left: 12%;
+            right: 4%;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 5px;
+            color: #ffffff !important;
+            font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 900 !important;
           ">
-            <div style="display: grid; grid-template-columns: 82px 10px 1fr; align-items: center; white-space: nowrap; font-size: 10.5px; font-weight: 900; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
-              <span>EMP. ID</span><span>:</span><span>${empCodeDisplay}</span>
+            <div style="display: grid; grid-template-columns: 102px 16px 1fr; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+              <span style="color: #ffffff !important; font-weight: 900 !important;">EMP. ID</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${empCodeDisplay}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 82px 10px 1fr; align-items: center; white-space: nowrap; font-size: 10.5px; font-weight: 900; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
-              <span>DOJ</span><span>:</span><span>${doj}</span>
+            <div style="display: grid; grid-template-columns: 102px 16px 1fr; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+              <span style="color: #ffffff !important; font-weight: 900 !important;">DOJ</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${doj}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 82px 10px 1fr; align-items: center; white-space: nowrap; font-size: 10.5px; font-weight: 900; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
-              <span>Blood Group</span><span>:</span><span>${bloodGroup}</span>
+            <div style="display: grid; grid-template-columns: 102px 16px 1fr; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+              <span style="color: #ffffff !important; font-weight: 900 !important;">Blood Group</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${bloodGroup}</span>
             </div>
           </div>
           <div style="
             position: absolute;
             top: 83.5%;
-            left: 0;
-            right: 0;
+            left: 12%;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-size: 11.5px;
-            font-weight: 900;
-            color: #ffffff;
+            gap: 10px;
+            font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 15.5px;
+            font-weight: 900 !important;
+            letter-spacing: 0.4px;
+            color: #ffffff !important;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
           ">
             <span style="
-              width: 16px;
-              height: 16px;
+              width: 24px;
+              height: 24px;
               border-radius: 50%;
-              border: 1.5px solid #ffffff;
-              background: #ea580c;
-              color: #ffffff;
+              border: 2px solid #ffffff;
+              background: transparent;
+              color: #ffffff !important;
               display: inline-flex;
               align-items: center;
               justify-content: center;
               box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
             ">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
               </svg>
             </span>
-            <span style="letter-spacing: 0.7px;">${mobile}</span>
+            <span style="letter-spacing: 0.5px; color: #ffffff !important; font-weight: 900 !important;">${mobile}</span>
           </div>
         `;
-      } else {
+        return cardEl;
+      };
+
+      const createBackCardElement = () => {
+        const cardEl = document.createElement("div");
+        cardEl.style.width = `${baseW}px`;
+        cardEl.style.height = `${baseH}px`;
+        cardEl.style.position = "relative";
+        cardEl.style.backgroundImage = `url("${resolvedBackBg}")`;
+        cardEl.style.backgroundSize = "100% 100%";
+        cardEl.style.backgroundRepeat = "no-repeat";
+        cardEl.style.backgroundPosition = "center";
+        cardEl.style.backgroundColor = "#ffffff";
+        cardEl.style.overflow = "hidden";
+        cardEl.style.fontFamily = 'Arial, "Helvetica Neue", sans-serif';
+        cardEl.style.color = "#ffffff";
+        cardEl.style.fontWeight = "900";
         cardEl.innerHTML = `
           <div style="
             position: absolute;
             top: 7.6%;
-            left: 26.5%;
-            width: 46.2%;
+            left: 21.8%;
+            width: 50.9%;
             height: 29.5%;
             background: #ffffff;
             display: flex;
@@ -965,83 +1052,291 @@ const EmpProfile: React.FC = () => {
             />
           </div>
         `;
-      }
+        return cardEl;
+      };
 
-      wrap.appendChild(cardEl);
+      wrap = document.createElement("div");
+      wrap.style.position = "fixed";
+      wrap.style.left = "-9999px";
+      wrap.style.top = "0";
+      wrap.style.zIndex = "-99999";
+      wrap.style.background = "#ffffff";
+      wrap.style.overflow = "hidden";
+      wrap.style.pointerEvents = "none";
+      wrap.style.display = "flex";
+      wrap.style.gap = "20px";
+
+      const frontCardEl = needFront ? createFrontCardElement() : null;
+      const backCardEl = needBack ? createBackCardElement() : null;
+
+      if (frontCardEl) wrap.appendChild(frontCardEl);
+      if (backCardEl) wrap.appendChild(backCardEl);
       document.body.appendChild(wrap);
 
-      // Wait for all images inside cardEl to load
-      const imgs = cardEl.querySelectorAll("img");
-      await Promise.all(
-        Array.from(imgs).map(
-          (img) =>
-            new Promise((res) => {
-              if (img.complete && img.naturalWidth > 0) return res(true);
-              img.onload = () => res(true);
-              img.onerror = () => {
-                if (img.id === "download-avatar") {
-                  img.src = defaultAvatar;
-                  img.onload = () => res(true);
-                  img.onerror = () => res(false);
-                } else {
-                  res(false);
-                }
-              };
-            })
-        )
-      );
+      // Wait for all images inside wrap to load (with a 2500ms safety timeout)
+      const imgs = wrap.querySelectorAll("img");
+      await Promise.race([
+        Promise.all(
+          Array.from(imgs).map(
+            (img) =>
+              new Promise((res) => {
+                if (img.complete && img.naturalWidth > 0) return res(true);
+                img.onload = () => res(true);
+                img.onerror = () => {
+                  if (img.id === "download-avatar") {
+                    img.src = defaultAvatar;
+                    img.onload = () => res(true);
+                    img.onerror = () => res(false);
+                  } else {
+                    res(false);
+                  }
+                };
+              })
+          )
+        ),
+        new Promise((res) => setTimeout(res, 2500)),
+      ]);
 
       // Give browser a moment to ensure fonts and layout are settled
-      await new Promise((resolve) => setTimeout(resolve, 80));
+      try {
+        if ((document as any).fonts && (document as any).fonts.ready) {
+          await (document as any).fonts.ready;
+        }
+      } catch (e) {}
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(cardEl, {
-        scale: 3, // ~300 DPI high resolution for printing onto PVC card (1200 x 1800)
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
 
-      document.body.removeChild(wrap);
+      const captureCard = async (element: HTMLElement): Promise<HTMLCanvasElement> => {
+        return await html2canvas(element, {
+          scale: 3, // ~300 DPI high resolution for printing onto PVC card (1200 x 1800)
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          logging: false,
+        });
+      };
 
-      let finalCanvas = canvas;
-      if (format === "landscape") {
-        const trayCanvas = document.createElement("canvas");
-        trayCanvas.width = canvas.height;
-        trayCanvas.height = canvas.width;
-        const ctx = trayCanvas.getContext("2d");
-        if (ctx) {
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, trayCanvas.width, trayCanvas.height);
-          if (cardRotation === 90) {
-            ctx.translate(trayCanvas.width, 0);
-            ctx.rotate(Math.PI / 2);
-          } else {
-            ctx.translate(0, trayCanvas.height);
-            ctx.rotate(-Math.PI / 2);
-          }
-          ctx.drawImage(canvas, 0, 0);
-          finalCanvas = trayCanvas;
-        }
+      const frontCanvas = frontCardEl ? await captureCard(frontCardEl) : null;
+      const backCanvas = backCardEl ? await captureCard(backCardEl) : null;
+
+      if (wrap && document.body.contains(wrap)) {
+        document.body.removeChild(wrap);
+        wrap = null;
       }
 
-      const sideName = side === "front" ? "Front" : "Back";
-      const modeSuffix = format === "landscape" ? "L805_Tray_Landscape" : "Portrait_6x9cm";
+      // Helper to clip and draw an image with smooth rounded edges on all 4 corners (radius = 70px ≈ 3.5mm)
+      const drawRoundedCard = (
+        ctx: CanvasRenderingContext2D,
+        img: CanvasImageSource,
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        radius: number = 70
+      ) => {
+        ctx.save();
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(x, y, w, h, radius);
+        } else {
+          ctx.moveTo(x + radius, y);
+          ctx.lineTo(x + w - radius, y);
+          ctx.arcTo(x + w, y, x + w, y + radius, radius);
+          ctx.lineTo(x + w, y + h - radius);
+          ctx.arcTo(x + w, y + h, x + w - radius, y + h, radius);
+          ctx.lineTo(x + radius, y + h);
+          ctx.arcTo(x, y + h, x, y + h - radius, radius);
+          ctx.lineTo(x, y + radius);
+          ctx.arcTo(x, y, x + radius, y, radius);
+        }
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, x, y, w, h);
+        ctx.restore();
+      };
+
+      // Rotate card canvas 90° or 270° into landscape orientation (1720 x 1080 px = 8.6cm x 5.4cm)
+      const rotateCanvas = (srcCanvas: HTMLCanvasElement, rotationDeg: 90 | 270): HTMLCanvasElement => {
+        const rotCanvas = document.createElement("canvas");
+        rotCanvas.width = srcCanvas.height;  // 1720 px (8.6cm)
+        rotCanvas.height = srcCanvas.width; // 1080 px (5.4cm)
+        const ctx = rotCanvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, rotCanvas.width, rotCanvas.height);
+          if (rotationDeg === 90) {
+            ctx.translate(rotCanvas.width, 0);
+            ctx.rotate(Math.PI / 2);
+          } else {
+            ctx.translate(0, rotCanvas.height);
+            ctx.rotate(-Math.PI / 2);
+          }
+          ctx.drawImage(srcCanvas, 0, 0);
+        }
+        return rotCanvas;
+      };
+
+      let finalCanvas: HTMLCanvasElement;
+
+      if (side === "front" && frontCanvas) {
+        // Single card for L805 Tray: full-bleed without white space in corners so it prints edge-to-edge
+        finalCanvas = format === "landscape" ? rotateCanvas(frontCanvas, cardRotation) : frontCanvas;
+      } else if (side === "back" && backCanvas) {
+        // Single card for L805 Tray: full-bleed without white space in corners so it prints edge-to-edge
+        finalCanvas = format === "landscape" ? rotateCanvas(backCanvas, cardRotation) : backCanvas;
+      } else if (side === "both" && frontCanvas && backCanvas) {
+        if (format === "landscape") {
+          const frontRotated = rotateCanvas(frontCanvas, cardRotation);
+          const backRotated = rotateCanvas(backCanvas, cardRotation);
+
+          if (layout === "compact") {
+            // Compact 2 horizontal cards with 6mm gap (120px at 200px/cm) and rounded corners on all 4 corners
+            const gap = 120;
+            const padX = 40;
+            const padY = 40;
+            const compactCanvas = document.createElement("canvas");
+            compactCanvas.width = 1720 + (padX * 2);
+            compactCanvas.height = 1080 + gap + 1080 + (padY * 2);
+            const ctx = compactCanvas.getContext("2d");
+            if (ctx) {
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, compactCanvas.width, compactCanvas.height);
+              drawRoundedCard(ctx, frontRotated, padX, padY, 1720, 1080, 64);
+              drawRoundedCard(ctx, backRotated, padX, padY + 1080 + gap, 1720, 1080, 64);
+            }
+            finalCanvas = compactCanvas;
+          } else {
+            // Epson L805 PVC Tray (147mm x 246mm at 200px/cm = 2940 x 4920 px)
+            // Calibrated slot coordinates for physical Epson 2-Card Tray
+            const trayCanvas = document.createElement("canvas");
+            trayCanvas.width = 2940;  // 14.7cm (147mm)
+            trayCanvas.height = 4920; // 24.6cm (246mm)
+            const ctx = trayCanvas.getContext("2d");
+            if (ctx) {
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, trayCanvas.width, trayCanvas.height);
+
+              const slotLeft = 748;   // 3.74cm left margin (3.74 * 200) -> ends at 748 + 1712 = 2460px (12.30cm)
+              const cardW = 1712;     // 8.56cm exact CR-80 width (8.56 * 200 = 1712px = 85.6mm)
+              const cardH = 1080;     // 5.40cm exact CR-80 height (5.40 * 200 = 1080px = 54.0mm)
+              const slot1Top = 162;   // 0.81cm top margin (0.81 * 200) -> ends at 162 + 1080 = 1242px (6.21cm)
+              const dividerGap = 80;  // 0.40cm (4.0mm) physical divider gap between slots (0.40 * 200)
+              const slot2Top = 1242 + dividerGap; // 1322px (6.61cm) -> ends at 1322 + 1080 = 2402px (12.01cm)
+
+              // Draw exact CR-80 cards with rounded corners (radius 64px ≈ 3.18mm) without overflow
+              drawRoundedCard(ctx, frontRotated, slotLeft, slot1Top, cardW, cardH, 64);
+              drawRoundedCard(ctx, backRotated, slotLeft, slot2Top, cardW, cardH, 64);
+            }
+            finalCanvas = trayCanvas;
+          }
+        } else {
+          // Portrait Mode (Both Cards side by side horizontally with rounded corners, 6mm gap)
+          const gap = 120; // 6mm
+          const pad = 60;
+          const portraitCanvas = document.createElement("canvas");
+          portraitCanvas.width = 1080 + gap + 1080 + (pad * 2);
+          portraitCanvas.height = 1720 + (pad * 2);
+          const ctx = portraitCanvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, portraitCanvas.width, portraitCanvas.height);
+            drawRoundedCard(ctx, frontCanvas, pad, pad, 1080, 1720, 64);
+            drawRoundedCard(ctx, backCanvas, pad + 1080 + gap, pad, 1080, 1720, 64);
+          }
+          finalCanvas = portraitCanvas;
+        }
+      } else {
+        throw new Error("Unable to render ID card canvas");
+      }
+
+      const sideName = side === "both" ? "Both_Sides" : side === "front" ? "Front" : "Back";
+      const modeSuffix =
+        format === "landscape"
+          ? layout === "compact"
+            ? "Compact_Horizontal"
+            : "L805_Tray_Landscape"
+          : "Portrait_SideBySide";
       const isJpg = fileType === "jpg";
       const mimeType = isJpg ? "image/jpeg" : "image/png";
       const ext = isJpg ? "jpg" : "png";
+      const cleanEmpCode = String(empCodeDisplay || "DBS").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fileName = `ID_Card_${sideName}_${modeSuffix}_${cleanEmpCode}.${ext}`;
 
+      // Convert canvas to a true Blob to ensure Chrome/Edge respects the download attribute
+      // and saves the file with its full name and .jpg / .png extension
+      const getCanvasBlob = (canvas: HTMLCanvasElement, mime: string, quality: number): Promise<Blob> => {
+        return new Promise((resolve) => {
+          if (canvas.toBlob) {
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  resolve(blob);
+                } else {
+                  // Fallback: manually convert dataURL to Blob
+                  const dataUrl = canvas.toDataURL(mime, quality);
+                  const arr = dataUrl.split(",");
+                  const bstr = atob(arr[1]);
+                  let n = bstr.length;
+                  const u8arr = new Uint8Array(n);
+                  while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                  }
+                  resolve(new Blob([u8arr], { type: mime }));
+                }
+              },
+              mime,
+              quality
+            );
+          } else {
+            const dataUrl = canvas.toDataURL(mime, quality);
+            const arr = dataUrl.split(",");
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            resolve(new Blob([u8arr], { type: mime }));
+          }
+        });
+      };
+
+      const blob = await getCanvasBlob(finalCanvas, mimeType, isJpg ? 0.98 : 1.0);
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `ID_Card_${sideName}_${modeSuffix}_${empCodeDisplay}.${ext}`;
-      link.href = finalCanvas.toDataURL(mimeType, isJpg ? 0.98 : 1.0);
+      link.style.display = "none";
+      link.href = blobUrl;
+      link.download = fileName;
+      link.rel = "noopener";
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+
+      try {
+        link.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          })
+        );
+      } catch {
+        link.click();
+      }
+
+      // Delay cleanup so browser download manager finishes saving with the correct filename
+      setTimeout(() => {
+        if (link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }, 30000);
     } catch (error) {
       console.error("Error downloading ID card image:", error);
       alert("Could not download ID card image. Please try again.");
     } finally {
+      if (wrap && document.body.contains(wrap)) {
+        document.body.removeChild(wrap);
+      }
       setDownloadingCard(null);
     }
   };
@@ -1189,6 +1484,27 @@ const EmpProfile: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isManagementView, setIsManagementView] = useState(false);
   const [loggedInUserType, setLoggedInUserType] = useState<string>("");
+  const [loggedInEmpCode, setLoggedInEmpCode] = useState<string>(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      return String(user?.empCode || user?.EmpCode || user?.userName || user?.username || "").trim();
+    } catch {
+      return "";
+    }
+  });
+  const [isExportingActiveList, setIsExportingActiveList] = useState(false);
+
+  const isHR1601 =
+    loggedInEmpCode === "1601" ||
+    (() => {
+      try {
+        const u = JSON.parse(localStorage.getItem("user") || "{}");
+        return String(u?.empCode || u?.EmpCode || u?.userName || u?.username || "").trim() === "1601";
+      } catch {
+        return false;
+      }
+    })();
+
   const [employeeRawRow, setEmployeeRawRow] = useState<any>(null);
   const [teamAllowance, setTeamAllowance] = useState<string>("");
   const [showTeamAllowance, setShowTeamAllowance] = useState(false);
@@ -1323,6 +1639,7 @@ const EmpProfile: React.FC = () => {
     }
 
     if (empCode) {
+      setLoggedInEmpCode(String(empCode).trim());
       const cachedProfileJson = localStorage.getItem("cached_user_profile");
       const cachedProfile = cachedProfileJson ? JSON.parse(cachedProfileJson) : {};
       const savedPic =
@@ -2342,6 +2659,130 @@ const EmpProfile: React.FC = () => {
     }
   };
 
+  const handleDownloadActiveEmployeesExcel = async () => {
+    if (isExportingActiveList) return;
+    try {
+      setIsExportingActiveList(true);
+      const token = (localStorage.getItem("token") || "").replace(/"/g, "");
+
+      const endpoints = [
+        `${API_BASE}Employee/App_Get_ActiveEmployeesListExport`,
+        `${API_BASE}Reports/App_Get_ActiveEmployeesListExport`,
+        `${API_BASE}App_Get_ActiveEmployeesListExport`,
+      ];
+
+      let res: Response | null = null;
+      for (const endpoint of endpoints) {
+        try {
+          const attempt = await fetch(endpoint, {
+            method: "GET",
+            headers: {
+              Accept: "*/*",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+          if (attempt.ok) {
+            res = attempt;
+            break;
+          } else if (attempt.status !== 404) {
+            res = attempt;
+            break;
+          }
+        } catch {
+          // try next candidate
+        }
+      }
+
+      if (!res || !res.ok) {
+        throw new Error(
+          res
+            ? `Server responded with status ${res.status} (${res.statusText})`
+            : "Could not connect to export endpoint. Please ensure the backend API is deployed."
+        );
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+
+      // 1. Direct file stream (.xlsx / octet-stream)
+      if (
+        contentType.includes("spreadsheetml") ||
+        contentType.includes("octet-stream") ||
+        contentType.includes("application/vnd.ms-excel")
+      ) {
+        const blob = await res.blob();
+        const disposition = res.headers.get("content-disposition");
+        let fileName = `Active_Employees_List_${moment().format("DDMMYYYY_HHmm")}.xlsx`;
+        if (disposition) {
+          const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (match && match[1]) {
+            fileName = match[1].replace(/['"]/g, "").trim();
+          }
+        }
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+
+      // 2. JSON data (array of arrays or array of objects)
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        alert("No active employee records found.");
+        return;
+      }
+
+      const headers = [
+        "EMPCODE",
+        "EMPNAME",
+        "DESIGNATION",
+        "DOJ",
+        "BLOOD",
+        "MOBILE",
+        "EMAIL",
+        "REQUESTTO",
+        "GROSSSAL",
+        "ACCOUNTNO",
+        "IFSCCODE",
+        "DEPARTMENT",
+        "ITAX",
+        "NETSAL",
+        "ESINO",
+        "PFNO",
+        "PANNO",
+        "AADHAARNO",
+        "TEAMALLOWANCE",
+        "INTIME",
+        "DOB",
+        "LOCATION1",
+        "EMAIL2",
+        "BRANCHDEPT",
+      ];
+
+      let worksheet: any;
+      if (Array.isArray(data[0])) {
+        const aoaData = [headers, ...data];
+        worksheet = XLSX.utils.aoa_to_sheet(aoaData);
+      } else {
+        worksheet = XLSX.utils.json_to_sheet(data);
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Active Employees");
+      const fileName = `Active_Employees_List_${moment().format("DDMMYYYY_HHmm")}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+    } catch (err: any) {
+      console.error("[EmpProfile] Excel download error:", err);
+      alert("Failed to export active employees list: " + (err?.message || err));
+    } finally {
+      setIsExportingActiveList(false);
+    }
+  };
+
   const openAddModal = () => {
     setIsEditMode(false);
     setFormData({
@@ -2792,7 +3233,8 @@ const EmpProfile: React.FC = () => {
               </button>
 
               {(loggedInUserType === "Admin" ||
-                loggedInUserType === "ACCOUNTANT") && (
+                loggedInUserType === "ACCOUNTANT" ||
+                isHR1601) && (
                   <>
                     <button
                       className="ep-hero-btn ep-btn-find"
@@ -2808,6 +3250,18 @@ const EmpProfile: React.FC = () => {
                       <PlusCircle size={15} />
                       <span>Add</span>
                     </button>
+                    {isHR1601 && (
+                      <button
+                        type="button"
+                        className="ep-hero-btn ep-btn-activelist"
+                        onClick={handleDownloadActiveEmployeesExcel}
+                        disabled={isExportingActiveList}
+                        title="Download Active Employees Excel Report"
+                      >
+                        <FileSpreadsheet size={15} />
+                        <span>{isExportingActiveList ? "Downloading..." : "Employee(ActiveList)"}</span>
+                      </button>
+                    )}
                   </>
                 )}
 
@@ -3415,7 +3869,7 @@ const EmpProfile: React.FC = () => {
                     )}
 
                     <div className="ep-idcard-dimensions-tag" title="Epson L805 Tray Template Coordinates">
-                      <span>{cardOrientation === "landscape" ? "3.2cm – 11.8cm (9cm × 6cm Tray Slot)" : "6cm × 9cm (ID Card)"}</span>
+                      <span>{cardOrientation === "landscape" ? "Epson L805 Tray: 14.7cm × 24.6cm (8.56cm × 5.40cm CR-80)" : "5.4cm × 8.6cm (Standard CR-80)"}</span>
                     </div>
                   </div>
                 </div>
@@ -3430,7 +3884,7 @@ const EmpProfile: React.FC = () => {
                       <div className="ep-tray-slot-wrapper">
                         <div className="ep-tray-slot-header">
                           <span className="ep-tray-slot-name">Slot 1 &bull; Front Card</span>
-                          <span className="ep-tray-slot-coord">3.2 cm – 11.8 cm</span>
+                          <span className="ep-tray-slot-coord">3.74 cm – 12.30 cm</span>
                         </div>
                         <div className="ep-tray-physical-slot">
                           {/* 2 Eject Holes as shown in user physical tray photo */}
@@ -3444,11 +3898,11 @@ const EmpProfile: React.FC = () => {
                             <div
                               className="ep-idcard-frame ep-idcard-front-frame"
                               style={{
-                                width: "6cm",
-                                height: "9cm",
+                                width: "5.4cm",
+                                height: "8.6cm",
                                 transform: `rotate(${cardRotation}deg)`,
                                 transformOrigin: "center center",
-                                backgroundImage: `url(${idCardFrontClean})`,
+                                backgroundImage: `url(${idCardFront})`,
                               }}
                             >
                               {/* Employee Profile Photo Frame inside Circle */}
@@ -3531,7 +3985,7 @@ const EmpProfile: React.FC = () => {
                         <div
                           ref={frontCardRef}
                           className="ep-idcard-frame ep-idcard-front-frame"
-                          style={{ backgroundImage: `url(${idCardFrontClean})` }}
+                          style={{ backgroundImage: `url(${idCardFront})` }}
                         >
                           <div className="ep-idcard-avatar-wrap">
                             <img
@@ -3611,7 +4065,7 @@ const EmpProfile: React.FC = () => {
                       <div className="ep-tray-slot-wrapper">
                         <div className="ep-tray-slot-header">
                           <span className="ep-tray-slot-name">Slot 2 &bull; Back Card</span>
-                          <span className="ep-tray-slot-coord">3.2 cm – 11.8 cm</span>
+                          <span className="ep-tray-slot-coord">3.74 cm – 12.30 cm</span>
                         </div>
                         <div className="ep-tray-physical-slot">
                           {/* 2 Eject Holes as shown in user physical tray photo */}
@@ -3625,8 +4079,8 @@ const EmpProfile: React.FC = () => {
                             <div
                               className="ep-idcard-frame ep-idcard-back-frame"
                               style={{
-                                width: "6cm",
-                                height: "9cm",
+                                width: "5.4cm",
+                                height: "8.6cm",
                                 transform: `rotate(${cardRotation}deg)`,
                                 transformOrigin: "center center",
                                 backgroundImage: `url(${idCardBack})`,
@@ -3684,8 +4138,8 @@ const EmpProfile: React.FC = () => {
                     <span>Scan QR Code on back to view full employee details</span>
                     <span className="ep-idcard-tray-pill">
                       {cardOrientation === "landscape"
-                        ? "L805 Tray: 3.2cm – 11.8cm (9cm × 6cm) • 2 Holes Align"
-                        : "Standard 6cm × 9cm (ID Card)"}
+                        ? "L805 Tray (14.7cm × 24.6cm): 3.74cm – 12.30cm (8.56cm × 5.40cm CR-80) • 2 Holes Align"
+                        : "Standard 5.4cm × 8.6cm (CR-80 ID Card)"}
                     </span>
                   </div>
 
@@ -3695,74 +4149,30 @@ const EmpProfile: React.FC = () => {
                         <button
                           type="button"
                           className="ep-idcard-btn primary"
-                          onClick={() => handleDownloadCard("front", "landscape", "jpg")}
+                          onClick={() => handleDownloadCard("front", cardOrientation, "jpg")}
                           disabled={downloadingCard !== null}
-                          title="Download high-resolution Front Card for Epson L805 Tray (Landscape JPG)"
+                          title="Download high-resolution Front Card"
                         >
-                          {downloadingCard === "front_landscape_jpg" ? (
+                          {downloadingCard === `front_${cardOrientation}_jpg` ? (
                             <Loader2 size={14} className="ep-spin" />
                           ) : (
                             <Download size={14} />
                           )}
                           <span>
-                            {downloadingCard === "front_landscape_jpg"
+                            {downloadingCard === `front_${cardOrientation}_jpg`
                               ? "Downloading..."
-                              : "Download Front (Epson L805 Tray • JPG)"}
+                              : `Download Front (${cardOrientation === "landscape" ? "L805 Tray" : "5.4cm × 8.6cm"})`}
                           </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn secondary"
-                          onClick={() => handleDownloadCard("front", "landscape", "png")}
-                          disabled={downloadingCard !== null}
-                          title="Download Front Card for Epson L805 Tray (Landscape PNG)"
-                        >
-                          {downloadingCard === "front_landscape_png" ? (
-                            <Loader2 size={14} className="ep-spin" />
-                          ) : (
-                            <Download size={14} />
-                          )}
-                          <span>
-                            {downloadingCard === "front_landscape_png"
-                              ? "Downloading..."
-                              : "PNG (L805 Tray)"}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn secondary"
-                          onClick={() => handleDownloadCard("front", "portrait", "jpg")}
-                          disabled={downloadingCard !== null}
-                          title="Download Portrait 6cm × 9cm Front Card"
-                        >
-                          {downloadingCard === "front_portrait_jpg" ? (
-                            <Loader2 size={14} className="ep-spin" />
-                          ) : (
-                            <Download size={14} />
-                          )}
-                          <span>Portrait (6cm × 9cm)</span>
                         </button>
 
                         <button
                           type="button"
                           className="ep-idcard-btn secondary"
                           onClick={() => handlePrintIdCards("front")}
-                          title="Print Front Card directly onto Epson L805 Tray Slot 1"
+                          title="Print Front Card directly"
                         >
                           <Printer size={14} />
-                          <span>Print Front (L805 Slot 1)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn nav-side"
-                          onClick={() => setIdCardSide("back")}
-                          title="Go to Backside Card (Slot 2)"
-                        >
-                          <span>Slot 2: Backside</span>
-                          <ArrowRight size={13} />
+                          <span>Print Front ({cardOrientation === "landscape" ? "L805 Slot 1" : "Print"})</span>
                         </button>
                       </>
                     )}
@@ -3772,74 +4182,30 @@ const EmpProfile: React.FC = () => {
                         <button
                           type="button"
                           className="ep-idcard-btn primary"
-                          onClick={() => handleDownloadCard("back", "landscape", "jpg")}
+                          onClick={() => handleDownloadCard("back", cardOrientation, "jpg")}
                           disabled={downloadingCard !== null}
-                          title="Download high-resolution Backside Card for Epson L805 Tray (Landscape JPG)"
+                          title="Download high-resolution Backside Card"
                         >
-                          {downloadingCard === "back_landscape_jpg" ? (
+                          {downloadingCard === `back_${cardOrientation}_jpg` ? (
                             <Loader2 size={14} className="ep-spin" />
                           ) : (
                             <Download size={14} />
                           )}
                           <span>
-                            {downloadingCard === "back_landscape_jpg"
+                            {downloadingCard === `back_${cardOrientation}_jpg`
                               ? "Downloading..."
-                              : "Download Back (Epson L805 Tray • JPG)"}
+                              : `Download Back (${cardOrientation === "landscape" ? "L805 Tray" : "5.4cm × 8.6cm"})`}
                           </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn secondary"
-                          onClick={() => handleDownloadCard("back", "landscape", "png")}
-                          disabled={downloadingCard !== null}
-                          title="Download Backside Card for Epson L805 Tray (Landscape PNG)"
-                        >
-                          {downloadingCard === "back_landscape_png" ? (
-                            <Loader2 size={14} className="ep-spin" />
-                          ) : (
-                            <Download size={14} />
-                          )}
-                          <span>
-                            {downloadingCard === "back_landscape_png"
-                              ? "Downloading..."
-                              : "PNG (L805 Tray)"}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn secondary"
-                          onClick={() => handleDownloadCard("back", "portrait", "jpg")}
-                          disabled={downloadingCard !== null}
-                          title="Download Portrait 6cm × 9cm Backside Card"
-                        >
-                          {downloadingCard === "back_portrait_jpg" ? (
-                            <Loader2 size={14} className="ep-spin" />
-                          ) : (
-                            <Download size={14} />
-                          )}
-                          <span>Portrait (6cm × 9cm)</span>
                         </button>
 
                         <button
                           type="button"
                           className="ep-idcard-btn secondary"
                           onClick={() => handlePrintIdCards("back")}
-                          title="Print Backside Card directly onto Epson L805 Tray Slot 2"
+                          title="Print Backside Card directly"
                         >
                           <Printer size={14} />
-                          <span>Print Backside (L805 Slot 2)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn nav-side"
-                          onClick={() => setIdCardSide("front")}
-                          title="Go to Front Card (Slot 1)"
-                        >
-                          <ArrowLeft size={13} />
-                          <span>Slot 1: Front</span>
+                          <span>Print Backside ({cardOrientation === "landscape" ? "L805 Slot 2" : "Print"})</span>
                         </button>
                       </>
                     )}
@@ -3849,107 +4215,70 @@ const EmpProfile: React.FC = () => {
                         <button
                           type="button"
                           className="ep-idcard-btn primary"
+                          onClick={() => handleDownloadCard("both", cardOrientation, "jpg", "tray")}
+                          disabled={downloadingCard !== null}
+                          title={
+                            cardOrientation === "landscape"
+                              ? "Download high-resolution Both Sides on Epson L805 2-Slot Tray (JPG with 4mm gap)"
+                              : "Download Both Sides Side-by-Side (Portrait JPG with 6mm gap)"
+                          }
+                        >
+                          {downloadingCard === `both_${cardOrientation}_jpg` ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>
+                            {downloadingCard === `both_${cardOrientation}_jpg`
+                              ? "Downloading..."
+                              : cardOrientation === "landscape"
+                                ? "Download Both (Epson L805 Tray • JPG)"
+                                : "Download Both (Portrait • JPG)"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("front", cardOrientation, "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download Front Card"
+                        >
+                          {downloadingCard === `front_${cardOrientation}_jpg` ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Download Front ({cardOrientation === "landscape" ? "L805 Tray" : "5.4cm × 8.6cm"})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
+                          onClick={() => handleDownloadCard("back", cardOrientation, "jpg")}
+                          disabled={downloadingCard !== null}
+                          title="Download Back Card"
+                        >
+                          {downloadingCard === `back_${cardOrientation}_jpg` ? (
+                            <Loader2 size={14} className="ep-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Download Back ({cardOrientation === "landscape" ? "L805 Tray" : "5.4cm × 8.6cm"})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ep-idcard-btn secondary"
                           onClick={() => handlePrintIdCards("both")}
-                          title="Print Both Sides formatted for Epson L805 2-Slot Tray (3.2cm - 11.8cm)"
+                          title="Print Both Sides formatted for Epson L805 2-Slot Tray (with 4mm divider gap)"
                         >
                           <Printer size={14} />
                           <span>Print Both (L805 Tray • Slot 1 & 2)</span>
                         </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn secondary"
-                          onClick={() => handleDownloadCard("front", "landscape", "jpg")}
-                          disabled={downloadingCard !== null}
-                          title="Download Front Card for Epson L805 Tray (Landscape JPG)"
-                        >
-                          {downloadingCard === "front_landscape_jpg" ? (
-                            <Loader2 size={14} className="ep-spin" />
-                          ) : (
-                            <Download size={14} />
-                          )}
-                          <span>Download Front (L805 Tray)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="ep-idcard-btn secondary"
-                          onClick={() => handleDownloadCard("back", "landscape", "jpg")}
-                          disabled={downloadingCard !== null}
-                          title="Download Back Card for Epson L805 Tray (Landscape JPG)"
-                        >
-                          {downloadingCard === "back_landscape_jpg" ? (
-                            <Loader2 size={14} className="ep-spin" />
-                          ) : (
-                            <Download size={14} />
-                          )}
-                          <span>Download Back (L805 Tray)</span>
-                        </button>
                       </>
                     )}
-
-                    <button
-                      type="button"
-                      className="ep-idcard-btn subtle"
-                      onClick={() => setShowScannedDataPreview(!showScannedDataPreview)}
-                    >
-                      <Eye size={14} />
-                      <span>{showScannedDataPreview ? "Hide Data" : "Preview Scanned Data"}</span>
-                    </button>
                   </div>
-
-                  {showScannedDataPreview && (
-                    <div className="ep-idcard-scanned-preview-box">
-                      <div className="ep-scanned-preview-title">
-                        <span>Data Encoded in Barcode / QR Code:</span>
-                        <button
-                          type="button"
-                          className="ep-scanned-copy-btn"
-                          onClick={() => {
-                            const empCodeDisplay = userData.empCode
-                              ? String(userData.empCode).startsWith("DBS")
-                                ? String(userData.empCode)
-                                : `DBS${userData.empCode}`
-                              : "DBS1614";
-                            const text = `Designation: ${(userData.designation || "DEVELOPER").toUpperCase()}
-DbasesolutionsPVT.LTD
-Contact Details: ${userData.contactNumber || "9866992847"}
-Email: ${userData.email || "support@dbasesolutions.in"}
-Address: D.No. 16-58/33, Sai Sadan, Sri Sairam Nagar, Hanuman Nagar, Eluru - 534001, Eluru Dist, A.P, India.
-Employee: ${userData.empName || "PALURI YESURAJU"}
-Emp ID: ${empCodeDisplay}
-DOJ: ${formatCardDOJ(userData.doj || userData.joiningDate)}
-Blood Group: ${userData.bloodGroup || "AB-"}
-Website: https://dbasesolutions.in/`;
-                            navigator.clipboard.writeText(text);
-                            setCopiedField("scannedQr");
-                            setTimeout(() => setCopiedField(null), 2000);
-                          }}
-                        >
-                          {copiedField === "scannedQr" ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-                          <span>{copiedField === "scannedQr" ? "Copied" : "Copy Details"}</span>
-                        </button>
-                      </div>
-                      <pre className="ep-scanned-preview-code">
-{`Designation: ${(userData.designation || "DEVELOPER").toUpperCase()}
-Company: Dbasesolutions PVT. LTD
-Contact Details: ${userData.contactNumber || "9866992847"}
-Email: ${userData.email || "support@dbasesolutions.in"}
-Address: D.No. 16-58/33, Sai Sadan, Sri Sairam Nagar, Hanuman Nagar, Eluru - 534001, Eluru Dist, A.P, India.
-Employee: ${userData.empName || "PALURI YESURAJU"}
-Emp ID: ${
-  userData.empCode
-    ? String(userData.empCode).startsWith("DBS")
-      ? String(userData.empCode)
-      : `DBS${userData.empCode}`
-    : "DBS1614"
-}
-DOJ: ${formatCardDOJ(userData.doj || userData.joiningDate)}
-Blood Group: ${userData.bloodGroup || "AB-"}
-Website: https://dbasesolutions.in/`}
-                      </pre>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -4159,12 +4488,12 @@ Website: https://dbasesolutions.in/`}
                   </div>
 
                   <h5 className="ep-upload-title">
-                    {uploading ? "Uploading photo..." : "Upload Profile Photo"}
+                    {uploading ? "Uploading photo..." : "Upload Professional Photo Only"}
                   </h5>
                   <p className="ep-upload-desc">
                     {uploading
                       ? "Please wait while your image is being uploaded and saved..."
-                      : "Click here or browse from your device to select a new profile photo."}
+                      : "Declaration: Please upload a professional photo only (formal attire with a clear front view). Selfies, casual's photos are strictly not allowed."}
                   </p>
 
                   <button

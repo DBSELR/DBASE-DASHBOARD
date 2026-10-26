@@ -94,6 +94,26 @@ const PendingRequests: React.FC = () => {
   const loggedInUser = useMemo(() => getUser(), []);
   const [presentAlert] = useIonAlert();
 
+  const currentEmpCode = useMemo(() => {
+    return String(
+      loggedInUser?.empCode ||
+      loggedInUser?.EmpCode ||
+      loggedInUser?.userName ||
+      loggedInUser?.username ||
+      ""
+    ).trim();
+  }, [loggedInUser]);
+
+  const isEmp2001 = currentEmpCode === "2001";
+
+  // Filter available type tabs: For 2001, only show Pending Leaves and Pending OnDuty
+  const availableTypes = useMemo(() => {
+    if (isEmp2001) {
+      return TYPES.filter((t) => t.value === "leave" || t.value === "onduty");
+    }
+    return TYPES;
+  }, [isEmp2001]);
+
   // Filters & State
   const [months] = useState<string[]>(generateMonthList());
   const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -104,6 +124,19 @@ const PendingRequests: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [requests, setRequests] = useState<any[]>([]);
+
+  // Ensure 2001 only accesses allowed types & only views Pending
+  useEffect(() => {
+    if (isEmp2001 && activeType !== "leave" && activeType !== "onduty") {
+      setActiveType("leave");
+    }
+  }, [isEmp2001, activeType]);
+
+  useEffect(() => {
+    if (isEmp2001 && statusFilter !== "Pending") {
+      setStatusFilter("Pending");
+    }
+  }, [isEmp2001, statusFilter]);
 
   // Custom Dropdown State
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -150,11 +183,11 @@ const PendingRequests: React.FC = () => {
   // Load pending approvals when filters change
   useEffect(() => {
     loadPendingRequests();
-  }, [selectedMonth, activeType, statusFilter]);
+  }, [selectedMonth, activeType, statusFilter, isEmp2001]);
 
   const loadPendingRequests = async () => {
     setLoading(true);
-    const empCode = loggedInUser?.empCode || loggedInUser?.EmpCode;
+    const empCode = currentEmpCode;
     if (!empCode) {
       setLoading(false);
       return;
@@ -169,10 +202,10 @@ const PendingRequests: React.FC = () => {
       else if (activeType === "overtime") flag = "OVERTIME";
       else if (activeType === "workreport") flag = "WORKREPORTS";
 
-      const statusParam = statusFilter.toUpperCase(); // ALL, PENDING, ACCEPTED, REJECTED
+      const effectiveStatus = isEmp2001 ? "PENDING" : statusFilter.toUpperCase(); // ALL, PENDING, ACCEPTED, REJECTED
       const url = `${baseUrl}ApprovalRequest/GetPendingApprovals?monthYear=${encodeURIComponent(
         selectedMonth
-      )}&flag=${encodeURIComponent(flag)}&status=${encodeURIComponent(statusParam)}`;
+      )}&flag=${encodeURIComponent(flag)}&status=${encodeURIComponent(effectiveStatus)}`;
 
       const res = await axios.get(url, { headers: getAuthHeaders() });
       const dataList = Array.isArray(res.data) ? res.data : [];
@@ -455,10 +488,11 @@ const PendingRequests: React.FC = () => {
     let list = requests.map(normalizeRow).filter(Boolean);
 
     // 1. Status Filter (Client-side safety)
-    if (statusFilter !== "All") {
+    const effectiveStatus = isEmp2001 ? "Pending" : statusFilter;
+    if (effectiveStatus !== "All") {
       list = list.filter((r: any) => {
         const s = (r.status || "").toLowerCase();
-        const filter = statusFilter.toLowerCase();
+        const filter = effectiveStatus.toLowerCase();
         
         if (filter === "pending") return s.includes("pending");
         if (filter === "accepted") return s.includes("accept") || s.includes("approv");
@@ -480,7 +514,7 @@ const PendingRequests: React.FC = () => {
     }
 
     return list;
-  }, [requests, statusFilter, searchQuery, activeType]);
+  }, [requests, statusFilter, searchQuery, activeType, isEmp2001]);
 
   return (
     <IonPage>
@@ -508,55 +542,78 @@ const PendingRequests: React.FC = () => {
         </div>
 
         {/* Category switcher tabs and inline date picker */}
-        <div className="pr-tabs-filter-bar">
-          {/* Row 1: All Request Type Tabs (Leaves, Permissions, Work Reports, On Duty, Overtime) */}
+        <div className={`pr-tabs-filter-bar ${isEmp2001 ? "pr-compact-filter-bar" : ""}`}>
+          {/* Row 1: Request Type Tabs */}
           <div className="pr-tabs-row-1">
-            {TYPES.map((t) => (
-              <button
-                key={t.value}
-                className={`pr-tab${activeType === t.value ? " active" : ""}`}
-                onClick={() => {
-                  setActiveType(t.value);
-                  setSearchQuery("");
-                }}
-              >
-                <IonIcon icon={t.icon} className="pr-tab-icon" />
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Row 2: Left = Status Filter Pills (All, Pending, Accepted, Rejected), Right = Month Period Card */}
-          <div className="pr-tabs-row-2">
-            <div className="pr-status-filter-pills">
-              {STATUS_OPTIONS.map((s) => (
+            <div className="pr-tabs-chips-wrapper">
+              {availableTypes.map((t) => (
                 <button
-                  key={s.value}
-                  className={`pr-status-pill${statusFilter === s.value ? " active" : ""}`}
-                  onClick={() => setStatusFilter(s.value)}
+                  key={t.value}
+                  className={`pr-tab${activeType === t.value ? " active" : ""}`}
+                  onClick={() => {
+                    setActiveType(t.value);
+                    setSearchQuery("");
+                  }}
                 >
-                  <IonIcon icon={layersOutline} className="pr-status-pill-icon" />
-                  <span>{s.label}</span>
+                  <IonIcon icon={t.icon} className="pr-tab-icon" />
+                  <span>{t.label}</span>
                 </button>
               ))}
             </div>
 
-            <div
-              className="pr-inline-period-card"
-              onClick={toggleDropdown}
-            >
-              <div className="pr-period-left-icon-box">
-                <IonIcon icon={calendarOutline} />
+            {/* When isEmp2001, inline Period Card on the right of Row 1 (no empty row 2) */}
+            {isEmp2001 && (
+              <div
+                className="pr-inline-period-card pr-inline-period-compact"
+                onClick={toggleDropdown}
+              >
+                <div className="pr-period-left-icon-box">
+                  <IonIcon icon={calendarOutline} />
+                </div>
+                <div className="pr-period-middle-content">
+                  <span className="pr-period-label">PERIOD</span>
+                  <span className="pr-period-value">{selectedMonth}</span>
+                </div>
+                <div className="pr-period-right-icon-box">
+                  <IonIcon icon={layersOutline} />
+                </div>
               </div>
-              <div className="pr-period-middle-content">
-                <span className="pr-period-label">PERIOD</span>
-                <span className="pr-period-value">{selectedMonth}</span>
+            )}
+          </div>
+
+          {/* Row 2: Left = Status Filter Pills (All, Pending, Accepted, Rejected), Right = Month Period Card (Non-2001 users) */}
+          {!isEmp2001 && (
+            <div className="pr-tabs-row-2">
+              <div className="pr-status-filter-pills">
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s.value}
+                    className={`pr-status-pill${statusFilter === s.value ? " active" : ""}`}
+                    onClick={() => setStatusFilter(s.value)}
+                  >
+                    <IonIcon icon={layersOutline} className="pr-status-pill-icon" />
+                    <span>{s.label}</span>
+                  </button>
+                ))}
               </div>
-              <div className="pr-period-right-icon-box">
-                <IonIcon icon={layersOutline} />
+
+              <div
+                className="pr-inline-period-card"
+                onClick={toggleDropdown}
+              >
+                <div className="pr-period-left-icon-box">
+                  <IonIcon icon={calendarOutline} />
+                </div>
+                <div className="pr-period-middle-content">
+                  <span className="pr-period-label">PERIOD</span>
+                  <span className="pr-period-value">{selectedMonth}</span>
+                </div>
+                <div className="pr-period-right-icon-box">
+                  <IonIcon icon={layersOutline} />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
 
@@ -679,7 +736,7 @@ const PendingRequests: React.FC = () => {
               <div className="pr-empty-icon">📁</div>
               <h3 className="pr-empty-title">No Requests Found</h3>
               <p className="pr-empty-text">
-                There are no {statusFilter.toLowerCase()} {activeType} requests for {selectedMonth}.
+                There are no {isEmp2001 ? "pending" : statusFilter.toLowerCase()} {activeType} requests for {selectedMonth}.
               </p>
             </div>
           )}
