@@ -179,13 +179,13 @@ const registerNative = async (empCode: string) => {
     // Schedule local notifications for guaranteed alarms
     await scheduleDailyWorkReportAlarms();
 
-    // Create Android High Importance Channel for Heads-up floating notifications
+    // Create Android High Importance Channels for Heads-up floating notifications
     if (Capacitor.getPlatform() === 'android') {
       try {
         await PushNotifications.createChannel({
           id: 'work_report_high_importance',
           name: 'Work Report High Importance Alerts',
-          description: 'Heads-up banner alerts for daily work report reminders',
+          description: 'Heads-up banner alerts for daily work report and broadcast alerts',
           importance: 5,
           visibility: 1,
           sound: 'default',
@@ -193,9 +193,31 @@ const registerNative = async (empCode: string) => {
           lights: true,
           lightColor: '#DC2626'
         });
-        console.log("✅ [Push] Android High Importance Channel Created");
+        await PushNotifications.createChannel({
+          id: 'payment_reminder_channel',
+          name: 'Payment Reminders',
+          description: 'Payment collection and reminder notifications',
+          importance: 5,
+          visibility: 1,
+          sound: 'default',
+          vibration: true,
+          lights: true,
+          lightColor: '#2563EB'
+        });
+        await PushNotifications.createChannel({
+          id: 'penalty_high_importance',
+          name: 'Penalty Alerts',
+          description: 'Urgent penalty alerts',
+          importance: 5,
+          visibility: 1,
+          sound: 'default',
+          vibration: true,
+          lights: true,
+          lightColor: '#DC2626'
+        });
+        console.log("✅ [Push] Android Notification Channels Created");
       } catch (channelErr) {
-        console.warn("⚠️ [Push] Error creating native channel:", channelErr);
+        console.warn("⚠️ [Push] Error creating native channels:", channelErr);
       }
     }
 
