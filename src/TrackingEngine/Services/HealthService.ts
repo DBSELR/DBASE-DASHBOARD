@@ -44,7 +44,7 @@ export class HealthService {
         pendingQueue: queueSize,
         deviceModel: navigator.userAgent.substring(0, 95),
         androidVersion: 'Web/Native WebView',
-        appVersion: '2.0.1',
+        appVersion: '2.0.3',
       };
 
       await axios.post(`${API_BASE}Device/heartbeat`, payload);
