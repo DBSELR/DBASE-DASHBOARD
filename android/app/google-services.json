@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "dbs-office-dummy",
-    "storage_bucket": "dbs-office-dummy.appspot.com"
+    "project_number": "656709531884",
+    "project_id": "bbs-notifications-2d51c",
+    "storage_bucket": "bbs-notifications-2d51c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:656709531884:android:edfde7a092250bde6b4dc9",
         "android_client_info": {
           "package_name": "com.dbase.office"
         }
@@ -15,12 +15,12 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "dummy-api-key-dummy-api-key-dummy-api-key"
+          "current_key": "AIzaSyAsPx7BZGcfIDEROrFms0foD64MNGqkVLQ"
         }
       ],
       "services": {
         "appinvite_service": {
-          "status": 1
+          "other_platform_oauth_client": []
         }
       }
     }
