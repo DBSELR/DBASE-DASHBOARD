@@ -85,7 +85,7 @@ const TYPES = [
 const STATUS_OPTIONS = [
   { value: "All", label: "All" },
   { value: "Pending", label: "Pending" },
-  { value: "Accepted", label: "Accepted" },
+  { value: "Approved", label: "Approved" },
   { value: "Rejected", label: "Rejected" },
 ];
 
@@ -104,7 +104,8 @@ const PendingRequests: React.FC = () => {
     ).trim();
   }, [loggedInUser]);
 
-  const isEmp2001 = currentEmpCode === "2001";
+  const isEmp2001 =
+    currentEmpCode === "2001" || currentEmpCode.split("-")[0].trim() === "2001";
 
   // Filter available type tabs: For 2001, only show Pending Leaves and Pending OnDuty
   const availableTypes = useMemo(() => {
@@ -120,23 +121,26 @@ const PendingRequests: React.FC = () => {
     moment().format("MMM-YYYY")
   );
   const [activeType, setActiveType] = useState<string>("leave");
-  const [statusFilter, setStatusFilter] = useState<string>("Pending"); // Show pending by default
+  const [statusFilter, setStatusFilter] = useState<string>(
+    isEmp2001 ? "All" : "Pending"
+  );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [requests, setRequests] = useState<any[]>([]);
 
-  // Ensure 2001 only accesses allowed types & only views Pending
+  // Set default status filter to 'All' for employee 2001 on mount
+  useEffect(() => {
+    if (isEmp2001) {
+      setStatusFilter("All");
+    }
+  }, [isEmp2001]);
+
+  // Ensure 2001 only accesses allowed types
   useEffect(() => {
     if (isEmp2001 && activeType !== "leave" && activeType !== "onduty") {
       setActiveType("leave");
     }
   }, [isEmp2001, activeType]);
-
-  useEffect(() => {
-    if (isEmp2001 && statusFilter !== "Pending") {
-      setStatusFilter("Pending");
-    }
-  }, [isEmp2001, statusFilter]);
 
   // Custom Dropdown State
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -183,7 +187,7 @@ const PendingRequests: React.FC = () => {
   // Load pending approvals when filters change
   useEffect(() => {
     loadPendingRequests();
-  }, [selectedMonth, activeType, statusFilter, isEmp2001]);
+  }, [selectedMonth, activeType, statusFilter]);
 
   const loadPendingRequests = async () => {
     setLoading(true);
@@ -202,7 +206,9 @@ const PendingRequests: React.FC = () => {
       else if (activeType === "overtime") flag = "OVERTIME";
       else if (activeType === "workreport") flag = "WORKREPORTS";
 
-      const effectiveStatus = isEmp2001 ? "PENDING" : statusFilter.toUpperCase(); // ALL, PENDING, ACCEPTED, REJECTED
+      const effectiveStatus = (statusFilter === "Approved" || statusFilter === "Accepted")
+        ? "APPROVED"
+        : statusFilter.toUpperCase(); // ALL, PENDING, APPROVED, REJECTED
       const url = `${baseUrl}ApprovalRequest/GetPendingApprovals?monthYear=${encodeURIComponent(
         selectedMonth
       )}&flag=${encodeURIComponent(flag)}&status=${encodeURIComponent(effectiveStatus)}`;
@@ -244,11 +250,14 @@ const PendingRequests: React.FC = () => {
       const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
 
       let statusClass = "pending";
+      let displayStatus = status;
       const lStatus = status.toLowerCase();
       if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
+        displayStatus = "Approved";
       } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
+        displayStatus = "Rejected";
       }
 
       return {
@@ -262,7 +271,7 @@ const PendingRequests: React.FC = () => {
         days,
         minutes,
         typeDisp,
-        status,
+        status: displayStatus,
         remarks,
         statusClass,
         pendingRA,
@@ -285,11 +294,14 @@ const PendingRequests: React.FC = () => {
       const serviceType = x.SERVICE_TYPE || x.service_Type || "Work Report";
 
       let statusClass = "pending";
+      let displayStatus = status;
       const lStatus = status.toLowerCase();
       if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
+        displayStatus = "Approved";
       } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
+        displayStatus = "Rejected";
       }
 
       return {
@@ -303,7 +315,7 @@ const PendingRequests: React.FC = () => {
         days: 1,
         minutes: 0,
         typeDisp: serviceType,
-        status,
+        status: displayStatus,
         remarks: description,
         statusClass,
         pendingRA,
@@ -331,11 +343,14 @@ const PendingRequests: React.FC = () => {
       const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
 
       let statusClass = "pending";
+      let displayStatus = status;
       const lStatus = status.toLowerCase();
       if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
+        displayStatus = "Approved";
       } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
+        displayStatus = "Rejected";
       }
 
       return {
@@ -349,7 +364,7 @@ const PendingRequests: React.FC = () => {
         days: 1,
         minutes: 0,
         typeDisp: location ? `On Duty - ${location}` : "On Duty",
-        status,
+        status: displayStatus,
         remarks: `${college ? "[" + college + "] " : ""}${description}${mode ? ` (Via ${mode}${vehicle ? " #" + vehicle : ""})` : ""}`,
         statusClass,
         pendingRA,
@@ -378,11 +393,14 @@ const PendingRequests: React.FC = () => {
       const pendingRA = rawPending && String(rawPending).trim() !== "" ? String(rawPending).trim() : "null";
 
       let statusClass = "pending";
+      let displayStatus = status;
       const lStatus = status.toLowerCase();
       if (lStatus.includes("accept") || lStatus.includes("approv")) {
         statusClass = "approved";
+        displayStatus = "Approved";
       } else if (lStatus.includes("reject")) {
         statusClass = "rejected";
+        displayStatus = "Rejected";
       }
 
       return {
@@ -396,7 +414,7 @@ const PendingRequests: React.FC = () => {
         days: 0,
         minutes: durationMin,
         typeDisp: college ? `Overtime - ${college}` : (otType ? `Overtime (${otType})` : "Overtime"),
-        status,
+        status: displayStatus,
         remarks: `${remarks}${(fromTime || toTime) ? ` (${fromTime} to ${toTime})` : ""}`,
         statusClass,
         pendingRA,
@@ -468,7 +486,7 @@ const PendingRequests: React.FC = () => {
                 );
               }
 
-              showToast(`Request ${statusText.toLowerCase()} successfully.`, "success");
+              showToast(`Request ${isApprove ? "approved" : "rejected"} successfully.`, "success");
               loadPendingRequests(); // Refresh the list
             } catch (err: any) {
               console.error("Action error:", err);
@@ -488,14 +506,14 @@ const PendingRequests: React.FC = () => {
     let list = requests.map(normalizeRow).filter(Boolean);
 
     // 1. Status Filter (Client-side safety)
-    const effectiveStatus = isEmp2001 ? "Pending" : statusFilter;
+    const effectiveStatus = statusFilter;
     if (effectiveStatus !== "All") {
       list = list.filter((r: any) => {
         const s = (r.status || "").toLowerCase();
         const filter = effectiveStatus.toLowerCase();
         
         if (filter === "pending") return s.includes("pending");
-        if (filter === "accepted") return s.includes("accept") || s.includes("approv");
+        if (filter === "approved" || filter === "accepted") return s.includes("accept") || s.includes("approv");
         if (filter === "rejected") return s.includes("reject");
         return true;
       });
@@ -514,7 +532,7 @@ const PendingRequests: React.FC = () => {
     }
 
     return list;
-  }, [requests, statusFilter, searchQuery, activeType, isEmp2001]);
+  }, [requests, statusFilter, searchQuery, activeType]);
 
   return (
     <IonPage>
@@ -542,7 +560,7 @@ const PendingRequests: React.FC = () => {
         </div>
 
         {/* Category switcher tabs and inline date picker */}
-        <div className={`pr-tabs-filter-bar ${isEmp2001 ? "pr-compact-filter-bar" : ""}`}>
+        <div className="pr-tabs-filter-bar">
           {/* Row 1: Request Type Tabs */}
           <div className="pr-tabs-row-1">
             <div className="pr-tabs-chips-wrapper">
@@ -560,60 +578,39 @@ const PendingRequests: React.FC = () => {
                 </button>
               ))}
             </div>
-
-            {/* When isEmp2001, inline Period Card on the right of Row 1 (no empty row 2) */}
-            {isEmp2001 && (
-              <div
-                className="pr-inline-period-card pr-inline-period-compact"
-                onClick={toggleDropdown}
-              >
-                <div className="pr-period-left-icon-box">
-                  <IonIcon icon={calendarOutline} />
-                </div>
-                <div className="pr-period-middle-content">
-                  <span className="pr-period-label">PERIOD</span>
-                  <span className="pr-period-value">{selectedMonth}</span>
-                </div>
-                <div className="pr-period-right-icon-box">
-                  <IonIcon icon={layersOutline} />
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Row 2: Left = Status Filter Pills (All, Pending, Accepted, Rejected), Right = Month Period Card (Non-2001 users) */}
-          {!isEmp2001 && (
-            <div className="pr-tabs-row-2">
-              <div className="pr-status-filter-pills">
-                {STATUS_OPTIONS.map((s) => (
-                  <button
-                    key={s.value}
-                    className={`pr-status-pill${statusFilter === s.value ? " active" : ""}`}
-                    onClick={() => setStatusFilter(s.value)}
-                  >
-                    <IonIcon icon={layersOutline} className="pr-status-pill-icon" />
-                    <span>{s.label}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Row 2: Left = Status Filter Pills (All, Pending, Accepted, Rejected), Right = Month Period Card */}
+          <div className="pr-tabs-row-2">
+            <div className="pr-status-filter-pills">
+              {STATUS_OPTIONS.map((s) => (
+                <button
+                  key={s.value}
+                  className={`pr-status-pill${statusFilter === s.value ? " active" : ""}`}
+                  onClick={() => setStatusFilter(s.value)}
+                >
+                  <IonIcon icon={layersOutline} className="pr-status-pill-icon" />
+                  <span>{s.label}</span>
+                </button>
+              ))}
+            </div>
 
-              <div
-                className="pr-inline-period-card"
-                onClick={toggleDropdown}
-              >
-                <div className="pr-period-left-icon-box">
-                  <IonIcon icon={calendarOutline} />
-                </div>
-                <div className="pr-period-middle-content">
-                  <span className="pr-period-label">PERIOD</span>
-                  <span className="pr-period-value">{selectedMonth}</span>
-                </div>
-                <div className="pr-period-right-icon-box">
-                  <IonIcon icon={layersOutline} />
-                </div>
+            <div
+              className="pr-inline-period-card"
+              onClick={toggleDropdown}
+            >
+              <div className="pr-period-left-icon-box">
+                <IonIcon icon={calendarOutline} />
+              </div>
+              <div className="pr-period-middle-content">
+                <span className="pr-period-label">PERIOD</span>
+                <span className="pr-period-value">{selectedMonth}</span>
+              </div>
+              <div className="pr-period-right-icon-box">
+                <IonIcon icon={layersOutline} />
               </div>
             </div>
-          )}
+          </div>
         </div>
 
 
@@ -736,7 +733,7 @@ const PendingRequests: React.FC = () => {
               <div className="pr-empty-icon">📁</div>
               <h3 className="pr-empty-title">No Requests Found</h3>
               <p className="pr-empty-text">
-                There are no {isEmp2001 ? "pending" : statusFilter.toLowerCase()} {activeType} requests for {selectedMonth}.
+                There are no {statusFilter.toLowerCase()} {activeType} requests for {selectedMonth}.
               </p>
             </div>
           )}

@@ -36,7 +36,7 @@ import { OnDutyEmployeeStatusCard } from "../components/OnDutyEmployeeStatusCard
 
 const ADMIN_EMPCODES = ['1501', '1509', '1601', '1508', '1541', '1635'];
 
-const PENDING_LEAVES = ['1501', '1601', '1541', '1635'];
+const PENDING_LEAVES = ['1501', '1601', '1541', '1635','1508'];
 const PAYMENT_REMINDERS = ['1501', '1508', '1531', '1635', '1541'];
 const Live_Tracking_Engine = ['1501', '1509', '1601', '1508', '1541', '1635'];
 const AMC_LOG_EMPCODES = ['1508'];

@@ -833,6 +833,7 @@ body[color-theme="dark"] .ep-setting-swatch {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  width: 100%;
 }
 
 .ep-icon-box {
@@ -850,6 +851,8 @@ body[color-theme="dark"] .ep-setting-swatch {
 .ep-label-value {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .ep-label {
@@ -864,6 +867,15 @@ body[color-theme="dark"] .ep-setting-swatch {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--ion-text-color);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+body.dark .ep-label,
+.dark .ep-label,
+body[color-theme="dark"] .ep-label {
+  color: #94a3b8;
 }
 
 /* Settings List */
@@ -2304,6 +2316,160 @@ body[color-theme="dark"] .ep-upload-desc {
   background: #e0f2fe;
 }
 
+/* ID Card Name Toolbar */
+.ep-idcard-name-toolbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+body.dark .ep-idcard-name-toolbar,
+.dark .ep-idcard-name-toolbar {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: #334155;
+}
+
+.ep-idcard-name-label-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body.dark .ep-idcard-name-label-group,
+.dark .ep-idcard-name-label-group {
+  color: #cbd5e1;
+}
+
+.ep-idcard-name-icon {
+  color: var(--ion-color-primary, #0077b6);
+}
+
+.ep-idcard-name-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.ep-idcard-name-mode-group {
+  display: inline-flex;
+  background: #e2e8f0;
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+}
+
+body.dark .ep-idcard-name-mode-group,
+.dark .ep-idcard-name-mode-group {
+  background: #1e293b;
+}
+
+.ep-idcard-name-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+body.dark .ep-idcard-name-mode-btn,
+.dark .ep-idcard-name-mode-btn {
+  color: #94a3b8;
+}
+
+.ep-idcard-name-mode-btn:hover {
+  color: #0f172a;
+}
+
+body.dark .ep-idcard-name-mode-btn:hover,
+.dark .ep-idcard-name-mode-btn:hover {
+  color: #ffffff;
+}
+
+.ep-idcard-name-mode-btn.active {
+  background: #ffffff;
+  color: var(--ion-color-primary, #0077b6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+body.dark .ep-idcard-name-mode-btn.active,
+.dark .ep-idcard-name-mode-btn.active {
+  background: #334155;
+  color: #38bdf8;
+}
+
+.ep-idcard-name-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 190px;
+  max-width: 300px;
+  flex: 1;
+}
+
+.ep-idcard-name-input {
+  width: 100%;
+  padding: 5px 26px 5px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+body.dark .ep-idcard-name-input,
+.dark .ep-idcard-name-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.ep-idcard-name-input:focus {
+  border-color: var(--ion-color-primary, #0077b6);
+  box-shadow: 0 0 0 2px rgba(0, 119, 182, 0.15);
+}
+
+.ep-idcard-name-reset-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+}
+
+.ep-idcard-name-reset-btn:hover {
+  color: #ef4444;
+}
+
 /* Realistic Epson L805 Tray Slot with 2 Holes */
 .ep-tray-slot-wrapper {
   display: flex;
@@ -2495,18 +2661,18 @@ body[color-theme="dark"] .ep-upload-desc {
 
 .ep-idcard-fields-block {
   position: absolute;
-  top: 68.6%;
-  left: 12%;
-  right: 4%;
+  top: 68.2%;
+  left: 11%;
+  right: 3%;
   display: flex;
   flex-direction: column;
-  gap: 3.5px;
+  gap: 3px;
   z-index: 3;
 }
 
 .ep-idcard-row {
   display: grid;
-  grid-template-columns: 60px 10px 1fr;
+  grid-template-columns: 82px 12px 1fr;
   align-items: center;
   white-space: nowrap;
   line-height: 1.25;
@@ -2515,7 +2681,7 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-field-key {
   color: #ffffff !important;
   font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 0.48rem;
+  font-size: 0.60rem;
   font-weight: 900 !important;
   letter-spacing: 0.2px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -2525,7 +2691,7 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-colon {
   color: #ffffff !important;
   font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 0.48rem;
+  font-size: 0.60rem;
   font-weight: 900 !important;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -2534,7 +2700,7 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-field-val {
   color: #ffffff !important;
   font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 0.48rem;
+  font-size: 0.60rem;
   font-weight: 900 !important;
   letter-spacing: 0.4px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -2546,9 +2712,12 @@ body[color-theme="dark"] .ep-upload-desc {
 .ep-idcard-phone-row {
   position: absolute;
   top: 83.5%;
-  left: 12%;
+  left: 0;
+  right: 0;
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   z-index: 3;
 }

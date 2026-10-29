@@ -162,6 +162,8 @@ const EmpProfile: React.FC = () => {
   const [downloadingCard, setDownloadingCard] = useState<string | null>(null);
   const [cardOrientation, setCardOrientation] = useState<"landscape" | "portrait">("landscape");
   const [cardRotation, setCardRotation] = useState<90 | 270>(90);
+  const [cardNameMode, setCardNameMode] = useState<"single" | "double" | "full">("single");
+  const [customCardEmpName, setCustomCardEmpName] = useState<string>("");
   const frontCardRef = useRef<HTMLDivElement>(null);
   const backCardRef = useRef<HTMLDivElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
@@ -295,16 +297,68 @@ const EmpProfile: React.FC = () => {
     return str.toUpperCase();
   };
 
+  const formatCardEmpName = (
+    fullName: string,
+    mode: "single" | "double" | "full" = "single"
+  ): string => {
+    if (!fullName) return "";
+    const trimmed = fullName.trim();
+    if (!trimmed) return "";
+    if (mode === "full") return trimmed.toUpperCase();
+
+    const parts = trimmed.split(/\s+/);
+    if (parts.length <= 1) return trimmed.toUpperCase();
+
+    const firstWord = parts[0];
+    const restOfName = parts.slice(1).join(" ").toUpperCase();
+    const cleanFirst = firstWord.replace(/[.,;:]+$/, "").toUpperCase();
+
+    // If first word is already an initial (1 or 2 characters, e.g. "M", "M.", "CH", "CH.")
+    if (cleanFirst.length <= 2) {
+      return `${cleanFirst}. ${restOfName}`.replace(/\.\.\s+/g, ". ");
+    }
+
+    // Traditional Indian double-letter digraphs (e.g. Challa -> CH., Shaik -> SH., Thonduri -> TH.)
+    const digraphs = ["CH", "SH", "TH", "DH", "BH", "PH", "GH", "GN", "JN", "KH"];
+    const isDigraph = digraphs.some((d) => cleanFirst.startsWith(d));
+
+    let initial = "";
+    if (mode === "double") {
+      // 2 letters: e.g. "MA." for MARISETTI, or "CH." for CHALLA
+      initial = `${cleanFirst.slice(0, 2)}.`;
+    } else {
+      // mode === "single"
+      // If it starts with a digraph like CH/SH/TH, keep the natural 2-letter digraph ("CH.", "SH.")
+      // otherwise make it single letter ("M.", "P.", "G.", etc.)
+      if (isDigraph) {
+        initial = `${cleanFirst.slice(0, 2)}.`;
+      } else {
+        initial = `${cleanFirst.charAt(0)}.`;
+      }
+    }
+
+    return `${initial} ${restOfName}`;
+  };
+
+  const getCardEmpName = (): string => {
+    if (customCardEmpName && customCardEmpName.trim()) {
+      return customCardEmpName.trim().toUpperCase();
+    }
+    return formatCardEmpName(userData.empName || "Employee Name", cardNameMode);
+  };
+
   const handlePrintIdCards = (side: "both" | "front" | "back" = idCardSide) => {
     const empCodeDisplay = userData.empCode
       ? String(userData.empCode).startsWith("DBS")
         ? String(userData.empCode)
         : `DBS${userData.empCode}`
       : "Employee Id";
-    const empName = userData.empName || "Employee name";
+    const empName = getCardEmpName() || "Employee name";
     const designation = (userData.designation || "designation").toUpperCase();
     const doj = formatCardDOJ(userData.doj || userData.joiningDate);
-    const bloodGroup = userData.bloodGroup || "Blood group";
+    const rawBlood = userData.bloodGroup || "";
+    const cleanBlood = rawBlood ? String(rawBlood).replace(/^Blood\s*Group\s*:\s*/i, "").trim() : "";
+    const bloodGroup = cleanBlood || "AB-";
     const mobile = userData.contactNumber || "Mobile number";
     const avatarSrc =
       userData.profilePic ||
@@ -405,35 +459,42 @@ const EmpProfile: React.FC = () => {
       }
       .fields-block {
         position: absolute;
-        top: 68.6%;
-        left: 12%;
-        right: 4%;
+        top: 68.2%;
+        left: 10%;
+        right: 3%;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 3.5px;
         font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
       }
       .field-row {
         display: grid;
-        grid-template-columns: 58px 10px 1fr;
+        grid-template-columns: 82px 12px 1fr;
         align-items: center;
         white-space: nowrap;
         line-height: 1.25;
-        font-size: 6.0pt;
+        font-size: 7.6pt;
         font-weight: 900;
         letter-spacing: 0.2px;
         color: #ffffff;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
       }
+      .field-colon {
+        text-align: center;
+        display: inline-block;
+      }
       .phone-row {
         position: absolute;
         top: 83.5%;
-        left: 12%;
+        left: 0;
+        right: 0;
+        width: 100%;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
         font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
-        font-size: 6.6pt;
+        font-size: 7.4pt;
         font-weight: 900;
         letter-spacing: 0.4px;
         color: #ffffff;
@@ -477,21 +538,25 @@ const EmpProfile: React.FC = () => {
         <div class="avatar-wrap">
           <img class="avatar-img" src="${avatarSrc}" onerror="this.src='/images/avatar.png'" />
         </div>
-        <div class="card-name">${empName}</div>
+        <div class="card-name" style="${empName.length > 22 ? 'font-size: 7.5pt;' : empName.length > 19 ? 'font-size: 8.2pt;' : ''}">${empName}</div>
         <div class="card-desig">${designation}</div>
         <div class="fields-block">
           <div class="field-row">
-            <span>EMP. ID</span><span>:</span><span>${empCodeDisplay}</span>
+            <span>EMP. ID</span><span class="field-colon">:</span><span>${empCodeDisplay}</span>
           </div>
           <div class="field-row">
-            <span>DOJ</span><span>:</span><span>${doj}</span>
+            <span>DOJ</span><span class="field-colon">:</span><span>${doj}</span>
           </div>
           <div class="field-row">
-            <span>Blood Group</span><span>:</span><span>${bloodGroup}</span>
+            <span>Blood Group</span><span class="field-colon">:</span><span>${bloodGroup}</span>
           </div>
         </div>
         <div class="phone-row">
-          <span class="phone-icon">&#9742;</span>
+          <span class="phone-icon">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </span>
           <span>${mobile}</span>
         </div>
       </div>
@@ -742,12 +807,12 @@ const EmpProfile: React.FC = () => {
         ? String(userData.empCode).startsWith("DBS")
           ? String(userData.empCode)
           : `DBS${userData.empCode}`
-        : "DBS1614";
-      const empName = userData.empName || "PALURI YESURAJU";
-      const designation = (userData.designation || "DEVELOPER").toUpperCase();
+        : "Employee ID";
+      const empName = getCardEmpName() || "Employee Name";
+      const designation = (userData.designation || "Designation").toUpperCase();
       const doj = formatCardDOJ(userData.doj || userData.joiningDate);
-      const bloodGroup = userData.bloodGroup || "AB-";
-      const mobile = userData.contactNumber || "9866992847";
+      const bloodGroup = userData.bloodGroup || "Blood Group";
+      const mobile = userData.contactNumber || "Mobile Number";
       const avatarSrc =
         userData.profilePic ||
         (userData.empCode
@@ -927,7 +992,7 @@ const EmpProfile: React.FC = () => {
             text-align: center;
             color: #262262 !important;
             font-family: 'Arial Black', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 20.5px;
+            font-size: ${empName.length > 22 ? '17px' : empName.length > 19 ? '18.5px' : '20.5px'};
             font-weight: 900 !important;
             text-transform: uppercase;
             letter-spacing: 0.2px;
@@ -960,9 +1025,9 @@ const EmpProfile: React.FC = () => {
           </div>
           <div style="
             position: absolute;
-            top: 68.6%;
-            left: 12%;
-            right: 4%;
+            top: 68.2%;
+            left: 11%;
+            right: 3%;
             display: flex;
             flex-direction: column;
             gap: 5px;
@@ -970,22 +1035,25 @@ const EmpProfile: React.FC = () => {
             font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 900 !important;
           ">
-            <div style="display: grid; grid-template-columns: 102px 16px 1fr; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
               <span style="color: #ffffff !important; font-weight: 900 !important;">EMP. ID</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${empCodeDisplay}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 102px 16px 1fr; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
               <span style="color: #ffffff !important; font-weight: 900 !important;">DOJ</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${doj}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 102px 16px 1fr; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
               <span style="color: #ffffff !important; font-weight: 900 !important;">Blood Group</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${bloodGroup}</span>
             </div>
           </div>
           <div style="
             position: absolute;
             top: 83.5%;
-            left: 12%;
+            left: 0;
+            right: 0;
+            width: 100%;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
             font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
             font-size: 15.5px;
@@ -1102,7 +1170,7 @@ const EmpProfile: React.FC = () => {
         if ((document as any).fonts && (document as any).fonts.ready) {
           await (document as any).fonts.ready;
         }
-      } catch (e) {}
+      } catch (e) { }
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       const { default: html2canvas } = await import("html2canvas");
@@ -1349,10 +1417,14 @@ const EmpProfile: React.FC = () => {
         : `DBS${userData.empCode}`
       : "employee id";
 
-    const fullName = userData.empName || "Employee name";
+    const cardEmpName = (customCardEmpName && customCardEmpName.trim())
+      ? customCardEmpName.trim().toUpperCase()
+      : formatCardEmpName(userData.empName || "Employee name", cardNameMode);
+
+    const fullName = cardEmpName || userData.empName || "Employee name";
     const nameParts = fullName.trim().split(/\s+/);
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
-    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+    const lastName = nameParts.length > 1 ? nameParts[0] : fullName;
+    const firstName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
     const designation = (userData.designation || "designation").toUpperCase();
     const contact = userData.contactNumber || "contact number"
     const email = userData.email || (userData.empName ? `${String(userData.empName).toLowerCase().replace(/[^a-z0-9]/g, "")}@dbasesolutions.in` : "info@dbasesolutions.in");
@@ -1445,6 +1517,8 @@ const EmpProfile: React.FC = () => {
     userData.joiningDate,
     userData.bloodGroup,
     userData.email,
+    cardNameMode,
+    customCardEmpName,
   ]);
 
   // Reporting Matrix State
@@ -3076,7 +3150,7 @@ const EmpProfile: React.FC = () => {
       </div>
     );
 
-  const InfoItem = ({ icon: Icon, label, value }: any) => {
+  const InfoItem = ({ icon: Icon, label, value, color }: any) => {
     let displayValue = "--";
     if (value !== null && value !== undefined) {
       if (typeof value !== "object") {
@@ -3089,16 +3163,18 @@ const EmpProfile: React.FC = () => {
 
     return (
       <div className="ep-info-item">
-        <div className="ep-icon-box">
+        <div className="ep-icon-box" style={color ? { background: color } : undefined}>
           <Icon size={18} />
         </div>
         <div className="ep-label-value">
           <span className="ep-label">{label}</span>
-          <span className="ep-value">{displayValue}</span>
+          <span className="ep-value" title={displayValue}>{displayValue}</span>
         </div>
       </div>
     );
   };
+
+  const cardEmpName = getCardEmpName();
 
   return (
     <div className="ep-container" ref={containerRef}>
@@ -3874,6 +3950,71 @@ const EmpProfile: React.FC = () => {
                   </div>
                 </div>
 
+                {/* ID Card Employee Name Formatting Controls */}
+                <div className="ep-idcard-name-toolbar">
+                  <div className="ep-idcard-name-label-group">
+                    <User size={13} className="ep-idcard-name-icon" />
+                    <span className="ep-idcard-name-title">Name on ID Card:</span>
+                  </div>
+                  <div className="ep-idcard-name-actions">
+                    <div className="ep-idcard-name-mode-group">
+                      <button
+                        type="button"
+                        className={`ep-idcard-name-mode-btn ${cardNameMode === "single" && !customCardEmpName ? "active" : ""}`}
+                        onClick={() => {
+                          setCardNameMode("single");
+                          setCustomCardEmpName("");
+                        }}
+                        title="Abbreviate initial name to single letter (e.g. M. MURALI KRISHNA)"
+                      >
+                        Single (M.)
+                      </button>
+                      <button
+                        type="button"
+                        className={`ep-idcard-name-mode-btn ${cardNameMode === "double" && !customCardEmpName ? "active" : ""}`}
+                        onClick={() => {
+                          setCardNameMode("double");
+                          setCustomCardEmpName("");
+                        }}
+                        title="Abbreviate initial name to double letter (e.g. MA. MURALI KRISHNA / CH.)"
+                      >
+                        Double (MA. / CH.)
+                      </button>
+                      <button
+                        type="button"
+                        className={`ep-idcard-name-mode-btn ${cardNameMode === "full" && !customCardEmpName ? "active" : ""}`}
+                        onClick={() => {
+                          setCardNameMode("full");
+                          setCustomCardEmpName("");
+                        }}
+                        title="Show full name without initial abbreviation"
+                      >
+                        Full Name
+                      </button>
+                    </div>
+                    <div className="ep-idcard-name-input-wrap">
+                      <input
+                        type="text"
+                        className="ep-idcard-name-input"
+                        value={customCardEmpName !== "" ? customCardEmpName : cardEmpName}
+                        onChange={(e) => setCustomCardEmpName(e.target.value.toUpperCase())}
+                        placeholder="Custom name for ID card"
+                        title="Edit name directly to appear on ID card print & preview"
+                      />
+                      {customCardEmpName && (
+                        <button
+                          type="button"
+                          className="ep-idcard-name-reset-btn"
+                          onClick={() => setCustomCardEmpName("")}
+                          title="Reset to default formatted name"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* ID Cards Display Container */}
                 <div className="ep-idcard-cards-container">
                   {/* FRONT CARD (Slot 1) */}
@@ -3928,8 +4069,18 @@ const EmpProfile: React.FC = () => {
                               </div>
 
                               {/* Employee Name */}
-                              <div className="ep-idcard-name" title={userData.empName || "PALURI YESURAJU"}>
-                                {userData.empName || "PALURI YESURAJU"}
+                              <div
+                                className="ep-idcard-name"
+                                title={cardEmpName}
+                                style={
+                                  cardEmpName.length > 22
+                                    ? { fontSize: "0.62rem" }
+                                    : cardEmpName.length > 19
+                                    ? { fontSize: "0.68rem" }
+                                    : undefined
+                                }
+                              >
+                                {cardEmpName}
                               </div>
 
                               {/* Employee Designation */}
@@ -4008,8 +4159,18 @@ const EmpProfile: React.FC = () => {
                             />
                           </div>
 
-                          <div className="ep-idcard-name" title={userData.empName || "PALURI YESURAJU"}>
-                            {userData.empName || "PALURI YESURAJU"}
+                          <div
+                            className="ep-idcard-name"
+                            title={cardEmpName}
+                            style={
+                              cardEmpName.length > 22
+                                ? { fontSize: "0.62rem" }
+                                : cardEmpName.length > 19
+                                ? { fontSize: "0.68rem" }
+                                : undefined
+                            }
+                          >
+                            {cardEmpName}
                           </div>
 
                           <div className="ep-idcard-desig" title={userData.designation || "DEVELOPER"}>
@@ -4091,7 +4252,7 @@ const EmpProfile: React.FC = () => {
                                 {qrCodeUrl ? (
                                   <img
                                     src={qrCodeUrl}
-                                    alt={`Scannable details for ${userData.empName || "Employee"}`}
+                                    alt={`Scannable details for ${cardEmpName || "Employee"}`}
                                     className="ep-idcard-qr-image"
                                   />
                                 ) : (
@@ -4116,7 +4277,7 @@ const EmpProfile: React.FC = () => {
                             {qrCodeUrl ? (
                               <img
                                 src={qrCodeUrl}
-                                alt={`Scannable details for ${userData.empName || "Employee"}`}
+                                alt={`Scannable details for ${cardEmpName || "Employee"}`}
                                 className="ep-idcard-qr-image"
                               />
                             ) : (
