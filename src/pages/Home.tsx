@@ -263,6 +263,7 @@ const Home: React.FC = () => {
   const menuItems = [
     { id: "tasks", label: "Tasks", icon: "https://cdn.lordicon.com/wloilxuq.json", path: "/tasks", colorClass: "home-card-tasks" },
     { id: "tickets", label: "Tickets", icon: "https://cdn.lordicon.com/raawsqec.json", path: "/tickets", colorClass: "home-card-tickets" },
+    { id: "visits-followup", label: "Visits Follow-up", icon: "https://cdn.lordicon.com/surcxhka.json", path: "/visits-followup", colorClass: "home-card-visits-followup" },
     { id: "productivity", label: "Productivity", icon: "https://cdn.lordicon.com/erxuunyq.json", path: null, colorClass: "home-card-productivity" },
     { id: "performance", label: "Performance", icon: "https://cdn.lordicon.com/kwnsnjyg.json", path: null, colorClass: "home-card-performance" },
     { id: "punctuality", label: "Punctuality", icon: "https://cdn.lordicon.com/kiqyrejq.json", path: null, colorClass: "home-card-punctuality" },

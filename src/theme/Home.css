@@ -476,6 +476,15 @@
   color: #fff;
 }
 
+.home-card-visits-followup {
+  --card-theme-color: 14, 165, 233;
+}
+
+.home-card-visits-followup .home-card-icon-wrapper {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #fff;
+}
+
 .home-card-productivity {
   --card-theme-color: 251, 191, 36;
 }

@@ -54,6 +54,7 @@ import TicketsDashboard from "./pages/TicketsDashboard";
 import ProjectWiseTickets from "./pages/Tickets/ProjectWiseTickets";
 import RaiseTicket from "./pages/Tickets/RaiseTicket";
 import TicketData from "./pages/Tickets/components/TicketData";
+import VisitsFollowup from "./pages/Tickets/VisitsFollowup";
 import OverTime from "./pages/OverTime";
 import RequestsPage from "./pages/RequestsPage";
 import PendingRequests from "./pages/PendingRequests";
@@ -233,6 +234,8 @@ const App: React.FC = () => {
                   <Route path="/tickets/raisedticket" exact component={RaiseTicket} />
                   <Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />
                   <Route path="/tickets/ticketdata" exact component={TicketData} />
+                  <Route path="/tickets/visitsfollowup" exact component={VisitsFollowup} />
+                  <Route path="/visits-followup" exact component={VisitsFollowup} />
                   <Route exact path="/OverTime" component={OverTime} />
                   <Route path="/requests" component={RequestsPage} exact />
                   <Route path="/pending-requests" component={PendingRequests} exact />
