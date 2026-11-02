@@ -28,6 +28,11 @@ import {
   UserCheck,
 } from "lucide-react";
 import { API_BASE } from "../../config";
+// The client-feedback feed used to live on the Client Feedback page as a
+// second tab. It belongs with follow-ups, so it is rendered here instead -
+// `only="visits"` picks that feed and `embedded` drops its page shell, since
+// this page already supplies one.
+import VisitTickets from "./components/VisitTickets";
 import "./VisitsFollowup.css";
 
 export interface VisitFollowupItem {
@@ -55,6 +60,8 @@ const VisitsFollowup: React.FC = () => {
       return {};
     }
   }, []);
+
+  const [tab, setTab] = useState<"followup" | "feedback">("followup");
 
   const defaultEmpCode = user?.empCode || user?.emp_Code || "1614";
   const [empCode, setEmpCode] = useState<string>(defaultEmpCode);
@@ -281,24 +288,50 @@ const VisitsFollowup: React.FC = () => {
               </button>
               <h1 className="vf-header-title">
                 Visits Follow-up
-                <span className="vf-badge-count">{filteredVisits.length} Records</span>
+                {tab === "followup" && (
+                  <span className="vf-badge-count">{filteredVisits.length} Records</span>
+                )}
               </h1>
             </div>
             <div className="vf-header-actions">
-              <button
-                className="vf-refresh-btn"
-                onClick={() => fetchFollowups(activeEmpCode)}
-                title="Refresh Records"
-              >
-                <RefreshCw size={16} />
-                Refresh
-              </button>
+              {tab === "followup" && (
+                <button
+                  className="vf-refresh-btn"
+                  onClick={() => fetchFollowups(activeEmpCode)}
+                  title="Refresh Records"
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+              )}
             </div>
           </div>
         </IonToolbar>
       </IonHeader>
 
       <IonContent>
+        {/* Follow-up | Visits Feedback */}
+        <div className="vf-tabs">
+          <button
+            type="button"
+            className={`vf-tab ${tab === "followup" ? "active" : ""}`}
+            onClick={() => setTab("followup")}
+          >
+            Follow-up
+          </button>
+          <button
+            type="button"
+            className={`vf-tab ${tab === "feedback" ? "active" : ""}`}
+            onClick={() => setTab("feedback")}
+          >
+            Visits Feedback
+          </button>
+        </div>
+
+        {tab === "feedback" && <VisitTickets only="visits" embedded />}
+
+        {tab === "followup" && (
+          <>
         {/* Control & Filter Bar */}
         <div className="vf-control-bar">
           <div className="vf-search-box">
@@ -751,6 +784,9 @@ const VisitsFollowup: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+          </>
         )}
 
         <IonToast

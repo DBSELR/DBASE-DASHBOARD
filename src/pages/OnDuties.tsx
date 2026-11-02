@@ -1,4 +1,4 @@
-// src/pages/OnDuties.tsx
+﻿// src/pages/OnDuties.tsx
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addOutline } from "ionicons/icons";
 import {
@@ -76,6 +76,7 @@ import {
   Download,
   ZoomIn,
   Loader2,
+  UserCheck,
 } from "lucide-react";
 import moment from "moment";
 import { API_BASE } from "../config";
@@ -118,6 +119,42 @@ type TeamChangeState = {
 };
 
 type ClientItem = { Client_ID: string; Client_Name: string };
+
+/** The demo / service tasks offered by default. A visit can carry one
+ *  that is not on this list - whatever is already saved against it is
+ *  shown and kept, so a new task typed in once stops being new. The
+ *  double spaces are deliberate: they are what the existing records
+ *  contain, and changing them here would orphan them. */
+const PROJECT_OPTIONS = [
+  "BEAT Visit",
+  "BOAT Visit",
+  "Skill Ascent  Visit",
+  "Edvedha  Visit",
+  "UNICODE  Visit",
+  "BEAT Demo",
+  "BOAT Demo",
+  "Skill Ascent  Demo",
+  "Edvedha  Demo",
+  "UNICODE  Demo",
+  "BEAT Serv.",
+  "BOAT Serv.",
+  "Skill Ascent  Serv.",
+  "Edvedha  Serv.",
+  "UNICODE  Serv.",
+];
+
+/** A pickable party for a visit's client name - taken from the names already
+ *  recorded on visits, which is the list that was de-duplicated. */
+type VisitClientOption = {
+  Client_Name: string;
+  Visits: number;
+  LastVisit: string | null;
+  /** Who was met there last time - offered when the party is picked,
+   *  never forced over something already filled in. */
+  Contact_Person?: string;
+  Contact_Designation?: string;
+  Mobile_Number?: string;
+};
 
 // One row of tbl_Branch. `label` is both what the user reads and what
 // gets saved, so the stored text is never a code nobody can decode.
@@ -246,6 +283,14 @@ type VisitItem = {
   // the whole duty team every time.
   empCodes: string[];
   contactPerson: string;
+  contactDesignation: string;
+  /** The party whose contact details were auto-filled into this visit.
+   *  Blank once somebody edits them by hand, which is what makes it
+   *  safe to replace them when the party changes. */
+  contactAutoFor?: string;
+  /** EmpCode of whoever owns the follow-up for this visit. One person,
+   *  chosen from those present. */
+  followUpBy?: string;
   mobile: string;
   visitFromTime: string;
   visitToTime: string;
@@ -364,6 +409,9 @@ const emptyVisit = (defaultFromTime: string = "", defaultEmpCodes: string[] = []
   // is less friction than having to check everyone in every time.
   empCodes: [...defaultEmpCodes],
   contactPerson: "",
+  contactDesignation: "",
+  contactAutoFor: "",
+  followUpBy: "",
   mobile: "",
   visitFromTime: defaultFromTime,
   visitToTime: "",
@@ -407,42 +455,253 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const modalContentRef = useRef<HTMLIonContentElement>(null);
   const savedScrollTop = useRef<number>(0);
 
-  const saveModalScroll = async () => {
-    if (modalContentRef.current) {
-      try {
-        const el = await modalContentRef.current.getScrollElement();
-        savedScrollTop.current = el.scrollTop;
-      } catch (e) {
-        console.warn("Failed to get scroll elementS:", e);
+  // The modal's scroll element, looked up once. getScrollElement() is a
+  // promise, so without this cache saveModalScroll cannot read scrollTop
+  // before the file dialog has already opened. Cleared when the modal
+  // closes so a reopened modal never holds a detached element.
+  const modalScrollElRef = useRef<HTMLElement | null>(null);
+
+  /** Walk up from a node to the first ancestor that really scrolls.
+   *  IonContent's getScrollElement() returns the element Ionic intends to
+   *  be the scroller, which is not always the one the browser is actually
+   *  scrolling once the modal's own layout gets involved - and reading
+   *  scrollTop off the wrong element gives a constant 0, which is why
+   *  saving and restoring a pixel offset silently did nothing. */
+  const findScrollParent = (node: HTMLElement | null): HTMLElement | null => {
+    let el: HTMLElement | null = node ? node.parentElement : null;
+    while (el) {
+      const oy = window.getComputedStyle(el).overflowY;
+      if (
+        (oy === "auto" || oy === "scroll" || oy === "overlay") &&
+        el.scrollHeight > el.clientHeight + 4
+      ) {
+        return el;
       }
+      el = el.parentElement;
+    }
+    return null;
+  };
+
+  /** The scroller to use, preferring one proven to scroll. */
+  const resolveScroller = async (near?: HTMLElement | null): Promise<HTMLElement | null> => {
+    const fromDom = findScrollParent(near || document.getElementById("dt-visit-box-0"));
+    if (fromDom) {
+      modalScrollElRef.current = fromDom;
+      return fromDom;
+    }
+    if (modalScrollElRef.current) return modalScrollElRef.current;
+    if (!modalContentRef.current) return null;
+    try {
+      const el = (await modalContentRef.current.getScrollElement()) as HTMLElement;
+      modalScrollElRef.current = el;
+      return el;
+    } catch (e) {
+      console.warn("Failed to get modal scroll element:", e);
+      return null;
     }
   };
 
-  const restoreModalScroll = () => {
-    if (modalContentRef.current && savedScrollTop.current > 0) {
-      const currentScroll = savedScrollTop.current;
-      setTimeout(async () => {
-        try {
-          if (modalContentRef.current) {
-            await modalContentRef.current.scrollToPoint(0, currentScroll, 0);
-          }
-        } catch (e) {
-          console.warn("Failed to restore scroll (50ms):", e);
-        }
-      }, 50);
+  const getModalScrollEl = async (): Promise<HTMLElement | null> => resolveScroller();
 
-      setTimeout(async () => {
-        try {
-          if (modalContentRef.current) {
-            await modalContentRef.current.scrollToPoint(0, currentScroll, 0);
-          }
-        } catch (e) {
-          console.warn("Failed to restore scroll (150ms):", e);
-        }
-      }, 150);
+  // The element whose on-screen position must not move, and how far its
+  // top sat below the top of the scroller when it was saved. Holding an
+  // ELEMENT steady survives anything changing height above it; holding a
+  // pixel offset does not.
+  const scrollAnchorIdRef = useRef<string | null>(null);
+  const scrollAnchorOffsetRef = useRef<number>(0);
+
+  // TEMPORARY DIAGNOSTIC - remove once the scroll jump is settled.
+  // Tag printed with every scroll log so there is no doubt about which
+  // build is in the browser.
+  const SCROLL_DBG = "[OnDuty scroll v5]";
+
+  // The element that was last seen scrolling, and where it was. Every
+  // previous attempt failed on the same step - working out WHICH element
+  // scrolls (IonContent's own, a wrapper, the page) and then measuring
+  // the wrong one. A capture-phase scroll listener does not have to work
+  // it out: whatever element the browser scrolls announces itself, and
+  // its scrollTop at that moment is true by definition.
+  const lastScrollElRef = useRef<HTMLElement | null>(null);
+  const lastScrollTopRef = useRef<number>(0);
+
+  const saveModalScroll = async (anchorId?: string) => {
+    // Guard against a call site passing the handler by reference, which
+    // hands React's event object in here as the anchor id.
+    const id = typeof anchorId === "string" && anchorId.length > 0 ? anchorId : null;
+    scrollAnchorIdRef.current = id;
+    const anchor = id ? document.getElementById(id) : null;
+    // Observed first, deduced only as a fallback.
+    const el = lastScrollElRef.current || (await resolveScroller(anchor));
+    if (!el) return;
+    savedScrollTop.current = el.scrollTop;
+    if (anchor) {
+      scrollAnchorOffsetRef.current =
+        anchor.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    }
+    console.log(`${SCROLL_DBG} SAVE`, {
+      observedScroller: lastScrollElRef.current
+        ? lastScrollElRef.current.tagName + "." + String(lastScrollElRef.current.className || "")
+        : "(none seen yet)",
+      observedTop: lastScrollTopRef.current,
+      anchorId: id,
+      anchorFound: !!anchor,
+      scroller: el.tagName + "." + String(el.className || "").split(" ").join("."),
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      anchorOffset: scrollAnchorOffsetRef.current,
+    });
+  };
+
+  // How long the restore keeps holding the position, and the frame loop
+  // doing the holding.
+  const scrollLockUntil = useRef<number>(0);
+  const scrollLockRaf = useRef<number | null>(null);
+
+  const releaseModalScrollLock = () => {
+    scrollLockUntil.current = 0;
+    if (scrollLockRaf.current !== null) {
+      cancelAnimationFrame(scrollLockRaf.current);
+      scrollLockRaf.current = null;
     }
   };
 
+  // Putting the scroll back after a file is chosen cannot be done with a
+  // timeout: what resets it is a re-render and an Ionic relayout whose
+  // timing is not knowable, and two fixed timeouts (50ms and 150ms) were
+  // simply firing before the thing they were meant to undo. So instead
+  // of guessing when to correct the position once, this holds it for a
+  // short window, correcting on every frame, and lets go the moment the
+  // user scrolls themselves.
+  const restoreModalScroll = (holdMs: number = 900) => {
+    const target = savedScrollTop.current || lastScrollTopRef.current;
+    // An anchored restore is valid even at scrollTop 0 - the box still has
+    // to stay put. Only an unanchored one has nothing to do there.
+    if (target <= 0 && !scrollAnchorIdRef.current) return;
+
+    console.log(`${SCROLL_DBG} RESTORE start`, {
+      holdMs,
+      target,
+      anchorId: scrollAnchorIdRef.current,
+      anchorOffset: scrollAnchorOffsetRef.current,
+    });
+
+    releaseModalScrollLock();
+    scrollLockUntil.current = Date.now() + holdMs;
+
+    const letGo = () => {
+      releaseModalScrollLock();
+      scrollAnchorIdRef.current = null;
+      window.removeEventListener("wheel", letGo);
+      window.removeEventListener("touchstart", letGo);
+    };
+
+    // A real scroll gesture wins immediately - nothing is more irritating
+    // than a page that fights the finger on it. Bound to the window, not
+    // to a scroll element that may be replaced mid-hold.
+    window.addEventListener("wheel", letGo, { once: true, passive: true });
+    window.addEventListener("touchstart", letGo, { once: true, passive: true });
+
+    const tick = () => {
+      const anchorId = scrollAnchorIdRef.current;
+      const anchor = anchorId ? document.getElementById(anchorId) : null;
+
+      // Re-resolved EVERY frame, not cached. Closing the camera overlay
+      // re-lays out the day-trip modal, and a cached scroll element is a
+      // detached node by the time the next frame runs - corrections were
+      // being written to a node nobody can see while the live one sat at
+      // zero, which is exactly what "still jumping to top" looks like.
+      const node =
+        lastScrollElRef.current ||
+        (anchor ? findScrollParent(anchor) : null) ||
+        modalScrollElRef.current;
+
+      if (!node) {
+        // Logged once per hold, not once per frame.
+        if (!(window as any).__odNoScroller) {
+          (window as any).__odNoScroller = true;
+          console.warn(`${SCROLL_DBG} TICK: no scrolling ancestor found`, {
+            anchorId,
+            anchorFound: !!anchor,
+          });
+          setTimeout(() => { (window as any).__odNoScroller = false; }, 1000);
+        }
+      }
+
+      if (node) {
+        modalScrollElRef.current = node;
+        if (anchor) {
+          // Keep THIS box exactly where it was on screen. Whatever above
+          // it changed height, the box does not move.
+          const now =
+            anchor.getBoundingClientRect().top - node.getBoundingClientRect().top;
+          const drift = now - scrollAnchorOffsetRef.current;
+          if (Math.abs(drift) > 2) {
+            if (!(window as any).__odDriftLogged) {
+              (window as any).__odDriftLogged = true;
+              console.log(`${SCROLL_DBG} TICK correcting`, {
+                scroller: node.tagName + "." + String(node.className || "").split(" ").join("."),
+                scrollTop: node.scrollTop,
+                nowOffset: now,
+                savedOffset: scrollAnchorOffsetRef.current,
+                drift,
+              });
+              setTimeout(() => { (window as any).__odDriftLogged = false; }, 1000);
+            }
+            node.scrollTop = node.scrollTop + drift;
+          }
+        } else if (Math.abs(node.scrollTop - target) > 2) {
+          node.scrollTop = target;
+        }
+      }
+
+      if (Date.now() < scrollLockUntil.current) {
+        scrollLockRaf.current = requestAnimationFrame(tick);
+      } else {
+        letGo();
+      }
+    };
+
+    scrollLockRaf.current = requestAnimationFrame(tick);
+  };
+
+
+  // Which stop was just added, so it can be flashed once it is on screen.
+  const [justAddedVisit, setJustAddedVisit] = useState<number | null>(null);
+
+  // Bring a visit stop to the top of the modal so the whole form for it is
+  // in front of whoever is filling it in. Adding a stop appends it below
+  // everything already entered, which on a day with three stops is well
+  // off the bottom of the screen - the button looked like it had done
+  // nothing at all.
+  const scrollVisitIntoView = (visitIndex: number) => {
+    const run = async () => {
+      const box = document.getElementById(`dt-visit-box-${visitIndex}`);
+      if (!box) return false;
+      const el = await resolveScroller(box);
+      if (!el) return false;
+      const top =
+        box.getBoundingClientRect().top -
+        el.getBoundingClientRect().top +
+        el.scrollTop -
+        10;
+      el.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+      return true;
+    };
+
+    // Two frames, because the new stop is not in the DOM until React has
+    // committed the state change.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void run().then((ok) => {
+          // One correction after the layout has settled - the box grows as
+          // its date pickers and pill rows lay out, which moves the target
+          // after the first scroll has already started.
+          if (ok) setTimeout(() => { void run(); }, 260);
+        });
+      });
+    });
+  };
 
   const api = useMemo(() => {
     return axios.create({ baseURL: API_BASE });
@@ -613,6 +872,29 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const [team, setTeam] = useState<EmployeeItem[]>([]);
   const [clients, setClients] = useState<ClientItem[]>([]);
+
+  // Every party a visit has been recorded against. A visit's client name is
+  // picked from this list so the same college stops arriving as four
+  // different spellings of itself.
+  const [visitClients, setVisitClients] = useState<VisitClientOption[]>([]);
+  // Which visit's party picker is open - "<tripIndex>-<visitIndex>".
+  const [partyPickerFor, setPartyPickerFor] = useState<string | null>(null);
+
+  // The demo / service picker, built the same way as the party one so a
+  // task can be typed as well as chosen.
+  const [projPickerFor, setProjPickerFor] = useState<string | null>(null);
+  const [projSearch, setProjSearch] = useState("");
+
+  // The party search is separate from the party NAME now. Typing used to
+  // write straight into the visit, which meant the row went blank the
+  // moment you started looking for something.
+  const [partySearch, setPartySearch] = useState("");
+
+  // Designations already recorded against visits, most used first. Same
+  // idea as the party list: pick "Principal" rather than inventing a
+  // fourth way to spell it.
+  const [designations, setDesignations] = useState<string[]>([]);
+  const [desigPickerFor, setDesigPickerFor] = useState<string | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   // The logged-in user's own branch|dept, normalized. Stays empty until it
   // resolves, and an empty key excludes nothing - a failed lookup leaves the
@@ -777,6 +1059,16 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     } else if (target.type === "localTransport") {
       updateTripVisit(editingTripIndex, target.visitIndex, "localTransportImage", file);
     }
+
+    // Every camera path ends here, and every one of them saved the scroll
+    // position on the way in. Only the file-picker paths were putting it
+    // back, so taking a photo jumped to the top of the modal while
+    // choosing a file did not.
+    //
+    // Longer than the file-picker hold: closeWebCamera() runs straight
+    // after this, and tearing down the camera overlay plus the day-trip
+    // modal's relayout takes well past the 900ms a file pick needs.
+    restoreModalScroll(2200);
   };
 
   const openCameraCapture = async (
@@ -785,6 +1077,16 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   ) => {
     setActiveCameraTarget(target);
     setCameraFacing(facing);
+
+    // Record the anchor NOW, while the day-trip modal is still the thing
+    // on screen and its scroll position is still readable. By the time the
+    // photo comes back the camera overlay has been and gone, and there is
+    // nothing left to measure from.
+    if (target.type === "visitSlip" || target.type === "localTransport") {
+      void saveModalScroll(`dt-visit-box-${target.visitIndex}`);
+    } else {
+      void saveModalScroll();
+    }
 
     let filenamePrefix = "od_photo";
     if (target.type === "readingFrom") filenamePrefix = "start_reading";
@@ -981,6 +1283,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     } else if (target.type === "fuel") {
       document.getElementById("dt-fuel-file-input")?.click();
     } else if (target.type === "visitSlip") {
+      saveModalScroll(`dt-visit-box-${target.visitIndex}`);
       document.getElementById(`dt-visit-slip-${target.visitIndex}`)?.click();
     } else if (target.type === "localTransport") {
       document.getElementById(`dt-loc-trans-${target.visitIndex}`)?.click();
@@ -1261,6 +1564,49 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const [editingId, setEditingId] = useState<string>("");
   const [tripDaysByDuty, setTripDaysByDuty] = useState<Record<string, TripDayItem[]>>({});
   const [showDayTripModal, setShowDayTripModal] = useState(false);
+
+  // The readings are entered once and then only referred to, so the card
+  // starts folded, with the figures on its header. The one exception is
+  // handled below: in add mode the start reading IS the task, and a
+  // collapsed form would hide the only thing there is to fill in.
+  const [odoOpen, setOdoOpen] = useState(false);
+
+  // Assigning the follow-up is a commitment about who chases this party,
+  // so it is confirmed rather than toggled by a stray tap.
+  const [followupConfirm, setFollowupConfirm] = useState<{
+    visitIndex: number;
+    code: string;
+    name: string;
+    current: string;
+  } | null>(null);
+
+
+
+  useEffect(() => {
+    if (!showDayTripModal) {
+      lastScrollElRef.current = null;
+      lastScrollTopRef.current = 0;
+      return;
+    }
+
+    const onAnyScroll = (e: Event) => {
+      const t = e.target as HTMLElement;
+      if (!t || !(t instanceof HTMLElement)) return;
+      // Ignore scrolling this code is doing itself, or the position it is
+      // fighting would be recorded as the one to go back to.
+      if (scrollLockUntil.current > Date.now()) return;
+      if (t.scrollTop > 0) {
+        lastScrollElRef.current = t;
+        lastScrollTopRef.current = t.scrollTop;
+      }
+    };
+
+    // Capture phase: scroll does not bubble, so a listener on document
+    // only sees inner scrollers this way.
+    document.addEventListener("scroll", onAnyScroll, true);
+    return () => document.removeEventListener("scroll", onAnyScroll, true);
+  }, [showDayTripModal]);
+
   const [editingTripIndex, setEditingTripIndex] = useState<number | null>(null);
   const [selectedDutyRow, setSelectedDutyRow] = useState<DutyRow | null>(null);
   const [selectedDutyId, setSelectedDutyId] = useState<string>("");
@@ -1399,6 +1745,13 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   const showTripType = tripTypeApplies && !isSingleDayDuty;
   const [tripModalMode, setTripModalMode] =
     useState<"add" | "edit">("add");
+
+  // Decided each time the modal opens rather than once, so reopening in
+  // edit mode is always folded and reopening in add mode is always
+  // ready to type into.
+  useEffect(() => {
+    if (showDayTripModal) setOdoOpen(tripModalMode === "add");
+  }, [showDayTripModal, tripModalMode]);
 
 
 
@@ -1881,6 +2234,11 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   };
 
   const closeDayTripModal = () => {
+    releaseModalScrollLock();
+    modalScrollElRef.current = null;
+    savedScrollTop.current = 0;
+    scrollAnchorIdRef.current = null;
+    scrollAnchorOffsetRef.current = 0;
     setShowDayTripModal(false);
     setEditingTripIndex(null);
   };
@@ -2019,6 +2377,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
             ? String(r.Emp_Codes).split(",").map((c: string) => c.trim()).filter(Boolean)
             : [],
           contactPerson: r.Contact_Person || "",
+          contactDesignation: r.Contact_Designation || "",
+          followUpBy: r.FollowUp_By || "",
           mobile: r.Mobile_Number || "",
           visitFromTime: r.Visit_FromTime || "",
           visitToTime: r.Visit_ToTime || "",
@@ -2105,6 +2465,13 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         visits: [...targetTrip.visits, emptyVisit(defaultVisitFromTime, defaultEmpCodes)],
       };
 
+      // The index the new stop landed at - scrolled to, and flashed, once
+      // React has put it on screen.
+      const newIndex = targetTrip.visits.length;
+      setJustAddedVisit(newIndex);
+      scrollVisitIntoView(newIndex);
+      setTimeout(() => setJustAddedVisit(null), 1600);
+
       return {
         ...prev,
         [selectedDutyId]: currentTrips,
@@ -2124,6 +2491,34 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         typeof res.data === "string" ? JSON.parse(res.data) : res.data;
 
       const trips = buildTripsFromRows(Array.isArray(rows) ? rows : []);
+
+      // Contact_Designation comes from its own endpoint rather than from
+      // App_Get_DayTrips, which returns positional rows - adding a column
+      // there would shift every field after it. Best effort: if it fails,
+      // the trips still load, just with the designation blank.
+      try {
+        const dres = await api.get("OnDuty/get_visit_contacts", {
+          params: { dutyId },
+          headers: authHeaders(),
+        });
+        const dbody = typeof dres.data === "string" ? JSON.parse(dres.data) : dres.data;
+        const drows = Array.isArray(dbody?.visits) ? dbody.visits : [];
+        if (drows.length > 0) {
+          const byId: Record<string, string> = {};
+          drows.forEach((d: any) => {
+            const id = String(d?.Visit_ID ?? d?.visit_ID ?? "");
+            if (id) byId[id] = String(d?.Contact_Designation ?? d?.contact_Designation ?? "");
+          });
+          trips.forEach((t: any) => {
+            (t.visits || []).forEach((v: any) => {
+              const hit = byId[String(v.visit_Id ?? "")];
+              if (hit !== undefined) v.contactDesignation = hit;
+            });
+          });
+        }
+      } catch {
+        // Designations unavailable - not a reason to fail the trip load.
+      }
 
       setTripDaysByDuty((prev) => ({
         ...prev,
@@ -2202,6 +2597,41 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       }
 
       // ===== VALIDATION =====
+
+      // A number that cannot be rung is worse than no number: it looks
+      // like a contact nobody has to chase. Checked here as well as in
+      // the field, because a value can arrive from the party auto-fill
+      // or from a record saved before this rule existed.
+      for (let i = 0; i < (trip.visits || []).length; i++) {
+        const err = mobileError(trip.visits[i]?.mobile);
+        if (err) {
+          notify(`Client stop #${i + 1}: ${err}`, "warning");
+          scrollVisitIntoView(i);
+          return;
+        }
+      }
+
+      // Every visit has to say WHERE it happened. A visit slip proves a
+      // visit took place; the coordinates are what tie it to a place, and
+      // without them a DA/TA claim rests on a typed location name alone.
+      //
+      // This applies to visits already saved without coordinates too, so
+      // an older record cannot be edited until it is tagged. That is the
+      // strict reading of "mandatory" - if it gets in the way of editing
+      // historic days from the office, narrow the test to
+      //   !trip.visits[i]?.visit_Id
+      // and only new stops will be held to it.
+      for (let i = 0; i < (trip.visits || []).length; i++) {
+        const v = trip.visits[i];
+        if (!String(v?.latitude || "").trim() || !String(v?.longitude || "").trim()) {
+          notify(
+            `Client stop #${i + 1}: tap Geo Tag to record where this visit happened`,
+            "warning"
+          );
+          scrollVisitIntoView(i);
+          return;
+        }
+      }
 
       // Public Transport → only distance required
       if (isPublicTransport) {
@@ -2492,7 +2922,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       if (tripModalMode === "edit") {
         trip.visits.forEach((v, i) => {
           formData.append(`visits[${i}].visit_Id`, String(v.visit_Id || 0));
-          formData.append(`visits[${i}].client_Name`, v.partyName);
+          formData.append(`visits[${i}].client_Name`, String(v.partyName || "").trim());
           formData.append(`visits[${i}].location`, v.location);
           formData.append(`visits[${i}].latitude`, v.latitude || "");
           formData.append(`visits[${i}].longitude`, v.longitude || "");
@@ -2503,6 +2933,11 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           if (empCode) savedEmpCodes.add(empCode);
           formData.append(`visits[${i}].emp_Codes`, Array.from(savedEmpCodes).join(","));
           formData.append(`visits[${i}].contact_Person`, v.contactPerson);
+          formData.append(
+            `visits[${i}].contact_Designation`,
+            String(v.contactDesignation || "").trim()
+          );
+          formData.append(`visits[${i}].followUp_By`, String(v.followUpBy || "").trim());
           formData.append(`visits[${i}].mobile_Number`, v.mobile);
           formData.append(`visits[${i}].remarks`, v.remarks);
           {
@@ -2567,6 +3002,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           notify("Trip Saved Successfully! 🎉", "success");
         }
         await loadDuties();
+        loadVisitClients();
 
         // Refresh this duty's local trip/visit state from the server before
         // closing. save_daytrip assigns a real Visit_ID to every visit it
@@ -2746,6 +3182,160 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       setClients([]);
     }
   };
+  /** An Indian mobile number: exactly ten digits starting 6, 7, 8 or 9.
+   *  Returns "" when the value is acceptable (including empty - the field
+   *  is optional), otherwise the reason. Written as one function so the
+   *  field, the save guard and anything added later cannot disagree about
+   *  what counts as valid. */
+  const mobileError = (value?: string): string => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 0) return "";
+    if (digits.length < 10) return `Too short - ${digits.length} of 10 digits`;
+    if (digits.length > 10) return `Too long - ${digits.length} digits`;
+    if (!/^[6-9]/.test(digits)) return "A mobile number starts with 6, 7, 8 or 9";
+    return "";
+  };
+
+  const loadVisitClients = async () => {
+    try {
+      const res = await api.get("OnDuty/load_visit_clients", { headers: authHeaders() });
+      const body = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      const raw = Array.isArray(body?.clients) ? body.clients : [];
+      setVisitClients(
+        raw.map((c: any) => ({
+          Client_Name: String(c.Client_Name ?? c.client_Name ?? "").trim(),
+          Visits: Number(c.Visits ?? c.visits ?? 0) || 0,
+          LastVisit: c.LastVisit ?? c.lastVisit ?? null,
+          Contact_Person: String(c.Contact_Person ?? c.contact_Person ?? "").trim(),
+          Contact_Designation: String(c.Contact_Designation ?? c.contact_Designation ?? "").trim(),
+          Mobile_Number: String(c.Mobile_Number ?? c.mobile_Number ?? "").trim(),
+        })).filter((c: VisitClientOption) => c.Client_Name.length > 0)
+      );
+      const desigs = Array.isArray(body?.designations) ? body.designations : [];
+      setDesignations(
+        desigs.map((d: any) => String(d ?? "").trim()).filter((d: string) => d.length > 0)
+      );
+    } catch {
+      // The picker falls back to free typing if the list cannot be loaded,
+      // so a failure here must not stop a visit being recorded.
+      setVisitClients([]);
+      setDesignations([]);
+    }
+  };
+
+  // Fill in whoever was met at this party last time - contact, designation,
+  // mobile and location.
+  //
+  // The rule is not "only fill blanks". That was the bug: change the party
+  // on a visit that already carried the PREVIOUS party's contact and
+  // nothing happened, leaving ANGRAU's dean sitting under a Kodada visit.
+  // A field is replaceable when it is empty OR when this code is the thing
+  // that filled it (contactAutoFor still names the party it was filled
+  // for). Anything a person typed is left alone, and once they edit a
+  // field by hand contactAutoFor is cleared, so it is never overwritten
+  // again.
+  const applyClientContact = async (
+    tripIndex: number,
+    visitIndex: number,
+    clientName: string,
+    current: {
+      person?: string;
+      designation?: string;
+      mobile?: string;
+      location?: string;
+      autoFor?: string;
+      geoTagged?: boolean;
+    },
+    fallback?: { person?: string; designation?: string; mobile?: string }
+  ) => {
+    // Ours to touch: nothing there, or there because we put it there.
+    const ours = String(current.autoFor || "").trim().length > 0;
+    const mayReplace = (value?: string) => !String(value || "").trim() || ours;
+
+    const fill = (c: {
+      person?: string;
+      designation?: string;
+      mobile?: string;
+      location?: string;
+    }) => {
+      let wrote = false;
+      if (mayReplace(current.person) && String(c.person || "").trim()) {
+        updateTripVisit(tripIndex, visitIndex, "contactPerson", String(c.person).trim());
+        wrote = true;
+      }
+      if (mayReplace(current.designation) && String(c.designation || "").trim()) {
+        updateTripVisit(tripIndex, visitIndex, "contactDesignation", String(c.designation).trim());
+        wrote = true;
+      }
+      if (mayReplace(current.mobile) && String(c.mobile || "").trim()) {
+        updateTripVisit(tripIndex, visitIndex, "mobile", String(c.mobile).trim());
+        wrote = true;
+      }
+      // Location only when the visit has not been geo tagged - a tagged
+      // position is where the person actually is and outranks history.
+      if (
+        !current.geoTagged &&
+        mayReplace(current.location) &&
+        String(c.location || "").trim()
+      ) {
+        updateTripVisit(tripIndex, visitIndex, "location", String(c.location).trim());
+        wrote = true;
+      }
+      return wrote;
+    };
+
+    // Mark the fields as ours BEFORE writing, so a second party change in
+    // the same session is still allowed to replace them.
+    updateTripVisit(tripIndex, visitIndex, "contactAutoFor", clientName);
+
+    // Whatever the list already knows goes in immediately - no waiting on
+    // the network for a value already in hand.
+    const filledFromList = fallback ? fill(fallback) : false;
+
+    try {
+      const res = await api.get("OnDuty/get_client_contact", {
+        params: { clientName },
+        headers: authHeaders(),
+      });
+      const body = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      if (body?.found) {
+        fill({
+          person: body.Contact_Person ?? body.contact_Person,
+          designation: body.Contact_Designation ?? body.contact_Designation,
+          mobile: body.Mobile_Number ?? body.mobile_Number,
+          location: body.Location ?? body.location,
+        });
+      } else if (ours) {
+        // This party has nothing on record. Leaving the previous party's
+        // contact behind would be worse than an empty form.
+        updateTripVisit(tripIndex, visitIndex, "contactPerson", "");
+        updateTripVisit(tripIndex, visitIndex, "contactDesignation", "");
+        updateTripVisit(tripIndex, visitIndex, "mobile", "");
+        if (!current.geoTagged) updateTripVisit(tripIndex, visitIndex, "location", "");
+        notify("No contact on record for this party yet", "warning");
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      console.warn(
+        "[OnDuty] get_client_contact failed:",
+        status ? `HTTP ${status}` : err?.message || err,
+        err?.response?.data
+      );
+      // Only worth saying if the fields are actually still empty. The
+      // party list usually carries the same details, and warning about a
+      // failed refresh while the right contact sits filled in on screen
+      // is noise that makes a working screen look broken.
+      if (!filledFromList) {
+        notify(
+          status === 404
+            ? "Contact lookup is not available on this API build yet"
+            : "Could not fetch this party's contact details",
+          "warning"
+        );
+      }
+    }
+  };
+
   const loadBranches = async () => {
     try {
       const res = await api.get("Sources/Load_Branch", { headers: authHeaders() });
@@ -3725,6 +4315,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     if (userLoaded && empCode) {
       loadTeam();
       loadClients();
+      loadVisitClients();
       loadBranches();
       loadDuties();
       loadVehicleMaster();
@@ -4663,6 +5254,39 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     if (typeof file === "string") return file.split("/").pop() || "";
     return "";
   };
+  /** Turn coordinates into the kind of place name that is actually typed
+   *  into the Location field - "Chebrolu", "Mothadaka, Guntur" - rather
+   *  than Nominatim's full display_name, which runs to the postcode and
+   *  the country and would wreck the de-duplicated location list. */
+  const placeNameFromCoords = async (lat: string, lng: string): Promise<string> => {
+    const isLocal =
+      window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const isNative = Capacitor.isNativePlatform();
+    const base =
+      isLocal && !isNative ? "/nominatim/reverse" : "https://nominatim.openstreetmap.org/reverse";
+
+    const res = await axios.get(
+      `${base}?format=json&addressdetails=1&zoom=14&lat=${lat}&lon=${lng}`
+    );
+    const a = res?.data?.address || {};
+
+    // Most specific recognisable settlement first.
+    const place =
+      a.village || a.town || a.suburb || a.neighbourhood || a.hamlet ||
+      a.city_district || a.city || a.municipality || "";
+    // The district it sits in, to tell two villages of the same name apart.
+    const district = String(a.state_district || a.county || "").replace(/\s*district$/i, "").trim();
+
+    if (place && district && place.toLowerCase() !== district.toLowerCase()) {
+      return `${place}, ${district}`;
+    }
+    if (place) return place;
+    if (district) return district;
+    // Nothing usable in the structured address - first part of the free
+    // text beats nothing, and beats a raw coordinate pair.
+    return String(res?.data?.display_name || "").split(",")[0].trim();
+  };
+
   const tagVisitLocation = (tripIndex: number, visitIndex: number) => {
     if (!navigator.geolocation) {
       notify("Geolocation not supported", "danger");
@@ -4670,14 +5294,28 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = pos.coords.latitude.toFixed(6);
         const lng = pos.coords.longitude.toFixed(6);
 
         updateTripVisit(tripIndex, visitIndex, "latitude", lat);
         updateTripVisit(tripIndex, visitIndex, "longitude", lng);
-
         notify("Geo Tagged Successfully", "success");
+
+        // The coordinates are the record; the name is what anybody reading
+        // a visit later can actually use. Tapping Geo Tag is an explicit
+        // "I am here", so the resolved name replaces what is in the field.
+        try {
+          const name = await placeNameFromCoords(lat, lng);
+          if (name) {
+            updateTripVisit(tripIndex, visitIndex, "location", name);
+          } else {
+            notify("Tagged, but the place name could not be resolved", "warning");
+          }
+        } catch (err: any) {
+          console.warn("[OnDuty] reverse geocode failed:", err?.message || err);
+          notify("Tagged, but the place name could not be fetched", "warning");
+        }
       },
       () => notify("Permission denied", "warning"),
       { enableHighAccuracy: true }
@@ -6625,7 +7263,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                     <div className="daylog-visit-top">
                                       <div className="daylog-client-title">
                                         <Building2 size={15} color="#d97706" />
-                                        <span>{visit.partyName ? visit.partyName : `Client Stop #${vIndex + 1}`}</span>
+                                        <span>{visit.partyName ? visit.partyName : `Visit #${vIndex + 1}`}</span>
                                       </div>
 
                                       <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
@@ -7247,30 +7885,56 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                   {/* TRANSPORT & ODOMETER CARD */}
                   {!isPublicTransport && (
                     <div className="daytrip-card">
-                      <div className="daytrip-card-header">
+                      <button
+                        type="button"
+                        className="daytrip-card-header od-head"
+                        onClick={() => setOdoOpen((v) => !v)}
+                        aria-expanded={odoOpen}
+                      >
                         <div className="daytrip-card-title-group">
                           <div className="daytrip-card-title-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
                             <Gauge size={16} />
                           </div>
                           <div className="daytrip-card-title">
-                            {tripModalMode === "add" ? "Start Meter Reading" : "Odometer Readings"}
+                            {tripModalMode === "add" ? "Start Meter Reading" : "Odometer"}
                           </div>
                         </div>
+
+                        {/* Folded up, the header carries the figures - the
+                            point of collapsing is to stop scrolling past
+                            them, not to hide them. */}
+                        {!odoOpen && (
+                          <span className="od-head-sum">
+                            <span>{trip.readingFrom || "\u2014"}</span>
+                            <span className="od-head-arrow">{"\u2192"}</span>
+                            <span>{trip.readingTo || "\u2014"}</span>
+                            {trip.distance ? <em>{trip.distance} km</em> : null}
+                            {isOfficeVehicle && trip.fuelAmount ? <em>{"\u20b9"}{trip.fuelAmount}</em> : null}
+                          </span>
+                        )}
+
                         {tripModalMode === "add" && hasReadingFromImage && (
                           <span className="daytrip-mode-badge" style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #86efac" }}>
                             <CheckCircle2 size={12} /> Ready
                           </span>
                         )}
-                      </div>
 
-                      <div className={tripModalMode === "edit" ? "daytrip-grid-2" : ""}>
-                        {/* READING FROM */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-                          <label className="daytrip-input-label">
-                            <Camera size={14} color="#d97706" />
-                            <span>Starting Reading Photo</span>
-                            <span style={{ color: "#ef4444" }}>*</span>
-                          </label>
+                        <ChevronDown
+                          size={16}
+                          className={`od-head-chev ${odoOpen ? "open" : ""}`}
+                        />
+                      </button>
+
+                      {odoOpen && (
+                      <>
+
+                      {/* Four identical rows: key, value, actions - the
+                          buttons live INSIDE the box with the number.
+                          Written as markup rather than forced into the old
+                          upload cards with CSS: those cards are a heading,
+                          a subtitle, a status line and a filename, and no
+                          amount of display:contents turns that into a row. */}
+                      <div className="daytrip-grid-2">
 
                           <input
                             hidden
@@ -7311,156 +7975,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                             }}
                           />
 
-                          {!hasReadingFromImage ? (
-                            <div className={`daytrip-upload-dual-box ${isReadingLocked(trip.dutyDate, "from", false) ? "disabled" : ""}`}>
-                              <div className="daytrip-upload-dual-header">
-                                <div className="daytrip-upload-dual-icon">
-                                  <Camera size={20} />
-                                </div>
-                                <div className="daytrip-upload-dual-text">
-                                  <div className="daytrip-upload-title">Start Meter Photo</div>
-                                  <div className="daytrip-upload-sub">Take photo with camera or browse file</div>
-                                </div>
-                              </div>
-                              <div className="daytrip-upload-dual-actions">
-                                <button
-                                  type="button"
-                                  className="daytrip-dual-btn cam"
-                                  disabled={isReadingLocked(trip.dutyDate, "from", false)}
-                                  onClick={() => triggerReadingCamera("from")}
-                                >
-                                  <Camera size={14} /> Open Camera
-                                </button>
-                                <button
-                                  type="button"
-                                  className="daytrip-dual-btn file"
-                                  disabled={isReadingLocked(trip.dutyDate, "from", false)}
-                                  onClick={() => triggerReadingFileUpload("from")}
-                                >
-                                  <Upload size={14} /> Upload File
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="daytrip-attached-card">
-                              <div className="daytrip-attached-left">
-                                <div className="daytrip-attached-icon">
-                                  <Check size={18} />
-                                </div>
-                                <div className="daytrip-attached-info">
-                                  <div className="daytrip-attached-status">Photo Attached</div>
-                                  <div
-                                    className="daytrip-attached-name"
-                                    onClick={() => openFilePreview(trip.readingFromImage)}
-                                    title="Click to preview"
-                                  >
-                                    {getFileLabel(trip.readingFromImage)}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="daytrip-attached-actions">
-                                <button
-                                  type="button"
-                                  className="daytrip-btn-preview"
-                                  onClick={() => openFilePreview(trip.readingFromImage)}
-                                >
-                                  <Eye size={12} /> View
-                                </button>
-                                {!isReadingLocked(trip.dutyDate, "from", true) && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="daytrip-btn-camera"
-                                      onClick={() => triggerReadingCamera("from")}
-                                      title="Retake with camera"
-                                    >
-                                      <Camera size={12} /> Camera
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="daytrip-btn-replace"
-                                      onClick={() => triggerReadingFileUpload("from")}
-                                      title="Replace with file"
-                                    >
-                                      <RotateCw size={12} /> Replace
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {isReadingLocked(trip.dutyDate, "from", hasReadingFromImage) && (
-                            <div className="daytrip-locked-banner">
-                              <Lock size={14} />
-                              <span>Locked — uploaded over 5 minutes ago</span>
-                            </div>
-                          )}
-
-                          <div className="daytrip-input-group">
-                            <label className="daytrip-input-label">
-                              <Gauge size={14} color="#d97706" />
-                              <span>Reading From (Odometer Value)</span>
-                            </label>
-                            <div className="daytrip-input-field-wrapper">
-                              <Gauge size={18} className="daytrip-input-icon" />
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                value={trip.readingFrom}
-                                disabled={
-                                  !hasReadingFromImage ||
-                                  isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
-                                }
-                                placeholder={
-                                  isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
-                                    ? "Locked - uploaded over 5 minutes ago"
-                                    : hasReadingFromImage
-                                      ? "Enter Start Reading (e.g. 12450)"
-                                      : "Upload photo above to unlock"
-                                }
-                                onChange={(e) => {
-                                  const value = e.target.value;
-
-                                  updateTripDay(
-                                    editingTripIndex!,
-                                    "readingFrom",
-                                    value
-                                  );
-
-                                  if (tripModalMode === "add") {
-                                    updateTripDay(
-                                      editingTripIndex!,
-                                      "readingTo",
-                                      value
-                                    );
-                                  }
-
-                                  autoFillDistance(
-                                    editingTripIndex!,
-                                    value,
-                                    tripModalMode === "add" ? value : trip.readingTo
-                                  );
-                                }}
-                                className="daytrip-input"
-                              />
-                            </div>
-                            {tripModalMode === "add" && hasReadingFromImage && (
-                              <div className="daytrip-helper-text">
-                                ✨ Reading To will automatically initialize with this value.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* READING TO (Only in Edit mode) */}
-                        {tripModalMode === "edit" && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-                            <label className="daytrip-input-label">
-                              <Camera size={14} color="#d97706" />
-                              <span>Closing Reading Photo</span>
-                            </label>
-
                             <input
                               hidden
                               ref={readingToInputRef}
@@ -7492,196 +8006,139 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                               }}
                             />
 
-                            {!trip.readingToImage ? (
-                              <div className={`daytrip-upload-dual-box ${isReadingLocked(trip.dutyDate, "to", false) ? "disabled" : ""}`}>
-                                <div className="daytrip-upload-dual-header">
-                                  <div className="daytrip-upload-dual-icon">
-                                    <Camera size={20} />
-                                  </div>
-                                  <div className="daytrip-upload-dual-text">
-                                    <div className="daytrip-upload-title">Closing Meter Photo</div>
-                                    <div className="daytrip-upload-sub">Take photo with camera or browse file</div>
-                                  </div>
-                                </div>
-                                <div className="daytrip-upload-dual-actions">
+                        {/* START */}
+                        <div className={`od-row ${hasReadingFromImage ? "has" : ""}`}>
+                          <span className="od-key">
+                            <Gauge size={12} /> Start
+                            <span style={{ color: "#ef4444" }}>*</span>
+                          </span>
+                          <input
+                            className="od-val"
+                            type="number"
+                            inputMode="decimal"
+                            value={trip.readingFrom}
+                            disabled={
+                              !hasReadingFromImage ||
+                              isReadingLocked(trip.dutyDate, "from", hasReadingFromImage)
+                            }
+                            placeholder={hasReadingFromImage ? "0" : "photo first"}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              updateTripDay(editingTripIndex!, "readingFrom", value);
+                              if (tripModalMode === "add") {
+                                updateTripDay(editingTripIndex!, "readingTo", value);
+                              }
+                              autoFillDistance(
+                                editingTripIndex!,
+                                value,
+                                tripModalMode === "add" ? value : trip.readingTo
+                              );
+                            }}
+                          />
+                          <span className="od-acts">
+                            {hasReadingFromImage && (
+                              <button
+                                type="button"
+                                className="od-btn"
+                                title="View photo"
+                                onClick={() => openFilePreview(trip.readingFromImage)}
+                              >
+                                <Eye size={14} />
+                              </button>
+                            )}
+                            {!isReadingLocked(trip.dutyDate, "from", hasReadingFromImage) && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="od-btn cam"
+                                  title={
+                                    hasReadingFromImage
+                                      ? "Retake - camera, or Browse for a file"
+                                      : "Take a photo, or Browse for a file"
+                                  }
+                                  onClick={() => triggerReadingCamera("from")}
+                                >
+                                  <Camera size={14} />
+                                </button>
+                              </>
+                            )}
+                            {isReadingLocked(trip.dutyDate, "from", hasReadingFromImage) && (
+                              <span className="od-lock" title="Locked - uploaded over 5 minutes ago">
+                                <Lock size={13} />
+                              </span>
+                            )}
+                          </span>
+                        </div>
+
+                        {/* CLOSING */}
+                        {tripModalMode === "edit" && (
+                          <div className={`od-row ${hasReadingToImage ? "has" : ""}`}>
+                            <span className="od-key">
+                              <Gauge size={12} /> Closing
+                            </span>
+                            <input
+                              className="od-val"
+                              type="number"
+                              inputMode="decimal"
+                              value={trip.readingTo}
+                              disabled={
+                                !trip.readingToImage ||
+                                isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
+                              }
+                              placeholder={trip.readingToImage ? "0" : "photo first"}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (editingTripIndex === undefined) return;
+                                updateTripDay(editingTripIndex, "readingTo", value);
+                                autoFillDistance(editingTripIndex!, trip.readingFrom, value);
+                              }}
+                            />
+                            <span className="od-acts">
+                              {hasReadingToImage && (
+                                <button
+                                  type="button"
+                                  className="od-btn"
+                                  title="View photo"
+                                  onClick={() => openFilePreview(trip.readingToImage)}
+                                >
+                                  <Eye size={14} />
+                                </button>
+                              )}
+                              {!isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage) && (
+                                <>
                                   <button
                                     type="button"
-                                    className="daytrip-dual-btn cam"
-                                    disabled={isReadingLocked(trip.dutyDate, "to", false)}
+                                    className="od-btn cam"
+                                    title={
+                                      hasReadingToImage
+                                        ? "Retake - camera, or Browse for a file"
+                                        : "Take a photo, or Browse for a file"
+                                    }
                                     onClick={() => triggerReadingCamera("to")}
                                   >
-                                    <Camera size={14} /> Open Camera
+                                    <Camera size={14} />
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="daytrip-dual-btn file"
-                                    disabled={isReadingLocked(trip.dutyDate, "to", false)}
-                                    onClick={() => triggerReadingFileUpload("to")}
-                                  >
-                                    <Upload size={14} /> Upload File
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="daytrip-attached-card">
-                                <div className="daytrip-attached-left">
-                                  <div className="daytrip-attached-icon">
-                                    <Check size={18} />
-                                  </div>
-                                  <div className="daytrip-attached-info">
-                                    <div className="daytrip-attached-status">Photo Attached</div>
-                                    <div
-                                      className="daytrip-attached-name"
-                                      onClick={() => openFilePreview(trip.readingToImage)}
-                                      title="Click to preview"
-                                    >
-                                      {getFileLabel(trip.readingToImage)}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="daytrip-attached-actions">
-                                  <button
-                                    type="button"
-                                    className="daytrip-btn-preview"
-                                    onClick={() => openFilePreview(trip.readingToImage)}
-                                  >
-                                    <Eye size={12} /> View
-                                  </button>
-                                  {!isReadingLocked(trip.dutyDate, "to", true) && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="daytrip-btn-camera"
-                                        onClick={() => triggerReadingCamera("to")}
-                                        title="Retake with camera"
-                                      >
-                                        <Camera size={12} /> Camera
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="daytrip-btn-replace"
-                                        onClick={() => triggerReadingFileUpload("to")}
-                                        title="Replace with file"
-                                      >
-                                        <RotateCw size={12} /> Replace
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage) && (
-                              <div className="daytrip-locked-banner">
-                                <Lock size={14} />
-                                <span>Locked — uploaded over 5 minutes ago</span>
-                              </div>
-                            )}
-
-                            <div className="daytrip-input-group">
-                              <label className="daytrip-input-label">
-                                <Gauge size={14} color="#d97706" />
-                                <span>Reading To (Odometer Value)</span>
-                              </label>
-                              <div className="daytrip-input-field-wrapper">
-                                <Gauge size={18} className="daytrip-input-icon" />
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  value={trip.readingTo}
-                                  disabled={
-                                    !trip.readingToImage ||
-                                    isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
-                                  }
-                                  placeholder={
-                                    isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage)
-                                      ? "Locked - uploaded over 5 minutes ago"
-                                      : trip.readingToImage
-                                        ? "Enter Closing Reading (e.g. 12580)"
-                                        : "Upload photo above to unlock"
-                                  }
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (editingTripIndex === undefined) return;
-
-                                    updateTripDay(
-                                      editingTripIndex,
-                                      "readingTo",
-                                      value
-                                    );
-
-                                    autoFillDistance(
-                                      editingTripIndex!,
-                                      trip.readingFrom,
-                                      value
-                                    );
-                                  }}
-                                  className="daytrip-input"
-                                />
-                              </div>
-                            </div>
+                                </>
+                              )}
+                              {isReadingLocked(trip.dutyDate, "to", !!trip.readingToImage) && (
+                                <span className="od-lock" title="Locked - uploaded over 5 minutes ago">
+                                  <Lock size={13} />
+                                </span>
+                              )}
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      {/* DISTANCE & FUEL (in Edit mode) */}
+                      {/* DISTANCE & FUEL - same row shape as the readings. */}
                       {tripModalMode === "edit" && (
-                        <div
-                          className="daytrip-grid-2"
-                          style={{
-                            marginTop: "12px",
-                            paddingTop: "14px",
-                            borderTop: "1px solid #f1f5f9",
-                          }}
-                        >
-                          {/* DISTANCE */}
-                          <div className="daytrip-input-group">
-                            <label className="daytrip-input-label">
-                              <Navigation size={14} color="#d97706" />
-                              <span>Distance (Kms)</span>
-                              {!isPublicTransport && (
-                                <span className="daytrip-mode-badge" style={{ background: "#fef3c7", color: "#b45309", fontSize: "10px" }}>
-                                  Auto-calculated
-                                </span>
-                              )}
-                            </label>
-                            <div className="daytrip-input-field-wrapper">
-                              <Navigation size={18} className="daytrip-input-icon" />
-                              <input
-                                type="number"
-                                value={trip.distance}
-                                disabled={!isPublicTransport}
-                                placeholder={
-                                  isPublicTransport
-                                    ? "Enter Distance"
-                                    : "Auto calculated from readings"
-                                }
-                                onChange={(e) =>
-                                  updateTripDay(
-                                    editingTripIndex!,
-                                    "distance",
-                                    e.target.value || ""
-                                  )
-                                }
-                                className="daytrip-input"
-                              />
-                            </div>
-                          </div>
-
-                          {/* FUEL (Office Vehicles) */}
-                          {isOfficeVehicle && (
-                            <div className="daytrip-input-group">
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
-                                <label className="daytrip-input-label">
-                                  <Fuel size={14} color="#d97706" />
-                                  <span>Fuel Amount (₹)</span>
-                                </label>
+                        <div className="daytrip-grid-2" style={{ marginTop: "8px" }}>
                                 <input
                                   hidden
                                   id="dt-fuel-file-input"
                                   type="file"
                                   accept="image/*"
-                                  onClick={saveModalScroll}
+                                  onClick={() => { void saveModalScroll(); }}
                                   onChange={(e) => {
                                     updateTripDay(
                                       editingTripIndex!,
@@ -7692,78 +8149,74 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                     e.target.value = "";
                                   }}
                                 />
-                                {trip.fuelImage ? (
-                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                    <span
-                                      style={{
-                                        fontSize: "11px",
-                                        color: "#15803d",
-                                        fontWeight: 700,
-                                        cursor: "pointer",
-                                        textDecoration: "underline",
-                                      }}
-                                      onClick={() => openFilePreview(trip.fuelImage)}
-                                    >
-                                      View Bill ({getFileLabel(trip.fuelImage)})
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className="daytrip-action-pill-btn cam"
-                                      onClick={() => openCameraCapture({ type: "fuel" }, "environment")}
-                                      title="Retake fuel bill photo"
-                                    >
-                                      <Camera size={11} /> Camera
-                                    </button>
-                                    <label
-                                      htmlFor="dt-fuel-file-input"
-                                      className="daytrip-action-pill-btn upload"
-                                      title="Change fuel bill file"
-                                    >
-                                      <RotateCw size={11} /> Change
-                                    </label>
-                                  </div>
-                                ) : (
-                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                    <button
-                                      type="button"
-                                      className="daytrip-action-pill-btn cam"
-                                      onClick={() => openCameraCapture({ type: "fuel" }, "environment")}
-                                    >
-                                      <Camera size={12} /> Camera
-                                    </button>
-                                    <label
-                                      htmlFor="dt-fuel-file-input"
-                                      className="daytrip-action-pill-btn upload"
-                                    >
-                                      <Upload size={12} /> Upload Bill
-                                    </label>
-                                  </div>
+
+                          {/* DISTANCE - calculated, so no buttons. */}
+                          <div className="od-row static">
+                            <span className="od-key">
+                              <Navigation size={12} /> Distance
+                            </span>
+                            <input
+                              className="od-val"
+                              type="number"
+                              inputMode="decimal"
+                              value={trip.distance}
+                              disabled={!isPublicTransport}
+                              placeholder="0"
+                              onChange={(e) =>
+                                updateTripDay(editingTripIndex!, "distance", e.target.value || "")
+                              }
+                            />
+                            <span className="od-acts">
+                              <span className="od-auto">auto</span>
+                            </span>
+                          </div>
+
+                          {/* FUEL */}
+                          {isOfficeVehicle && (
+                            <div className={`od-row ${trip.fuelImage ? "has" : ""}`}>
+                              <span className="od-key">
+                                <Fuel size={12} /> Fuel
+                              </span>
+                              <input
+                                className="od-val"
+                                type="number"
+                                inputMode="decimal"
+                                value={trip.fuelAmount}
+                                disabled={!trip.fuelImage}
+                                placeholder={trip.fuelImage ? "0" : "bill first"}
+                                onChange={(e) =>
+                                  updateTripDay(editingTripIndex!, "fuelAmount", e.target.value || "")
+                                }
+                              />
+                              <span className="od-acts">
+                                {trip.fuelImage && (
+                                  <button
+                                    type="button"
+                                    className="od-btn"
+                                    title="View bill"
+                                    onClick={() => openFilePreview(trip.fuelImage)}
+                                  >
+                                    <Eye size={14} />
+                                  </button>
                                 )}
-                              </div>
-                              <div className="daytrip-input-field-wrapper">
-                                <Fuel size={18} className="daytrip-input-icon" />
-                                <input
-                                  type="number"
-                                  value={trip.fuelAmount}
-                                  disabled={!trip.fuelImage}
-                                  placeholder={
+                                <button
+                                  type="button"
+                                  className="od-btn cam"
+                                  title={
                                     trip.fuelImage
-                                      ? "Enter Fuel Amount (₹)"
-                                      : "Upload bill image to unlock"
+                                      ? "Retake the bill - camera, or Browse for a file"
+                                      : "Photograph the bill, or Browse for a file"
                                   }
-                                  onChange={(e) =>
-                                    updateTripDay(
-                                      editingTripIndex!,
-                                      "fuelAmount",
-                                      e.target.value || ""
-                                    )
-                                  }
-                                  className="daytrip-input"
-                                />
-                              </div>
+                                  onClick={() => openCameraCapture({ type: "fuel" }, "environment")}
+                                >
+                                  <Camera size={14} />
+                                </button>
+                              </span>
                             </div>
                           )}
                         </div>
+                      )}
+                      </>
                       )}
                     </div>
                   )}
@@ -7789,6 +8242,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                           <Navigation size={18} className="daytrip-input-icon" />
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={trip.distance}
                             placeholder="Enter Total Distance Traveled in Kms"
                             onChange={(e) =>
@@ -7814,9 +8268,9 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                             <Building2 size={16} />
                           </div>
                           <div>
-                            <div className="daytrip-card-title">Client / Party Visits</div>
+                            <div className="daytrip-card-title">Visits</div>
                             <div style={{ fontSize: "11px", color: "#64748b" }}>
-                              {trip.visits.length} visit stop{trip.visits.length === 1 ? "" : "s"} recorded
+                              {trip.visits.length} visit{trip.visits.length === 1 ? "" : "s"} recorded
                             </div>
                           </div>
                         </div>
@@ -7826,196 +8280,28 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                         const hasGeo = !!visit.latitude && !!visit.longitude;
 
                         return (
-                          <div key={visitIndex} className="daytrip-visit-box">
+                          <div
+                            key={visitIndex}
+                            id={`dt-visit-box-${visitIndex}`}
+                            className={`daytrip-visit-box ${justAddedVisit === visitIndex ? "just-added" : ""}`}
+                          >
                             <div className="daytrip-visit-header">
                               <div className="daytrip-visit-badge">
                                 <Building2 size={13} />
-                                <span>Client Stop #{visitIndex + 1}</span>
+                                <span>Visit #{visitIndex + 1}</span>
                               </div>
 
-                              {trip.visits.length > 1 && (
-                                <button
-                                  type="button"
-                                  className="daytrip-btn-remove-visit"
-                                  onClick={() => removeTripVisit(editingTripIndex, visitIndex)}
-                                  title="Remove this visit stop"
-                                >
-                                  <Trash2 size={14} /> Remove
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Client Party Slip & Name */}
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
-                                <label className="daytrip-input-label">
-                                  <Building2 size={14} color="#d97706" />
-                                  <span>Client / Party Name</span>
-                                  <span style={{ color: "#ef4444" }}>*</span>
-                                </label>
-
-                                <input
-                                  hidden
-                                  id={`dt-visit-slip-${visitIndex}`}
-                                  type="file"
-                                  accept="image/*"
-                                  onClick={saveModalScroll}
-                                  onChange={(e) => {
-                                    updateTripVisit(
-                                      editingTripIndex!,
-                                      visitIndex,
-                                      "visitSlipImage",
-                                      e.target.files?.[0] || null
-                                    );
-                                    restoreModalScroll();
-                                    e.target.value = "";
-                                  }}
-                                />
-
-                                {visit.visitSlipImage ? (
-                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                    <span
-                                      style={{
-                                        fontSize: "11.5px",
-                                        color: "#15803d",
-                                        fontWeight: 700,
-                                        cursor: "pointer",
-                                        textDecoration: "underline",
-                                      }}
-                                      onClick={() => openFilePreview(visit.visitSlipImage)}
-                                    >
-                                      ✓ Slip Attached ({getFileLabel(visit.visitSlipImage)})
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className="daytrip-action-pill-btn cam"
-                                      onClick={() => openCameraCapture({ type: "visitSlip", visitIndex }, "environment")}
-                                      title="Retake visit slip photo"
-                                    >
-                                      <Camera size={11} /> Camera
-                                    </button>
-                                    <label
-                                      htmlFor={`dt-visit-slip-${visitIndex}`}
-                                      className="daytrip-action-pill-btn upload"
-                                      title="Change visit slip file"
-                                    >
-                                      <RotateCw size={11} /> Change
-                                    </label>
-                                  </div>
-                                ) : (
-                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                    <button
-                                      type="button"
-                                      className="daytrip-action-pill-btn cam"
-                                      onClick={() => openCameraCapture({ type: "visitSlip", visitIndex }, "environment")}
-                                    >
-                                      <Camera size={12} /> Take Photo
-                                    </button>
-                                    <label
-                                      htmlFor={`dt-visit-slip-${visitIndex}`}
-                                      className="daytrip-action-pill-btn upload"
-                                    >
-                                      <Upload size={12} /> Upload Slip
-                                    </label>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="daytrip-input-field-wrapper">
-                                <Building2 size={18} className="daytrip-input-icon" />
-                                <input
-                                  value={visit.partyName}
-                                  disabled={!visit.visitSlipImage}
-                                  placeholder={
-                                    visit.visitSlipImage
-                                      ? "Enter Client / Party Name"
-                                      : "Upload visit slip above to unlock"
-                                  }
-                                  onChange={(e) =>
-                                    updateTripVisit(
-                                      editingTripIndex!,
-                                      visitIndex,
-                                      "partyName",
-                                      e.target.value || ""
-                                    )
-                                  }
-                                  className="daytrip-input"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Location & Local Transport Grid */}
-                            <div className="daytrip-grid-2">
-                              {/* Location with Geo Tag */}
-                              <div className="daytrip-input-group">
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                  <label className="daytrip-input-label">
-                                    <MapPin size={14} color="#10b981" />
-                                    <span>Location</span>
-                                  </label>
-                                  <button
-                                    type="button"
-                                    className={`daytrip-geo-btn ${hasGeo ? "tagged" : ""}`}
-                                    onClick={() => tagVisitLocation(editingTripIndex!, visitIndex)}
-                                  >
-                                    <MapPin size={12} />
-                                    {hasGeo ? "Geo Tagged ✓" : "Tap to Geo Tag"}
-                                  </button>
-                                </div>
-                                <div className="daytrip-input-field-wrapper">
-                                  <MapPin size={18} className="daytrip-input-icon" />
-                                  <input
-                                    value={visit.location}
-                                    disabled={!hasGeo}
-                                    placeholder={
-                                      hasGeo ? "Enter Location" : "Click 'Tap to Geo Tag' first"
-                                    }
-                                    onChange={(e) =>
-                                      updateTripVisit(
-                                        editingTripIndex!,
-                                        visitIndex,
-                                        "location",
-                                        e.target.value || ""
-                                      )
-                                    }
-                                    className="daytrip-input"
-                                  />
-                                </div>
-                                {hasGeo && (
-                                  <div
-                                    style={{
-                                      fontSize: "11px",
-                                      color: "#059669",
-                                      fontWeight: 600,
-                                      cursor: "pointer",
-                                      textDecoration: "underline",
-                                      marginTop: "2px",
-                                    }}
-                                    onClick={() =>
-                                      window.open(
-                                        `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
-                                        "_blank"
-                                      )
-                                    }
-                                  >
-                                    🗺️ View Coordinates ({getGeoLabel(visit.latitude, visit.longitude)})
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Local Transport */}
-                              <div className="daytrip-input-group">
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
-                                  <label className="daytrip-input-label">
-                                    <Car size={14} color="#d97706" />
-                                    <span>Local Transport (₹)</span>
-                                  </label>
+                                {/* LOCAL TRANSPORT */}
+                                <div className={`od-row ${visit.localTransportImage ? "has" : ""}`}>
+                                  <span className="od-key">
+                                    <Car size={12} /> Transport
+                                  </span>
                                   <input
                                     hidden
                                     id={`dt-loc-trans-${visitIndex}`}
                                     type="file"
                                     accept="image/*"
-                                    onClick={saveModalScroll}
+                                    onClick={() => saveModalScroll(`dt-visit-box-${visitIndex}`)}
                                     onChange={(e) => {
                                       updateTripVisit(
                                         editingTripIndex!,
@@ -8027,65 +8313,13 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                       e.target.value = "";
                                     }}
                                   />
-                                  {visit.localTransportImage ? (
-                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                      <span
-                                        style={{
-                                          fontSize: "11px",
-                                          color: "#15803d",
-                                          fontWeight: 700,
-                                          cursor: "pointer",
-                                          textDecoration: "underline",
-                                        }}
-                                        onClick={() => openFilePreview(visit.localTransportImage)}
-                                      >
-                                        View Bill ({getFileLabel(visit.localTransportImage)})
-                                      </span>
-                                      <button
-                                        type="button"
-                                        className="daytrip-action-pill-btn cam"
-                                        onClick={() => openCameraCapture({ type: "localTransport", visitIndex }, "environment")}
-                                        title="Retake transport bill photo"
-                                      >
-                                        <Camera size={11} /> Camera
-                                      </button>
-                                      <label
-                                        htmlFor={`dt-loc-trans-${visitIndex}`}
-                                        className="daytrip-action-pill-btn upload"
-                                        title="Change transport bill file"
-                                      >
-                                        <RotateCw size={11} /> Change
-                                      </label>
-                                    </div>
-                                  ) : (
-                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                      <button
-                                        type="button"
-                                        className="daytrip-action-pill-btn cam"
-                                        onClick={() => openCameraCapture({ type: "localTransport", visitIndex }, "environment")}
-                                      >
-                                        <Camera size={12} /> Camera
-                                      </button>
-                                      <label
-                                        htmlFor={`dt-loc-trans-${visitIndex}`}
-                                        className="daytrip-action-pill-btn upload"
-                                      >
-                                        <Upload size={12} /> Upload Bill
-                                      </label>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="daytrip-input-field-wrapper">
-                                  <Car size={18} className="daytrip-input-icon" />
                                   <input
+                                    className="od-val"
                                     type="number"
-                                    value={visit.localTransportAmount || ""}
+                                    inputMode="decimal"
+                                    value={visit.localTransportAmount}
                                     disabled={!visit.localTransportImage}
-                                    placeholder={
-                                      visit.localTransportImage
-                                        ? "Enter Amount (₹)"
-                                        : "Upload bill to unlock"
-                                    }
+                                    placeholder={visit.localTransportImage ? "0" : "bill first"}
                                     onChange={(e) =>
                                       updateTripVisit(
                                         editingTripIndex!,
@@ -8094,141 +8328,639 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                         e.target.value || ""
                                       )
                                     }
-                                    className="daytrip-input"
                                   />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Visit Times Grid */}
-                            <div className="daytrip-grid-2">
-                              <div className="daytrip-input-group">
-                                <label className="daytrip-input-label">
-                                  <Clock size={14} color="#d97706" />
-                                  <span>Visit From Time</span>
-                                </label>
-                                <div
-                                  onClick={() => openVisitTimePicker(visitIndex, "visitFromTime")}
-                                  className="daytrip-time-picker-trigger"
-                                  style={{
-                                    color: visit.visitFromTime ? "#0f172a" : "#94a3b8",
-                                  }}
-                                >
-                                  <Clock size={16} color="#d97706" />
-                                  <span>{visit.visitFromTime || "Select Start Time"}</span>
-                                </div>
-                              </div>
-
-                              <div className="daytrip-input-group">
-                                <label className="daytrip-input-label">
-                                  <Clock size={14} color="#d97706" />
-                                  <span>Visit To Time</span>
-                                </label>
-                                <div
-                                  onClick={() => openVisitTimePicker(visitIndex, "visitToTime")}
-                                  className="daytrip-time-picker-trigger"
-                                  style={{
-                                    color: visit.visitToTime ? "#0f172a" : "#94a3b8",
-                                  }}
-                                >
-                                  <Clock size={16} color="#d97706" />
-                                  <span>{visit.visitToTime || "Select End Time"}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Demo Projects */}
-                            <div className="daytrip-input-group">
-                              <label className="daytrip-input-label">
-                                <Sparkles size={14} color="#d97706" />
-                                <span>Demo / Service Projects</span>
-                              </label>
-                              <IonSelect
-                                multiple
-                                interface="popover"
-                                value={visit.demoProjects}
-                                selectedText={
-                                  !visit.demoProjects || visit.demoProjects.length === 0
-                                    ? ""
-                                    : visit.demoProjects.length <= 2
-                                      ? visit.demoProjects.join(", ")
-                                      : `${visit.demoProjects.slice(0, 2).join(", ")} +${visit.demoProjects.length - 2} more`
-                                }
-                                placeholder="Select Demo / Service Projects"
-                                onIonChange={(e) =>
-                                  updateTripVisit(
-                                    editingTripIndex,
-                                    visitIndex,
-                                    "demoProjects",
-                                    e.detail.value || []
-                                  )
-                                }
-                                style={{
-                                  width: "100%",
-                                  minHeight: "48px",
-                                  height: "48px",
-                                  border: "1.5px solid #cbd5e1",
-                                  borderRadius: "12px",
-                                  padding: "0 12px",
-                                  background: "#fff",
-                                  color: "#0f172a",
-                                  boxSizing: "border-box",
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <IonSelectOption value="BEAT Visit">BEAT Visit</IonSelectOption>
-                                <IonSelectOption value="BOAT Visit">BOAT Visit</IonSelectOption>
-                                <IonSelectOption value="Skill Ascent  Visit">Skill Ascent Visit</IonSelectOption>
-                                <IonSelectOption value="Edvedha  Visit">Edvedha Visit</IonSelectOption>
-                                <IonSelectOption value="UNICODE  Visit">UNICODE Visit</IonSelectOption>
-                                <IonSelectOption value="BEAT Demo">BEAT Demo</IonSelectOption>
-                                <IonSelectOption value="BOAT Demo">BOAT Demo</IonSelectOption>
-                                <IonSelectOption value="Skill Ascent  Demo">Skill Ascent Demo</IonSelectOption>
-                                <IonSelectOption value="Edvedha  Demo">Edvedha Demo</IonSelectOption>
-                                <IonSelectOption value="UNICODE  Demo">UNICODE Demo</IonSelectOption>
-                                <IonSelectOption value="BEAT Serv.">BEAT Serv.</IonSelectOption>
-                                <IonSelectOption value="BOAT Serv.">BOAT Serv.</IonSelectOption>
-                                <IonSelectOption value="Skill Ascent  Serv.">Skill Ascent Serv.</IonSelectOption>
-                                <IonSelectOption value="Edvedha  Serv.">Edvedha Serv.</IonSelectOption>
-                                <IonSelectOption value="UNICODE  Serv.">UNICODE Serv.</IonSelectOption>
-                              </IonSelect>
-                            </div>
-
-                            {/* Team Members Present Toggle */}
-                            <div className="daytrip-input-group">
-                              <label className="daytrip-input-label">
-                                <User size={14} color="#d97706" />
-                                <span>Employees Present at this Visit (including you)</span>
-                              </label>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }}>
-                                {formatEmployeeNames(selectedDutyRow?.empNames)
-                                  .filter((emp: any) => emp.code !== empCode)
-                                  .map((emp: any) => {
-                                    const isSelected = (visit.empCodes || []).includes(emp.code);
-                                    return (
+                                  <span className="od-acts">
+                                    {visit.localTransportImage && (
                                       <button
                                         type="button"
-                                        key={emp.code || emp.name}
-                                        onClick={() => {
-                                          const current = visit.empCodes || [];
-                                          const next = isSelected
-                                            ? current.filter((c: string) => c !== emp.code)
-                                            : [...current, emp.code];
-                                          updateTripVisit(editingTripIndex, visitIndex, "empCodes", next);
-                                        }}
-                                        className={`daytrip-emp-pill ${isSelected ? "selected" : "unselected"}`}
+                                        className="od-btn"
+                                        title="View bill"
+                                        onClick={() => openFilePreview(visit.localTransportImage)}
                                       >
-                                        {isSelected ? <Check size={13} /> : <Plus size={13} />}
-                                        <span>{emp.name}</span>
-                                        {emp.code && <span style={{ opacity: 0.65 }}>({emp.code})</span>}
+                                        <Eye size={14} />
                                       </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="od-btn cam"
+                                      title={
+                                        visit.localTransportImage
+                                          ? "Retake the bill - camera, or Browse for a file"
+                                          : "Photograph the bill, or Browse for a file"
+                                      }
+                                      onClick={() =>
+                                        openCameraCapture({ type: "localTransport", visitIndex }, "environment")
+                                      }
+                                    >
+                                      <Camera size={14} />
+                                    </button>
+                                  </span>
+                                </div>
+
+                              {trip.visits.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="daytrip-btn-remove-visit"
+                                  onClick={() => removeTripVisit(editingTripIndex, visitIndex)}
+                                  title="Remove this visit"
+                                >
+                                  <Trash2 size={14} /> Remove
+                                </button>
+                              )}
+                            </div>
+
+                            {/* CLIENT / PARTY - the same row shape, with the
+                                picker as its value and the slip actions
+                                inside it. */}
+
+                                <input
+                                  hidden
+                                  id={`dt-visit-slip-${visitIndex}`}
+                                  type="file"
+                                  accept="image/*"
+                                  onClick={() => saveModalScroll(`dt-visit-box-${visitIndex}`)}
+                                  onChange={(e) => {
+                                    updateTripVisit(
+                                      editingTripIndex!,
+                                      visitIndex,
+                                      "visitSlipImage",
+                                      e.target.files?.[0] || null
                                     );
-                                  })}
+                                    restoreModalScroll();
+                                    e.target.value = "";
+                                  }}
+                                />
+                            <div className={`od-row party ${visit.visitSlipImage ? "has" : ""}`}>
+                              <span className="od-key">
+                                <Building2 size={12} /> Party
+                                <span style={{ color: "#ef4444" }}>*</span>
+                              </span>
+
+                              {(() => {
+                                const pickerKey = `${editingTripIndex}-${visitIndex}`;
+                                const isPickerOpen = partyPickerFor === pickerKey;
+                                const typed = partySearch.trim();
+                                const exact = visitClients.some(
+                                  (c) => c.Client_Name.toLowerCase() === typed.toLowerCase()
+                                );
+                                const term = typed.toLowerCase();
+                                const matches = (
+                                  term
+                                    ? visitClients.filter((c) =>
+                                        c.Client_Name.toLowerCase().includes(term)
+                                      )
+                                    : visitClients
+                                ).slice(0, 80);
+
+                                return (
+                                  <div className="daytrip-input-field-wrapper">
+                                    <Building2 size={18} className="daytrip-input-icon" />
+                                    {/* Display only - the search box is in the
+                                        list, beside the keyboard. */}
+                                    <input
+                                      value={visit.partyName}
+                                      readOnly
+                                      disabled={!visit.visitSlipImage}
+                                      placeholder={
+                                        visit.visitSlipImage
+                                          ? "Select Client / Party"
+                                          : "Upload visit slip to unlock"
+                                      }
+                                      onClick={() => {
+                                        if (!visit.visitSlipImage) return;
+                                        setPartySearch("");
+                                        setPartyPickerFor(isPickerOpen ? null : pickerKey);
+                                      }}
+                                      className="daytrip-input party-pick-input"
+                                    />
+                                    <button
+                                      type="button"
+                                      className="party-pick-toggle"
+                                      disabled={!visit.visitSlipImage}
+                                      title="Pick a party already on record"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        setPartyPickerFor(isPickerOpen ? null : pickerKey);
+                                      }}
+                                    >
+                                      <ChevronDown size={16} />
+                                    </button>
+
+                                    {isPickerOpen && visit.visitSlipImage && (
+                                      <>
+                                        <div
+                                          className="party-pick-backdrop"
+                                          onMouseDown={() => setPartyPickerFor(null)}
+                                        />
+                                        <div className="party-pick-list">
+                                          <div className="pick-search">
+                                            <Search size={15} className="pick-search-icon" />
+                                            <input
+                                              autoFocus
+                                              autoComplete="off"
+                                              value={partySearch}
+                                              placeholder="Search or type a new party"
+                                              onChange={(e) => setPartySearch(e.target.value || "")}
+                                            />
+                                            {partySearch && (
+                                              <button
+                                                type="button"
+                                                className="pick-search-clear"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault();
+                                                  setPartySearch("");
+                                                }}
+                                              >
+                                                <X size={14} />
+                                              </button>
+                                            )}
+                                          </div>
+
+                                          {matches.length > 0 ? (
+                                            matches.map((c) => {
+                                              const picked =
+                                                c.Client_Name.toLowerCase() ===
+                                                typed.toLowerCase();
+                                              return (
+                                                <div
+                                                  key={c.Client_Name}
+                                                  className={`party-pick-item ${picked ? "picked" : ""}`}
+                                                  onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    updateTripVisit(
+                                                      editingTripIndex!,
+                                                      visitIndex,
+                                                      "partyName",
+                                                      c.Client_Name
+                                                    );
+                                                    // Offer whoever was met here last
+                                                    // time. Replaces details this code
+                                                    // filled for a DIFFERENT party;
+                                                    // leaves anything typed by hand.
+                                                    void applyClientContact(
+                                                      editingTripIndex!,
+                                                      visitIndex,
+                                                      c.Client_Name,
+                                                      {
+                                                        person: visit.contactPerson,
+                                                        designation: visit.contactDesignation,
+                                                        mobile: visit.mobile,
+                                                        location: visit.location,
+                                                        autoFor: visit.contactAutoFor,
+                                                        geoTagged: !!visit.latitude && !!visit.longitude,
+                                                      },
+                                                      {
+                                                        person: c.Contact_Person,
+                                                        designation: c.Contact_Designation,
+                                                        mobile: c.Mobile_Number,
+                                                      }
+                                                    );
+                                                    setPartySearch("");
+                                                    setPartyPickerFor(null);
+                                                  }}
+                                                >
+                                                  <span className="party-pick-name">
+                                                    {c.Client_Name}
+                                                  </span>
+                                                  <span className="party-pick-meta">
+                                                    {`${c.Visits} visit${c.Visits === 1 ? "" : "s"}`}
+                                                  </span>
+                                                  {picked && (
+                                                    <Check size={14} className="party-pick-check" />
+                                                  )}
+                                                </div>
+                                              );
+                                            })
+                                          ) : (
+                                            <div className="party-pick-empty">
+                                              {visitClients.length === 0
+                                                ? "Party list not loaded - type the name"
+                                                : "No party matches that"}
+                                            </div>
+                                          )}
+
+                                          {typed.length > 1 && !exact && (
+                                            <div
+                                              className="party-pick-new"
+                                              onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                updateTripVisit(
+                                                  editingTripIndex!,
+                                                  visitIndex,
+                                                  "partyName",
+                                                  typed
+                                                );
+                                                setPartySearch("");
+                                                setPartyPickerFor(null);
+                                              }}
+                                            >
+                                              <Plus size={13} /> Use &quot;{typed}&quot; as a new
+                                              party
+                                            </div>
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              <span className="od-acts">
+                                {visit.visitSlipImage && (
+                                  <button
+                                    type="button"
+                                    className="od-btn"
+                                    title="View the visit slip"
+                                    onClick={() => openFilePreview(visit.visitSlipImage)}
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="od-btn cam"
+                                  title={
+                                    visit.visitSlipImage
+                                      ? "Retake the slip - camera, or Browse for a file"
+                                      : "Photograph the visit slip, or Browse for a file"
+                                  }
+                                  onClick={() =>
+                                    openCameraCapture({ type: "visitSlip", visitIndex }, "environment")
+                                  }
+                                >
+                                  <Camera size={14} />
+                                </button>
+                              </span>
+                            </div>
+
+
+                            {/* LOCATION - full width, like the party row:
+                                a place name is long and there is no reason to
+                                give it half a line. */}
+                            <div className={`od-row ${hasGeo ? "has" : ""}`}>
+                              <span className="od-key">
+                                <MapPin size={12} /> Location
+                                <span style={{ color: "#ef4444" }}>*</span>
+                              </span>
+                              <input
+                                className="od-val"
+                                value={visit.location}
+                                disabled={!hasGeo && !String(visit.location || "").trim()}
+                                placeholder={hasGeo ? "place name" : "geo tag first"}
+                                onChange={(e) =>
+                                  updateTripVisit(
+                                    editingTripIndex!,
+                                    visitIndex,
+                                    "location",
+                                    e.target.value || ""
+                                  )
+                                }
+                              />
+                              <span className="od-acts">
+                                {hasGeo && (
+                                  <button
+                                    type="button"
+                                    className="od-btn"
+                                    title="Open these coordinates in Maps"
+                                    onClick={() =>
+                                      window.open(
+                                        `https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`,
+                                        "_blank"
+                                      )
+                                    }
+                                  >
+                                    <ExternalLink size={14} />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`od-btn ${hasGeo ? "" : "cam"}`}
+                                  title={hasGeo ? "Tag again from where you are now" : "Tag this location"}
+                                  onClick={() => tagVisitLocation(editingTripIndex!, visitIndex)}
+                                >
+                                  <MapPin size={14} />
+                                </button>
+                              </span>
+                            </div>
+
+
+                            {/* Task, then the two times - 6 / 3 / 3 of a
+                                twelve column row. The task name needs the
+                                width; a time is five characters. */}
+                            <div className="daytrip-grid-633">
+                              {/* DEMO / SERVICE - same picker as the party
+                                  name: the label lives in the row, the list
+                                  filters as you type, and a task that is not
+                                  on the list can be typed in. */}
+                              {(() => {
+                                const projKey = `${editingTripIndex}-${visitIndex}`;
+                                const projOpen = projPickerFor === projKey;
+                                const chosen: string[] = visit.demoProjects || [];
+                                // Anything already saved against this visit is
+                                // offered too, so a task typed last week is a
+                                // pick this week.
+                                const options = Array.from(
+                                  new Set([...PROJECT_OPTIONS, ...chosen])
+                                );
+                                const term = projSearch.trim().toLowerCase();
+                                const matches = term
+                                  ? options.filter((o) => o.toLowerCase().includes(term))
+                                  : options;
+                                const exact = options.some(
+                                  (o) => o.trim().toLowerCase() === projSearch.trim().toLowerCase()
+                                );
+                                const summary =
+                                  chosen.length === 0
+                                    ? ""
+                                    : chosen.length <= 2
+                                      ? chosen.join(", ")
+                                      : `${chosen.slice(0, 2).join(", ")} +${chosen.length - 2}`;
+
+                                const toggle = (value: string) => {
+                                  const next = chosen.includes(value)
+                                    ? chosen.filter((c) => c !== value)
+                                    : [...chosen, value];
+                                  updateTripVisit(editingTripIndex, visitIndex, "demoProjects", next);
+                                };
+
+                                return (
+                                  <div className={`od-row party ${chosen.length ? "has" : ""}`}>
+                                    <span className="od-key">
+                                      <Sparkles size={12} /> Task
+                                    </span>
+                                    <div className="daytrip-input-field-wrapper">
+                                      {/* Display only. The search box lives in
+                                          the list, where the keyboard opens
+                                          right under it - typing into a field
+                                          at the top of the screen while the
+                                          list sits at the bottom is the part
+                                          that was awkward. */}
+                                      <input
+                                        className="daytrip-input party-pick-input"
+                                        readOnly
+                                        value={summary}
+                                        placeholder="select task"
+                                        onClick={() => {
+                                          setProjSearch("");
+                                          setProjPickerFor(projOpen ? null : projKey);
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        className="party-pick-toggle"
+                                        title="Pick tasks"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          setProjSearch("");
+                                          setProjPickerFor(projOpen ? null : projKey);
+                                        }}
+                                      >
+                                        <ChevronDown size={16} />
+                                      </button>
+
+                                      {projOpen && (
+                                        <>
+                                          <div
+                                            className="party-pick-backdrop"
+                                            onMouseDown={() => setProjPickerFor(null)}
+                                          />
+                                          <div className="party-pick-list">
+                                            <div className="pick-search">
+                                              <Search size={15} className="pick-search-icon" />
+                                              <input
+                                                autoFocus
+                                                autoComplete="off"
+                                                value={projSearch}
+                                                placeholder="Search or type a new task"
+                                                onChange={(e) => setProjSearch(e.target.value || "")}
+                                              />
+                                              {projSearch && (
+                                                <button
+                                                  type="button"
+                                                  className="pick-search-clear"
+                                                  onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    setProjSearch("");
+                                                  }}
+                                                >
+                                                  <X size={14} />
+                                                </button>
+                                              )}
+                                            </div>
+
+                                            {matches.length > 0 ? (
+                                              matches.map((o) => {
+                                                const picked = chosen.includes(o);
+                                                return (
+                                                  <div
+                                                    key={o}
+                                                    className={`party-pick-item ${picked ? "picked" : ""}`}
+                                                    onMouseDown={(e) => {
+                                                      e.preventDefault();
+                                                      toggle(o);
+                                                    }}
+                                                  >
+                                                    <span className="party-pick-name">{o.replace(/\s+/g, " ")}</span>
+                                                    {picked && <Check size={14} className="party-pick-check" />}
+                                                  </div>
+                                                );
+                                              })
+                                            ) : (
+                                              <div className="party-pick-empty">No task matches that</div>
+                                            )}
+
+                                            {projSearch.trim().length > 1 && !exact && (
+                                              <div
+                                                className="party-pick-new"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault();
+                                                  toggle(projSearch.trim());
+                                                  setProjSearch("");
+                                                }}
+                                              >
+                                                <Plus size={13} /> Add &quot;{projSearch.trim()}&quot; as a new task
+                                              </div>
+                                            )}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                    <span className="od-acts">
+                                      {chosen.length > 0 && (
+                                        <span className="od-auto">{chosen.length}</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+
+
+                              {/* FROM */}
+                              <div className={`od-row ${visit.visitFromTime ? "has" : ""}`}>
+                                <span className="od-key">
+                                  <Clock size={12} /> From
+                                </span>
+                                <button
+                                  type="button"
+                                  className="od-time"
+                                  onClick={() => openVisitTimePicker(visitIndex, "visitFromTime")}
+                                >
+                                  {visit.visitFromTime
+                                    ? String(visit.visitFromTime).slice(0, 5)
+                                    : "--:--"}
+                                </button>
+                              </div>
+
+                              {/* TO */}
+                              <div className={`od-row ${visit.visitToTime ? "has" : ""}`}>
+                                <span className="od-key">
+                                  <Clock size={12} /> To
+                                </span>
+                                <button
+                                  type="button"
+                                  className="od-time"
+                                  onClick={() => openVisitTimePicker(visitIndex, "visitToTime")}
+                                >
+                                  {visit.visitToTime
+                                    ? String(visit.visitToTime).slice(0, 5)
+                                    : "--:--"}
+                                </button>
                               </div>
                             </div>
 
-                            {/* Contact Person & Mobile Grid */}
-                            <div className="daytrip-grid-2">
+                            {/* Who was at this visit - one line, like every
+                                other row. The chips scroll sideways on a
+                                phone rather than stacking, so the row keeps
+                                its height however big the team is. */}
+                            <div className="od-row emp-row">
+                              <span className="od-key">
+                                <User size={12} /> Visited
+                              </span>
+                              {(() => {
+                                // Modifiable on the day of the visit only. After
+                                // that the record of who was present, and who
+                                // owns the follow-up, is history.
+                                const sameDay =
+                                  String(trip.dutyDate || "").slice(0, 10) ===
+                                  nowIST().format("YYYY-MM-DD");
+                                const owner = String(visit.followUpBy || "").trim();
+
+                                const team = formatEmployeeNames(selectedDutyRow?.empNames)
+                                  .filter((emp: any) => emp.code !== empCode);
+
+                                const askFollowup = (code: string, name: string) => {
+                                  if (!sameDay) {
+                                    notify(
+                                      "The follow-up owner can only be set on the day of the visit",
+                                      "warning"
+                                    );
+                                    return;
+                                  }
+                                  setFollowupConfirm({ visitIndex, code, name, current: owner });
+                                };
+
+                                return (
+                                  <>
+                                    <div className="emp-codes">
+                                      {/* You are always on your own visit. */}
+                                      <div className="emp-chip me">
+                                        <span className="emp-code" title="You">
+                                          <Check size={12} /> {empCode}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className={`emp-fu ${owner === empCode ? "on" : ""}`}
+                                          disabled={!sameDay}
+                                          title={
+                                            owner === empCode
+                                              ? "You own the follow-up for this visit"
+                                              : sameDay
+                                                ? "Make this your follow-up"
+                                                : "Follow-up can only be changed on the day of the visit"
+                                          }
+                                          onClick={() => askFollowup(empCode, "you")}
+                                        >
+                                          <UserCheck size={12} />
+                                        </button>
+                                      </div>
+
+                                      {team.map((emp: any) => {
+                                        const isSelected = (visit.empCodes || []).includes(emp.code);
+                                        return (
+                                          <div
+                                            className={`emp-chip ${isSelected ? "on" : ""}`}
+                                            key={emp.code || emp.name}
+                                          >
+                                            <button
+                                              type="button"
+                                              className="emp-code"
+                                              title={emp.name}
+                                              onClick={() => {
+                                                const current = visit.empCodes || [];
+                                                const next = isSelected
+                                                  ? current.filter((c: string) => c !== emp.code)
+                                                  : [...current, emp.code];
+                                                updateTripVisit(
+                                                  editingTripIndex,
+                                                  visitIndex,
+                                                  "empCodes",
+                                                  next
+                                                );
+                                                // Someone removed from the visit cannot
+                                                // keep its follow-up.
+                                                if (!next.includes(emp.code) && owner === emp.code) {
+                                                  updateTripVisit(
+                                                    editingTripIndex,
+                                                    visitIndex,
+                                                    "followUpBy",
+                                                    ""
+                                                  );
+                                                }
+                                              }}
+                                            >
+                                              {isSelected ? <Check size={12} /> : <Plus size={12} />}
+                                              {emp.code || emp.name}
+                                            </button>
+                                            {isSelected && (
+                                              <button
+                                                type="button"
+                                                className={`emp-fu ${owner === emp.code ? "on" : ""}`}
+                                                disabled={!sameDay}
+                                                title={
+                                                  owner === emp.code
+                                                    ? `${emp.name} owns the follow-up`
+                                                    : sameDay
+                                                      ? `Give the follow-up to ${emp.name}`
+                                                      : "Follow-up can only be changed on the day of the visit"
+                                                }
+                                                onClick={() => askFollowup(emp.code, emp.name)}
+                                              >
+                                                <UserCheck size={12} />
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {owner && (
+                                      <div className="emp-owner-note">
+                                        <UserCheck size={12} /> Follow-up: {owner}
+                                        {owner === empCode ? " (you)" : ""}
+                                      </div>
+                                    )}
+                                    {!sameDay && (
+                                      <div className="emp-owner-note muted">
+                                        <Lock size={11} /> Set on the day of the visit only
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Contact Person, Designation & Mobile */}
+                            <div className="daytrip-grid-3">
                               <div className="daytrip-input-group">
                                 <label className="daytrip-input-label">
                                   <User size={14} color="#64748b" />
@@ -8239,18 +8971,135 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                   <input
                                     value={visit.contactPerson}
                                     placeholder="Enter Contact Person Name"
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                      // Typed by hand - this visit's contact is no
+                                      // longer ours to replace on the next party change.
+                                      updateTripVisit(editingTripIndex, visitIndex, "contactAutoFor", "");
                                       updateTripVisit(
                                         editingTripIndex,
                                         visitIndex,
                                         "contactPerson",
                                         e.target.value || ""
-                                      )
-                                    }
+                                      );
+                                    }}
                                     className="daytrip-input"
                                   />
                                 </div>
                               </div>
+
+                              {/* Designation: picked from what visits have
+                                  already recorded, typed when it is new. */}
+                              {(() => {
+                                const dKey = `${editingTripIndex}-${visitIndex}`;
+                                const dOpen = desigPickerFor === dKey;
+                                const dTyped = String(visit.contactDesignation || "").trim();
+                                const dExact = designations.some(
+                                  (d) => d.toLowerCase() === dTyped.toLowerCase()
+                                );
+                                const dTerm = dExact ? "" : dTyped.toLowerCase();
+                                const dMatches = (
+                                  dTerm
+                                    ? designations.filter((d) => d.toLowerCase().includes(dTerm))
+                                    : designations
+                                ).slice(0, 60);
+
+                                return (
+                                  <div className="daytrip-input-group">
+                                    <label className="daytrip-input-label">
+                                      <Sparkles size={14} color="#64748b" />
+                                      <span>Designation</span>
+                                    </label>
+                                    <div className="daytrip-input-field-wrapper">
+                                      <User size={18} className="daytrip-input-icon" />
+                                      <input
+                                        value={visit.contactDesignation}
+                                        autoComplete="off"
+                                        placeholder="Principal, HOD, TPO..."
+                                        onFocus={() => setDesigPickerFor(dKey)}
+                                        onChange={(e) => {
+                                          setDesigPickerFor(dKey);
+                                          updateTripVisit(editingTripIndex, visitIndex, "contactAutoFor", "");
+                                          updateTripVisit(
+                                            editingTripIndex,
+                                            visitIndex,
+                                            "contactDesignation",
+                                            e.target.value || ""
+                                          );
+                                        }}
+                                        className="daytrip-input party-pick-input"
+                                      />
+                                      <button
+                                        type="button"
+                                        className="party-pick-toggle"
+                                        title="Pick a designation already on record"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          setDesigPickerFor(dOpen ? null : dKey);
+                                        }}
+                                      >
+                                        <ChevronDown size={16} />
+                                      </button>
+
+                                      {dOpen && (
+                                        <>
+                                          <div
+                                            className="party-pick-backdrop"
+                                            onMouseDown={() => setDesigPickerFor(null)}
+                                          />
+                                          <div className="party-pick-list">
+                                            {dMatches.length > 0 ? (
+                                              dMatches.map((d) => {
+                                                const picked =
+                                                  d.toLowerCase() === dTyped.toLowerCase();
+                                                return (
+                                                  <div
+                                                    key={d}
+                                                    className={`party-pick-item ${picked ? "picked" : ""}`}
+                                                    onMouseDown={(e) => {
+                                                      e.preventDefault();
+                                                      updateTripVisit(
+                                                        editingTripIndex,
+                                                        visitIndex,
+                                                        "contactDesignation",
+                                                        d
+                                                      );
+                                                      setDesigPickerFor(null);
+                                                    }}
+                                                  >
+                                                    <span className="party-pick-name">{d}</span>
+                                                    {picked && (
+                                                      <Check size={14} className="party-pick-check" />
+                                                    )}
+                                                  </div>
+                                                );
+                                              })
+                                            ) : (
+                                              <div className="party-pick-empty">
+                                                {designations.length === 0
+                                                  ? "None on record yet - type it"
+                                                  : "No designation matches that"}
+                                              </div>
+                                            )}
+
+                                            {dTyped.length > 1 && !dExact && (
+                                              <div
+                                                className="party-pick-new"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault();
+                                                  setDesigPickerFor(null);
+                                                }}
+                                              >
+                                                <Plus size={13} /> Use &quot;{dTyped}&quot; as a new
+                                                designation
+                                              </div>
+                                            )}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
 
                               <div className="daytrip-input-group">
                                 <label className="daytrip-input-label">
@@ -8261,19 +9110,31 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                   <Phone size={18} className="daytrip-input-icon" />
                                   <input
                                     type="tel"
+                                    inputMode="numeric"
+                                    maxLength={10}
                                     value={visit.mobile}
-                                    placeholder="Enter Mobile Number"
-                                    onChange={(e) =>
-                                      updateTripVisit(
-                                        editingTripIndex,
-                                        visitIndex,
-                                        "mobile",
-                                        e.target.value || ""
-                                      )
-                                    }
-                                    className="daytrip-input"
+                                    placeholder="10-digit mobile number"
+                                    onChange={(e) => {
+                                      // Non-digits are rejected as they are typed
+                                      // rather than flagged afterwards - a pasted
+                                      // "+91 76638 29928" becomes 7663829928 instead
+                                      // of an error message.
+                                      const digits = String(e.target.value || "")
+                                        .replace(/\D/g, "")
+                                        .slice(-10);
+                                      updateTripVisit(editingTripIndex, visitIndex, "contactAutoFor", "");
+                                      updateTripVisit(editingTripIndex, visitIndex, "mobile", digits);
+                                    }}
+                                    className={`daytrip-input ${
+                                      mobileError(visit.mobile) ? "has-error" : ""
+                                    }`}
                                   />
                                 </div>
+                                {mobileError(visit.mobile) && (
+                                  <div className="daytrip-field-error">
+                                    {mobileError(visit.mobile)}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -8327,7 +9188,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                               addTripVisit(editingTripIndex!);
                             }}
                           >
-                            <Plus size={16} /> Add Another Client Stop
+                            <Plus size={16} /> Add Visit
                           </button>
                           {gate && (
                             <div style={{ fontSize: "11px", textAlign: "center", color: "var(--ion-color-medium, #8a8a8a)" }}>
@@ -8797,6 +9658,70 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         </IonModal>
 
         {/* Live Camera Viewfinder Overlay Portal */}
+        {followupConfirm && createPortal(
+          <div
+            className="fu-confirm-backdrop"
+            onMouseDown={() => setFollowupConfirm(null)}
+          >
+            <div className="fu-confirm" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="fu-confirm-head">
+                <UserCheck size={16} /> Assign follow-up
+              </div>
+              <div className="fu-confirm-body">
+                {followupConfirm.current && followupConfirm.current !== followupConfirm.code ? (
+                  <>
+                    Move the follow-up for this visit from{" "}
+                    <strong>{followupConfirm.current}</strong> to{" "}
+                    <strong>{followupConfirm.code}</strong>
+                    {followupConfirm.name === "you" ? " (you)" : ` (${followupConfirm.name})`}?
+                  </>
+                ) : followupConfirm.current === followupConfirm.code ? (
+                  <>
+                    <strong>{followupConfirm.code}</strong> already owns this follow-up.
+                    Remove it instead?
+                  </>
+                ) : (
+                  <>
+                    Give the follow-up for this visit to{" "}
+                    <strong>{followupConfirm.code}</strong>
+                    {followupConfirm.name === "you" ? " (you)" : ` (${followupConfirm.name})`}?
+                    They are the one who chases this party.
+                  </>
+                )}
+              </div>
+              <div className="fu-confirm-acts">
+                <button
+                  type="button"
+                  className="fu-confirm-no"
+                  onClick={() => setFollowupConfirm(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="fu-confirm-yes"
+                  onClick={() => {
+                    const c = followupConfirm;
+                    setFollowupConfirm(null);
+                    if (!c || editingTripIndex === null || editingTripIndex === undefined) return;
+                    const next = c.current === c.code ? "" : c.code;
+                    updateTripVisit(editingTripIndex, c.visitIndex, "followUpBy", next);
+                    notify(
+                      next
+                        ? `Follow-up assigned to ${next}`
+                        : "Follow-up owner cleared",
+                      "success"
+                    );
+                  }}
+                >
+                  {followupConfirm.current === followupConfirm.code ? "Remove" : "Assign"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {cameraOpen && createPortal(
           <div className="onduty-camera-overlay-backdrop" onClick={closeWebCamera}>
             <div className="onduty-camera-modal-container" onClick={(e) => e.stopPropagation()}>

@@ -1,4 +1,4 @@
-/* OnDuties.css */
+﻿/* OnDuties.css */
 
 :root {
   --glass-bg: rgba(255, 255, 255, 0.65);
@@ -3421,4 +3421,1382 @@ ion-modal.daytrip-preview-modal::part(content) {
 
 .onduty-cam-btn.capture:active .capture-inner {
   transform: scale(0.88);
-}
+}
+
+/* ============================================================
+   Party picker on a day-trip visit
+   The client name is chosen from the parties already on record
+   instead of being typed fresh every time.
+   ============================================================ */
+.daytrip-input.party-pick-input {
+  padding-right: 38px !important;
+}
+
+.party-pick-toggle {
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  cursor: pointer !important;
+  z-index: 3 !important;
+}
+
+.party-pick-toggle:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+.party-pick-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 40 !important;
+  background: transparent !important;
+}
+
+.party-pick-list {
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  max-height: 240px !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+  padding: 4px !important;
+}
+
+.party-pick-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+}
+
+.party-pick-item:hover {
+  background: #f1f5f9 !important;
+}
+
+.party-pick-item.picked {
+  background: #eff6ff !important;
+}
+
+.party-pick-name {
+  flex: 1 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  line-height: 1.3 !important;
+}
+
+.party-pick-meta {
+  flex-shrink: 0 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  background: #f1f5f9 !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+  white-space: nowrap !important;
+}
+
+.party-pick-check {
+  flex-shrink: 0 !important;
+  color: #2563eb !important;
+}
+
+.party-pick-empty {
+  padding: 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #94a3b8 !important;
+  text-align: center !important;
+}
+
+.party-pick-new {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 4px !important;
+  padding: 8px 10px !important;
+  border-top: 1px dashed #e2e8f0 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #2563eb !important;
+  cursor: pointer !important;
+}
+
+.party-pick-new:hover {
+  background: #eff6ff !important;
+}
+
+/* Contact person / designation / mobile on one row, stacking on a
+   phone where three columns would leave nothing readable. */
+.daytrip-grid-3 {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr !important;
+  gap: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+  .daytrip-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* A stop that was just added. Scrolling to it answers "where did it go";
+   the flash answers "which one is new" when two empty stops look alike. */
+.daytrip-visit-box.just-added {
+  animation: daytrip-stop-flash 1.5s ease-out 1;
+}
+
+@keyframes daytrip-stop-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.55); background: #fffbeb; }
+  60%  { box-shadow: 0 0 0 6px rgba(217, 119, 6, 0);   background: #fffbeb; }
+  100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);     background: transparent; }
+}
+
+/* A field whose value will be refused on save, said at the field rather
+   than in a toast after the fact. */
+.daytrip-input.has-error {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+.daytrip-field-error {
+  margin-top: 4px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #b91c1c !important;
+  line-height: 1.3 !important;
+}
+
+/* Geo tag is required to save, so an untagged visit reads as something
+   still outstanding rather than an optional extra. */
+.daytrip-geo-btn.required {
+  border-color: #f59e0b !important;
+  background: #fffbeb !important;
+  color: #b45309 !important;
+  font-weight: 700 !important;
+}
+
+.daytrip-geo-btn.required:hover {
+  background: #fef3c7 !important;
+}
+
+/* ============================================================
+   ON THE GO - the day-trip form is filled standing outside a college
+   on a phone, not at a desk. Everything below is about that.
+   ============================================================ */
+@media (max-width: 640px) {
+
+  /* 1. iOS zooms the whole page in when a focused input's text is under
+        16px. That zoom does not undo itself, so every field after the
+        first leaves the form half off-screen. 16px is the fix, and it
+        has to beat the !important sizes set elsewhere. */
+  .daytrip-input,
+  .daytrip-input.party-pick-input,
+  .dropdown-pure-input {
+    font-size: 16px !important;
+  }
+
+  /* 2. Thumb-sized targets. 44px is the smallest reliably hittable
+        control on a phone held in one hand. */
+  .daytrip-input,
+  .daytrip-geo-btn,
+  .daytrip-action-pill-btn,
+  .daytrip-btn-add-party,
+  .party-pick-toggle,
+  .daytrip-emp-pill {
+    min-height: 44px !important;
+  }
+
+  .party-pick-toggle {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* 3. A dropdown that only shows three rows means scrolling inside a
+        scroll - the party list is 200 names long. */
+  .party-pick-list {
+    max-height: 50vh !important;
+  }
+
+  .party-pick-item {
+    padding: 11px 10px !important;
+  }
+
+  .party-pick-name {
+    font-size: 14px !important;
+  }
+
+  /* 4. Side-by-side fields do not fit. One per line, everywhere. */
+  .daytrip-grid-2,
+  .daytrip-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 5. Give the content the full width - 16px of padding on each side of
+        a 360px screen is 9% of it spent on nothing. */
+  .daytrip-card {
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .daytrip-visit-box {
+    padding: 12px !important;
+  }
+
+  /* 6. Employee pills wrap instead of scrolling sideways - a horizontal
+        scroller hides whoever is at the end of it. */
+  .daytrip-emp-pill {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* The narrowest phones still in use. */
+@media (max-width: 380px) {
+  .daytrip-card { padding: 10px !important; }
+}
+
+/* The lock notice now lives INSIDE the photo card it refers to. Both
+   cards are flex rows, so it needs to be allowed to wrap onto its own
+   line and take the full width rather than squeeze in beside the
+   buttons. */
+.daytrip-attached-card,
+.daytrip-upload-dual-box {
+  flex-wrap: wrap !important;
+}
+
+.daytrip-attached-card .daytrip-locked-banner,
+.daytrip-upload-dual-box .daytrip-locked-banner {
+  width: 100% !important;
+  margin: 2px 0 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px dashed #d4d4d8 !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   ODOMETER ROWS
+   Purpose-built markup this time, not the old upload cards bent into
+   shape. Three parts on one line: key, value, actions - and the actions
+   sit inside the same bordered box as the number.
+   ============================================================ */
+.od-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px 6px 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.od-row.has {
+  border-color: #86efac;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f7fef9 100%);
+}
+
+.od-row.static {
+  background: #f8fafc;
+}
+
+.od-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.od-key svg { color: #d97706; }
+
+.od-val {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.od-val::placeholder {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.od-val:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Chrome's number spinners steal width and are useless on a meter
+   reading typed from a photo. */
+.od-val::-webkit-outer-spin-button,
+.od-val::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.od-val[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.od-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.od-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.od-btn:hover {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
+.od-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* On a row with nothing attached, the camera is the one thing to press. */
+.od-row:not(.has) .od-btn.cam {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
+.od-lock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.od-auto {
+  font-size: 10px;
+  font-weight: 800;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 6px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .od-row { min-height: 46px; }
+  .od-val { font-size: 16px; }
+  .od-btn { width: 32px; height: 32px; }
+}
+
+/* ============================================================
+   VISIT FORM ALIGNMENT
+   The fields in a visit stop did not line up across columns because
+   each one's header row is a different height - Location carries a
+   "Geo Tagged" chip, Local Transport carries two pill buttons, and
+   Client/Party Name carries three. Whatever is tallest set the row,
+   and every field beside it started lower.
+
+   Fixing it needs two things: the columns must not stretch to each
+   other's height, and every header row must be the same height
+   regardless of what it holds.
+   ============================================================ */
+
+/* 1. Columns size to their own content, so a field with a link under it
+      (View Coordinates) cannot drag its neighbour down. */
+.daytrip-visit-box .daytrip-grid-2,
+.daytrip-visit-box .daytrip-grid-3,
+.daytrip-card .daytrip-grid-2,
+.daytrip-card .daytrip-grid-3 {
+  align-items: start !important;
+}
+
+/* 2. One height for every label row, whether it holds a chip, two pills
+      or nothing at all. */
+.daytrip-input-group > div:first-child {
+  min-height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.daytrip-input-group > .daytrip-input-label:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 30px !important;
+  margin: 0 !important;
+}
+
+/* 3. A long name must shorten, not disappear past the edge of its box -
+      "Dr Sharmila Madam" was being clipped mid-word. */
+.daytrip-input {
+  text-overflow: ellipsis !important;
+}
+
+/* 4. The contact row holds three fields on one line, so its text starts
+      closer to the icon and sits a point smaller - a full name does not
+      fit a third of the width at 14px with 42px of padding. */
+.daytrip-grid-3 .daytrip-input {
+  padding-left: 36px !important;
+  padding-right: 10px !important;
+  font-size: 13.5px !important;
+}
+
+.daytrip-grid-3 .daytrip-input-icon {
+  left: 11px !important;
+}
+
+/* The designation picker also carries a chevron on the right. */
+.daytrip-grid-3 .daytrip-input.party-pick-input {
+  padding-right: 34px !important;
+}
+
+/* 5. Sub-links under a field belong to that field, not to the gap
+      between rows. */
+.daytrip-input-group > div[style*="cursor: pointer"]:last-child {
+  margin-top: 4px !important;
+}
+
+@media (max-width: 640px) {
+  /* Stacked, so nothing is competing - give the text its width back. */
+  .daytrip-grid-3 .daytrip-input {
+    font-size: 16px !important;
+    padding-left: 40px !important;
+  }
+}
+
+/* The party picker as a row's value: its wrapper has to stretch, and the
+   input inside it loses its own border - the row is the border now. The
+   dropdown still needs room, so the row cannot clip it. */
+.od-row.party {
+  overflow: visible;
+}
+
+.od-row .daytrip-input-field-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.od-row .daytrip-input {
+  height: 30px !important;
+  padding: 0 28px 0 4px !important;
+  border: none !important;
+  background: transparent !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  text-overflow: ellipsis !important;
+}
+
+.od-row .daytrip-input:focus {
+  box-shadow: none !important;
+}
+
+/* The row's key already carries the building icon. */
+.od-row .daytrip-input-icon {
+  display: none !important;
+}
+
+.od-row .party-pick-toggle {
+  right: 0 !important;
+  width: 24px !important;
+  height: 24px !important;
+  background: transparent !important;
+}
+
+/* The suggestion list hangs off the row, not off the input. */
+.od-row .party-pick-list {
+  top: calc(100% + 6px) !important;
+  left: 0 !important;
+  right: 0 !important;
+}
+
+/* ============================================================
+   TYPING ROOM
+   While a row's value has focus its buttons get out of the way, so a
+   long place name or party name has the whole row to be read and
+   corrected in. "Vangayagudem, Eluru" was being cut to "Vangayagud".
+
+   Keyed off the INPUT's focus through a sibling combinator, not
+   :focus-within on the row and not :has() - :focus-within would also
+   fire when a button itself takes focus, which would make the buttons
+   vanish under the pointer mid-click, and :has() is not safe on older
+   Android WebViews.
+   ============================================================ */
+.od-val:focus ~ .od-acts,
+.od-row .daytrip-input-field-wrapper:focus-within ~ .od-acts {
+  opacity: 0;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* The buttons slide away rather than blink out, and the value takes the
+   space because it is the flexible child of the row. */
+.od-acts {
+  transition: opacity 0.12s ease, width 0.12s ease;
+  will-change: opacity, width;
+}
+
+/* Nothing is lost while they are hidden: the row still shows it is
+   attached, and the buttons come back the moment focus leaves. */
+.od-row:focus-within {
+  border-color: #fcd34d;
+  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.18);
+}
+
+.od-row.has:focus-within {
+  border-color: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+}
+
+/* ============================================================
+   EMPLOYEE CODES + FOLLOW-UP OWNER
+   Names took a line each; the codes are what the team actually uses
+   and what every other screen shows. The name is on hover and in the
+   confirmation, so nothing is lost.
+   ============================================================ */
+.emp-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.emp-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.emp-chip.on { border-color: #86efac; background: #f0fdf4; }
+.emp-chip.me { border-color: #cbd5e1; background: #f8fafc; }
+
+.emp-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.emp-chip.on .emp-code { color: #15803d; }
+
+.emp-fu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  border: none;
+  border-left: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.emp-fu:hover:not(:disabled) { background: #fef3c7; color: #b45309; }
+.emp-fu:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* The one who owns the follow-up. */
+.emp-fu.on {
+  background: #2563eb;
+  border-left-color: #2563eb;
+  color: #ffffff;
+}
+
+.emp-owner-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.emp-owner-note.muted { color: #94a3b8; font-weight: 600; }
+
+/* ---- the confirmation ---- */
+.fu-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.fu-confirm {
+  width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+}
+
+.fu-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fu-confirm-body {
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.fu-confirm-acts {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+
+.fu-confirm-no,
+.fu-confirm-yes {
+  flex: 1;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fu-confirm-no {
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.fu-confirm-yes {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .emp-code { min-height: 36px; font-size: 13px; }
+  .emp-fu { width: 34px; }
+}
+
+/* ============================================================
+   ONE BLOCK OF READINGS
+   The four rows are one set of facts about one day's driving, so they
+   read as a single 2x2 block: equal widths, equal gaps, equal heights,
+   and no rule splitting the readings from the distance and the fuel.
+   ============================================================ */
+.daytrip-card .daytrip-grid-2 {
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+
+/* Equal height whatever a row happens to hold - a lock note on one must
+   not leave the row beside it short. */
+.od-row {
+  height: 100%;
+}
+
+/* The value column is what varies between rows; pin it so every number
+   starts at the same place down the block. */
+.od-key {
+  flex: 0 0 auto;
+  min-width: 74px;
+}
+
+.od-val {
+  text-align: left;
+}
+
+/* ============================================================
+   COLLAPSIBLE READINGS
+   The header is the toggle, and when the card is shut it carries the
+   figures: 1234 -> 1456 . 222 km . Rs 1800. Collapsing is meant to stop
+   you scrolling past the readings, not to hide what they say.
+   ============================================================ */
+.od-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+}
+
+.od-head .daytrip-card-title-group {
+  flex-shrink: 0;
+}
+
+.od-head-sum {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.od-head-arrow {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.od-head-sum em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.od-head-chev {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.18s ease;
+}
+
+.od-head-chev.open {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 640px) {
+  .od-head { gap: 8px !important; }
+  .od-head-sum { font-size: 12px; }
+}
+
+/* ============================================================
+   DEMO / SERVICE PROJECTS PICKER
+   Ionic renders this popover at the document root, outside the form, so
+   it cannot be reached from a nested selector - hence the cssClass on
+   interfaceOptions and the global rules below. Left alone it arrives in
+   stock Ionic grey with square checkboxes, which is the one part of the
+   visit form that does not look like the rest of it.
+   ============================================================ */
+.proj-popover::part(content) {
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+  min-width: 260px;
+}
+
+.proj-popover ion-list {
+  padding: 6px !important;
+  background: #ffffff !important;
+}
+
+.proj-popover ion-item {
+  --background: transparent;
+  --background-hover: #fffbeb;
+  --background-focused: #fef3c7;
+  --min-height: 42px;
+  --padding-start: 8px;
+  --inner-padding-end: 8px;
+  --border-color: transparent;
+  --border-width: 0;
+  --color: #334155;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* The chosen ones read as chosen, the way the party picker's do. */
+.proj-popover ion-item.item-checkbox-checked,
+.proj-popover ion-item.item-radio-checked {
+  --background: #eff6ff;
+  --color: #1d4ed8;
+  font-weight: 800;
+}
+
+.proj-popover ion-checkbox {
+  --size: 17px;
+  --border-radius: 5px;
+  --border-width: 1.5px;
+  --border-color: #cbd5e1;
+  --checkbox-background-checked: #2563eb;
+  --border-color-checked: #2563eb;
+  margin-inline-end: 10px;
+}
+
+/* A visit rarely needs more than a few, so the list does not need to be
+   taller than the thumb that scrolls it. */
+.proj-popover ion-content {
+  --background: #ffffff;
+  max-height: 46vh;
+}
+
+/* The closed control, so it matches the other fields rather than
+   carrying its own inline border. */
+.proj-select {
+  --placeholder-color: #94a3b8;
+  --placeholder-opacity: 1;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.proj-select::part(text) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proj-select::part(icon) {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .proj-popover::part(content) {
+    min-width: 0;
+    width: calc(100vw - 32px);
+  }
+
+  .proj-popover ion-item {
+    --min-height: 46px;
+    font-size: 15px;
+  }
+
+  .proj-select { font-size: 16px; }
+}
+
+/* Projects carries its label above its box; Transport carries its label
+   inside its row. Different heights, so they are aligned on the BOTTOM -
+   that puts the select and the transport row on the same line, which is
+   the edge the eye follows. Aligning on the top instead left the
+   transport row floating against the projects label. */
+.proj-trans-row {
+  align-items: end !important;
+}
+
+/* Exactly the select's height, not merely a minimum. The odometer block
+   gives every .od-row height:100% so a lock note cannot leave its
+   neighbour short - here that made the row stretch to the full cell,
+   which is taller than the select because the cell also holds the
+   projects label. A fixed height on the more specific selector wins. */
+.proj-trans-row .od-row {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+}
+
+/* The select carries its height inline (48px) including its border, so
+   the two boxes land on the same pixel. */
+.proj-trans-row .proj-select {
+  height: 48px;
+  min-height: 48px;
+}
+
+/* The visited row: key on the left, codes on one line beside it. */
+.emp-row {
+  flex-wrap: wrap;
+}
+
+.emp-row .emp-codes {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+/* A chip must not be squeezed thinner than its code by a long team. */
+.emp-row .emp-chip {
+  flex: 0 0 auto;
+}
+
+/* The follow-up notes belong to the row but not to its line. */
+.emp-row .emp-owner-note {
+  flex: 0 0 100%;
+  margin-top: 4px;
+}
+
+/* The 74px key column exists so the four odometer numbers start on one
+   vertical line. In a visit row there is nothing to line up with, so it
+   is just a gap between a four-letter label and its value - and on a
+   half-width row that gap is what pushed "Skill Ascent Demo" into an
+   ellipsis. Visit keys size to their own text. */
+.daytrip-visit-box .od-key {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+/* With the gap gone the value gets the room. The chevron sits over the
+   last 26px of the box, so the text stops before it rather than under
+   it. */
+.daytrip-visit-box .od-row .daytrip-input {
+  padding-right: 26px !important;
+}
+
+/* The count is a chip, not a column - it should take the width of its
+   digits and no more. */
+.od-auto {
+  flex: 0 0 auto;
+}
+
+/* A task name is the longest thing in these rows; let it use the space
+   before it gives up and ellipsises. */
+.od-row.party .daytrip-input-field-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The transport bill lives in the stop header now - it belongs to the
+   stop rather than to any one field, and up here it costs no row of its
+   own. The badge keeps its size, the bill takes the rest, Remove stays
+   at the far end. */
+.daytrip-visit-header {
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+.daytrip-visit-header .daytrip-visit-badge {
+  flex: 0 0 auto;
+}
+
+.daytrip-visit-header .od-row {
+  flex: 1 1 200px;
+  min-width: 0;
+  min-height: 38px;
+  height: 38px;
+  padding: 4px 6px 4px 10px;
+}
+
+.daytrip-visit-header .od-row .od-key {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.daytrip-visit-header .od-btn {
+  width: 28px;
+  height: 28px;
+}
+
+/* On a phone the badge and the bill each take their own line rather
+   than squeezing the amount into nothing. */
+@media (max-width: 640px) {
+  .daytrip-visit-header .od-row {
+    flex: 1 1 100%;
+  }
+}
+
+/* Task 6, From 3, To 3 of twelve. The task name is the long value on
+   this form; a time is five characters, so a quarter of the row each is
+   more than enough for the pair. */
+.daytrip-grid-633 {
+  display: grid !important;
+  grid-template-columns: 6fr 3fr 3fr !important;
+  gap: 8px !important;
+  width: 100% !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+/* The time trigger: a button that reads as the row's value, not as
+   another control inside it. */
+.od-time {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.od-row:not(.has) .od-time {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+/* On a phone three across leaves nothing readable: the task takes its
+   own line and the two times share the next. */
+@media (max-width: 640px) {
+  .daytrip-grid-633 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .daytrip-grid-633 > .od-row.party {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* ============================================================
+   PICKER LISTS ON A PHONE
+   The list is absolutely positioned against the input wrapper, and in a
+   row that wrapper is only the space left between the key and the
+   buttons - about 150px on a phone. "PSCMR College of Engineering and
+   Technology" wrapped onto four lines in it.
+
+   On a phone it becomes a sheet from the bottom of the screen instead:
+   full width, one line per name, and a thumb can reach it. The backdrop
+   is already fixed and full-screen, so it works as the sheet's own
+   backdrop without any extra markup.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Every one of these needs !important: the base rule sets position,
+     top, left and right with !important, and importance beats
+     specificity - which is why the sheet never appeared and the list
+     stayed a thin strip under the row. */
+  /* Anchored to the TOP of the screen, not the bottom. Growing upwards
+     meant the search box moved every time the number of results changed
+     - two matches put it near the middle, ten put it near the top. From
+     the top it is in the same place whatever the list is doing, and it
+     stays above the keyboard. */
+  .od-row .party-pick-list {
+    position: fixed !important;
+    top: calc(10px + env(safe-area-inset-top)) !important;
+    bottom: auto !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 160px !important;
+    max-height: 70vh !important;
+    border-radius: 14px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.26) !important;
+    padding: 8px !important;
+    z-index: 99990 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* The search stays put; only the results move. */
+  .od-row .party-pick-list .pick-search {
+    flex: 0 0 auto;
+  }
+
+  .od-row .party-pick-item {
+    padding: 12px 12px;
+  }
+
+  .od-row .party-pick-name {
+    font-size: 14.5px;
+    white-space: normal;
+  }
+
+  .od-row .party-pick-new {
+    padding: 12px;
+    font-size: 13px;
+  }
+}
+
+/* On a wider screen the list still should not be as narrow as the gap
+   it hangs from - a party name is long. */
+@media (min-width: 641px) {
+  .od-row .party-pick-list {
+    min-width: 320px !important;
+  }
+}
+
+/* ============================================================
+   PICKER STACKING
+   z-index 40/50 was enough when these lists hung inside a plain form.
+   They now sit inside a card, inside a visit box, inside an IonModal -
+   each of which can create its own stacking context - so 50 puts the
+   list under whatever comes after it in the modal rather than over it.
+
+   Raised well clear, but still below the camera overlay (999999) and
+   the follow-up confirmation (100000), which both have to open on top
+   of an open list.
+   ============================================================ */
+.party-pick-backdrop {
+  z-index: 99980 !important;
+}
+
+.party-pick-list,
+.od-row .party-pick-list {
+  z-index: 99990 !important;
+}
+
+/* A list that hangs out of its row must not be clipped by the box the
+   row sits in. */
+.od-row,
+.od-row.party,
+.daytrip-visit-box,
+.daytrip-card {
+  overflow: visible !important;
+}
+
+/* The row the list belongs to has to sit above its siblings, or the next
+   row's background paints over a list positioned against this one. */
+.od-row.party:focus-within {
+  position: relative;
+  z-index: 99985;
+}
+
+/* ============================================================
+   SEARCH INSIDE THE LIST
+   The field you type into now sits at the top of the list itself, which
+   on a phone is directly above the keyboard. Typing into the row at the
+   top of the screen while the list sat at the bottom meant watching one
+   end of the screen and tapping the other.
+   ============================================================ */
+.pick-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px -4px 6px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pick-search input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pick-search input::placeholder {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.pick-search-icon {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.pick-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: pointer;
+}
+
+/* The row's own box is now a display, so it should not look like
+   something to type into. */
+.od-row .daytrip-input[readonly] {
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .pick-search {
+    margin: -8px -8px 6px;
+    padding: 12px;
+  }
+
+  /* 16px, or iOS zooms the page in when it takes focus. */
+  .pick-search input {
+    height: 38px;
+    font-size: 16px;
+  }
+}
+
+/* The backdrop dims now that the panel sits over the form rather than
+   against the bottom edge - otherwise it reads as floating with nothing
+   behind it. */
+@media (max-width: 640px) {
+  .party-pick-backdrop {
+    background: rgba(15, 23, 42, 0.35) !important;
+  }
+}
+
+/* ============================================================
+   TRIP FOOTER BUTTONS
+   Side by side, half the row each. Two soft pills rather than one
+   shouting gradient - Save carries the amber because it is the
+   committing action, Add Visit stays grey.
+
+   A grid, not flex: 1fr each gives exactly 6/6 whatever the labels say,
+   where flex: 1 would still let a longer label pull its button wider.
+   ============================================================ */
+.daytrip-actions-row {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  margin-top: 14px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* The add button is wrapped in a flex column that carries its gate
+   message, so the wrapper has to stretch too or the button inside it
+   shrinks to its text. */
+.daytrip-actions-row > div {
+  width: 100% !important;
+  flex: 0 0 auto !important;
+}
+
+.daytrip-btn-add-party,
+.daytrip-btn-save {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  flex: 0 0 auto !important;
+  height: 46px !important;
+  border-radius: 11px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+}
+
+/* ---- secondary ---- */
+.daytrip-btn-add-party {
+  border: 1.5px solid #e2e8f0 !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+.daytrip-btn-add-party:hover:not(:disabled) {
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.daytrip-btn-add-party:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+/* ---- primary ---- */
+.daytrip-btn-save {
+  border: 1.5px solid #fcd34d !important;
+  background: #fffbeb !important;
+  color: #b45309 !important;
+}
+
+.daytrip-btn-save:hover:not(:disabled) {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+}
+
+.daytrip-btn-save:active:not(:disabled) {
+  transform: translateY(1px) !important;
+}
+
+.daytrip-btn-save:disabled {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+}
+
+@media (max-width: 640px) {
+  /* Still 6/6 on a phone - "+ Add Visit" and "Save Trip" both fit half
+     of a 360px screen at 14px. */
+  .daytrip-btn-add-party,
+  .daytrip-btn-save {
+    height: 48px !important;
+    font-size: 14px !important;
+  }
+}

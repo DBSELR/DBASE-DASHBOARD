@@ -54,7 +54,6 @@ import TicketsDashboard from "./pages/TicketsDashboard";
 import ProjectWiseTickets from "./pages/Tickets/ProjectWiseTickets";
 import RaiseTicket from "./pages/Tickets/RaiseTicket";
 import TicketData from "./pages/Tickets/components/TicketData";
-import VisitsFollowup from "./pages/Tickets/VisitsFollowup";
 import OverTime from "./pages/OverTime";
 import RequestsPage from "./pages/RequestsPage";
 import PendingRequests from "./pages/PendingRequests";
@@ -234,8 +233,16 @@ const App: React.FC = () => {
                   <Route path="/tickets/raisedticket" exact component={RaiseTicket} />
                   <Route path="/tickets/projectwise" exact component={ProjectWiseTickets} />
                   <Route path="/tickets/ticketdata" exact component={TicketData} />
-                  <Route path="/tickets/visitsfollowup" exact component={VisitsFollowup} />
-                  <Route path="/visits-followup" exact component={VisitsFollowup} />
+                  <Route
+                    path="/tickets/visitsfollowup"
+                    exact
+                    render={() => <VisitTickets only="visits" />}
+                  />
+                  <Route
+                    path="/visits-followup"
+                    exact
+                    render={() => <VisitTickets only="visits" />}
+                  />
                   <Route exact path="/OverTime" component={OverTime} />
                   <Route path="/requests" component={RequestsPage} exact />
                   <Route path="/pending-requests" component={PendingRequests} exact />
@@ -266,7 +273,11 @@ const App: React.FC = () => {
                   <Route exact path="/Approval-Dates" component={ApprovalDates} />
                   <Route exact path="/leave-action" component={LeaveAction} />
                   <Route exact path="/onduty-action" component={OnDutyAction} />
-                  <Route exact path="/visit-tickets" component={VisitTickets} />
+                  <Route
+                    exact
+                    path="/visit-tickets"
+                    render={() => <VisitTickets only="tickets" />}
+                  />
                   <Route exact path="/leave-report" component={LeaveReport} />
                   <Route exact path="/payment-reminders" component={PaymentReminders} />
                   <Route exact path="/onduty-tracking" component={OnDutyLiveTracking} />
