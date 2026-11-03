@@ -4800,3 +4800,82 @@ ion-modal.daytrip-preview-modal::part(content) {
     font-size: 14px !important;
   }
 }
+
+/* ============================================================
+   A COLUMN PER CHILD
+   In add mode only the starting reading exists - Closing, Distance and
+   Fuel are all edit-only - and only Save exists in the footer. A fixed
+   two-column grid still reserved the second column, so the one row and
+   the one button each sat at half width with a hole beside them.
+
+   auto-fit collapses the empty track: one child gets the whole row, two
+   get half each, and nothing has to know which mode it is in.
+   ============================================================ */
+.daytrip-card .daytrip-grid-2,
+.daytrip-actions-row {
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+}
+
+/* minmax(0, 1fr) rather than a bare 1fr: a grid track's default minimum
+   is its content, so a long party name or a wide button would push its
+   column past half and break the split. */
+
+/* ============================================================
+   DUTY DAY HEADER BUTTONS
+   The two were sized by their own text - 14px of padding on one, 12px
+   on the other, different weights, different shadows - so "Add Duty
+   Day" came out noticeably bigger than "Refresh" beside it.
+
+   Same height, same padding, same radius, same minimum width. They
+   differ only in colour, which is the one difference that should show:
+   one adds a day, the other just reloads.
+   ============================================================ */
+.daylog-btn-add,
+.daylog-btn-refresh {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 34px !important;
+  min-width: 118px !important;
+  padding: 0 14px !important;
+  border-radius: 9px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.daylog-btn-add {
+  background: #d97706 !important;
+  border: 1.5px solid #d97706 !important;
+  color: #ffffff !important;
+}
+
+.daylog-btn-add:hover {
+  background: #b45309 !important;
+  border-color: #b45309 !important;
+}
+
+.daylog-btn-refresh {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.daylog-btn-refresh:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+/* "Refreshing..." is longer than "Refresh"; the minimum width holds the
+   pair steady so the row does not jump while it loads. */
+@media (max-width: 640px) {
+  .daylog-btn-add,
+  .daylog-btn-refresh {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+  }
+}

@@ -19,6 +19,7 @@ import {
   Briefcase,
   ChevronLeft,
   Phone,
+  CheckCircle2,
   BookOpen,
   Calendar,
   Check,
@@ -219,6 +220,10 @@ interface SavedFollowup {
   nextFollowupDate: string;
   nextVisitDate: string;
   clientRemarks: string;
+  // Who recorded it. The column was always written on insert; it was
+  // simply never read back, so the history said what was agreed but
+  // not who had the conversation.
+  createdBy?: string;
   courses: string[];
   courseData: Record<string, CourseFeedbackData>;
 }
@@ -420,7 +425,99 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   const [clientSearch, setClientSearch] = useState("");
 
   // View Mode state (Grid Cards / Table / grouped By Party)
-  const [viewMode, setViewMode] = useState<"grid" | "table" | "party" | "pending" | "followups">("grid");
+  // Two jobs, each with its own states.
+  //
+  //   Feedback    Pending  - nobody has rung this party back
+  //               Completed- somebody has, and what they said
+  //
+  //   Followups   Pending  - an owner was set, nothing recorded yet
+  //               Handling - at least one follow-up recorded
+  //               Left     - decided not worth chasing. Stored, not
+  //                          inferred: an abandoned visit and a forgotten
+  //                          one look identical in the data.
+  //
+  // Cards, Table and By Party were three ways of re-reading one list and
+  // none of them was a job anyone came here to do.
+  const [section, setSection] = useState<"feedback" | "followups">("feedback");
+  const [fbTab, setFbTab] = useState<"pending" | "done">("pending");
+  const [fuTab, setFuTab] = useState<"pending" | "handling" | "left">("pending");
+
+  // Which way a college's timeline runs. Newest first by default: the
+  // current state of a party is what you open it for, the history is
+  // what you scroll to. Per college, because it is a property of the
+  // timeline you are reading, not of the page.
+  //
+  // The colleges themselves are always ordered by their most recent
+  // visit - "A-Z" over a list you have already narrowed with a search
+  // was a sort nobody reached for.
+  const [ctSort, setCtSort] = useState<Record<string, "desc" | "asc">>({});
+
+  // Which college's Assign list is open.
+  const [assignFor, setAssignFor] = useState<string | null>(null);
+
+  // Click anywhere else, or press Escape, and it closes.
+  //
+  // The listener ignores anything inside .assign-wrap, which is what
+  // lets the options still be clicked: mousedown runs before click, so
+  // closing on every mousedown would unmount the row before the click
+  // could land on it - the same way an eager blur breaks the search
+  // dropdown.
+  useEffect(() => {
+    if (!assignFor) return;
+
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && typeof el.closest === "function" && el.closest(".assign-wrap")) return;
+      setAssignFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAssignFor(null);
+    };
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [assignFor]);
+
+  // The search box also offers the colleges it could match. Typing
+  // still filters on everything - contact, location, remarks - but
+  // picking a name from the list is exact, which is what people
+  // actually want when they know which college they are after.
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Who went is a question you ask occasionally; the remark is one you
+  // read every time. So the employee pills are off until the "people who
+  // visited" count in the college header is clicked - that number is
+  // what they are the detail of.
+  const [showVisitors, setShowVisitors] = useState<Record<string, boolean>>({});
+
+  // Each number in a college header is a way into what it counts: visits
+  // narrows the timeline to the visits, the book icon to the follow-ups,
+  // the contact icon lists the people met. Clicking the active one puts
+  // the whole timeline back.
+  const [ctView, setCtView] = useState<Record<string, "all" | "visits" | "followups" | "contacts">>({});
+
+  const setCollegeView = (client: string, view: "visits" | "followups" | "contacts") =>
+    setCtView((p) => ({ ...p, [client]: p[client] === view ? "all" : view }));
+
+  // The card body still gates on viewMode: "pending" shows the call and
+  // hides the follow-up machinery, "followups" the reverse. That is
+  // exactly the Feedback/Followups split, so it is derived rather than
+  // tracked twice and left to drift.
+  const viewMode: "pending" | "followups" =
+    section === "feedback" ? "pending" : "followups";
+
+  // Visits marked Left in this session, so a card moves without waiting
+  // for a reload. null means it was put back.
+  const [leftSaved, setLeftSaved] = useState<Record<string, string | null>>({});
+  // The reason being typed. Open with an empty string, which is why this
+  // is keyed presence rather than truthiness.
+  const [leftDraft, setLeftDraft] = useState<Record<string, string>>({});
+  const [leftSaving, setLeftSaving] = useState<Record<string, boolean>>({});
+  const [leftError, setLeftError] = useState<Record<string, string>>({});
 
   // Party history: which client is open, and what came back for it.
   // Fetched per party on demand and NOT date filtered - the list above is
@@ -488,6 +585,230 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // empty range used to look identical on screen, which is a bad way to
   // find out the API is erroring.
   const [loadError, setLoadError] = useState<string>("");
+
+  // The feedback CALL being recorded, keyed by Visit_ID. A visit has one
+  // call; follow-ups are the separate thing kept in feedbackStore.
+  const [callDraft, setCallDraft] = useState<Record<string, { on: string; remarks: string }>>({});
+  const [callSaving, setCallSaving] = useState<Record<string, boolean>>({});
+  const [callError, setCallError] = useState<Record<string, string>>({});
+  // Saved calls the server has confirmed this session, so a card updates
+  // without waiting for a reload.
+  const [callSaved, setCallSaved] = useState<Record<string, { on: string; by: string; remarks: string }>>({});
+
+  /** Local datetime in the shape <input type="datetime-local"> wants. */
+  const nowForInput = () => moment().format("YYYY-MM-DDTHH:mm");
+
+  const openCallDraft = (visitId: number, existing?: string, remarks?: string) =>
+    setCallDraft((p) => ({
+      ...p,
+      [String(visitId)]: {
+        on: existing ? moment(existing).format("YYYY-MM-DDTHH:mm") : nowForInput(),
+        remarks: remarks || "",
+      },
+    }));
+
+  /** Feedback Pending types straight into one line - no accordion, no
+   *  datetime picker. The call happened when it was typed, so saving
+   *  stamps the moment rather than asking for it. */
+  const setCallRemarks = (visitId: number, text: string) =>
+    setCallDraft((p) => ({
+      ...p,
+      [String(visitId)]: { on: p[String(visitId)]?.on || "", remarks: text },
+    }));
+
+  const closeCallDraft = (visitId: number) =>
+    setCallDraft((p) => {
+      const next = { ...p };
+      delete next[String(visitId)];
+      return next;
+    });
+
+  const saveFeedbackCall = async (visitId: number, clear = false) => {
+    const key = String(visitId);
+    const draft = callDraft[key];
+    if (!clear && !draft) return;
+    // Typed inline, with no datetime field: the call is being recorded as
+    // it happens, so now is the honest timestamp.
+    const callOn = draft?.on || nowForInput();
+
+    setCallSaving((p) => ({ ...p, [key]: true }));
+    setCallError((p) => ({ ...p, [key]: "" }));
+
+    try {
+      const res = await fetchWithTimeout(
+        `${API_BASE}Tickets/Save_Visit_FeedbackCall`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            Visit_ID: visitId,
+            CallOn: clear ? null : callOn,
+            CallBy: currentEmpCode,
+            Remarks: clear ? "" : draft.remarks,
+          }),
+        },
+        10000
+      );
+      const body = await res.json();
+
+      if (!res.ok || body?.success === false) {
+        setCallError((p) => ({ ...p, [key]: body?.message || "Could not save the feedback call" }));
+        return;
+      }
+
+      if (clear) {
+        setCallSaved((p) => {
+          const next = { ...p };
+          delete next[key];
+          return next;
+        });
+      } else {
+        setCallSaved((p) => ({
+          ...p,
+          [key]: {
+            on: body?.Feedback_CallOn || callOn,
+            by: body?.Feedback_CallBy || currentEmpCode,
+            remarks: draft.remarks,
+          },
+        }));
+      }
+      closeCallDraft(visitId);
+    } catch (err: any) {
+      setCallError((p) => ({ ...p, [key]: err?.message || "Could not reach the server" }));
+    } finally {
+      setCallSaving((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  /**
+   * Stop chasing a visit, or put it back. The note is optional but
+   * asked for, because "not interested" and "already placed elsewhere"
+   * are the same status and completely different facts, and six months
+   * from now the status alone will not say which happened.
+   */
+  const saveFollowupStatus = async (visitId: number, leave: boolean, note?: string) => {
+    const key = String(visitId);
+    setLeftSaving((p) => ({ ...p, [key]: true }));
+    setLeftError((p) => ({ ...p, [key]: "" }));
+
+    try {
+      const res = await fetchWithTimeout(
+        `${API_BASE}Tickets/Save_Visit_FollowupStatus`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            Visit_ID: visitId,
+            Leave: leave,
+            Note: note || "",
+            StatusBy: currentEmpCode,
+          }),
+        },
+        10000
+      );
+      const body = await res.json();
+
+      if (!res.ok || body?.success === false) {
+        setLeftError((p) => ({
+          ...p,
+          [key]: body?.message || "Could not save the follow-up status",
+        }));
+        return;
+      }
+
+      setLeftSaved((p) => ({ ...p, [key]: leave ? "LEFT" : null }));
+    } catch (err: any) {
+      setLeftError((p) => ({ ...p, [key]: err?.message || "Could not reach the server" }));
+    } finally {
+      setLeftSaving((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  /**
+   * Writing off a COLLEGE, not a visit.
+   *
+   * "Not needed" is a decision about the party - nobody is chasing St
+   * Mary's - so it is asked once, on the college, and written to every
+   * visit under it. The column lives on the visit because that is where
+   * the rows are; the decision does not.
+   *
+   * Sequential on purpose. Thirteen parallel writes to thirteen rows of
+   * one table is how you get deadlocks for no gain, and if one fails
+   * half way the ones already done are still correct and visible.
+   */
+  const saveGroupFollowupStatus = async (
+    client: string,
+    visits: VisitTicket[],
+    leave: boolean,
+    note?: string
+  ) => {
+    const gKey = `grp:${client}`;
+    setLeftSaving((p) => ({ ...p, [gKey]: true }));
+    setLeftError((p) => ({ ...p, [gKey]: "" }));
+
+    let failed = "";
+    for (const v of visits) {
+      const vId = Number((v as any)?.visit_ID ?? (v as any)?.Visit_ID ?? 0);
+      if (!vId) continue;
+      try {
+        const res = await fetchWithTimeout(
+          `${API_BASE}Tickets/Save_Visit_FollowupStatus`,
+          {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+              Visit_ID: vId,
+              Leave: leave,
+              Note: note || "",
+              StatusBy: currentEmpCode,
+            }),
+          },
+          10000
+        );
+        const body = await res.json();
+        if (!res.ok || body?.success === false) {
+          failed = body?.message || "Could not save the follow-up status";
+          break;
+        }
+        setLeftSaved((p) => ({ ...p, [String(vId)]: leave ? "LEFT" : null }));
+      } catch (err: any) {
+        failed = err?.message || "Could not reach the server";
+        break;
+      }
+    }
+
+    if (failed) setLeftError((p) => ({ ...p, [gKey]: failed }));
+    setLeftSaving((p) => ({ ...p, [gKey]: false }));
+  };
+
+  /** What was recorded when a visit was written off, if anything. */
+  const leftDetailOf = (v: any) => {
+    const vid = String(v?.visit_ID ?? v?.Visit_ID ?? 0);
+    if (leftSaved[vid] === "LEFT") {
+      return { by: currentEmpCode, on: "", note: "" };
+    }
+    if (String(v?.FollowUp_Status ?? v?.followUp_Status ?? "").toUpperCase() !== "LEFT") {
+      return null;
+    }
+    return {
+      by: String(v?.FollowUp_StatusBy ?? v?.followUp_StatusBy ?? ""),
+      on: String(v?.FollowUp_StatusOn ?? v?.followUp_StatusOn ?? ""),
+      note: String(v?.FollowUp_StatusNote ?? v?.followUp_StatusNote ?? ""),
+    };
+  };
+
+  /** The call on a visit: what the server sent, or what we just saved. */
+  const feedbackCallOf = (v: any) => {
+    const key = String(v?.visit_ID ?? v?.Visit_ID ?? 0);
+    if (callSaved[key]) return callSaved[key];
+    const on = v?.Feedback_CallOn ?? v?.feedback_CallOn;
+    if (!on) return null;
+    return {
+      on,
+      by: String(v?.Feedback_CallBy ?? v?.feedback_CallBy ?? ""),
+      remarks: String(v?.Feedback_Remarks ?? v?.feedback_Remarks ?? ""),
+    };
+  };
 
   const toggleFeedbackBox = (visitKey: string) =>
     setOpenFeedback((p) => ({ ...p, [visitKey]: !p[visitKey] }));
@@ -862,6 +1183,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                   nextFollowupDate: f?.NextFollowupDate ? moment(f.NextFollowupDate).format("YYYY-MM-DD") : "",
                   nextVisitDate: f?.NextVisitDate ? moment(f.NextVisitDate).format("YYYY-MM-DD") : "",
                   clientRemarks: f?.ClientRemarks ?? "",
+                  createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
                   courses: built.courses,
                   courseData: built.courseData,
                 };
@@ -1044,6 +1366,22 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
         rem.includes(q)
       );
     });
+  }, [displayedVisits, clientSearch]);
+
+  /** Colleges in the loaded feed, with how many visits each has. */
+  const clientOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    displayedVisits.forEach((v: any) => {
+      const name = String(v?.client_Name || "").trim();
+      if (!name) return;
+      counts[name] = (counts[name] || 0) + 1;
+    });
+
+    const q = clientSearch.trim().toLowerCase();
+    return Object.keys(counts)
+      .filter((name) => !q || name.toLowerCase().includes(q))
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ name, visits: counts[name] }));
   }, [displayedVisits, clientSearch]);
 
   // Filter tickets client-side by applied project and applied date range
@@ -1246,6 +1584,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
           nextFollowupDate: f?.NextFollowupDate ? moment(f.NextFollowupDate).format("YYYY-MM-DD") : "",
           nextVisitDate: f?.NextVisitDate ? moment(f.NextVisitDate).format("YYYY-MM-DD") : "",
           clientRemarks: f?.ClientRemarks ?? "",
+          createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
           courses: built.courses,
           courseData: built.courseData,
         });
@@ -1288,20 +1627,6 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
     () => allFollowups.filter((r) => r.kind === "awaiting").length,
     [allFollowups]
   );
-
-  const latestVisitByClient = useMemo(() => {
-    const map: Record<string, VisitTicket> = {};
-    tickets.forEach((v) => {
-      const name = String(v.client_Name || "").trim();
-      if (!name) return;
-      const current = map[name];
-      if (!current) { map[name] = v; return; }
-      const a = parseItemDate(v.duty_Date);
-      const b = parseItemDate(current.duty_Date);
-      if (a && (!b || a.isAfter(b))) map[name] = v;
-    });
-    return map;
-  }, [tickets]);
 
   const loadPartyHistory = async (clientName: string) => {
     if (!clientName || clientName === "(No client name)") return;
@@ -1389,6 +1714,84 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
     }
   };
 
+  /** Everyone who has been on a visit to this college, once each. */
+  const visitorsOf = (visits: VisitTicket[]) => {
+    const seen: Record<string, string> = {};
+    visits.forEach((v: any) => {
+      String(v?.employees || "")
+        .split(",")
+        .forEach((emp: string) => {
+          const label = emp.trim();
+          if (!label) return;
+          const code = label.indexOf("-") > 0 ? label.slice(0, label.indexOf("-")).trim() : label;
+          if (code && !seen[code]) seen[code] = label;
+        });
+    });
+    return Object.keys(seen)
+      .sort()
+      .map((code) => ({ code, label: seen[code] }));
+  };
+
+  /**
+   * Put one person on a college: the owner is written to every visit
+   * under it, the same way "No followup" is, because the person chasing
+   * St Mary's is chasing St Mary's and not one Tuesday in September.
+   *
+   * Passing the code that is already set clears it.
+   */
+  const assignGroupOwner = async (
+    client: string,
+    visits: VisitTicket[],
+    empCode: string,
+    clear: boolean
+  ) => {
+    const gKey = `grp:${client}`;
+    setFollowupBySaving((p) => ({ ...p, [gKey]: true }));
+
+    for (const v of visits) {
+      const visitId = Number((v as any)?.visit_ID || (v as any)?.Visit_ID || 0);
+      if (!visitId) continue;
+      const key = String(visitId);
+      const previous = followupBy[key] ?? "";
+      const next = clear ? "" : empCode;
+
+      setFollowupBy((p) => ({ ...p, [key]: next }));
+
+      try {
+        const res = await fetch(`${API_BASE}Tickets/Save_Visit_FollowupBy`, {
+          method: "POST",
+          headers: getHeaders(false),
+          body: JSON.stringify({
+            Visit_ID: visitId,
+            EmpCode: next || null,
+            ActorEmpCode: currentEmpCode || null,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          setFollowupBy((p) => ({ ...p, [key]: previous }));
+          setFollowupByError((p) => ({
+            ...p,
+            [gKey]: String(body?.message || "Could not change the follow-up owner."),
+          }));
+          break;
+        }
+      } catch {
+        setFollowupBy((p) => ({ ...p, [key]: previous }));
+        setFollowupByError((p) => ({ ...p, [gKey]: "Could not reach the server." }));
+        break;
+      }
+    }
+
+    setFollowupBySaving((p) => ({ ...p, [gKey]: false }));
+  };
+
+  /** The owner a whole college agrees on, or "" when it is split. */
+  const groupOwnerOf = (visits: VisitTicket[]) => {
+    const owners = new Set(visits.map((v) => followupOwnerOf(v)));
+    return owners.size === 1 ? Array.from(owners)[0] : "";
+  };
+
   const getVisitKey = (item: VisitTicket, index?: number): string => {
     const vId = item.visit_ID ?? item.Visit_ID ?? item.visitId ?? item.id;
     if (vId && String(vId) !== "0" && String(vId) !== "undefined") {
@@ -1402,17 +1805,318 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
   // Visits with nothing recorded against them yet. Declared after
   // getVisitKey because it calls it.
-  const pendingVisits = useMemo(() => {
-    return filteredVisits.filter((v: any) => {
-      const fromServer = Array.isArray(v?.Followups) ? v.Followups.length : 0;
-      if (fromServer > 0) return false;
-      // Something saved in this session counts too, even before a reload.
-      const key = getVisitKey(v);
-      const local = feedbackStore[key];
-      return !local || local.followups.length === 0;
-    });
+  // FEEDBACK PENDING is about the CALL, and the call happens once per
+  // visit. It used to be computed from follow-up count, which is a
+  // different thing entirely - every visit nobody had chased counted as
+  // feedback pending, which is why the number was 360 when only a
+  // handful had actually gone uncalled.
+  //
+  // A visit is pending when no feedback call has been recorded against
+  // it. Follow-ups are irrelevant here: a visit can have five of them
+  // and still owe its call, or have the call and no follow-ups at all.
+  // All Follow-ups shows the same cards as everywhere else, narrowed to
+  // the visits that have follow-ups on them. The roll-up table it used
+  // to show was a second way of reading the same records, with its own
+  // columns and its own quirks.
+  /** Has this visit been rung back? What we just saved counts too. */
+  const hasCall = (v: any) => {
+    const vid = String(v?.visit_ID ?? v?.Visit_ID ?? 0);
+    if (callSaved[vid]) return true;
+    return !!(v?.Feedback_CallOn ?? v?.feedback_CallOn);
+  };
+
+  /** Written off. A change made in this session wins over the feed. */
+  const isLeft = (v: any) => {
+    const vid = String(v?.visit_ID ?? v?.Visit_ID ?? 0);
+    if (Object.prototype.hasOwnProperty.call(leftSaved, vid)) {
+      return leftSaved[vid] === "LEFT";
+    }
+    return String(v?.FollowUp_Status ?? v?.followUp_Status ?? "").toUpperCase() === "LEFT";
+  };
+
+  /** Who owns the chasing - reassigned in this session, or as it came. */
+  const followupOwnerOf = (v: any) => {
+    const vid = String(v?.visit_ID ?? v?.Visit_ID ?? 0);
+    const seeded = String(v?.FollowUp_By ?? v?.followUp_By ?? "").trim();
+    return String(followupBy[vid] ?? seeded).trim();
+  };
+
+  // ---- Feedback ----------------------------------------------------
+  const pendingVisits = useMemo(
+    () => filteredVisits.filter((v: any) => !hasCall(v)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredVisits, feedbackStore]);
+    [filteredVisits, callSaved]
+  );
+
+  const completedVisits = useMemo(
+    () => filteredVisits.filter((v: any) => hasCall(v)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredVisits, callSaved]
+  );
+
+  // ---- Followups ---------------------------------------------------
+  // Left is checked first everywhere: a visit somebody has written off
+  // should not keep appearing in the two lists that mean "still to do".
+  const fuLeftVisits = useMemo(
+    () => filteredVisits.filter((v: any) => isLeft(v)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredVisits, leftSaved]
+  );
+
+  // The split is ownership, not activity: Pending means nobody has been
+  // put on it, Handling means somebody has. Whether they have recorded
+  // anything yet is a separate question - a visit with an owner is being
+  // handled by that person from the moment they are named, and counting
+  // it as Pending until they type something reads as unassigned work.
+  const fuPendingVisits = useMemo(
+    () => filteredVisits.filter((v: any) => !isLeft(v) && !followupOwnerOf(v)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredVisits, leftSaved, followupBy]
+  );
+
+  const fuHandlingVisits = useMemo(
+    () => filteredVisits.filter((v: any) => !isLeft(v) && !!followupOwnerOf(v)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredVisits, leftSaved, followupBy]
+  );
+
+  /**
+   * Followups is read college by college - a party's visits, calls and
+   * follow-ups together, because the question there is "where are we
+   * with St Mary's", not "what happened on the 27th". Feedback stays in
+   * date order: a call is about one visit and nothing else.
+   *
+   * Within a college, OLDEST first. The college reads top to bottom as
+   * what happened: each visit with the feedback call made after it, and
+   * then, once, the follow-up for the college as a whole. It also leaves
+   * the newest visit last, which is the one a new follow-up belongs to.
+   */
+  const orderForSection = (list: VisitTicket[]) => {
+    if (section !== "followups") {
+      // Feedback is a flat list of calls to make: newest visit first.
+      return [...list].sort((a: any, b: any) => {
+        const ad = parseItemDate(a?.duty_Date);
+        const bd = parseItemDate(b?.duty_Date);
+        if (ad && bd) return bd.valueOf() - ad.valueOf();
+        if (ad) return -1;
+        if (bd) return 1;
+        return 0;
+      });
+    }
+
+    // Grouped: the sort orders the COLLEGES by their most recent visit,
+    // and the visits inside each one the same way - Date means newest
+    // first everywhere, which is what "sorted by date" has to mean, or
+    // the control looks broken on the only screen it is visible from.
+    const latestOf: Record<string, number> = {};
+    list.forEach((v: any) => {
+      const k = String(v?.client_Name || "").trim().toLowerCase();
+      const d = parseItemDate(v?.duty_Date);
+      const t = d ? d.valueOf() : 0;
+      if (!(k in latestOf) || t > latestOf[k]) latestOf[k] = t;
+    });
+
+    return [...list].sort((a: any, b: any) => {
+      const an = String(a?.client_Name || "").trim().toLowerCase();
+      const bn = String(b?.client_Name || "").trim().toLowerCase();
+      if (an !== bn) {
+        const d = (latestOf[bn] || 0) - (latestOf[an] || 0);
+        if (d !== 0) return d;
+        return an.localeCompare(bn);
+      }
+      // Within a college the order on screen is the timeline's own,
+      // set on its card - this only has to keep the group together.
+      const ad = parseItemDate(a?.duty_Date);
+      const bd = parseItemDate(b?.duty_Date);
+      if (ad && bd) return bd.valueOf() - ad.valueOf();
+      if (ad) return -1;
+      if (bd) return 1;
+      return 0;
+    });
+  };
+
+  /**
+   * The college's newest visit, found by date rather than by position.
+   * A new follow-up attaches to it, and that must not change when the
+   * list is reordered - which is exactly the bug a position-based
+   * "last one" would have introduced the moment Date sort flipped it.
+   */
+  const newestVisitOf = (visits: VisitTicket[]) => {
+    let best: any = visits[0];
+    let bestAt = -Infinity;
+    visits.forEach((v: any) => {
+      const d = parseItemDate(v?.duty_Date);
+      const t = d ? d.valueOf() : -Infinity;
+      if (t >= bestAt) {
+        bestAt = t;
+        best = v;
+      }
+    });
+    return best;
+  };
+
+  /** The list the two switchers currently add up to. */
+  const visibleVisits = useMemo(() => {
+    if (section === "feedback") {
+      return fbTab === "pending" ? pendingVisits : completedVisits;
+    }
+    return fuTab === "pending"
+      ? fuPendingVisits
+      : fuTab === "handling"
+        ? fuHandlingVisits
+        : fuLeftVisits;
+  }, [
+    section, fbTab, fuTab,
+    pendingVisits, completedVisits,
+    fuPendingVisits, fuHandlingVisits, fuLeftVisits,
+  ]);
+
+  const visibleOrdered = useMemo(
+    () => orderForSection(visibleVisits),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleVisits, section]
+  );
+
+  /**
+   * The visits on screen, as colleges with their visits inside, in the
+   * order orderForSection put them. In Feedback there is one group
+   * holding everything, which the render then draws without a header -
+   * so the two sections share one loop instead of two copies of a
+   * 700-line card.
+   */
+  const visitGroups = useMemo(() => {
+    const groups: { client: string; visits: VisitTicket[] }[] = [];
+    visibleOrdered.forEach((v: any) => {
+      const k = String(v?.client_Name || "").trim() || "(No client name)";
+      const last = groups[groups.length - 1];
+      if (last && last.client === k) last.visits.push(v);
+      else groups.push({ client: k, visits: [v] });
+    });
+    return groups;
+  }, [visibleOrdered]);
+
+  /**
+   * The shape of a college at a glance, for its header.
+   *
+   * All three are counted DISTINCT. Thirteen visits by the same four
+   * people is four people, not fifty-two, and the same principal met
+   * on every visit is one contact. A total that double-counts is worse
+   * than no total, because it reads as reach that is not there.
+   *
+   * Contacts are matched on name, case- and space-insensitively, which
+   * is the same normalising the dedup scripts do - "Dr Sharmila" and
+   * "Dr Sharmila " are one person.
+   */
+  const groupStats = (visits: VisitTicket[]) => {
+    let followups = 0;
+    const people = new Set<string>();
+    const contacts = new Set<string>();
+
+    visits.forEach((v: any) => {
+      followups += getRowFeedback(getVisitKey(v)).followups.length;
+
+      String(v?.employees || "")
+        .split(",")
+        .forEach((emp: string) => {
+          const code = empCodeOf(emp);
+          if (code) people.add(code);
+        });
+
+      const who = String(v?.contact_Person || "").trim().toLowerCase().replace(/\s+/g, " ");
+      if (who) contacts.add(who);
+    });
+
+    return { followups, people: people.size, contacts: contacts.size };
+  };
+
+  /**
+   * The people met at a college: one row each, however many visits they
+   * appear on. Numbers are collected rather than overwritten - the same
+   * person is often recorded on two different mobiles and both are worth
+   * having.
+   */
+  const contactsOf = (visits: VisitTicket[]) => {
+    const map: Record<string, { name: string; mobiles: string[]; visits: number; last: string }> = {};
+    visits.forEach((v: any) => {
+      const raw = String(v?.contact_Person || "").trim();
+      if (!raw) return;
+      const key = raw.toLowerCase().replace(/\s+/g, " ");
+      const mob = String(v?.mobile_Number || "").trim();
+      if (!map[key]) map[key] = { name: raw, mobiles: [], visits: 0, last: "" };
+      map[key].visits += 1;
+      if (mob && !map[key].mobiles.includes(mob)) map[key].mobiles.push(mob);
+      const d = parseItemDate(v?.duty_Date);
+      const cur = parseItemDate(map[key].last);
+      if (d && (!cur || d.isAfter(cur))) map[key].last = v?.duty_Date;
+    });
+    return Object.values(map).sort((a, b) => b.visits - a.visits);
+  };
+
+  /**
+   * A college as one timeline: what happened, in the order it happened.
+   *
+   * Three kinds of thing land on it - the visit itself, the feedback
+   * call made after it, and each follow-up - and they interleave. A
+   * call made on the 3rd about a visit on the 2nd belongs between that
+   * visit and the next one, not filed underneath it, because that is
+   * how the conversation actually went.
+   *
+   * Everything is dated by when it happened. A follow-up with no date
+   * falls back to its visit's date rather than to today, which would
+   * shove old history to the bottom.
+   */
+  const buildTimeline = (visits: VisitTicket[], newestFirst: boolean) => {
+    const events: any[] = [];
+
+    visits.forEach((v: any) => {
+      const vKey = getVisitKey(v);
+      const visitDate = v?.duty_Date || "";
+
+      events.push({ kind: "visit", at: visitDate, visit: v, visitKey: vKey });
+
+      const call = feedbackCallOf(v);
+      if (call) {
+        events.push({ kind: "call", at: call.on || visitDate, visit: v, visitKey: vKey, call });
+      }
+
+      getRowFeedback(vKey).followups.forEach((f) => {
+        events.push({
+          kind: "followup",
+          at: f.followupDate || visitDate,
+          visit: v,
+          visitKey: vKey,
+          followup: f,
+        });
+      });
+    });
+
+    const dir = newestFirst ? -1 : 1;
+    events.sort((a, b) => {
+      const ad = parseItemDate(a.at);
+      const bd = parseItemDate(b.at);
+      if (ad && bd) {
+        const d = ad.valueOf() - bd.valueOf();
+        if (d !== 0) return d * dir;
+      } else if (ad) return -1;
+      else if (bd) return 1;
+      // Same day, the order things happen in: the visit, the call about
+      // it, then the chasing. Not reversed with the sort - a call cannot
+      // read as coming before the visit it was about.
+      const rank: Record<string, number> = { visit: 0, call: 1, followup: 2 };
+      return (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9);
+    });
+
+    return events;
+  };
+
+  // Colleges the user has opened. Absent means closed: the list is a
+  // list of colleges first, and thirty of them expanded is a page you
+  // scroll rather than a page you read. A search narrows to the handful
+  // you care about and you open the one you want.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (client: string) =>
+    setOpenGroups((p) => ({ ...p, [client]: !p[client] }));
 
   const getRowFeedback = (visitKey: string): VisitFeedbackRowData => {
     return (
@@ -1754,7 +2458,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
           </div>
           )}
 
-          <div className="stock-panel" style={{ margin: '0 16px 20px 16px' }}>
+          <div className="stock-panel visit-toolbar" style={{ margin: '0 16px 20px 16px' }}>
             
             {/* Tabs & Client Search Bar Row (Added beside Visits FeedBack Tab) */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', paddingBottom: '16px', borderBottom: '1px solid var(--stock-border)' }}>
@@ -1793,85 +2497,191 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
               {/* ── Search Bar & View Mode Toggle beside VisitFeedback Tab ── */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: '240px', maxWidth: '380px', flex: 1 }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
+                <div className="visit-search" style={{ minWidth: '240px', maxWidth: '380px', flex: 1 }}>
+                  <Search size={16} className="visit-search-icon" />
                   <input
                     type="text"
-                    placeholder="Search Client Name / Details..."
+                    placeholder="Search or pick a college..."
                     value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setSearchOpen(true);
+                    }}
+                    onFocus={() => setSearchOpen(true)}
+                    // A click on an option fires after blur, so closing
+                    // immediately would unmount the row before it could
+                    // be chosen.
+                    onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setSearchOpen(false);
+                      if (e.key === "Enter") setSearchOpen(false);
+                    }}
                     className="visit-table-input"
-                    style={{ paddingLeft: '36px', paddingRight: clientSearch ? '30px' : '10px', height: '38px', borderRadius: '999px', fontSize: '13px' }}
+                    style={{ paddingLeft: '36px', paddingRight: clientSearch ? '54px' : '34px', height: '38px', borderRadius: '999px', fontSize: '13px' }}
                   />
+
                   {clientSearch && (
                     <button
                       type="button"
-                      onClick={() => setClientSearch("")}
-                      style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', padding: 0 }}
+                      className="visit-search-clear"
+                      onClick={() => {
+                        setClientSearch("");
+                        setSearchOpen(false);
+                      }}
+                      title="Clear"
                     >
                       <X size={15} />
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    className="visit-search-chev"
+                    onClick={() => setSearchOpen((o) => !o)}
+                    title="Show colleges"
+                  >
+                    <ChevronDown
+                      size={15}
+                      style={searchOpen ? { transform: "rotate(180deg)" } : undefined}
+                    />
+                  </button>
+
+                  {searchOpen && (
+                    <div className="visit-search-pop">
+                      {clientOptions.length === 0 ? (
+                        <div className="visit-search-none">No college matches that.</div>
+                      ) : (
+                        clientOptions.slice(0, 40).map((opt) => (
+                          <button
+                            type="button"
+                            key={opt.name}
+                            className={`visit-search-opt ${
+                              opt.name.toLowerCase() === clientSearch.trim().toLowerCase() ? "on" : ""
+                            }`}
+                            // onMouseDown, not onClick: blur runs first
+                            // otherwise and the list is gone by the time
+                            // the click would land.
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setClientSearch(opt.name);
+                              setSearchOpen(false);
+                            }}
+                          >
+                            <Building2 size={12} />
+                            <span className="visit-search-opt-name">{opt.name}</span>
+                            <span className="visit-search-opt-count">{opt.visits}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Grid / Table are two ways of reading the same flat list;
-                    By Party regroups it under the client, which is where a
-                    visit history actually belongs. */}
-                <div className="visit-view-toggle">
-                  <button
-                    type="button"
-                    className={`visit-view-btn ${viewMode === "grid" ? "active" : ""}`}
-                    onClick={() => setViewMode("grid")}
-                  >
-                    Cards
-                  </button>
-                  <button
-                    type="button"
-                    className={`visit-view-btn ${viewMode === "table" ? "active" : ""}`}
-                    onClick={() => setViewMode("table")}
-                  >
-                    Table
-                  </button>
-                  <button
-                    type="button"
-                    className={`visit-view-btn ${viewMode === "party" ? "active" : ""}`}
-                    onClick={() => setViewMode("party")}
-                  >
-                    <Building2 size={13} />
-                    <span>By Party</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`visit-view-btn ${viewMode === "pending" ? "active" : ""}`}
-                    onClick={() => setViewMode("pending")}
-                    title="Visits with no feedback recorded yet"
-                  >
-                    <Clock size={13} />
-                    <span>Feedback Pending</span>
-                    {pendingVisits.length > 0 && (
-                      <span className="visit-view-count">{pendingVisits.length}</span>
-                    )}
-                  </button>
-                  {isFollowupAdmin && (
+                {/* The two jobs this screen exists for, and the states
+                    each one has. The second row only ever shows the states
+                    of the section above it, so Completed and Handling
+                    cannot be confused for each other. The Tickets tab has
+                    neither job, so nothing is drawn there. */}
+                {activeTab === "visits" && (
+                <div className="visit-view-stack">
+                  <div className="visit-view-toggle">
                     <button
                       type="button"
-                      className={`visit-view-btn ${viewMode === "followups" ? "active" : ""}`}
-                      onClick={() => setViewMode("followups")}
-                      title="Every follow-up across all visits"
+                      className={`visit-view-btn ${section === "feedback" ? "active" : ""}`}
+                      onClick={() => setSection("feedback")}
+                      title="The call made to the party after a visit"
                     >
-                      <UserCheck size={13} />
-                      <span>All Follow-ups</span>
-                      {awaitingFollowupCount > 0 && (
-                        <span className="visit-view-count" title="Assigned, nothing recorded yet">
-                          {awaitingFollowupCount}
+                      <Phone size={13} />
+                      <span>Feedback</span>
+                      {pendingVisits.length > 0 && (
+                        <span className="visit-view-count" title="Not yet called">
+                          {pendingVisits.length}
                         </span>
                       )}
                     </button>
-                  )}
+                    {isFollowupAdmin && (
+                      <button
+                        type="button"
+                        className={`visit-view-btn ${section === "followups" ? "active" : ""}`}
+                        onClick={() => setSection("followups")}
+                        title="The chasing that comes after a visit"
+                      >
+                        <UserCheck size={13} />
+                        <span>Followups</span>
+                        {fuPendingVisits.length > 0 && (
+                          <span className="visit-view-count" title="Assigned, nothing recorded yet">
+                            {fuPendingVisits.length}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="visit-subtabs">
+                    {section === "feedback" ? (
+                      <>
+                        <button
+                          type="button"
+                          className={`visit-subtab ${fbTab === "pending" ? "active" : ""}`}
+                          onClick={() => setFbTab("pending")}
+                        >
+                          <span>Pending</span>
+                          <span className="visit-subtab-count">{pendingVisits.length}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`visit-subtab ${fbTab === "done" ? "active" : ""}`}
+                          onClick={() => setFbTab("done")}
+                        >
+                          <span>Completed</span>
+                          <span className="visit-subtab-count">{completedVisits.length}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className={`visit-subtab ${fuTab === "pending" ? "active" : ""}`}
+                          onClick={() => setFuTab("pending")}
+                          title="Somebody owns it, nothing recorded yet"
+                        >
+                          <span>Pending</span>
+                          <span className="visit-subtab-count">{fuPendingVisits.length}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`visit-subtab ${fuTab === "handling" ? "active" : ""}`}
+                          onClick={() => setFuTab("handling")}
+                          title="At least one follow-up recorded"
+                        >
+                          <span>Handling</span>
+                          <span className="visit-subtab-count">{fuHandlingVisits.length}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`visit-subtab ${fuTab === "left" ? "active" : ""}`}
+                          onClick={() => setFuTab("left")}
+                          title="Decided not worth chasing"
+                        >
+                          <span>Left</span>
+                          <span className="visit-subtab-count">{fuLeftVisits.length}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
                 </div>
+                )}
               </div>
             </div>
 
+            {/* The project and date filters belong to Tickets, which
+                defaults to the current month and needs a way out of it.
+                Visits does not: with nothing applied it already shows
+                every visit, which is what Feedback Pending has to count,
+                and a date box that silently narrows that count is worse
+                than no date box. */}
+            {activeTab === "tickets" && (
             <div className="stock-grid" style={{ marginTop: '16px' }}>
               
               {/* Projects Dropdown */}
@@ -2019,6 +2829,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
               </div>
 
             </div>
+            )}
           </div>
 
           {/* Content Panel (Grid Cards / Table View) */}
@@ -2026,7 +2837,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
         {activeTab === "tickets" ? (
 
-          viewMode === "grid" ? (
+          viewMode !== "table" ? (
             <div className="tickets-cards-grid">
               {filteredTickets.length > 0 ? (
                 filteredTickets.map((item, index) => (
@@ -2154,74 +2965,6 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
         ) : (
 
-          viewMode === "followups" && isFollowupAdmin ? (
-            /* Every follow-up on screen in one list, newest first, plus
-               every visit that has been ASSIGNED to someone but has no
-               follow-up recorded against it yet - those sit at the top of
-               their day marked "awaiting", because an assignment nobody
-               has acted on is the thing this screen exists to surface.
-               Read-only; editing stays where the visit's own context is. */
-            <div className="fu-all">
-              <div className="fu-all-head">
-                <span>Date</span>
-                <span>Party</span>
-                <span>Courses</span>
-                <span>Owner</span>
-                <span>Next</span>
-                <span>Remarks</span>
-              </div>
-
-              {allFollowups.length > 0 ? (
-                allFollowups.map((r, i) => (
-                  <div
-                    className={`fu-all-row ${r.kind === "awaiting" ? "awaiting" : ""}`}
-                    key={`${r.visitId}-${r.feedbackId}-${i}`}
-                  >
-                    <span className="fu-all-date">
-                      {r.followupDate
-                        ? moment(r.followupDate).format("DD MMM YY")
-                        : <span className="fu-all-await">awaiting</span>}
-                    </span>
-                    <span className="fu-all-party" title={r.client}>
-                      {r.client}
-                      <span className="fu-all-visit">
-                        visit {r.visitDate ? moment(r.visitDate).format("DD/MM/YY") : "-"}
-                      </span>
-                    </span>
-                    <span
-                      className="fu-all-courses"
-                      title={r.courses.map((cn: string) => courseSummaryLine(cn, r.courseData[cn])).join(", ")}
-                    >
-                      {r.courses.length > 0
-                        ? r.courses.map((cn: string) => courseSummaryLine(cn, r.courseData[cn])).join(", ")
-                        : "-"}
-                    </span>
-                    <span className="fu-all-owner">
-                      {r.owner ? r.owner : <span className="fu-all-unowned">unassigned</span>}
-                    </span>
-                    <span className="fu-all-next">
-                      {r.nextFollowupDate ? `f/u ${moment(r.nextFollowupDate).format("DD/MM/YY")}` : ""}
-                      {r.nextFollowupDate && r.nextVisitDate ? <br /> : null}
-                      {r.nextVisitDate ? `visit ${moment(r.nextVisitDate).format("DD/MM/YY")}` : ""}
-                      {!r.nextFollowupDate && !r.nextVisitDate ? "-" : null}
-                    </span>
-                    <span className="fu-all-remarks" title={r.clientRemarks}>
-                      {r.kind === "awaiting"
-                        ? <span className="fu-all-await-note">assigned - no follow-up recorded yet</span>
-                        : (r.clientRemarks || "-")}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div style={{ textAlign: "center", padding: "30px 16px", color: "#64748b" }}>
-                  <p style={{ margin: 0, fontSize: "13px", fontWeight: 600 }}>
-                    No follow-ups recorded, and no visit assigned to anyone,
-                    in this date range.
-                  </p>
-                </div>
-              )}
-            </div>
-          ) :
 
           viewMode === "party" ? (
             /* Everything about one client in one place: their visits oldest
@@ -2292,6 +3035,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                     feedbackId: Number(f?.Feedback_ID ?? 0),
                                     followupDate: f?.FollowupDate ? moment(f.FollowupDate).format("YYYY-MM-DD") : "",
                                     clientRemarks: f?.ClientRemarks ?? "",
+                                    createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
                                     courses: built.courses,
                                     courseData: built.courseData,
                                   };
@@ -2390,12 +3134,355 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
             </div>
           ) :
 
-          viewMode === "grid" || viewMode === "pending" ? (
+          viewMode === "pending" || viewMode === "followups" ? (
             <div className="visits-cards-grid">
-              {(viewMode === "pending" ? pendingVisits : filteredVisits).length > 0 ? (
-                (viewMode === "pending" ? pendingVisits : filteredVisits).map((item, index) => {
+              {visibleOrdered.length > 0 ? (
+                visitGroups.map((group, gIndex) => {
+                  const grouped = section === "followups";
+                  const folded = grouped && !openGroups[group.client];
+
+                  return (
+                    <div
+                      className={`visit-party-group ${grouped ? "" : "plain"}`}
+                      key={`${group.client}__${gIndex}`}
+                    >
+                    {/* The college, once, with its visits inside it.
+                        Feedback skips this entirely - there the list is
+                        by date and a party heading would be noise. */}
+                    {grouped && (() => {
+                      const gKey = `grp:${group.client}`;
+                      const gLeft =
+                        group.visits.length > 0 && group.visits.every((gv) => isLeft(gv));
+                      const gBusy = !!leftSaving[gKey];
+                      const gErr = leftError[gKey];
+                      const gDrafting = Object.prototype.hasOwnProperty.call(leftDraft, gKey);
+                      const gReason = leftDraft[gKey] ?? "";
+                      const closeG = () =>
+                        setLeftDraft((prev) => {
+                          const next = { ...prev };
+                          delete next[gKey];
+                          return next;
+                        });
+                      return (
+                      <>
+                      <div className={`visit-party-head ${folded ? "folded" : ""}`}>
+                        <button
+                          type="button"
+                          className="visit-party-toggle"
+                          onClick={() => toggleGroup(group.client)}
+                        >
+                        <Building2 size={15} />
+                        <span className="visit-party-head-name">{group.client}</span>
+                        </button>
+
+                        {(() => {
+                          const st = groupStats(group.visits);
+                          return (
+                            <span className="visit-party-stats">
+                              <button
+                                type="button"
+                                className={`vps vps-btn ${
+                                  (ctView[group.client] || "all") === "visits" ? "on" : ""
+                                }`}
+                                onClick={() => setCollegeView(group.client, "visits")}
+                                title="Show only the visits"
+                              >
+                                {group.visits.length} {group.visits.length === 1 ? "visit" : "visits"}
+                              </button>
+                              <button
+                                type="button"
+                                className={`vps vps-btn ${
+                                  (ctView[group.client] || "all") === "followups" ? "on" : ""
+                                }`}
+                                onClick={() => setCollegeView(group.client, "followups")}
+                                title="Show only the follow-ups"
+                              >
+                                <BookOpen size={11} />
+                                {st.followups}
+                              </button>
+                              <button
+                                type="button"
+                                className={`vps vps-btn ${showVisitors[group.client] ? "on" : ""}`}
+                                onClick={() =>
+                                  setShowVisitors((p) => ({
+                                    ...p,
+                                    [group.client]: !p[group.client],
+                                  }))
+                                }
+                                title={
+                                  showVisitors[group.client]
+                                    ? "Hide who went on each visit"
+                                    : "Our people who have visited - click to show them per visit"
+                                }
+                              >
+                                <UserCheck size={11} />
+                                {st.people}
+                              </button>
+                              <button
+                                type="button"
+                                className={`vps vps-btn ${
+                                  (ctView[group.client] || "all") === "contacts" ? "on" : ""
+                                }`}
+                                onClick={() => setCollegeView(group.client, "contacts")}
+                                title="List the people met at this college"
+                              >
+                                <User size={11} />
+                                {st.contacts}
+                              </button>
+                            </span>
+                          );
+                        })()}
+
+                        {/* Who is chasing this college. The list is the
+                            people who have actually been there - picking
+                            a follow-up owner from the whole employee
+                            table would let you assign a college to
+                            somebody who has never met them. */}
+                        {(() => {
+                          const owner = groupOwnerOf(group.visits);
+                          const people = visitorsOf(group.visits);
+                          const busy = !!followupBySaving[`grp:${group.client}`];
+                          const openList = assignFor === group.client;
+                          return (
+                            <div className="assign-wrap">
+                              <button
+                                type="button"
+                                className={`assign-btn ${owner ? "on" : ""}`}
+                                disabled={busy}
+                                onClick={() =>
+                                  setAssignFor(openList ? null : group.client)
+                                }
+                                title={
+                                  owner
+                                    ? `Being followed up by ${owner}`
+                                    : "Put someone on this college"
+                                }
+                              >
+                                <UserCheck size={11} />
+                                <span>{busy ? "Saving..." : owner || "Assign"}</span>
+                              </button>
+
+                              {openList && (
+                                <div className="assign-pop">
+                                  {people.length === 0 ? (
+                                    <div className="assign-none">
+                                      No employee is recorded on these visits.
+                                    </div>
+                                  ) : (
+                                    people.map((pp) => (
+                                      <button
+                                        type="button"
+                                        key={pp.code}
+                                        className={`assign-opt ${owner === pp.code ? "on" : ""}`}
+                                        onClick={() => {
+                                          void assignGroupOwner(
+                                            group.client,
+                                            group.visits,
+                                            pp.code,
+                                            owner === pp.code
+                                          );
+                                          setAssignFor(null);
+                                        }}
+                                        title={
+                                          owner === pp.code
+                                            ? "Take them off it"
+                                            : `Put ${pp.label} on this college`
+                                        }
+                                      >
+                                        {owner === pp.code ? (
+                                          <Check size={12} />
+                                        ) : (
+                                          <User size={12} />
+                                        )}
+                                        <span className="assign-opt-name">{pp.label}</span>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+
+                              {followupByError[`grp:${group.client}`] && (
+                                <span className="assign-err">
+                                  {followupByError[`grp:${group.client}`]}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Not chasing this college. Asked once, here,
+                            because it is a decision about the party -
+                            thirteen identical chips down the timeline
+                            were thirteen ways to say the same thing. */}
+                        {gLeft ? (
+                          <button
+                            type="button"
+                            className="visit-left-undo"
+                            disabled={gBusy}
+                            onClick={() => saveGroupFollowupStatus(group.client, group.visits, false)}
+                          >
+                            <Lock size={11} />
+                            <span>{gBusy ? "Saving..." : "Ignored - put back"}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`employee-chip visit-meta-chip emp-not-needed ${gDrafting ? "open" : ""}`}
+                            disabled={gBusy}
+                            onClick={() =>
+                              setLeftDraft((prev) => {
+                                const next = { ...prev };
+                                if (Object.prototype.hasOwnProperty.call(next, gKey)) delete next[gKey];
+                                else next[gKey] = "";
+                                return next;
+                              })
+                            }
+                            title={gDrafting ? "Cancel" : "Leave this college out - no follow-up needed"}
+                          >
+                            <X size={10} />
+                            <span>Ignore</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="visit-party-chev-btn"
+                          onClick={() => toggleGroup(group.client)}
+                          title={folded ? "Show" : "Hide"}
+                        >
+                          <ChevronDown
+                            size={15}
+                            className="visit-party-head-chev"
+                            style={folded ? { transform: "rotate(-90deg)" } : undefined}
+                          />
+                        </button>
+                      </div>
+
+                      {gDrafting && !gLeft && (
+                        <div className="visit-party-reason">
+                          <div className={`visit-call-inline-field ${gBusy ? "busy" : ""}`}>
+                            <X size={13} className="visit-call-inline-icon" />
+                            <input
+                              type="text"
+                              value={gReason}
+                              disabled={gBusy}
+                              placeholder={`Why is no follow-up needed for ${group.client}?`}
+                              onChange={(e) =>
+                                setLeftDraft((prev) => ({ ...prev, [gKey]: e.target.value }))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !gBusy && gReason.trim()) {
+                                  void saveGroupFollowupStatus(group.client, group.visits, true, gReason);
+                                  closeG();
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="visit-call-inline-save"
+                              disabled={gBusy || !gReason.trim()}
+                              title="Mark this college as not needed"
+                              onClick={() => {
+                                void saveGroupFollowupStatus(group.client, group.visits, true, gReason);
+                                closeG();
+                              }}
+                            >
+                              <Check size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {gErr && <div className="visit-party-reason-error">{gErr}</div>}
+                      </>
+                      );
+                    })()}
+
+                    {/* The one thing you come here to DO, and the form
+                        it opens, both above the timeline - not inside it,
+                        where the scroll box would carry them off as soon
+                        as the history was longer than the screen. */}
+                    {grouped && !folded && (() => {
+                      const aKey = getVisitKey(newestVisitOf(group.visits));
+                      const open = getRowFeedback(aKey).draftOpen;
+                      return (
+                        <div className="ct-add-row">
+                          <button
+                            type="button"
+                            className="ct-add"
+                            onClick={() => {
+                              setOpenFeedback((p) => ({ ...p, [aKey]: true }));
+                              openDraft(aKey);
+                            }}
+                            disabled={open}
+                          >
+                            <Plus size={13} />
+                            <span>{open ? "Writing a follow-up" : "Add follow-up"}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="ct-sort"
+                            onClick={() =>
+                              setCtSort((p) => ({
+                                ...p,
+                                [group.client]: (p[group.client] ?? "desc") === "desc" ? "asc" : "desc",
+                              }))
+                            }
+                            title="Turn this timeline around"
+                          >
+                            <Calendar size={12} />
+                            <span>
+                              {(ctSort[group.client] ?? "desc") === "desc"
+                                ? "Newest first"
+                                : "Oldest first"}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Grouped, the one card left is a shell whose only
+                        content is the follow-up editor - every other part
+                        of it is drawn on the timeline above. With nothing
+                        being written it rendered as an empty white strip
+                        under the college, so it is not drawn at all until
+                        the editor is open. */}
+                    {!folded &&
+                      (!grouped ||
+                        getRowFeedback(getVisitKey(newestVisitOf(group.visits))).draftOpen) && (
+                    <div className="visit-party-visits">
+                    {(grouped
+                      ? [newestVisitOf(group.visits)]
+                      : group.visits
+                    ).map((item, index) => {
+                  // Position in the whole list, not in this group: in
+                  // Feedback the groups are invisible, so restarting at 1
+                  // inside each made every card read "#1".
+                  const cardNo = grouped
+                    ? index + 1
+                    : visibleOrdered.indexOf(item) + 1;
                   const visitKey = getVisitKey(item, index);
                   const rowFeedback = getRowFeedback(visitKey);
+
+                  // A follow-up is the college's, not the visit's. Three
+                  // visits to one college did not create three follow-up
+                  // threads - the same person is being chased about the
+                  // same thing. So the block is drawn once, on the last
+                  // (newest) visit, and anything saved there attaches to
+                  // it.
+                  const isFollowupAnchor = true;
+
+                  // ...and it shows every follow-up the college has,
+                  // whichever visit it was recorded against, each still
+                  // editable where it was written.
+                  const historyFollowups = grouped
+                    ? []
+                    : rowFeedback.followups.map((f) => ({
+                        ...f,
+                        ownerVisitKey: visitKey,
+                        ownerVisitDate: item?.duty_Date,
+                      }));
 
                   return (
                     <div
@@ -2404,10 +3491,11 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                       style={{ animationDelay: `${index * 0.02}s` }}
                     >
                       {/* Card Top Header */}
+                      {!grouped && (
                       <div className="task-card-header">
                         <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                           <div className="tid-badge">
-                            #{index + 1}
+                            #{cardNo}
                           </div>
                           {item.projects && (
                             <span className="project-chip">
@@ -2442,18 +3530,25 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           <span>{formatDate(item.duty_Date)}</span>
                         </div>
                       </div>
+                      )}
 
                       {/* Card Body */}
                       <div className="card-body" style={{ padding: 0 }}>
                         
-                        {/* Client Title */}
+                        {/* Client Title. Printed on the group header
+                            when grouped, so repeating it on all thirteen
+                            cards underneath only pushed the working part
+                            of each one further down. */}
+                        {section !== "followups" && (
                         <div style={{ display: "flex", alignItems: "center", gap: "6px", margin: "2px 0 4px" }}>
                           <Building2 size={16} style={{ color: "var(--ion-color-primary, #3b82f6)", flexShrink: 0 }} />
                           <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#1e293b", lineHeight: 1.25 }}>
                             {item.client_Name}
                           </h3>
                         </div>
+                        )}
 
+                        {!grouped && (<>
                         {/* One line of context: where, who, their number,
                             what happened, and who went. Three stacked rows
                             for this pushed the part people actually work in
@@ -2484,9 +3579,9 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             </span>
                           ) : null}
 
-                          {item.employees ? (
+                          {(item.employees || viewMode === "followups") ? (
                             <span className="visit-meta-emps">
-                              {item.employees.split(",").map((emp, i) => {
+                              {String(item.employees || "").split(",").filter((e) => e.trim()).map((emp, i) => {
                                 const code = empCodeOf(emp);
                                 const vid = String(Number(item.visit_ID || item.Visit_ID || 0));
                                 const owner = followupBy[vid] ?? "";
@@ -2514,6 +3609,39 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                   </button>
                                 );
                               })}
+                              {/* Not assigning is a choice among these
+                                  names, so it sits with them and looks
+                                  like them - red, because it is the one
+                                  that takes the visit out of the list.
+                                  Followups only: Feedback has nobody to
+                                  assign. */}
+                              {viewMode === "followups" && !isLeft(item) && (() => {
+                                const vId = Number(item?.visit_ID ?? item?.Visit_ID ?? 0);
+                                const vKey = String(vId);
+                                const drafting = Object.prototype.hasOwnProperty.call(leftDraft, vKey);
+                                return (
+                                  <button
+                                    type="button"
+                                    className={`employee-chip visit-meta-chip emp-not-needed ${drafting ? "open" : ""}`}
+                                    disabled={!vId || !!leftSaving[vKey]}
+                                    onClick={() =>
+                                      setLeftDraft((prev) => {
+                                        const next = { ...prev };
+                                        if (Object.prototype.hasOwnProperty.call(next, vKey)) {
+                                          delete next[vKey];
+                                        } else {
+                                          next[vKey] = "";
+                                        }
+                                        return next;
+                                      })
+                                    }
+                                    title={drafting ? "Cancel" : "Nobody is taking this one"}
+                                  >
+                                    <X size={10} />
+                                    <span>Not needed</span>
+                                  </button>
+                                );
+                              })()}
                               {followupByError[String(Number(item.visit_ID || item.Visit_ID || 0))] && (
                                 <span className="emp-pick-error">
                                   {followupByError[String(Number(item.visit_ID || item.Visit_ID || 0))]}
@@ -2523,70 +3651,248 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           ) : null}
                         </div>
 
+                        </>)}
+
+                        {/* Feedback Pending is one job - record the call -
+                            so it gets one line: type what they said, press
+                            the tick. No section to open, no button to reveal
+                            the field, no date to fill in. The visit details
+                            above are the record; this is the only thing
+                            being added to it. */}
+                        {viewMode === "pending" && !feedbackCallOf(item) && (() => {
+                          const vId = Number(item?.visit_ID ?? item?.Visit_ID ?? 0);
+                          const vKey = String(vId);
+                          const busy = !!callSaving[vKey];
+                          const err = callError[vKey];
+                          const text = callDraft[vKey]?.remarks ?? "";
+                          const ready = !!vId && !busy && text.trim().length > 0;
+                          return (
+                            <div className="visit-call-inline">
+                              <div className={`visit-call-inline-field ${busy ? "busy" : ""}`}>
+                                <Phone size={13} className="visit-call-inline-icon" />
+                                <input
+                                  type="text"
+                                  value={text}
+                                  disabled={busy || !vId}
+                                  placeholder="Feedback call - what did they say?"
+                                  onChange={(e) => setCallRemarks(vId, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && ready) saveFeedbackCall(vId);
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="visit-call-inline-save"
+                                  disabled={!ready}
+                                  title="Save this feedback call"
+                                  onClick={() => saveFeedbackCall(vId)}
+                                >
+                                  {busy ? <Clock size={14} /> : <Check size={14} />}
+                                </button>
+                              </div>
+                              {err && <div className="visit-call-inline-error">{err}</div>}
+                            </div>
+                          );
+                        })()}
+
                         {/* ── Feedback & Event Planning Box ── */}
-                        <div className="visit-card-feedback-box">
+                        {/* Writing a visit off, and taking it back.
+                            Followups only - Feedback is about a call that
+                            either happened or did not, and has no third
+                            state to park anything in. */}
+                        {viewMode === "followups" && (() => {
+                          const vId = Number(item?.visit_ID ?? item?.Visit_ID ?? 0);
+                          const vKey = String(vId);
+                          const busy = !!leftSaving[vKey];
+                          const err = leftError[vKey];
+                          const left = isLeft(item);
+                          const detail = left ? leftDetailOf(item) : null;
+                          const drafting = Object.prototype.hasOwnProperty.call(leftDraft, vKey);
+
+                          if (left) {
+                            return (
+                              <div className="visit-left-strip">
+                                <Lock size={12} />
+                                <span className="visit-left-label">Not needed</span>
+                                {detail?.by && (
+                                  <span className="visit-left-meta">by {detail.by}</span>
+                                )}
+                                {detail?.on && (
+                                  <span className="visit-left-meta">
+                                    {moment(detail.on).format("DD MMM YY")}
+                                  </span>
+                                )}
+                                {detail?.note && (
+                                  <span className="visit-left-note" title={detail.note}>
+                                    {detail.note}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="visit-left-undo"
+                                  disabled={busy || !vId}
+                                  onClick={() => saveFollowupStatus(vId, false)}
+                                >
+                                  {busy ? "Saving..." : "Put back"}
+                                </button>
+                                {err && <span className="visit-left-error">{err}</span>}
+                              </div>
+                            );
+                          }
+
+                          // The way in is the red chip beside the names.
+                          // Until it is pressed there is nothing to show
+                          // here but an error, if one came back.
+                          if (!drafting) {
+                            return err ? (
+                              <div className="visit-left-strip ghost">
+                                <span className="visit-left-error">{err}</span>
+                              </div>
+                            ) : null;
+                          }
+
+                          const reason = leftDraft[vKey] ?? "";
+                          return (
+                            <div className="visit-call-inline">
+                              <div className={`visit-call-inline-field ${busy ? "busy" : ""}`}>
+                                <X size={13} className="visit-call-inline-icon" />
+                                <input
+                                  type="text"
+                                  value={reason}
+                                  disabled={busy}
+                                  placeholder="Reason for not assigning this visit"
+                                  onChange={(e) =>
+                                    setLeftDraft((prev) => ({ ...prev, [vKey]: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !busy && reason.trim()) {
+                                      void saveFollowupStatus(vId, true, reason);
+                                      setLeftDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[vKey];
+                                        return next;
+                                      });
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="visit-call-inline-save"
+                                  disabled={busy || !reason.trim()}
+                                  title="Mark as not needed"
+                                  onClick={() => {
+                                    void saveFollowupStatus(vId, true, reason);
+                                    setLeftDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[vKey];
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  <Check size={14} />
+                                </button>
+                              </div>
+                              {err && <div className="visit-call-inline-error">{err}</div>}
+                            </div>
+                          );
+                        })()}
+
+                        {/* The CALL for THIS visit, wherever the card is
+                            shown. It sat inside the follow-up accordion,
+                            which Feedback does not draw - so Completed
+                            would have been a list of calls with the calls
+                            invisible. */}
+                        {(() => {
+                          const call = feedbackCallOf(item);
+                          if (!call) return null;
+                          return (
+                            <div className="visit-call-detail">
+                              <div className="visit-call-detail-head">
+                                <Phone size={12} />
+                                <span className="visit-call-detail-when">
+                                  {moment(call.on).format("DD MMM YYYY, HH:mm")}
+                                </span>
+                                {call.by && (
+                                  <span className="visit-call-detail-by">by {call.by}</span>
+                                )}
+                              </div>
+                              <div
+                                className={`visit-call-detail-remarks ${
+                                  call.remarks ? "" : "none"
+                                }`}
+                              >
+                                {call.remarks || "No remarks noted on the call"}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {viewMode !== "pending" &&
+                          isFollowupAnchor &&
+                          (!grouped || rowFeedback.draftOpen) && (
+                        <div className={`visit-card-feedback-box ${grouped ? "bare" : ""}`}>
+                          {!grouped && (
                           <button
                             type="button"
                             className="visit-card-feedback-header"
                             onClick={() => toggleFeedbackBox(visitKey)}
                           >
-                            <BookOpen size={13} style={{ color: "var(--stock-accent, #45599b)" }} />
-                            <span>Feedback &amp; Event Details</span>
-                            {rowFeedback.followups.length > 0 && (
-                              <span className="visit-feedback-badge">
-                                {rowFeedback.followups.length}
-                              </span>
+                            {/* The section is named after what the view is
+                                for. "Feedback & Event Details" covered both
+                                a call and its follow-ups, which is exactly
+                                the conflation that made the pending count
+                                meaningless. */}
+                            {viewMode === "pending" ? (
+                              <Phone size={13} style={{ color: "#2563eb" }} />
+                            ) : (
+                              <BookOpen size={13} style={{ color: "var(--stock-accent, #45599b)" }} />
                             )}
+                            <span>
+                              {viewMode === "pending"
+                                ? "Visit feedback"
+                                : viewMode === "followups"
+                                  ? "Follow-ups"
+                                  : "Feedback & follow-ups"}
+                            </span>
+
+                            {/* The badge counts whatever the section is
+                                about: the call is one or none, follow-ups
+                                are however many there are. */}
+                            {viewMode === "pending"
+                              ? feedbackCallOf(item) && (
+                                  <span className="visit-feedback-badge">1</span>
+                                )
+                              : historyFollowups.length > 0 && (
+                                  <span className="visit-feedback-badge">
+                                    {historyFollowups.length}
+                                  </span>
+                                )}
                             <ChevronDown
                               size={14}
                               className="visit-feedback-chev"
                               style={openFeedback[visitKey] ? { transform: "rotate(180deg)" } : undefined}
                             />
                           </button>
+                          )}
 
-                          {openFeedback[visitKey] && (
+                          {(grouped || openFeedback[visitKey]) && (
                           <>
-
-                          {/* Visit-level: which courses, and when to follow up.
-                              The figures asked for against each course live on
-                              their own row below. */}
-                          {(() => {
-                            const latest = latestVisitByClient[String(item.client_Name || "").trim()];
-                            if (!latest) return null;
-                            const isThisOne = getVisitKey(latest) === visitKey;
-                            return (
-                              <div className="visit-latest">
-                                <div className="visit-latest-head">
-                                  <span className="visit-latest-label">Most recent visit</span>
-                                  <span className="visit-latest-date">
-                                    {latest.duty_Date ? moment(latest.duty_Date).format("DD MMM YYYY") : "-"}
-                                  </span>
-                                  <span className="visit-latest-time">
-                                    {formatTime(latest.visit_FromTime)} - {formatTime(latest.visit_ToTime)}
-                                  </span>
-                                  {isThisOne && <span className="visit-latest-self">this visit</span>}
-                                </div>
-                                {latest.remarks ? (
-                                  <div className="visit-latest-remarks">{latest.remarks}</div>
-                                ) : (
-                                  <div className="visit-latest-remarks visit-latest-none">No remarks recorded</div>
-                                )}
-                              </div>
-                            );
-                          })()}
 
                           {/* Follow-ups already recorded against this visit.
                               Read-only here - click one to reopen it if it
                               needs correcting, rather than editing in place
-                              and risking the history being rewritten. */}
-                          {rowFeedback.followups.length > 0 && (
+                              and risking the history being rewritten.
+                              Hidden in Feedback Pending: that view is about
+                              the call, and showing both put the same remark
+                              on screen twice. */}
+                          {viewMode !== "pending" && historyFollowups.length > 0 && (
                             <div className="visit-followup-history">
-                              {rowFeedback.followups.map((f, fi) => (
+                              {historyFollowups.map((f: any, fi: number) => (
                                 <button
                                   type="button"
                                   key={f.feedbackId || fi}
                                   className={`visit-followup-row ${isEditableToday(f) ? "" : "locked"}`}
-                                  onClick={() => openDraft(visitKey, f)}
+                                  onClick={() => openDraft(f.ownerVisitKey || visitKey, f)}
                                   disabled={!isEditableToday(f)}
                                   title={
                                     isEditableToday(f)
@@ -2597,6 +3903,14 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                   <span className="visit-followup-date">
                                     {f.followupDate ? moment(f.followupDate).format("DD MMM YYYY") : "No date"}
                                   </span>
+                                  {section === "followups" && f.ownerVisitDate && (
+                                    <span
+                                      className="visit-followup-src"
+                                      title="The visit this follow-up was recorded against"
+                                    >
+                                      {moment(f.ownerVisitDate).format("DD/MM/YY")} visit
+                                    </span>
+                                  )}
                                   <span
                                     className="visit-followup-courses"
                                     title={f.courses.map((cn) => courseSummaryLine(cn, f.courseData[cn])).join(", ")}
@@ -2609,7 +3923,15 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                   </span>
                                   <span className="visit-followup-remarks" title={f.clientRemarks}>
                                     {[
-                                      f.clientRemarks,
+                                      // A follow-up created from the visit's own
+                                      // note carries the same text, so the card
+                                      // printed it twice - once as the visit
+                                      // remark above, once here. Same words, same
+                                      // visit, no new information: show it once.
+                                      String(f.clientRemarks || "").trim() ===
+                                      String(item?.remarks || "").trim()
+                                        ? ""
+                                        : f.clientRemarks,
                                       f.nextFollowupDate ? `next f/u ${moment(f.nextFollowupDate).format("DD/MM/YY")}` : "",
                                       f.nextVisitDate ? `next visit ${moment(f.nextVisitDate).format("DD/MM/YY")}` : "",
                                     ].filter(Boolean).join(" · ")}
@@ -2624,18 +3946,125 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             </div>
                           )}
 
-                          {!rowFeedback.draftOpen && (
-                            <button
-                              type="button"
-                              className="visit-followup-add"
-                              onClick={() => openDraft(visitKey)}
-                            >
-                              <Plus size={14} />
-                              <span>
-                                {rowFeedback.followups.length > 0 ? "Add follow-up" : "Add first follow-up"}
-                              </span>
-                            </button>
-                          )}
+                          {!rowFeedback.draftOpen && (() => {
+                            const vId = Number(item?.visit_ID ?? item?.Visit_ID ?? 0);
+                            const vKey = String(vId);
+                            const call = feedbackCallOf(item);
+                            const draft = callDraft[vKey];
+                            const busy = !!callSaving[vKey];
+                            const err = callError[vKey];
+
+                            return (
+                              <>
+                                <div className="visit-action-row">
+                                  {/* Each view offers the one action it is
+                                      about: Feedback Pending is a list of
+                                      calls to make, All Follow-ups a list of
+                                      visits to chase. Cards shows both,
+                                      because it is the whole picture. */}
+                                  {viewMode !== "followups" && (call ? (
+                                    <button
+                                      type="button"
+                                      className="visit-call-done"
+                                      title={`Called by ${call.by || "-"}${call.remarks ? ` - ${call.remarks}` : ""}`}
+                                      onClick={() => openCallDraft(vId, call.on, call.remarks)}
+                                    >
+                                      <CheckCircle2 size={14} />
+                                      <span>
+                                        Feedback called {moment(call.on).format("DD MMM, HH:mm")}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="visit-call-add"
+                                      disabled={!vId}
+                                      onClick={() => openCallDraft(vId)}
+                                    >
+                                      <Phone size={14} />
+                                      <span>Add visit feedback</span>
+                                    </button>
+                                  ))}
+
+                                  {viewMode !== "pending" && (
+                                    <button
+                                      type="button"
+                                      className="visit-followup-add"
+                                      onClick={() => openDraft(visitKey)}
+                                    >
+                                      <Plus size={14} />
+                                      <span>
+                                        {historyFollowups.length > 0 ? "Add follow-up" : "Add first follow-up"}
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {draft && (
+                                  <div className="visit-call-draft">
+                                    <div className="visit-call-row">
+                                      <label>
+                                        <Clock size={12} /> Call made on
+                                      </label>
+                                      <input
+                                        type="datetime-local"
+                                        value={draft.on}
+                                        onChange={(e) =>
+                                          setCallDraft((p) => ({
+                                            ...p,
+                                            [vKey]: { ...p[vKey], on: e.target.value },
+                                          }))
+                                        }
+                                      />
+                                    </div>
+
+                                    <input
+                                      className="visit-call-remarks"
+                                      placeholder="What did they say on the call?"
+                                      value={draft.remarks}
+                                      onChange={(e) =>
+                                        setCallDraft((p) => ({
+                                          ...p,
+                                          [vKey]: { ...p[vKey], remarks: e.target.value },
+                                        }))
+                                      }
+                                    />
+
+                                    {err && <div className="visit-call-error">{err}</div>}
+
+                                    <div className="visit-call-acts">
+                                      <button
+                                        type="button"
+                                        className="visit-call-cancel"
+                                        disabled={busy}
+                                        onClick={() => closeCallDraft(vId)}
+                                      >
+                                        Cancel
+                                      </button>
+                                      {call && (
+                                        <button
+                                          type="button"
+                                          className="visit-call-clear"
+                                          disabled={busy}
+                                          onClick={() => saveFeedbackCall(vId, true)}
+                                        >
+                                          Clear
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="visit-call-save"
+                                        disabled={busy || !draft.on}
+                                        onClick={() => saveFeedbackCall(vId)}
+                                      >
+                                        {busy ? "Saving..." : "Save call"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
 
                           {rowFeedback.draftOpen && (
                           <>
@@ -2660,7 +4089,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           </div>
 
                           <div className="visit-feedback-head">
-                            <div className="visit-grid-input-group" style={{ flex: "0 1 260px" }}>
+                            <div className="visit-grid-input-group" style={{ flex: "1 1 0", minWidth: 0 }}>
                               <label>Courses List</label>
                               <button
                                 type="button"
@@ -2680,7 +4109,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                               </button>
                             </div>
 
-                            <div className="visit-grid-input-group" style={{ flex: "0 0 150px" }}>
+                            <div className="visit-grid-input-group" style={{ flex: "1 1 0", minWidth: 0 }}>
                               <label>Next Followup</label>
                               <input
                                 type="date"
@@ -2690,7 +4119,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                               />
                             </div>
 
-                            <div className="visit-grid-input-group" style={{ flex: "0 0 150px" }}>
+                            <div className="visit-grid-input-group" style={{ flex: "1 1 0", minWidth: 0 }}>
                               <label>Next Visit</label>
                               <input
                                 type="date"
@@ -2774,23 +4203,23 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             </div>
                           )}
 
-                          {/* Inline Remarks & Save Row */}
-                          <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", marginTop: "6px" }}>
-                            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
-                              <label style={{ fontSize: "10.5px", fontWeight: 750, color: "#475569", textTransform: "uppercase" }}>Client Remarks</label>
+                          {/* Remarks and Save on one line. "Unsaved" is
+                              gone: an enabled Save button already says
+                              that, and a permanent warning next to every
+                              empty form is just noise. */}
+                          <div className="visit-form-foot">
+                            <div className="visit-grid-input-group" style={{ flex: "1 1 auto", minWidth: 0 }}>
+                              <label>Client Remarks</label>
                               <input
                                 type="text"
-                                placeholder="Remarks..."
+                                placeholder="What did they say?"
                                 className="visit-table-input"
                                 value={rowFeedback.clientRemarks}
                                 onChange={(e) => updateFeedbackField(visitKey, "clientRemarks", e.target.value, item)}
                               />
                             </div>
 
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <div style={{ fontSize: "11.5px", color: rowFeedback.saved ? "#10b981" : "#64748b", fontWeight: 700, whiteSpace: "nowrap" }}>
-                                {rowFeedback.saved ? "✓ Saved" : "Unsaved"}
-                              </div>
+                            <div className="visit-form-foot-acts">
                               <button
                                 type="button"
                                 className={`visit-save-btn ${rowFeedback.saved ? "saved" : ""}`}
@@ -2820,8 +4249,214 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           )}
 
                         </div>
+                        )}
 
                       </div>
+                    </div>
+                  );
+                    })}
+                    </div>
+                    )}
+
+                    {grouped && !folded && (
+                      <div className="ct">
+                        {/* Contacts is a different question - who, not
+                            when - so it answers with a list rather than
+                            with a filtered timeline. */}
+                        {(ctView[group.client] || "all") === "contacts" ? (
+                          <div className="ct-contacts">
+                            {contactsOf(group.visits).length === 0 ? (
+                              <div className="ct-contacts-none">
+                                No contact was recorded on any of these visits.
+                              </div>
+                            ) : (
+                              contactsOf(group.visits).map((c) => (
+                                <div className="ct-contact" key={c.name}>
+                                  <User size={12} />
+                                  <span className="ct-contact-name">{c.name}</span>
+                                  {c.mobiles.length > 0 && (
+                                    <span className="ct-contact-mob">{c.mobiles.join(" / ")}</span>
+                                  )}
+                                  {c.last && (
+                                    <span className="ct-contact-last">
+                                      last {moment(c.last).format("DD MMM YY")}
+                                    </span>
+                                  )}
+                                  <span className="ct-contact-count">
+                                    {c.visits} {c.visits === 1 ? "visit" : "visits"}
+                                  </span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        ) : (
+                        buildTimeline(group.visits, (ctSort[group.client] ?? "desc") === "desc")
+                          .filter((ev: any) => {
+                            const view = ctView[group.client] || "all";
+                            if (view === "visits") return ev.kind === "visit";
+                            if (view === "followups") return ev.kind === "followup";
+                            return true;
+                          })
+                          .map((ev: any, ei: number) => {
+                          const v = ev.visit;
+                          const vId = Number(v?.visit_ID ?? v?.Visit_ID ?? 0);
+                          const vKey = String(vId);
+
+                          if (ev.kind === "visit") {
+                            return (
+                              <div className="ct-item ct-visit" key={`v${ev.visitKey}_${ei}`}>
+                                <span className="ct-dot" />
+                                <div className="ct-body">
+                                  <div className="ct-head">
+                                    <span className="ct-when">{formatDate(v.duty_Date)}</span>
+                                    {v.projects && <span className="ct-tag">{v.projects}</span>}
+                                    {(v.visit_FromTime || v.visit_ToTime) && (
+                                      <span className="ct-time">
+                                        <Clock size={11} />
+                                        {formatTime(v.visit_FromTime)} - {formatTime(v.visit_ToTime)}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="ct-line-of">
+                                    <span className="ct-bit">
+                                      <MapPin size={11} style={{ color: "#ef4444" }} />
+                                      {v.location || "-"}
+                                    </span>
+                                    <span className="ct-bit">
+                                      <User size={11} style={{ color: "#3b82f6" }} />
+                                      {v.contact_Person || "-"}
+                                    </span>
+                                    {v.mobile_Number && (
+                                      <span className="ct-bit ct-mob">{v.mobile_Number}</span>
+                                    )}
+                                    {v.remarks && (
+                                      <span className="ct-remarks" title={v.remarks}>
+                                        {v.remarks}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {showVisitors[group.client] && (
+                                  <div className="ct-emps">
+                                    {String(v.employees || "")
+                                      .split(",")
+                                      .filter((e: string) => e.trim())
+                                      .map((emp: string, i: number) => {
+                                        const code = empCodeOf(emp);
+                                        const owner = followupBy[vKey] ?? "";
+                                        const isOwner = Boolean(code) && owner === code;
+                                        const canChange =
+                                          isFollowupAdmin || !owner || owner === currentEmpCode;
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={i}
+                                            className={`employee-chip visit-meta-chip emp-pick ${isOwner ? "owner" : ""} ${canChange ? "" : "fixed"}`}
+                                            disabled={followupBySaving[vKey] || !canChange}
+                                            onClick={() => setVisitFollowupBy(v, code)}
+                                            title={
+                                              !canChange
+                                                ? "Only the person following this up can reassign it"
+                                                : isOwner
+                                                ? "Following up - click to clear"
+                                                : `Make ${emp.trim()} the follow-up owner`
+                                            }
+                                          >
+                                            {isOwner && <UserCheck size={10} />}
+                                            <span>{emp.trim()}</span>
+                                          </button>
+                                        );
+                                      })}
+
+                                  </div>
+                                  )}
+
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (ev.kind === "call") {
+                            return (
+                              <div className="ct-item ct-call" key={`c${ev.visitKey}_${ei}`}>
+                                <span className="ct-dot" />
+                                <div className="ct-body">
+                                  <div className="ct-head">
+                                    <Phone size={12} />
+                                    <span className="ct-when">
+                                      {moment(ev.call.on).format("DD MMM YYYY, HH:mm")}
+                                    </span>
+                                    <span className="ct-kind">feedback call</span>
+                                    {ev.call.by && <span className="ct-by">by {ev.call.by}</span>}
+                                  </div>
+                                  <div className={`ct-text ${ev.call.remarks ? "" : "none"}`}>
+                                    {ev.call.remarks || "No remarks noted on the call"}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          const f = ev.followup;
+                          const editable = isEditableToday(f);
+                          return (
+                            <div className="ct-item ct-fu" key={`f${f.feedbackId || ei}`}>
+                              <span className="ct-dot" />
+                              <button
+                                type="button"
+                                className={`ct-body ct-fu-btn ${editable ? "" : "locked"}`}
+                                disabled={!editable}
+                                onClick={() => openDraft(ev.visitKey, f)}
+                                title={
+                                  editable
+                                    ? "Reopen this follow-up"
+                                    : "Recorded on an earlier day - add a new follow-up instead"
+                                }
+                              >
+                                <div className="ct-head">
+                                  <BookOpen size={12} />
+                                  <span className="ct-when">
+                                    {f.followupDate ? moment(f.followupDate).format("DD MMM YYYY") : "No date"}
+                                  </span>
+                                  <span className="ct-kind">follow-up</span>
+                                  {f.createdBy && <span className="ct-by">by {f.createdBy}</span>}
+                                  {editable ? <Edit3 size={11} /> : <Lock size={10} />}
+                                </div>
+                                {f.courses.length > 0 && (
+                                  <div className="ct-text">
+                                    {f.courses.map((cn: string) => courseSummaryLine(cn, f.courseData[cn])).join(", ")}
+                                  </div>
+                                )}
+                                {f.clientRemarks && <div className="ct-text">{f.clientRemarks}</div>}
+                                {(f.nextFollowupDate || f.nextVisitDate) && (
+                                  <div className="ct-next">
+                                    {f.nextFollowupDate && (
+                                      <span>next f/u {moment(f.nextFollowupDate).format("DD/MM/YY")}</span>
+                                    )}
+                                    {f.nextVisitDate && (
+                                      <span>next visit {moment(f.nextVisitDate).format("DD/MM/YY")}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })
+                        )}
+
+                        {/* A filter that hides everything looks identical
+                            to a college with no history, so say which it
+                            is. */}
+                        {(ctView[group.client] || "all") === "followups" &&
+                          buildTimeline(group.visits, false).every((ev: any) => ev.kind !== "followup") && (
+                            <div className="ct-contacts-none">
+                              No follow-up has been recorded for this college yet.
+                            </div>
+                          )}
+                      </div>
+                    )}
+
                     </div>
                   );
                 })
@@ -2834,11 +4469,26 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                       </p>
                       <p style={{ margin: "6px 0 0", fontSize: "11.5px", lineHeight: 1.5 }}>{loadError}</p>
                     </>
-                  ) : viewMode === "pending" ? (
+                  ) : filteredVisits.length === 0 ? (
                     <p style={{ margin: 0, fontSize: "13px", fontWeight: 600 }}>
-                      {filteredVisits.length > 0
-                        ? "Every visit in this range has feedback recorded."
-                        : "No visits in this range."}
+                      No visits loaded.
+                    </p>
+                  ) : section === "feedback" || !isFollowupAdmin ? (
+                    /* An empty tab means one of two very different things,
+                       and saying "no records" for both is how a finished
+                       list gets mistaken for a broken one. */
+                    <p style={{ margin: 0, fontSize: "13px", fontWeight: 600 }}>
+                      {fbTab === "pending"
+                        ? "Every visit has been called back."
+                        : "No feedback calls recorded yet."}
+                    </p>
+                  ) : viewMode === "followups" ? (
+                    <p style={{ margin: 0, fontSize: "13px", fontWeight: 600 }}>
+                      {fuTab === "pending"
+                        ? "Every visit has somebody on it."
+                        : fuTab === "handling"
+                          ? "No visit has a follow-up owner yet."
+                          : "Nothing has been written off."}
                     </p>
                   ) : (
                     <>
@@ -2982,18 +4632,121 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                               </div>
                             )}
 
-                            {!rowFeedback.draftOpen && (
-                              <button
-                                type="button"
-                                className="visit-followup-add"
-                                onClick={() => openDraft(visitKey)}
-                              >
-                                <Plus size={14} />
-                                <span>
-                                  {rowFeedback.followups.length > 0 ? "Add follow-up" : "Add first follow-up"}
-                                </span>
-                              </button>
-                            )}
+                            {!rowFeedback.draftOpen && (() => {
+                              const vId = Number(item?.visit_ID ?? item?.Visit_ID ?? 0);
+                              const vKey = String(vId);
+                              const call = feedbackCallOf(item);
+                              const draft = callDraft[vKey];
+                              const busy = !!callSaving[vKey];
+                              const err = callError[vKey];
+
+                              return (
+                                <>
+                                  <div className="visit-action-row">
+                                    {/* One action per view, as in the cards. */}
+                                    {viewMode !== "followups" && (call ? (
+                                      <button
+                                        type="button"
+                                        className="visit-call-done"
+                                        title={`Called by ${call.by || "-"}${call.remarks ? ` - ${call.remarks}` : ""}`}
+                                        onClick={() => openCallDraft(vId, call.on, call.remarks)}
+                                      >
+                                        <CheckCircle2 size={14} />
+                                        <span>
+                                          Feedback called {moment(call.on).format("DD MMM, HH:mm")}
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="visit-call-add"
+                                        disabled={!vId}
+                                        onClick={() => openCallDraft(vId)}
+                                      >
+                                        <Phone size={14} />
+                                        <span>Add visit feedback</span>
+                                      </button>
+                                    ))}
+
+                                    {viewMode !== "pending" && (
+                                      <button
+                                        type="button"
+                                        className="visit-followup-add"
+                                        onClick={() => openDraft(visitKey)}
+                                      >
+                                        <Plus size={14} />
+                                        <span>
+                                          {rowFeedback.followups.length > 0 ? "Add follow-up" : "Add first follow-up"}
+                                        </span>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {draft && (
+                                    <div className="visit-call-draft">
+                                      <div className="visit-call-row">
+                                        <label>
+                                          <Clock size={12} /> Call made on
+                                        </label>
+                                        <input
+                                          type="datetime-local"
+                                          value={draft.on}
+                                          onChange={(e) =>
+                                            setCallDraft((p) => ({
+                                              ...p,
+                                              [vKey]: { ...p[vKey], on: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                      </div>
+
+                                      <input
+                                        className="visit-call-remarks"
+                                        placeholder="What did they say on the call?"
+                                        value={draft.remarks}
+                                        onChange={(e) =>
+                                          setCallDraft((p) => ({
+                                            ...p,
+                                            [vKey]: { ...p[vKey], remarks: e.target.value },
+                                          }))
+                                        }
+                                      />
+
+                                      {err && <div className="visit-call-error">{err}</div>}
+
+                                      <div className="visit-call-acts">
+                                        <button
+                                          type="button"
+                                          className="visit-call-cancel"
+                                          disabled={busy}
+                                          onClick={() => closeCallDraft(vId)}
+                                        >
+                                          Cancel
+                                        </button>
+                                        {call && (
+                                          <button
+                                            type="button"
+                                            className="visit-call-clear"
+                                            disabled={busy}
+                                            onClick={() => saveFeedbackCall(vId, true)}
+                                          >
+                                            Clear
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          className="visit-call-save"
+                                          disabled={busy || !draft.on}
+                                          onClick={() => saveFeedbackCall(vId)}
+                                        >
+                                          {busy ? "Saving..." : "Save call"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
 
                             {rowFeedback.draftOpen && (
                             <>

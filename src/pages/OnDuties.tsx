@@ -890,6 +890,12 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   // moment you started looking for something.
   const [partySearch, setPartySearch] = useState("");
 
+  // Which visit is being geo tagged - "<tripIndex>-<visitIndex>". Fixing
+  // a position and then turning it into a place name takes a few seconds
+  // on a phone outside a building, and a button that does nothing
+  // visible for that long gets pressed again.
+  const [geoTagging, setGeoTagging] = useState<string | null>(null);
+
   // Designations already recorded against visits, most used first. Same
   // idea as the party list: pick "Principal" rather than inventing a
   // fourth way to spell it.
@@ -2598,14 +2604,29 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
       // ===== VALIDATION =====
 
+      // Add mode records the start reading and opens the camp - there are
+      // no visits yet, only the blank placeholder the form starts with.
+      // Holding it to the visit rules meant "tap Geo Tag" on a stop
+      // nobody had begun to fill in, which blocked starting the day.
+      //
+      // In edit mode an untouched placeholder is skipped the same way: a
+      // visit counts as begun once it has a slip, a party or a location.
+      const recordedVisits = (trip.visits || []).map((v, i) => ({ v, i })).filter(
+        ({ v }) =>
+          tripModalMode === "edit" &&
+          (!!v?.visitSlipImage ||
+            String(v?.partyName || "").trim() !== "" ||
+            String(v?.location || "").trim() !== "")
+      );
+
       // A number that cannot be rung is worse than no number: it looks
       // like a contact nobody has to chase. Checked here as well as in
       // the field, because a value can arrive from the party auto-fill
       // or from a record saved before this rule existed.
-      for (let i = 0; i < (trip.visits || []).length; i++) {
-        const err = mobileError(trip.visits[i]?.mobile);
+      for (const { v, i } of recordedVisits) {
+        const err = mobileError(v?.mobile);
         if (err) {
-          notify(`Client stop #${i + 1}: ${err}`, "warning");
+          notify(`Visit #${i + 1}: ${err}`, "warning");
           scrollVisitIntoView(i);
           return;
         }
@@ -2621,11 +2642,10 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       // historic days from the office, narrow the test to
       //   !trip.visits[i]?.visit_Id
       // and only new stops will be held to it.
-      for (let i = 0; i < (trip.visits || []).length; i++) {
-        const v = trip.visits[i];
+      for (const { v, i } of recordedVisits) {
         if (!String(v?.latitude || "").trim() || !String(v?.longitude || "").trim()) {
           notify(
-            `Client stop #${i + 1}: tap Geo Tag to record where this visit happened`,
+            `Visit #${i + 1}: tap Geo Tag to record where this visit happened`,
             "warning"
           );
           scrollVisitIntoView(i);
@@ -5293,6 +5313,9 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       return;
     }
 
+    const geoKey = `${tripIndex}-${visitIndex}`;
+    setGeoTagging(geoKey);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const lat = pos.coords.latitude.toFixed(6);
@@ -5315,10 +5338,22 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         } catch (err: any) {
           console.warn("[OnDuty] reverse geocode failed:", err?.message || err);
           notify("Tagged, but the place name could not be fetched", "warning");
+        } finally {
+          setGeoTagging((k) => (k === geoKey ? null : k));
         }
       },
-      () => notify("Permission denied", "warning"),
-      { enableHighAccuracy: true }
+      (err) => {
+        setGeoTagging((k) => (k === geoKey ? null : k));
+        notify(
+          err && err.code === err.TIMEOUT
+            ? "Could not get a position - try again with a clearer view of the sky"
+            : "Permission denied",
+          "warning"
+        );
+      },
+      // A fix can take a while outdoors; without a timeout the button
+      // would spin until the browser gave up on its own.
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
   };
   const currentModalTrip =
@@ -8606,7 +8641,13 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                 className="od-val"
                                 value={visit.location}
                                 disabled={!hasGeo && !String(visit.location || "").trim()}
-                                placeholder={hasGeo ? "place name" : "geo tag first"}
+                                placeholder={
+                                  geoTagging === `${editingTripIndex}-${visitIndex}`
+                                    ? "finding you..."
+                                    : hasGeo
+                                      ? "place name"
+                                      : "geo tag first"
+                                }
                                 onChange={(e) =>
                                   updateTripVisit(
                                     editingTripIndex!,
@@ -8632,14 +8673,30 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                     <ExternalLink size={14} />
                                   </button>
                                 )}
-                                <button
-                                  type="button"
-                                  className={`od-btn ${hasGeo ? "" : "cam"}`}
-                                  title={hasGeo ? "Tag again from where you are now" : "Tag this location"}
-                                  onClick={() => tagVisitLocation(editingTripIndex!, visitIndex)}
-                                >
-                                  <MapPin size={14} />
-                                </button>
+                                {(() => {
+                                  const busy = geoTagging === `${editingTripIndex}-${visitIndex}`;
+                                    return (
+                                      <button
+                                        type="button"
+                                        className={`od-btn ${hasGeo ? "" : "cam"} ${busy ? "busy" : ""}`}
+                                        disabled={busy}
+                                        title={
+                                          busy
+                                            ? "Finding where you are..."
+                                            : hasGeo
+                                              ? "Tag again from where you are now"
+                                              : "Tag this location"
+                                        }
+                                        onClick={() => tagVisitLocation(editingTripIndex!, visitIndex)}
+                                      >
+                                        {busy ? (
+                                          <Loader2 size={14} className="daytrip-spin" />
+                                        ) : (
+                                          <MapPin size={14} />
+                                        )}
+                                      </button>
+                                    );
+                                  })()}
                               </span>
                             </div>
 
@@ -9212,12 +9269,22 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                       {isSavingTrip ? (
                         <>
                           <Loader2 size={18} className="daytrip-spin" />
-                          <span>Saving Trip...</span>
+                          <span>
+                            {tripModalMode === "add" ? "Starting Camp..." : "Saving Trip..."}
+                          </span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 size={18} />
-                          <span>Save Trip</span>
+                          {/* Add mode uploads the start reading, which is what
+                              opens the camp and turns live location on for the
+                              team. Calling that "Save Trip" described the
+                              mechanism rather than the thing it does. */}
+                          {tripModalMode === "add" ? (
+                            <Navigation size={18} />
+                          ) : (
+                            <CheckCircle2 size={18} />
+                          )}
+                          <span>{tripModalMode === "add" ? "Start Camp" : "Save Trip"}</span>
                         </>
                       )}
                     </button>

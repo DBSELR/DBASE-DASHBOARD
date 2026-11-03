@@ -2453,3 +2453,1641 @@ body.dark .view-mode-btn.active {
   font-style: italic;
   color: #92400e;
 }
+
+/* ============================================================
+   THE FEEDBACK CALL
+   One per visit, beside the follow-up button but not the same thing:
+   the call records that the party was rung after the visit and when.
+   Follow-ups are the chasing that comes after it.
+   ============================================================ */
+.visit-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.visit-call-add,
+.visit-call-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.visit-call-add {
+  border: 1.5px dashed #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.visit-call-add:hover:not(:disabled) {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
+.visit-call-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Called already: states a fact, so it is quiet - but still a button,
+   because the time or the remark may need correcting. */
+.visit-call-done {
+  border: 1.5px solid #86efac;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.visit-call-done:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+/* ---- the little form ---- */
+.visit-call-draft {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.visit-call-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.visit-call-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.visit-call-row input[type="datetime-local"] {
+  flex: 1;
+  min-width: 180px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.visit-call-remarks {
+  width: 100%;
+  height: 34px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.visit-call-error {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.visit-call-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.visit-call-cancel,
+.visit-call-clear,
+.visit-call-save {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.visit-call-cancel {
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.visit-call-clear {
+  border: 1.5px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.visit-call-save {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.visit-call-save:disabled,
+.visit-call-cancel:disabled,
+.visit-call-clear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .visit-action-row > button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  /* 16px, or iOS zooms the page when the field takes focus. */
+  .visit-call-row input[type="datetime-local"],
+  .visit-call-remarks {
+    font-size: 16px;
+    height: 40px;
+  }
+}
+
+/* The recorded call, shown where the follow-up list used to be in the
+   Feedback Pending view. */
+.visit-call-detail {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1.5px solid #bfdbfe;
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.visit-call-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1d4ed8;
+}
+
+.visit-call-detail-when {
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.visit-call-detail-by {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #eff6ff;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.visit-call-detail-remarks {
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.visit-call-detail-remarks.none {
+  font-style: italic;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.visit-call-none {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* ============================================================
+   Feedback Pending: the call, on one line.
+
+   The view asks one question - was this party called back, and
+   what did they say - so the card gets a field and a tick, not
+   a section to expand and a button to reveal an editor. The
+   save control sits inside the field because it acts on what is
+   in it; outside, it reads as another card action.
+   ============================================================ */
+.visit-call-inline {
+  margin-top: 10px;
+}
+
+.visit-call-inline-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 4px 0 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.visit-call-inline-field:focus-within {
+  background: #fff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.visit-call-inline-field.busy {
+  opacity: 0.7;
+}
+
+.visit-call-inline-icon {
+  flex: 0 0 auto;
+  color: #2563eb;
+}
+
+.visit-call-inline-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e293b;
+  font-family: inherit;
+}
+
+.visit-call-inline-field input::placeholder {
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+/* Inside the field, same height as the text it saves. */
+.visit-call-inline-save {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.visit-call-inline-save:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+/* Nothing typed yet - the tick stays, greyed, so the control does
+   not appear and disappear as the field is filled. */
+.visit-call-inline-save:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.visit-call-inline-error {
+  margin-top: 6px;
+  padding-left: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+/* ============================================================
+   Two rows: the job, then its states.
+
+   The states sit under the job rather than beside it so that
+   "Pending" is never ambiguous - there is a Pending in both
+   sections and they mean different things. Reading downward
+   makes the sentence: Followups > Pending.
+   ============================================================ */
+/* One line: the job, then its states, reading left to right. They
+   were stacked so that the two "Pending"s could not be mistaken for
+   each other; the divider does that job in less height. */
+.visit-view-stack {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.visit-view-stack > .visit-subtabs {
+  position: relative;
+  margin-left: 6px;
+}
+
+/* The states belong to the section on its left, so they are divided
+   from it rather than just spaced. */
+.visit-view-stack > .visit-subtabs::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: #e2e8f0;
+}
+
+.visit-subtabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+}
+
+.visit-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.visit-subtab:hover:not(.active) {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.visit-subtab.active {
+  background: #fff;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* The count is the whole point of the tab, so it is always drawn -
+   a tab that loses its number when it empties reads as broken
+   rather than as done. */
+.visit-subtab-count {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+  text-align: center;
+}
+
+.visit-subtab.active .visit-subtab-count {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+@media (max-width: 640px) {
+  /* Too narrow for one line: the states drop under the section they
+     belong to and fill the width, rather than being squeezed. */
+  .visit-view-stack {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .visit-view-stack > .visit-view-toggle,
+  .visit-view-stack > .visit-subtabs {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .visit-view-stack > .visit-subtabs::before {
+    display: none;
+  }
+
+  .visit-subtabs {
+    justify-content: space-between;
+  }
+
+  .visit-subtab {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 6px 8px;
+  }
+}
+
+
+/* ============================================================
+   Left: a visit nobody is chasing any more.
+
+   Muted on purpose. It is a real state, not a warning - the
+   decision was deliberate and the card should not shout about
+   it every time the list is scrolled.
+   ============================================================ */
+.visit-left-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 11.5px;
+}
+
+/* Nothing recorded yet - just the way in, so it carries no box. */
+.visit-left-strip.ghost {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin-top: 8px;
+}
+
+.visit-left-strip > svg {
+  color: #94a3b8;
+  flex: 0 0 auto;
+}
+
+.visit-left-label {
+  font-weight: 800;
+  color: #475569;
+}
+
+.visit-left-meta {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.visit-left-note {
+  flex: 1 1 140px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.visit-left-mark,
+.visit-left-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.visit-left-mark:hover:not(:disabled),
+.visit-left-undo:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.visit-left-undo {
+  margin-left: auto;
+}
+
+.visit-left-mark:disabled,
+.visit-left-undo:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.visit-left-error {
+  flex: 1 1 100%;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+/* ============================================================
+   "Not needed", beside the people it is an alternative to.
+
+   Same pill as an employee chip, in red, because the row is
+   one question - who is taking this - and this is the answer
+   that says nobody. It is last in the row for the same
+   reason.
+
+   The !important matches .visit-grid-card .employee-chip,
+   which sets background, colour and border that way. Equal
+   importance, so this wins on specificity; without the
+   !important it would lose regardless of order.
+   ============================================================ */
+.visit-grid-card .employee-chip.emp-not-needed,
+.employee-chip.emp-not-needed {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 3px;
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.visit-grid-card .employee-chip.emp-not-needed:hover:not(:disabled),
+.employee-chip.emp-not-needed:hover:not(:disabled) {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+}
+
+/* Open means the reason box below is waiting - the chip reads as
+   the thing currently being answered, and clicking it again backs
+   out. */
+.visit-grid-card .employee-chip.emp-not-needed.open,
+.employee-chip.emp-not-needed.open {
+  background: #b91c1c !important;
+  color: #fff !important;
+  border-color: #b91c1c !important;
+}
+
+.employee-chip.emp-not-needed:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ============================================================
+   A college, with its visits inside it.
+
+   Followups asks "where are we with this party", so the party
+   is the container and its visits are its contents. The name
+   is printed once, on the header, and taken off the cards -
+   thirteen cards each repeating "St Mary's Group of
+   Institutions, Guntur (Women)" pushed the part people work
+   in further down every single one.
+
+   Feedback uses the same loop with .plain, which is a group of
+   one with no header and no box, so the two sections do not
+   need two copies of the card.
+   ============================================================ */
+.visit-party-group {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+/* Feedback: not a group at all, just the cards. */
+.visit-party-group.plain {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.visit-party-head {
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* The name and its numbers are what folds the college. */
+.visit-party-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.visit-party-chev-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.visit-party-head:hover {
+  background: #f8fafc;
+}
+
+/* The reason sits under the header, full width, because it is about
+   everything below it. */
+.visit-party-reason {
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.visit-party-reason-error {
+  padding: 6px 12px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+/* Folded, there is nothing under it to divide from. */
+.visit-party-head.folded {
+  border-bottom: 0;
+}
+
+.visit-party-head > svg:first-child {
+  color: var(--stock-accent, #45599b);
+  flex: 0 0 auto;
+}
+
+.visit-party-head-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+/* Kept for the Feedback cards, which still label a group this way.
+   In the college header every count is a .vps chip now - four numbers
+   in three different colours read as three different kinds of thing,
+   when they are all just counts of what is below. */
+.visit-party-head-count {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #4338ca;
+}
+
+.visit-party-head-chev {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  transition: transform 0.18s ease;
+}
+
+.visit-party-visits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  min-width: 0;
+}
+
+/* A flex item keeps its content width unless it is allowed to shrink.
+   Without this the cards size to their widest row - the employee pills -
+   and run off the right of the group. */
+.visit-party-visits > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.visit-party-group.plain .visit-party-visits {
+  gap: 10px;
+  padding: 0;
+}
+
+/* The college's follow-up list spans all its visits, so each row says
+   which visit it was written against - without it, two follow-ups a
+   month apart look like they belong to the same conversation. */
+.visit-followup-src {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   The college timeline.
+
+   One rail down the left, a dot per event, in the order things
+   happened: the visit, the call made after it, the follow-ups.
+   The dot colour says which - blue a visit, green a call,
+   indigo a follow-up - so the shape of a college is readable
+   before a word of it is.
+
+   The rail is a border on the item rather than a separate
+   element, so it cannot drift out of line with the dots.
+   ============================================================ */
+/* A college with thirty visits should not push every other college
+   off the page, so the timeline scrolls inside its own box and the
+   Follow-ups block below it stays reachable. The cap is a height, not
+   a count: a college with three visits still takes three visits' worth
+   of room. */
+.ct {
+  padding: 10px 12px 4px;
+  /* Tall enough to use the page, capped so several colleges still fit
+     on screen at once. vh rather than px: the empty space under it was
+     the point. */
+  max-height: min(calc(72vh - 100px), 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ct::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ct::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.ct::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+  .ct { max-height: 70vh; }
+}
+
+.ct-item {
+  position: relative;
+  padding: 0 0 14px 18px;
+  border-left: 2px solid #e2e8f0;
+}
+
+/* Nothing follows the last event, so the rail stops at its dot
+   instead of trailing into empty space. */
+.ct-item:last-child {
+  border-left-color: transparent;
+  padding-bottom: 2px;
+}
+
+.ct-dot {
+  position: absolute;
+  left: -6px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #94a3b8;
+}
+
+.ct-visit > .ct-dot { border-color: #2563eb; background: #dbeafe; }
+.ct-call  > .ct-dot { border-color: #16a34a; background: #dcfce7; }
+.ct-fu    > .ct-dot { border-color: #d97706; background: #fef3c7; }
+
+.ct-body {
+  min-width: 0;
+}
+
+.ct-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.ct-head > svg { flex: 0 0 auto; color: #2563eb; }
+.ct-call .ct-head > svg { color: #16a34a; }
+.ct-fu   .ct-head > svg { color: #d97706; }
+
+.ct-when {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.ct-kind {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+/* The task is a label, not a status. Green put it in the same family
+   as the feedback call, which is a different kind of thing entirely -
+   now that colour means "which kind of entry", a chip that borrows one
+   of those three hues is reading as something it is not. */
+.ct-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.ct-time,
+.ct-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.ct-line-of {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 5px;
+}
+
+.ct-bit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.ct-remarks {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 2px solid #fdba74;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #c2410c;
+}
+
+.ct-emps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.ct-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.ct-text.none {
+  font-style: italic;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.ct-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+/* A follow-up can be reopened, so it is a button - but it is still
+   just an entry on the rail, so it carries no box of its own. */
+.ct-fu-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-fu-btn:disabled { cursor: default; }
+
+.ct-fu-btn:hover:not(:disabled) .ct-when {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---- what kind of entry this is, said in colour ----
+   Three kinds down one rail, and the dot alone is 10px of it. The
+   date and the words carry the same three colours, so the kind is
+   readable wherever the eye lands on the row. */
+.ct-visit .ct-when { color: #1d4ed8; }
+.ct-call  .ct-when { color: #15803d; }
+.ct-fu    .ct-when { color: #b45309; }
+
+.ct-call .ct-text { color: #166534; }
+.ct-fu   .ct-text { color: #92400e; }
+
+.ct-call .ct-kind { color: #22c55e; }
+.ct-fu   .ct-kind { color: #f59e0b; }
+
+/* The rail itself takes the colour of the entry it belongs to, so a
+   college's shape is readable from the left edge alone. */
+.ct-visit { border-left-color: #bfdbfe; }
+.ct-call  { border-left-color: #bbf7d0; }
+.ct-fu    { border-left-color: #fde68a; }
+
+@media (max-width: 640px) {
+  .ct { padding: 8px 10px 2px; }
+  .ct-remarks { flex: 1 1 100%; white-space: normal; }
+}
+
+/* The college's shape in four numbers, in the header. Muted next to
+   the visit count: that one is what the list is of, the rest are
+   context. */
+.visit-party-stats {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.vps {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.vps > svg { color: #94a3b8; }
+
+@media (max-width: 640px) {
+  /* The name gives up the line before the numbers wrap under it. */
+  .visit-party-head-name { flex: 1 1 100%; }
+}
+
+
+/* In the college header the chip is one control among several, so it
+   sizes to its own text. .employee-chip is display:block by default,
+   which in a flex row was letting it take the leftover width. */
+/* In the header this is one control among four, so it is its own
+   width and nothing else. .employee-chip is display:block with no
+   width of its own, which as a flex child let it take the row's
+   leftover space - and !important, because the chip's colours are
+   set that way and anything weaker here loses to them. */
+.visit-party-head .emp-not-needed,
+.visit-party-head .visit-left-undo {
+  flex: 0 0 auto !important;
+  width: 96px !important;
+  /* OverTime.css sets a global .employee-chip { min-width: 220px }.
+     Every stylesheet the app imports ends up in one document, so that
+     rule reaches this chip too - and min-width beats width, which is
+     why "width: 96px" alone did nothing. */
+  min-width: 0 !important;
+  align-self: center;
+  justify-content: center;
+  white-space: nowrap;
+  /* Exactly .assign-btn's metrics - they are a pair, so a pixel of
+     difference between them reads as one being more important than
+     the other. Only the colour separates them. */
+  gap: 4px !important;
+  padding: 1px 8px !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  line-height: normal !important;
+  border-radius: 999px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+
+/* "Add follow-up" is a link on the rail, not a button block - the one
+   thing to DO sits where the eye starts, and still reads as part of
+   the timeline rather than a toolbar bolted on top of it. */
+.ct-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: #4f46e5;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ct-add:hover:not(:disabled) {
+  color: #3730a3;
+}
+
+.ct-add:disabled {
+  color: #94a3b8;
+  cursor: default;
+  text-decoration: none;
+}
+
+.ct-mob {
+  font-variant-numeric: tabular-nums;
+  color: #334155;
+}
+
+/* Grouped, the editor is opened from that link, so it needs no header
+   of its own and no box around a box. */
+.visit-card-feedback-box.bare {
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* The add link now sits above the timeline, so it is a row of its
+   own rather than an entry on the rail. */
+.ct-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px 0;
+}
+
+/* The timeline's own direction, on the timeline's own card. Quiet:
+   it is a reading preference, not an action. */
+.ct-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.ct-sort:hover {
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.ct-sort > svg { color: #94a3b8; }
+
+.ct-add-row .ct-add {
+  font-size: 12.5px;
+}
+
+/* ============================================================
+   The follow-up form.
+
+   Everything in it is a labelled field, so everything in it is
+   the same height, the same corner radius and on the same
+   grid. The course table shares one column template with its
+   own header, which is what makes "Count" sit over the counts
+   instead of near them.
+   ============================================================ */
+.visit-draft-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #eef2ff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4338ca;
+}
+
+.visit-draft-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #4338ca;
+  cursor: pointer;
+}
+
+.visit-draft-cancel:hover { background: #eef2ff; }
+
+.visit-feedback-head {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.visit-grid-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.visit-grid-input-group > label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+/* One height for every control in the form, whatever it is. */
+.visit-feedback-head .visit-table-input,
+.visit-feedback-head .visit-multiselect-trigger,
+.visit-form-foot .visit-table-input,
+.visit-course-row .visit-table-input,
+.visit-course-row .visit-multiselect-trigger {
+  height: 34px;
+  box-sizing: border-box;
+}
+
+/* ---- the course table ---- */
+.visit-course-rows {
+  margin-top: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.visit-course-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 90px minmax(0, 1.3fr) minmax(0, 1.4fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.visit-course-row:first-child { border-top: 0; }
+
+.visit-course-row-head {
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.visit-course-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.visit-course-empty {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* ---- remarks and save ---- */
+.visit-form-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.visit-form-foot-acts {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visit-form-foot .visit-save-btn {
+  height: 34px;
+}
+
+@media (max-width: 640px) {
+  .visit-feedback-head > .visit-grid-input-group { flex: 1 1 100% !important; }
+
+  .visit-course-row {
+    grid-template-columns: minmax(0, 1fr) 72px;
+    gap: 6px 8px;
+  }
+
+  .visit-course-row-head { display: none; }
+
+  .visit-form-foot { flex-wrap: wrap; }
+  .visit-form-foot-acts { flex: 1 1 100%; justify-content: flex-end; }
+}
+
+/* ============================================================
+   Search that also lists what it can find.
+
+   Typing still searches everything - contact, location, the
+   remark - but when you already know the college, picking it
+   from the list is exact and takes one keystroke less than
+   spelling it right.
+   ============================================================ */
+.visit-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.visit-search-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.visit-search-clear,
+.visit-search-chev {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.visit-search-clear { right: 32px; }
+.visit-search-chev  { right: 10px; }
+
+.visit-search-chev > svg { transition: transform 0.18s ease; }
+
+.visit-search-clear:hover,
+.visit-search-chev:hover { color: #475569; }
+
+.visit-search-pop {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+}
+
+.visit-search-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.visit-search-opt:hover { background: #f1f5f9; }
+
+.visit-search-opt.on { background: #eef2ff; }
+
+.visit-search-opt > svg { flex: 0 0 auto; color: #94a3b8; }
+
+.visit-search-opt-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.visit-search-opt-count {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.visit-search-opt.on .visit-search-opt-count {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.visit-search-none {
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* The people count is also the switch for the pills it counts, so it
+   has to look pressable - the other three numbers are just numbers. */
+.vps-btn {
+  border: 1px solid transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.vps-btn:hover {
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.vps-btn.on {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-color: #c7d2fe;
+}
+
+.vps-btn.on > svg { color: #4f46e5; }
+
+/* The header is a row of controls now, not one big button, so the
+   name takes the slack and the rest sit at their own size. */
+.visit-party-head > .visit-party-stats { flex: 0 0 auto; }
+
+/* The contacts answer: one row per person, busiest first, with every
+   number they were recorded on. Rows, not a timeline - who is not a
+   when. */
+.ct-contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.ct-contact {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.ct-contact > svg { flex: 0 0 auto; color: #3b82f6; }
+
+.ct-contact-name {
+  flex: 1 1 140px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.ct-contact-mob {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-contact-last {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.ct-contact-count {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #4338ca;
+}
+
+.ct-contacts-none {
+  padding: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* ============================================================
+   Assign: who is chasing this college.
+
+   Sits before "No followup" because they are the two answers to
+   one question - somebody is on it, or nobody needs to be. Same
+   size as the counts, since this row is a row of small things.
+   ============================================================ */
+.assign-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.assign-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 96px;
+  padding: 1px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.assign-btn:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+/* Somebody is on it - the button becomes the answer rather than the
+   invitation, and shows their code. */
+.assign-btn.on {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.assign-btn.on > svg { color: #16a34a; }
+
+.assign-btn:disabled { opacity: 0.6; cursor: default; }
+
+.assign-pop {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.assign-opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assign-opt:hover { background: #f1f5f9; }
+.assign-opt.on { background: #dcfce7; }
+.assign-opt.on > svg { color: #16a34a; }
+.assign-opt > svg { flex: 0 0 auto; color: #94a3b8; }
+
+.assign-opt-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.assign-none {
+  padding: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.assign-err {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #b91c1c;
+  white-space: nowrap;
+}
+
+/* Once it is set the label grows ("Ignored - put back"), so that one
+   state sizes to its text rather than being clipped at 96px. */
+.visit-party-head .visit-left-undo {
+  width: auto !important;
+  padding: 1px 10px !important;
+}
+
+.assign-btn > span,
+.visit-party-head .emp-not-needed > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   The search and the view switches stay put.
+
+   They are how you choose what the list below shows, so they
+   have to be reachable while you are looking at it - scrolling
+   to the top to change a filter and back down to see the
+   result is the whole problem.
+
+   z-index clears the college headers; the dropdowns it owns
+   sit higher still (60 and 70), so they open over the list
+   rather than behind it.
+   ============================================================ */
+.visit-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
