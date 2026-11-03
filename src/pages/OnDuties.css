@@ -4879,3 +4879,109 @@ ion-modal.daytrip-preview-modal::part(content) {
     min-width: 0 !important;
   }
 }
+
+/* ============================================================
+   The delete confirmation dialog.
+
+   Sized to its content rather than to the screen: a question
+   with two answers does not need a full sheet, and a small box
+   reads as a question where a full-screen takeover reads as a
+   new page.
+   ============================================================ */
+.od-confirm-modal {
+  --width: min(420px, 92vw);
+  --height: auto;
+  --border-radius: 16px;
+  --box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+}
+
+.od-confirm-sheet {
+  padding: 22px;
+  background: #fff;
+}
+
+.od-confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.od-confirm-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.od-confirm-body {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.od-confirm-note {
+  margin: 0 0 18px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.od-confirm-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.od-confirm-keep,
+.od-confirm-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 112px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.od-confirm-keep {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+}
+
+.od-confirm-keep:hover { background: #f1f5f9; }
+
+.od-confirm-go {
+  border: 1px solid #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+}
+
+.od-confirm-go:hover { background: #991b1b; }
+
+@media (max-width: 480px) {
+  /* Stacked, with Cancel underneath: the thumb rests at the
+     bottom of the screen, and that should not be the
+     destructive one. */
+  .od-confirm-acts { flex-direction: column-reverse; }
+  .od-confirm-keep,
+  .od-confirm-go { width: 100%; }
+}
+
+/* A designation is required once a contact is named. */
+.daytrip-input.has-error {
+  border-color: #fca5a5 !important;
+  background: #fef2f2 !important;
+}

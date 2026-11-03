@@ -389,6 +389,33 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // security control - the browser can be told anything. If it has to
   // hold, Save_Visit_FeedbackCall needs the same list server-side,
   // the way FollowupAdminCodes backs the check above.
+  /** A field off a server object, whichever casing it arrived in. */
+  const pick = (o: any, name: string) =>
+    o?.[name] ?? o?.[name.charAt(0).toLowerCase() + name.slice(1)];
+
+  /** The date a follow-up happened, under either spelling. */
+  const fuDate = (f: any) => pick(f, "FollowupDate");
+
+  /**
+   * The follow-ups on a visit, whatever the API calls them.
+   *
+   * services.AddControllers() with no JSON options means System.Text
+   * .Json camel-cases every property on the way out, so the server's
+   * "Followups" arrives as "followups" - and every read of it here
+   * asked for the capital F and got undefined. The screen fell through
+   * to the legacy branch that rebuilds one follow-up out of the flat
+   * columns on the visit row, which is why a follow-up showed with its
+   * date and remarks but never a "by": those columns have no CreatedBy
+   * to carry.
+   *
+   * The same casing applies inside each entry, so the parsers below
+   * accept both spellings of every field.
+   */
+  const followupsOf = (v: any): any[] => {
+    const list = v?.Followups ?? v?.followups;
+    return Array.isArray(list) ? list : [];
+  };
+
   const FEEDBACK_POSTERS = ["1501", "1508"];
   const canPostFeedback = FEEDBACK_POSTERS.includes(currentEmpCode);
   const [tickets, setTickets] = useState<VisitTicket[]>(() => {
@@ -1226,7 +1253,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
             // follow-ups existed comes back without the array, so its single
             // flat set is read as one follow-up - the same reading the SQL
             // migration takes.
-            const serverFollowups: any[] = Array.isArray(item.Followups) ? item.Followups : [];
+            const serverFollowups: any[] = followupsOf(item);
 
             let followups: SavedFollowup[] = [];
             if (serverFollowups.length > 0) {
@@ -1234,10 +1261,10 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                 const built = courseDataFromRows(f?.Courses ?? f?.courses ?? []);
                 return {
                   feedbackId: Number(f?.Feedback_ID ?? f?.feedback_ID ?? 0),
-                  followupDate: f?.FollowupDate ? moment(f.FollowupDate).format("YYYY-MM-DD") : "",
-                  nextFollowupDate: f?.NextFollowupDate ? moment(f.NextFollowupDate).format("YYYY-MM-DD") : "",
-                  nextVisitDate: f?.NextVisitDate ? moment(f.NextVisitDate).format("YYYY-MM-DD") : "",
-                  clientRemarks: f?.ClientRemarks ?? "",
+                  followupDate: fuDate(f) ? moment(fuDate(f)).format("YYYY-MM-DD") : "",
+                  nextFollowupDate: pick(f, "NextFollowupDate") ? moment(pick(f, "NextFollowupDate")).format("YYYY-MM-DD") : "",
+                  nextVisitDate: pick(f, "NextVisitDate") ? moment(pick(f, "NextVisitDate")).format("YYYY-MM-DD") : "",
+                  clientRemarks: pick(f, "ClientRemarks") ?? "",
                   createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
                   courses: built.courses,
                   courseData: built.courseData,
@@ -1389,8 +1416,8 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
         // the timeline, the counts and the history cannot disagree
         // about what this person is allowed to see.
         .map((v: any) => {
-          const all = Array.isArray(v?.Followups) ? v.Followups : null;
-          if (!all || all.length === 0) return v;
+          const all = followupsOf(v);
+          if (all.length === 0) return v;
           const ours = all.filter(
             (f: any) => String(f?.CreatedBy ?? f?.createdBy ?? "").trim() === currentEmpCode
           );
@@ -1635,7 +1662,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
       const name = String(v.client_Name || "").trim() || "(No client name)";
       if (!map[name]) map[name] = { name, visits: [], followups: 0 };
       map[name].visits.push(v);
-      map[name].followups += Array.isArray((v as any).Followups) ? (v as any).Followups.length : 0;
+      map[name].followups += followupsOf(v).length;
     });
     return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredVisits]);
@@ -1643,7 +1670,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // How many follow-ups a fetched history holds, for the totals line.
   const countFollowups = (visits: any[]): number =>
     (Array.isArray(visits) ? visits : []).reduce(
-      (sum, v) => sum + (Array.isArray(v?.Followups) ? v.Followups.length : 0),
+      (sum, v) => sum + followupsOf(v).length,
       0
     );
 
@@ -1669,11 +1696,11 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
       const owner = String(followupBy[String(vid)] ?? seeded).trim();
       const client = String(v?.client_Name || "").trim() || "(No client name)";
       const visitDate = v?.duty_Date || "";
-      const list = Array.isArray(v?.Followups) ? v.Followups : [];
+      const list = followupsOf(v);
 
       list.forEach((f: any) => {
         const built = courseDataFromRows(f?.Courses ?? f?.courses ?? []);
-        const followupDate = f?.FollowupDate ? moment(f.FollowupDate).format("YYYY-MM-DD") : "";
+        const followupDate = fuDate(f) ? moment(fuDate(f)).format("YYYY-MM-DD") : "";
         rows.push({
           kind: "recorded",
           feedbackId: Number(f?.Feedback_ID ?? 0),
@@ -1685,9 +1712,9 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
           // What this row sorts by: when the follow-up happened, or
           // failing that the visit it belongs to.
           sortDate: followupDate || (visitDate ? moment(visitDate).format("YYYY-MM-DD") : ""),
-          nextFollowupDate: f?.NextFollowupDate ? moment(f.NextFollowupDate).format("YYYY-MM-DD") : "",
-          nextVisitDate: f?.NextVisitDate ? moment(f.NextVisitDate).format("YYYY-MM-DD") : "",
-          clientRemarks: f?.ClientRemarks ?? "",
+          nextFollowupDate: pick(f, "NextFollowupDate") ? moment(pick(f, "NextFollowupDate")).format("YYYY-MM-DD") : "",
+          nextVisitDate: pick(f, "NextVisitDate") ? moment(pick(f, "NextVisitDate")).format("YYYY-MM-DD") : "",
+          clientRemarks: pick(f, "ClientRemarks") ?? "",
           createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
           courses: built.courses,
           courseData: built.courseData,
@@ -3388,13 +3415,13 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             const vFeedback = getRowFeedback(vKey);
                             // The history call carries its own follow-ups;
                             // the store only knows about visits in range.
-                            const fups: SavedFollowup[] = Array.isArray(v.Followups) && v.Followups.length > 0
-                              ? v.Followups.map((f: any) => {
+                            const fups: SavedFollowup[] = followupsOf(v).length > 0
+                              ? followupsOf(v).map((f: any) => {
                                   const built = courseDataFromRows(f?.Courses ?? f?.courses ?? []);
                                   return {
                                     feedbackId: Number(f?.Feedback_ID ?? 0),
-                                    followupDate: f?.FollowupDate ? moment(f.FollowupDate).format("YYYY-MM-DD") : "",
-                                    clientRemarks: f?.ClientRemarks ?? "",
+                                    followupDate: fuDate(f) ? moment(fuDate(f)).format("YYYY-MM-DD") : "",
+                                    clientRemarks: pick(f, "ClientRemarks") ?? "",
                                     createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
                                     courses: built.courses,
                                     courseData: built.courseData,

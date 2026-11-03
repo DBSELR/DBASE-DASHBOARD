@@ -2632,6 +2632,21 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         }
       }
 
+      // Who was met, and in what capacity. A name with no designation
+      // reads the same whether it was the principal or somebody at the
+      // gate, and the follow-up months later is worked from this line
+      // alone. Only asked of a visit that names a contact - a stop
+      // where nobody was available has nobody to describe.
+      for (const { v, i } of recordedVisits) {
+        const who = String(v?.contactPerson || "").trim();
+        const role = String(v?.contactDesignation || "").trim();
+        if (who && !role) {
+          notify(`Visit #${i + 1}: pick a designation for ${who}`, "warning");
+          scrollVisitIntoView(i);
+          return;
+        }
+      }
+
       // Every visit has to say WHERE it happened. A visit slip proves a
       // visit took place; the coordinates are what tie it to a place, and
       // without them a DA/TA claim rests on a typed location name alone.
@@ -3135,6 +3150,24 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       notify("Failed to load employees", "danger");
     }
   };
+  // Which visit has been asked to be deleted but not yet confirmed.
+  // Two presses rather than a browser confirm(): a modal dialog blocks
+  // everything, and on a phone it lands under your thumb exactly where
+  // the button was.
+  /**
+   * The one confirmation dialog on this page.
+   *
+   * A deliberate dialog rather than window.confirm: that one blocks
+   * the whole tab, cannot say which visit it is about, and on a phone
+   * drops its OK button where your thumb already is.
+   */
+  const [confirmAsk, setConfirmAsk] = useState<{
+    title: string;
+    body: string;
+    label: string;
+    run: () => void;
+  } | null>(null);
+
   const removeTripVisit = async (tripIndex: number, visitIndex: number) => {
     if (!selectedDutyId) return;
 
@@ -7220,7 +7253,20 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                         ? "Camp has ended - this trip's log is closed to further edits."
                                         : undefined
                                     }
-                                    onClick={() => !campHasLocked(row) && removeTripDay(row.id, index)}
+                                    onClick={() => {
+                                      if (campHasLocked(row)) return;
+                                      const nv = row.visits?.length || 0;
+                                      setConfirmAsk({
+                                        title: "Delete this day trip?",
+                                        body:
+                                          (row.dayTrip_Date ? `${row.dayTrip_Date} - ` : "") +
+                                          (nv > 0
+                                            ? `its ${nv} ${nv === 1 ? "visit goes" : "visits go"} with it.`
+                                            : "it has no visits recorded."),
+                                        label: "Delete day trip",
+                                        run: () => removeTripDay(row.id, index),
+                                      });
+                                    }}
                                   >
                                     <Trash2 size={12} />
                                     <span>DELETE</span>
@@ -7515,6 +7561,47 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
             reporting at the branch - so this is a set of toggles rather
             than a range, and there is no way to pick a day the duty does
             not cover. */}
+        {/* Confirmation. One dialog, whatever is being deleted - the
+            caller supplies the words so it can name the visit or say
+            how many visits a trip takes with it. Cancel is first and
+            plain; the destructive one is red and on the right, so the
+            button under a returning thumb is the safe one. */}
+        <IonModal
+          isOpen={!!confirmAsk}
+          onDidDismiss={() => setConfirmAsk(null)}
+          className="od-confirm-modal"
+        >
+          <div className="od-confirm-sheet">
+            <div className="od-confirm-icon">
+              <Trash2 size={20} />
+            </div>
+            <h2 className="od-confirm-title">{confirmAsk?.title}</h2>
+            <p className="od-confirm-body">{confirmAsk?.body}</p>
+            <p className="od-confirm-note">This cannot be undone.</p>
+            <div className="od-confirm-acts">
+              <button
+                type="button"
+                className="od-confirm-keep"
+                onClick={() => setConfirmAsk(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="od-confirm-go"
+                onClick={() => {
+                  const go = confirmAsk?.run;
+                  setConfirmAsk(null);
+                  if (go) void go();
+                }}
+              >
+                <Trash2 size={14} />
+                <span>{confirmAsk?.label || "Delete"}</span>
+              </button>
+            </div>
+          </div>
+        </IonModal>
+
         <IonModal
           isOpen={attEdit.open}
           onDidDismiss={closeAttEdit}
@@ -8405,11 +8492,33 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                   </span>
                                 </div>
 
-                              {trip.visits.length > 1 && (
+                              {/* Deletable when there is more than one, or
+                                  when this one is already saved - a saved
+                                  visit entered by mistake was previously
+                                  stuck there, because the only Remove
+                                  button appeared when a second visit was
+                                  added beside it. The last empty row has
+                                  nothing to delete. */}
+                              {(trip.visits.length > 1 || (visit.visit_Id || 0) > 0) && (
                                 <button
                                   type="button"
                                   className="daytrip-btn-remove-visit"
-                                  onClick={() => removeTripVisit(editingTripIndex, visitIndex)}
+                                  onClick={() =>
+                                    setConfirmAsk({
+                                      title: `Delete visit #${visitIndex + 1}?`,
+                                      body: visit.partyName
+                                        ? `${visit.partyName}${
+                                            (visit.visit_Id || 0) > 0
+                                              ? " - this visit is saved, so it will be removed from the records."
+                                              : ""
+                                          }`
+                                        : (visit.visit_Id || 0) > 0
+                                          ? "This visit is saved, so it will be removed from the records."
+                                          : "Nothing has been saved for this visit yet.",
+                                      label: "Delete visit",
+                                      run: () => removeTripVisit(editingTripIndex, visitIndex),
+                                    })
+                                  }
                                   title="Remove this visit"
                                 >
                                   <Trash2 size={14} /> Remove
@@ -9096,7 +9205,12 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                             e.target.value || ""
                                           );
                                         }}
-                                        className="daytrip-input party-pick-input"
+                                        className={`daytrip-input party-pick-input ${
+                                          String(visit.contactPerson || "").trim() &&
+                                          !String(visit.contactDesignation || "").trim()
+                                            ? "has-error"
+                                            : ""
+                                        }`}
                                       />
                                       <button
                                         type="button"
