@@ -1,11 +1,13 @@
 {
   "name": "dbs-office",
   "private": true,
-  "version": "2.0.3",
+  "version": "2.0.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "ionic:serve": "vite --host --port 8100",
+    "ionic:build": "tsc && vite build",
     "preview": "vite preview",
     "test.e2e": "cypress run",
     "test.unit": "vitest",
@@ -46,6 +48,7 @@
     "chart.js": "^4.4.9",
     "date-fns": "^4.1.0",
     "firebase": "^12.19.0",
+    "ionic": "^5.4.16",
     "ionicons": "^7.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

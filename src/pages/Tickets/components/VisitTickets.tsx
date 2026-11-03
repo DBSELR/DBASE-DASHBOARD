@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   IonContent,
   IonHeader,
@@ -585,7 +585,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // hides the follow-up machinery, "followups" the reverse. That is
   // exactly the Feedback/Followups split, so it is derived rather than
   // tracked twice and left to drift.
-  const viewMode: "pending" | "followups" =
+  const viewMode: string =
     section === "feedback" ? "pending" : "followups";
 
   // Visits marked Left in this session, so a card moves without waiting
@@ -1303,6 +1303,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                     courseData: existing.courseData,
                     clientRemarks: existing.clientRemarks,
                     nextFollowupDate: existing.nextFollowupDate,
+                    nextVisitDate: existing.nextVisitDate ?? "",
                     saved: false,
                   }
                 : emptyDraft()),
@@ -3419,8 +3420,10 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                               ? followupsOf(v).map((f: any) => {
                                   const built = courseDataFromRows(f?.Courses ?? f?.courses ?? []);
                                   return {
-                                    feedbackId: Number(f?.Feedback_ID ?? 0),
+                                    feedbackId: Number(f?.Feedback_ID ?? f?.feedback_ID ?? 0),
                                     followupDate: fuDate(f) ? moment(fuDate(f)).format("YYYY-MM-DD") : "",
+                                    nextFollowupDate: pick(f, "NextFollowupDate") ? moment(pick(f, "NextFollowupDate")).format("YYYY-MM-DD") : "",
+                                    nextVisitDate: pick(f, "NextVisitDate") ? moment(pick(f, "NextVisitDate")).format("YYYY-MM-DD") : "",
                                     clientRemarks: pick(f, "ClientRemarks") ?? "",
                                     createdBy: String(f?.CreatedBy ?? f?.createdBy ?? "").trim(),
                                     courses: built.courses,
@@ -3521,7 +3524,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
             </div>
           ) :
 
-          viewMode === "pending" || viewMode === "followups" ? (
+          viewMode !== "table" ? (
             <div className="visits-cards-grid">
               {visibleOrdered.length > 0 ? (
                 visitGroups.map((group, gIndex) => {
@@ -4365,11 +4368,11 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                   )}
                                   <span
                                     className="visit-followup-courses"
-                                    title={f.courses.map((cn) => courseSummaryLine(cn, f.courseData[cn])).join(", ")}
+                                    title={f.courses.map((cn: string) => courseSummaryLine(cn, f.courseData[cn])).join(", ")}
                                   >
                                     {f.courses.length > 0
                                       ? f.courses
-                                          .map((cn) => courseSummaryLine(cn, f.courseData[cn]))
+                                          .map((cn: string) => courseSummaryLine(cn, f.courseData[cn]))
                                           .join(", ")
                                       : "No courses"}
                                   </span>
@@ -4414,7 +4417,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                       calls to make, All Follow-ups a list of
                                       visits to chase. Cards shows both,
                                       because it is the whole picture. */}
-                                  {viewMode !== "followups" && (call ? (
+                                  {section !== "followups" && (call ? (
                                     <button
                                       type="button"
                                       className="visit-call-done"
@@ -5077,11 +5080,11 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                     </span>
                                     <span
                                       className="visit-followup-courses"
-                                      title={f.courses.map((cn) => courseSummaryLine(cn, f.courseData[cn])).join(", ")}
+                                      title={f.courses.map((cn: string) => courseSummaryLine(cn, f.courseData[cn])).join(", ")}
                                     >
                                       {f.courses.length > 0
                                         ? f.courses
-                                            .map((cn) => courseSummaryLine(cn, f.courseData[cn]))
+                                            .map((cn: string) => courseSummaryLine(cn, f.courseData[cn]))
                                             .join(", ")
                                         : "No courses"}
                                     </span>
@@ -5114,7 +5117,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                 <>
                                   <div className="visit-action-row">
                                     {/* One action per view, as in the cards. */}
-                                    {viewMode !== "followups" && (call ? (
+                                    {section !== "followups" && (call ? (
                                       <button
                                         type="button"
                                         className="visit-call-done"
@@ -5138,7 +5141,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                       </button>
                                     ))}
 
-                                    {viewMode !== "pending" && (
+                                    {section === "followups" && (
                                       <button
                                         type="button"
                                         className="visit-followup-add"

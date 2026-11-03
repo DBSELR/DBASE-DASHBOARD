@@ -2740,6 +2740,7 @@ const EmpProfile: React.FC = () => {
       const token = (localStorage.getItem("token") || "").replace(/"/g, "");
 
       const endpoints = [
+        `${API_BASE}Leave/App_Get_ActiveEmployeesListExport`,
         `${API_BASE}Employee/App_Get_ActiveEmployeesListExport`,
         `${API_BASE}Reports/App_Get_ActiveEmployeesListExport`,
         `${API_BASE}App_Get_ActiveEmployeesListExport`,
@@ -2767,44 +2768,101 @@ const EmpProfile: React.FC = () => {
         }
       }
 
-      if (!res || !res.ok) {
-        throw new Error(
-          res
-            ? `Server responded with status ${res.status} (${res.statusText})`
-            : "Could not connect to export endpoint. Please ensure the backend API is deployed."
-        );
-      }
+      let data: any[] = [];
 
-      const contentType = res.headers.get("content-type") || "";
+      if (res && res.ok) {
+        const contentType = res.headers.get("content-type") || "";
 
-      // 1. Direct file stream (.xlsx / octet-stream)
-      if (
-        contentType.includes("spreadsheetml") ||
-        contentType.includes("octet-stream") ||
-        contentType.includes("application/vnd.ms-excel")
-      ) {
-        const blob = await res.blob();
-        const disposition = res.headers.get("content-disposition");
-        let fileName = `Active_Employees_List_${moment().format("DDMMYYYY_HHmm")}.xlsx`;
-        if (disposition) {
-          const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-          if (match && match[1]) {
-            fileName = match[1].replace(/['"]/g, "").trim();
+        // 1. Direct file stream (.xlsx / octet-stream)
+        if (
+          contentType.includes("spreadsheetml") ||
+          contentType.includes("octet-stream") ||
+          contentType.includes("application/vnd.ms-excel")
+        ) {
+          const blob = await res.blob();
+          const disposition = res.headers.get("content-disposition");
+          let fileName = `Active_Employees_List_${moment().format("DDMMYYYY_HHmm")}.xlsx`;
+          if (disposition) {
+            const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+              fileName = match[1].replace(/['"]/g, "").trim();
+            }
           }
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          return;
         }
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        return;
+
+        // 2. JSON data (array of arrays or array of objects)
+        data = await res.json();
+      } else {
+        // Fallback using existing live endpoints (Load_Employees + Get_Employee)
+        const activeListRaw = await apiService.loadEmployees("Active");
+        const activeList = Array.isArray(activeListRaw)
+          ? activeListRaw
+          : activeListRaw?.data && Array.isArray(activeListRaw.data)
+          ? activeListRaw.data
+          : [];
+
+        const empCodes: string[] = activeList
+          .map((r: any) => (Array.isArray(r) ? String(r[0] ?? "").trim() : String(r?.code || r?.EmpCode || "").trim()))
+          .filter((c: string) => Boolean(c));
+
+        const batchSize = 15;
+        const rows: any[][] = [];
+        for (let i = 0; i < empCodes.length; i += batchSize) {
+          const chunk = empCodes.slice(i, i + batchSize);
+          const chunkResults = await Promise.all(
+            chunk.map(async (code) => {
+              try {
+                const raw = await apiService.getEmployee(code);
+                const row = Array.isArray(raw) ? raw[0] : raw?.data?.[0] ?? raw;
+                if (!row) return null;
+                const d = mapGetEmployeeResponse(row);
+                return [
+                  d._Ecode,
+                  d._Ename,
+                  d._Desig,
+                  d._Doj,
+                  d._Blood,
+                  d._Mobile,
+                  d._Email,
+                  d._RequestTo,
+                  d._GrossSal,
+                  d._AccountNo,
+                  d._IFSCCode,
+                  d._Dept,
+                  d._Itax,
+                  d._NetSal,
+                  d._ESINo,
+                  d._PFNo,
+                  d._PanNo,
+                  d._AadharNo,
+                  d._teamAllowance,
+                  d._CheckIn,
+                  d._Dob,
+                  d._Location1,
+                  d._Email2,
+                  d._BranchDept,
+                ];
+              } catch {
+                return null;
+              }
+            })
+          );
+          chunkResults.forEach((r) => {
+            if (r) rows.push(r);
+          });
+        }
+        data = rows;
       }
 
-      // 2. JSON data (array of arrays or array of objects)
-      const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
         alert("No active employee records found.");
         return;
