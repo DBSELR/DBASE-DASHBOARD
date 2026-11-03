@@ -3668,11 +3668,21 @@ body.dark .view-mode-btn.active {
 
 .visit-course-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) 90px minmax(0, 1.3fr) minmax(0, 1.4fr);
+  /* Course no wider than it needs: at 1.6fr it took a third of the
+     form for a name, and left the controls bunched at the right. */
+  grid-template-columns: minmax(0, 1.2fr) 92px minmax(0, 1.2fr) minmax(0, 1.2fr);
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-top: 1px solid #f1f5f9;
+}
+
+/* Every control fills its column, so the four line up as columns
+   rather than as four things that happen to start in the same place. */
+.visit-course-row > .visit-table-input,
+.visit-course-row > .visit-multiselect-trigger {
+  width: 100%;
+  min-width: 0;
 }
 
 .visit-course-row:first-child { border-top: 0; }
@@ -3698,17 +3708,36 @@ body.dark .view-mode-btn.active {
   color: #1e293b;
 }
 
+/* It is a button now, so it has to look like one you can press -
+   dashed because there is nothing there yet, not because it is
+   disabled. */
 .visit-course-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
   margin-top: 10px;
-  padding: 12px;
+  padding: 14px 12px;
   border: 1px dashed #cbd5e1;
   border-radius: 10px;
   background: #f8fafc;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #94a3b8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
   text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
+
+.visit-course-empty:hover {
+  border-color: #818cf8;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.visit-course-empty > svg { flex: 0 0 auto; }
 
 /* ---- remarks and save ---- */
 .visit-form-foot {
@@ -3732,15 +3761,37 @@ body.dark .view-mode-btn.active {
 @media (max-width: 640px) {
   .visit-feedback-head > .visit-grid-input-group { flex: 1 1 100% !important; }
 
-  .visit-course-row {
-    grid-template-columns: minmax(0, 1fr) 72px;
-    gap: 6px 8px;
+  /* A phone cannot hold four columns, and a two-column squeeze put the
+     course name and the count side by side at half width each. Each
+     course becomes a small block instead: its name across the top, the
+     count and what was asked for on one line under it, the dates
+     across the bottom. The column headings go, so every control says
+     what it is in its own placeholder. */
+  .visit-course-rows {
+    border: 0;
+    background: none;
   }
+
+  .visit-course-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .visit-course-row > *:nth-child(1) { grid-column: 1 / -1; }
+  .visit-course-row > *:nth-child(4) { grid-column: 1 / -1; }
 
   .visit-course-row-head { display: none; }
 
   .visit-form-foot { flex-wrap: wrap; }
   .visit-form-foot-acts { flex: 1 1 100%; justify-content: flex-end; }
+  .visit-form-foot .visit-save-btn { width: 100%; justify-content: center; }
+
+  .visit-draft-banner { font-size: 10px; }
 }
 
 /* ============================================================
@@ -3997,11 +4048,12 @@ body.dark .view-mode-btn.active {
 
 .assign-btn:disabled { opacity: 0.6; cursor: default; }
 
+/* Fixed, not absolute: an ancestor was clipping it, so on the last
+   college in the list only the first name was visible. Its top/right
+   come from the button's position on screen. */
 .assign-pop {
-  position: absolute;
-  z-index: 70;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
+  z-index: 10000;
   min-width: 220px;
   max-height: 260px;
   overflow-y: auto;
@@ -4050,14 +4102,23 @@ body.dark .view-mode-btn.active {
   text-align: center;
 }
 
+/* In the flow, not floating over whatever is beneath: a failure that
+   renders behind the next row is a failure nobody sees. */
 .assign-err {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
+  z-index: 50;
+  max-width: 320px;
+  padding: 4px 9px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
   font-size: 10.5px;
   font-weight: 700;
   color: #b91c1c;
-  white-space: nowrap;
+  white-space: normal;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 /* Once it is set the label grows ("Ignored - put back"), so that one
@@ -4090,4 +4151,16 @@ body.dark .view-mode-btn.active {
   position: sticky;
   top: 0;
   z-index: 40;
+}
+
+/* The row number. Fixed width so the names start on one line down the
+   whole list rather than stepping right at 10 and again at 100. */
+.visit-party-no {
+  flex: 0 0 auto;
+  min-width: 22px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
 }

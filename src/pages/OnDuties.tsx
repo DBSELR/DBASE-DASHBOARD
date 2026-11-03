@@ -7402,19 +7402,32 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                         </div>
                                       )}
 
-                                      {/* Employees Present */}
+                                      {/* Employees Present.
+                                          Driven by the visit's own codes, with
+                                          the duty's list used only to put a
+                                          name to each. It ran the other way
+                                          round - walk the duty's names, keep
+                                          the ones the visit mentions - so when
+                                          that list came back without codes to
+                                          match on, nothing matched and the row
+                                          printed its label over empty space.
+                                          A code with no name is still someone
+                                          who was there, so it shows as the
+                                          code. */}
                                       {visit.empCodes && visit.empCodes.length > 0 && (
                                         <div className="daylog-detail-row">
                                           <User size={14} color="#0284c7" />
                                           <strong style={{ color: "#475569" }}>Employees:</strong>
                                           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                                            {formatEmployeeNames(selectedDutyRow?.empNames)
-                                              .filter((e: any) => visit.empCodes?.includes(e.code))
-                                              .map((e: any) => (
-                                                <span key={e.code || e.name} className="daylog-emp-chip">
-                                                  {e.name}
+                                            {visit.empCodes.map((code: string) => {
+                                              const known = formatEmployeeNames(selectedDutyRow?.empNames)
+                                                .find((e: any) => String(e.code).trim() === String(code).trim());
+                                              return (
+                                                <span key={code} className="daylog-emp-chip">
+                                                  {known?.name || code}
                                                 </span>
-                                              ))}
+                                              );
+                                            })}
                                           </div>
                                         </div>
                                       )}

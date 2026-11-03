@@ -36,6 +36,7 @@ import {
   Lock,
   UserCheck
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useHistory } from "react-router-dom";
 import "../../WorkReports.css";
 import "../../Stock.css";
@@ -379,6 +380,17 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // offers.
   const FOLLOWUP_ADMINS = ["1501"];
   const isFollowupAdmin = FOLLOWUP_ADMINS.includes(currentEmpCode);
+
+  // Who may record a feedback call. Everyone else reads the list and
+  // sees what was said; they just cannot put words in the party's
+  // mouth.
+  //
+  // This is the screen being honest about what it offers, not a
+  // security control - the browser can be told anything. If it has to
+  // hold, Save_Visit_FeedbackCall needs the same list server-side,
+  // the way FollowupAdminCodes backs the check above.
+  const FEEDBACK_POSTERS = ["1501", "1508"];
+  const canPostFeedback = FEEDBACK_POSTERS.includes(currentEmpCode);
   const [tickets, setTickets] = useState<VisitTicket[]>(() => {
     try {
       const cached = sessionStorage.getItem("visit_tickets_onduty_cache");
@@ -452,8 +464,29 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // was a sort nobody reached for.
   const [ctSort, setCtSort] = useState<Record<string, "desc" | "asc">>({});
 
-  // Which college's Assign list is open.
+  // Which college's Assign list is open, and where on screen to draw it.
+  //
+  // The list is positioned in page coordinates and rendered fixed,
+  // because inside the card it was being clipped by an ancestor - on
+  // the last college in the list you could see the first row of names
+  // and nothing else. Fixed also means it flips above the button when
+  // there is no room below.
   const [assignFor, setAssignFor] = useState<string | null>(null);
+  const [assignAt, setAssignAt] = useState<{ top?: number; bottom?: number; right: number }>({
+    top: 0,
+    right: 0,
+  });
+
+  const openAssignAt = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const room = window.innerHeight - r.bottom;
+    const right = Math.max(8, window.innerWidth - r.right);
+    setAssignAt(
+      room < 280 && r.top > room
+        ? { bottom: window.innerHeight - r.top + 6, right }
+        : { top: r.bottom + 6, right }
+    );
+  };
 
   // Click anywhere else, or press Escape, and it closes.
   //
@@ -467,18 +500,36 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
     const onDown = (e: MouseEvent) => {
       const el = e.target as HTMLElement | null;
-      if (el && typeof el.closest === "function" && el.closest(".assign-wrap")) return;
+      // .assign-pop as well as .assign-wrap: the list is portalled into
+      // <body>, so it is no longer a descendant of the button. Without
+      // this, mousedown on a name closed the list and unmounted the row
+      // before the click could land on it - the control would look dead.
+      if (
+        el &&
+        typeof el.closest === "function" &&
+        (el.closest(".assign-wrap") || el.closest(".assign-pop"))
+      ) {
+        return;
+      }
       setAssignFor(null);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setAssignFor(null);
     };
 
+    // Positioned once, in page coordinates: if the page scrolls it no
+    // longer points at its button, so it closes rather than floating.
+    const onScroll = () => setAssignFor(null);
+
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
   }, [assignFor]);
 
@@ -625,6 +676,10 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
   const saveFeedbackCall = async (visitId: number, clear = false) => {
     const key = String(visitId);
+    if (!canPostFeedback) {
+      setCallError((p) => ({ ...p, [key]: "Only 1501 and 1508 can record a feedback call." }));
+      return;
+    }
     const draft = callDraft[key];
     if (!clear && !draft) return;
     // Typed inline, with no datetime field: the call is being recorded as
@@ -1733,11 +1788,18 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   };
 
   /**
-   * Put one person on a college: the owner is written to every visit
-   * under it, the same way "No followup" is, because the person chasing
-   * St Mary's is chasing St Mary's and not one Tuesday in September.
+   * Put one person on a college.
    *
-   * Passing the code that is already set clears it.
+   * Not on every visit, though: the server only accepts an owner who
+   * was on that duty, and rightly so - you cannot be following up a
+   * visit you were not on. A college's visits are not all the same
+   * team, so writing the owner to all of them failed at the first
+   * visit the person had not attended ("That employee was not on this
+   * duty") and left the rest unset. They get the visits that are
+   * theirs; the college still reads as theirs, because an unassigned
+   * visit is not a competing owner.
+   *
+   * Passing the code that is already set clears it, from everywhere.
    */
   const assignGroupOwner = async (
     client: string,
@@ -1747,8 +1809,78 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   ) => {
     const gKey = `grp:${client}`;
     setFollowupBySaving((p) => ({ ...p, [gKey]: true }));
+    setFollowupByError((p) => {
+      const next = { ...p };
+      delete next[gKey];
+      return next;
+    });
 
-    for (const v of visits) {
+    const wasThere = (v: any) =>
+      String(v?.employees || "")
+        .split(",")
+        .some((emp: string) => {
+          const label = emp.trim();
+          if (!label) return false;
+          const code = label.indexOf("-") > 0 ? label.slice(0, label.indexOf("-")).trim() : label;
+          return code === empCode;
+        });
+
+    // Prefer the visits they were on, because those are the ones the
+    // server will accept. But "was on" is read from the employees
+    // string in the feed, and that is sometimes empty or carries the
+    // duty roster rather than the visit's own team - so when it says
+    // nobody, try everything and let the server decide.
+    const theirs = visits.filter(wasThere);
+    const mine = clear ? visits : (theirs.length > 0 ? theirs : visits);
+
+    // Assigning a COLLEGE means this person owns it, so anyone else
+    // holding one of its other visits is taken off.
+    //
+    // This is what made Lingayas and St Mary's look unassignable. Seven
+    // people have been to each, several of them already named on a
+    // visit, and the header only shows a name when the college agrees
+    // on one. The write was working - it just left two or three other
+    // owners in place, the college still disagreed with itself, and the
+    // button kept saying "Assign" as though nothing had happened.
+    const othersToClear = clear
+      ? []
+      : visits.filter((v: any) => {
+          const o = followupOwnerOf(v);
+          return !!o && o !== empCode && !mine.includes(v);
+        });
+
+    console.log("%c[Assign]", "color:#16a34a;font-weight:bold", {
+      client,
+      empCode,
+      clear,
+      visitsConsidered: visits.length,
+      visitsTheyWereOn: theirs.length,
+      visitsAttempted: mine.length,
+      othersToClear: othersToClear.length,
+      employeesPerVisit: visits.map((v: any) => ({
+        id: v?.visit_ID ?? v?.Visit_ID,
+        employees: v?.employees,
+      })),
+    });
+
+    if (mine.length === 0) {
+      setFollowupByError((p) => ({
+        ...p,
+        [gKey]: "This college has no visits to assign.",
+      }));
+      setFollowupBySaving((p) => ({ ...p, [gKey]: false }));
+      return;
+    }
+
+    // One refusal is not a failure: a college's visits are not all the
+    // same team, so the server will turn down the ones this person was
+    // not on. Keep going and take the ones it accepts - stopping at the
+    // first "no" left colleges half-assigned, or not assigned at all
+    // when the first visit tried happened to be someone else's.
+    let done = 0;
+    let lastRefusal = "";
+
+    for (const v of mine) {
       const visitId = Number((v as any)?.visit_ID || (v as any)?.Visit_ID || 0);
       if (!visitId) continue;
       const key = String(visitId);
@@ -1769,26 +1901,107 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
         });
         if (!res.ok) {
           const body = await res.json().catch(() => null);
+          console.warn("[Assign] rejected", { visitId, empCode, status: res.status, body });
           setFollowupBy((p) => ({ ...p, [key]: previous }));
-          setFollowupByError((p) => ({
-            ...p,
-            [gKey]: String(body?.message || "Could not change the follow-up owner."),
-          }));
-          break;
+          lastRefusal = String(body?.message || "Could not change the follow-up owner.");
+          continue;
         }
-      } catch {
+        done += 1;
+      } catch (err) {
+        console.error("[Assign] network error", { visitId, empCode, err });
         setFollowupBy((p) => ({ ...p, [key]: previous }));
-        setFollowupByError((p) => ({ ...p, [gKey]: "Could not reach the server." }));
-        break;
+        lastRefusal = "Could not reach the server.";
       }
     }
 
+    // Then take everyone else off, so the college names one person.
+    for (const v of othersToClear) {
+      const visitId = Number((v as any)?.visit_ID || (v as any)?.Visit_ID || 0);
+      if (!visitId) continue;
+      const key = String(visitId);
+      const previous = followupBy[key] ?? "";
+      setFollowupBy((p) => ({ ...p, [key]: "" }));
+      try {
+        const res = await fetch(`${API_BASE}Tickets/Save_Visit_FollowupBy`, {
+          method: "POST",
+          headers: getHeaders(false),
+          body: JSON.stringify({
+            Visit_ID: visitId,
+            EmpCode: null,
+            ActorEmpCode: currentEmpCode || null,
+          }),
+        });
+        if (!res.ok) {
+          console.warn("[Assign] could not clear previous owner", { visitId, status: res.status });
+          setFollowupBy((p) => ({ ...p, [key]: previous }));
+        }
+      } catch (err) {
+        console.error("[Assign] clear failed", { visitId, err });
+        setFollowupBy((p) => ({ ...p, [key]: previous }));
+      }
+    }
+
+    console.log("[Assign] done", {
+      client,
+      empCode,
+      assigned: done,
+      attempted: mine.length,
+      cleared: othersToClear.length,
+    });
+
+    // Only an error when NOTHING took.
+    if (done === 0) {
+      setFollowupByError((p) => ({
+        ...p,
+        [gKey]: lastRefusal || "Could not change the follow-up owner.",
+      }));
+    }
+
     setFollowupBySaving((p) => ({ ...p, [gKey]: false }));
+
+    // Clear it after a while: a message about one attempt should not
+    // outlive the attempt.
+    window.setTimeout(() => {
+      setFollowupByError((p) => {
+        const next = { ...p };
+        delete next[gKey];
+        return next;
+      });
+    }, 6000);
   };
 
-  /** The owner a whole college agrees on, or "" when it is split. */
+  /**
+   * Every visit this college has in the loaded feed.
+   *
+   * group.visits is only the slice the current tab shows, so acting on
+   * it marked or assigned just those - which is how Lingayas ended up
+   * with six visits Ignored and a seventh still in Handling, appearing
+   * in two tabs at once. Assign and Ignore are decisions about the
+   * college, so they have to reach all of it.
+   */
+  const allVisitsOfClient = (client: string) => {
+    const want = String(client || "").trim().toLowerCase();
+    return filteredVisits.filter(
+      (v: any) => String(v?.client_Name || "").trim().toLowerCase() === want
+    );
+  };
+
+  /**
+   * Who is on this college.
+   *
+   * Unassigned visits are not a second opinion, so they are ignored: a
+   * college with one owner on two visits and nobody on the other ten
+   * is being handled by that person. Counting the blanks made the
+   * button read "Assign" on every college in the Handling tab - the
+   * one place it is guaranteed somebody IS on it.
+   *
+   * Two different people is a genuine split, and that still shows
+   * nothing rather than picking one of them to display.
+   */
   const groupOwnerOf = (visits: VisitTicket[]) => {
-    const owners = new Set(visits.map((v) => followupOwnerOf(v)));
+    const owners = new Set(
+      visits.map((v) => followupOwnerOf(v)).filter((o) => !!o)
+    );
     return owners.size === 1 ? Array.from(owners)[0] : "";
   };
 
@@ -1855,29 +2068,64 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   );
 
   // ---- Followups ---------------------------------------------------
-  // Left is checked first everywhere: a visit somebody has written off
-  // should not keep appearing in the two lists that mean "still to do".
-  const fuLeftVisits = useMemo(
-    () => filteredVisits.filter((v: any) => isLeft(v)),
+  /**
+   * Followups is a list of COLLEGES, so a college is in one state, not
+   * one state per visit. Judging each visit separately put Lingayas in
+   * Pending, Handling and Left at the same time - three entries, one
+   * party, and no tab telling the truth about it.
+   *
+   * The whole college, in order:
+   *
+   *   LEFT      every visit written off. One visit still live means the
+   *             college is still live - otherwise ignoring a single old
+   *             visit would quietly retire the party.
+   *   HANDLING  one person owns it - the same test the header's Assign
+   *             button uses to decide whose name to show. "Anybody is
+   *             named on any visit" put four colleges in Handling while
+   *             three of them still read "Assign", because two people
+   *             named on different visits of one college is not a
+   *             college somebody is handling.
+   *   PENDING   everything else: nobody on it, or nobody agreed.
+   */
+  const collegeStates = useMemo(() => {
+    const byClient: Record<string, VisitTicket[]> = {};
+    filteredVisits.forEach((v: any) => {
+      const k = String(v?.client_Name || "").trim().toLowerCase();
+      (byClient[k] = byClient[k] || []).push(v);
+    });
+
+    const states: Record<string, "pending" | "handling" | "left"> = {};
+    Object.keys(byClient).forEach((k) => {
+      const vs = byClient[k];
+      if (vs.length > 0 && vs.every((v) => isLeft(v))) states[k] = "left";
+      else if (groupOwnerOf(vs)) states[k] = "handling";
+      else states[k] = "pending";
+    });
+    return states;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filteredVisits, leftSaved]
+  }, [filteredVisits, leftSaved, followupBy]);
+
+  const inState = (want: "pending" | "handling" | "left") =>
+    filteredVisits.filter(
+      (v: any) => collegeStates[String(v?.client_Name || "").trim().toLowerCase()] === want
+    );
+
+  const fuLeftVisits = useMemo(
+    () => inState("left"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredVisits, collegeStates]
   );
 
-  // The split is ownership, not activity: Pending means nobody has been
-  // put on it, Handling means somebody has. Whether they have recorded
-  // anything yet is a separate question - a visit with an owner is being
-  // handled by that person from the moment they are named, and counting
-  // it as Pending until they type something reads as unassigned work.
   const fuPendingVisits = useMemo(
-    () => filteredVisits.filter((v: any) => !isLeft(v) && !followupOwnerOf(v)),
+    () => inState("pending"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filteredVisits, leftSaved, followupBy]
+    [filteredVisits, collegeStates]
   );
 
   const fuHandlingVisits = useMemo(
-    () => filteredVisits.filter((v: any) => !isLeft(v) && !!followupOwnerOf(v)),
+    () => inState("handling"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filteredVisits, leftSaved, followupBy]
+    [filteredVisits, collegeStates]
   );
 
   /**
@@ -1954,6 +2202,17 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
     });
     return best;
   };
+
+  /**
+   * How many COLLEGES a list covers.
+   *
+   * Followups lists colleges, so its tabs have to count colleges. They
+   * were counting visits, which is why Left read 6 above a single
+   * college - Lingayas has six visits and ignoring it marks all six.
+   * The number and the list were measuring different things.
+   */
+  const collegeCount = (list: VisitTicket[]) =>
+    new Set(list.map((v: any) => String(v?.client_Name || "").trim().toLowerCase())).size;
 
   /** The list the two switchers currently add up to. */
   const visibleVisits = useMemo(() => {
@@ -2074,8 +2333,13 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
       events.push({ kind: "visit", at: visitDate, visit: v, visitKey: vKey });
 
+      // A bulk close is not an event. It says a call was never made,
+      // which the timeline already shows by not having one - printing
+      // it put the same sentence on every visit in the backlog and
+      // buried the visits themselves. It still counts as completed;
+      // it just has nothing to narrate.
       const call = feedbackCallOf(v);
-      if (call) {
+      if (call && String(call.by || "").toUpperCase() !== "BULK") {
         events.push({ kind: "call", at: call.on || visitDate, visit: v, visitKey: vKey, call });
       }
 
@@ -2115,8 +2379,12 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   // you care about and you open the one you want.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
+  // One at a time. An open college is tall - a timeline, its own scroll
+  // box and a form - so two of them open means the second is somewhere
+  // below the fold and the list has stopped being a list. Opening one
+  // closes whatever was open; clicking the open one closes it.
   const toggleGroup = (client: string) =>
-    setOpenGroups((p) => ({ ...p, [client]: !p[client] }));
+    setOpenGroups((p) => (p[client] ? {} : { [client]: true }));
 
   const getRowFeedback = (visitKey: string): VisitFeedbackRowData => {
     return (
@@ -2302,6 +2570,28 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
       return updated;
     });
   };
+
+  /**
+   * The event picker opens on today.
+   *
+   * Written into the draft, not shown as a placeholder: a field that
+   * looks filled and saves blank is worse than one that is plainly
+   * empty. Keyed on the opening, so clearing the date inside the
+   * dialog sticks instead of being refilled under you.
+   */
+  useEffect(() => {
+    if (!eventDateModal?.open) return;
+    const { visitKey, courseName, clientName } = eventDateModal;
+    if (!visitKey || !courseName) return;
+
+    const cf = getCourseFeedback(visitKey, courseName);
+    if (cf.eventDate || cf.eventToDate) return;
+
+    updateCourseField(visitKey, courseName, "eventDate", moment().format("YYYY-MM-DD"), {
+      client_Name: clientName,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDateModal?.open, eventDateModal?.visitKey, eventDateModal?.courseName]);
 
   const handleSaveRowFeedback = async (visitKey: string, item: VisitTicket) => {
     const row = getRowFeedback(visitKey);
@@ -2609,8 +2899,8 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         <UserCheck size={13} />
                         <span>Followups</span>
                         {fuPendingVisits.length > 0 && (
-                          <span className="visit-view-count" title="Assigned, nothing recorded yet">
-                            {fuPendingVisits.length}
+                          <span className="visit-view-count" title="Colleges with nobody on them yet">
+                            {collegeCount(fuPendingVisits)}
                           </span>
                         )}
                       </button>
@@ -2646,7 +2936,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           title="Somebody owns it, nothing recorded yet"
                         >
                           <span>Pending</span>
-                          <span className="visit-subtab-count">{fuPendingVisits.length}</span>
+                          <span className="visit-subtab-count">{collegeCount(fuPendingVisits)}</span>
                         </button>
                         <button
                           type="button"
@@ -2655,7 +2945,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           title="At least one follow-up recorded"
                         >
                           <span>Handling</span>
-                          <span className="visit-subtab-count">{fuHandlingVisits.length}</span>
+                          <span className="visit-subtab-count">{collegeCount(fuHandlingVisits)}</span>
                         </button>
                         <button
                           type="button"
@@ -2664,7 +2954,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           title="Decided not worth chasing"
                         >
                           <span>Left</span>
-                          <span className="visit-subtab-count">{fuLeftVisits.length}</span>
+                          <span className="visit-subtab-count">{collegeCount(fuLeftVisits)}</span>
                         </button>
                       </>
                     )}
@@ -3141,6 +3431,17 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                   const grouped = section === "followups";
                   const folded = grouped && !openGroups[group.client];
 
+                  // The tab decides which COLLEGES are listed. What is
+                  // inside one is the college - all of its visits, calls
+                  // and follow-ups. group.visits is only the slice that
+                  // matched the tab, so a college with one unassigned
+                  // visit opened to a timeline of one visit and claimed
+                  // "1 visit" in its header, with six others and their
+                  // history simply missing.
+                  const collegeVisits = grouped
+                    ? allVisitsOfClient(group.client)
+                    : group.visits;
+
                   return (
                     <div
                       className={`visit-party-group ${grouped ? "" : "plain"}`}
@@ -3151,8 +3452,9 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         by date and a party heading would be noise. */}
                     {grouped && (() => {
                       const gKey = `grp:${group.client}`;
-                      const gLeft =
-                        group.visits.length > 0 && group.visits.every((gv) => isLeft(gv));
+                      // The whole college, not the tab's slice of it.
+                      const allOfIt = collegeVisits;
+                      const gLeft = allOfIt.length > 0 && allOfIt.every((gv) => isLeft(gv));
                       const gBusy = !!leftSaving[gKey];
                       const gErr = leftError[gKey];
                       const gDrafting = Object.prototype.hasOwnProperty.call(leftDraft, gKey);
@@ -3171,12 +3473,16 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           className="visit-party-toggle"
                           onClick={() => toggleGroup(group.client)}
                         >
+                        {/* Position in the list as it is currently
+                            sorted, so "the fourth one down" is something
+                            you can say out loud. */}
+                        <span className="visit-party-no">{gIndex + 1}</span>
                         <Building2 size={15} />
                         <span className="visit-party-head-name">{group.client}</span>
                         </button>
 
                         {(() => {
-                          const st = groupStats(group.visits);
+                          const st = groupStats(collegeVisits);
                           return (
                             <span className="visit-party-stats">
                               <button
@@ -3187,7 +3493,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                 onClick={() => setCollegeView(group.client, "visits")}
                                 title="Show only the visits"
                               >
-                                {group.visits.length} {group.visits.length === 1 ? "visit" : "visits"}
+                                {collegeVisits.length} {collegeVisits.length === 1 ? "visit" : "visits"}
                               </button>
                               <button
                                 type="button"
@@ -3239,8 +3545,9 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             table would let you assign a college to
                             somebody who has never met them. */}
                         {(() => {
-                          const owner = groupOwnerOf(group.visits);
-                          const people = visitorsOf(group.visits);
+                          const whole = collegeVisits;
+                          const owner = groupOwnerOf(whole);
+                          const people = visitorsOf(whole);
                           const busy = !!followupBySaving[`grp:${group.client}`];
                           const openList = assignFor === group.client;
                           return (
@@ -3249,21 +3556,49 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                 type="button"
                                 className={`assign-btn ${owner ? "on" : ""}`}
                                 disabled={busy}
-                                onClick={() =>
-                                  setAssignFor(openList ? null : group.client)
-                                }
+                                onClick={(e) => {
+                                  if (openList) {
+                                    setAssignFor(null);
+                                    return;
+                                  }
+                                  openAssignAt(e.currentTarget as HTMLElement);
+                                  setAssignFor(group.client);
+                                }}
                                 title={
                                   owner
-                                    ? `Being followed up by ${owner}`
+                                    ? `Being followed up by ${
+                                        people.find((pp) => pp.code === owner)?.label || owner
+                                      }`
                                     : "Put someone on this college"
                                 }
                               >
                                 <UserCheck size={11} />
-                                <span>{busy ? "Saving..." : owner || "Assign"}</span>
+                                <span>
+                                  {busy
+                                    ? "Saving..."
+                                    : owner
+                                      ? // The name if we have it, since a bare
+                                        // code answers "who" only for someone
+                                        // who already knows the codes.
+                                        (people.find((pp) => pp.code === owner)?.label || owner)
+                                          .split("-")
+                                          .slice(1)
+                                          .join("-")
+                                          .trim()
+                                          .split(" ")[0] || owner
+                                      : "Assign"}
+                                </span>
                               </button>
 
-                              {openList && (
-                                <div className="assign-pop">
+                              {openList && createPortal(
+                                <div
+                                  className="assign-pop"
+                                  style={{
+                                    top: assignAt.top,
+                                    bottom: assignAt.bottom,
+                                    right: assignAt.right,
+                                  }}
+                                >
                                   {people.length === 0 ? (
                                     <div className="assign-none">
                                       No employee is recorded on these visits.
@@ -3277,7 +3612,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                         onClick={() => {
                                           void assignGroupOwner(
                                             group.client,
-                                            group.visits,
+                                            whole,
                                             pp.code,
                                             owner === pp.code
                                           );
@@ -3298,13 +3633,20 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                       </button>
                                     ))
                                   )}
-                                </div>
+                                </div>,
+                                document.body
                               )}
 
+                              {/* Was absolutely positioned under the
+                                  button, where it could sit behind the
+                                  row below it - an assign that failed
+                                  looked exactly like one that did
+                                  nothing. It is a strip under the header
+                                  now. */}
                               {followupByError[`grp:${group.client}`] && (
-                                <span className="assign-err">
+                                <div className="assign-err">
                                   {followupByError[`grp:${group.client}`]}
-                                </span>
+                                </div>
                               )}
                             </div>
                           );
@@ -3319,7 +3661,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             type="button"
                             className="visit-left-undo"
                             disabled={gBusy}
-                            onClick={() => saveGroupFollowupStatus(group.client, group.visits, false)}
+                            onClick={() => saveGroupFollowupStatus(group.client, allOfIt, false)}
                           >
                             <Lock size={11} />
                             <span>{gBusy ? "Saving..." : "Ignored - put back"}</span>
@@ -3372,7 +3714,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                               }
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && !gBusy && gReason.trim()) {
-                                  void saveGroupFollowupStatus(group.client, group.visits, true, gReason);
+                                  void saveGroupFollowupStatus(group.client, allOfIt, true, gReason);
                                   closeG();
                                 }
                               }}
@@ -3383,7 +3725,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                               disabled={gBusy || !gReason.trim()}
                               title="Mark this college as not needed"
                               onClick={() => {
-                                void saveGroupFollowupStatus(group.client, group.visits, true, gReason);
+                                void saveGroupFollowupStatus(group.client, allOfIt, true, gReason);
                                 closeG();
                               }}
                             >
@@ -3403,7 +3745,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         where the scroll box would carry them off as soon
                         as the history was longer than the screen. */}
                     {grouped && !folded && (() => {
-                      const aKey = getVisitKey(newestVisitOf(group.visits));
+                      const aKey = getVisitKey(newestVisitOf(collegeVisits));
                       const open = getRowFeedback(aKey).draftOpen;
                       return (
                         <div className="ct-add-row">
@@ -3450,10 +3792,10 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         the editor is open. */}
                     {!folded &&
                       (!grouped ||
-                        getRowFeedback(getVisitKey(newestVisitOf(group.visits))).draftOpen) && (
+                        getRowFeedback(getVisitKey(newestVisitOf(collegeVisits))).draftOpen) && (
                     <div className="visit-party-visits">
                     {(grouped
-                      ? [newestVisitOf(group.visits)]
+                      ? [newestVisitOf(collegeVisits)]
                       : group.visits
                     ).map((item, index) => {
                   // Position in the whole list, not in this group: in
@@ -3659,7 +4001,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             the field, no date to fill in. The visit details
                             above are the record; this is the only thing
                             being added to it. */}
-                        {viewMode === "pending" && !feedbackCallOf(item) && (() => {
+                        {viewMode === "pending" && canPostFeedback && !feedbackCallOf(item) && (() => {
                           const vId = Number(item?.visit_ID ?? item?.Visit_ID ?? 0);
                           const vKey = String(vId);
                           const busy = !!callSaving[vKey];
@@ -3805,6 +4147,8 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         {(() => {
                           const call = feedbackCallOf(item);
                           if (!call) return null;
+                          // Nothing was said on a call nobody made.
+                          if (String(call.by || "").toUpperCase() === "BULK") return null;
                           return (
                             <div className="visit-call-detail">
                               <div className="visit-call-detail-head">
@@ -4090,26 +4434,6 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
                           <div className="visit-feedback-head">
                             <div className="visit-grid-input-group" style={{ flex: "1 1 0", minWidth: 0 }}>
-                              <label>Courses List</label>
-                              <button
-                                type="button"
-                                className="visit-multiselect-trigger"
-                                onClick={() => setCoursesModal({ open: true, visitKey, clientName: item.client_Name })}
-                                title="Click to select courses"
-                                style={{ width: "100%" }}
-                              >
-                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {rowFeedback.courses.length > 0 ? rowFeedback.courses.join(", ") : "Select Courses"}
-                                </span>
-                                {rowFeedback.courses.length > 0 ? (
-                                  <span className="visit-selected-badge">{rowFeedback.courses.length}</span>
-                                ) : (
-                                  <ChevronDown size={13} style={{ color: "#9ca3af" }} />
-                                )}
-                              </button>
-                            </div>
-
-                            <div className="visit-grid-input-group" style={{ flex: "1 1 0", minWidth: 0 }}>
                               <label>Next Followup</label>
                               <input
                                 type="date"
@@ -4131,9 +4455,25 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                           </div>
 
                           {rowFeedback.courses.length === 0 ? (
-                            <div className="visit-course-empty">
-                              Pick a course above to record the count, event requirement and dates asked for against it.
-                            </div>
+                            /* The strip that explained there was nothing
+                               here is now the thing that fixes it. A
+                               message telling you to use a control, next
+                               to that control, is a row of the form spent
+                               on instructions. */
+                            <button
+                              type="button"
+                              className="visit-course-empty"
+                              onClick={() =>
+                                setCoursesModal({
+                                  open: true,
+                                  visitKey,
+                                  clientName: item.client_Name,
+                                })
+                              }
+                            >
+                              <Plus size={14} />
+                              <span>Add courses to record counts, event requirements and dates</span>
+                            </button>
                           ) : (
                             <div className="visit-course-rows">
                               <div className="visit-course-row visit-course-row-head">
@@ -4147,12 +4487,34 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                 const cf = rowFeedback.courseData[courseName] || emptyCourseFeedback();
                                 return (
                                   <div className="visit-course-row" key={courseName}>
-                                    <span className="visit-course-name" title={courseName}>{courseName}</span>
+                                    {/* Was plain text while everything
+                                        beside it was a control, so the
+                                        one column you might want to
+                                        change looked like the one you
+                                        could not. Opens the same course
+                                        picker as the field above. */}
+                                    <button
+                                      type="button"
+                                      className="visit-multiselect-trigger"
+                                      onClick={() =>
+                                        setCoursesModal({
+                                          open: true,
+                                          visitKey,
+                                          clientName: item.client_Name,
+                                        })
+                                      }
+                                      title={`${courseName} - click to change the courses`}
+                                    >
+                                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }}>
+                                        {courseName}
+                                      </span>
+                                      <ChevronDown size={13} style={{ color: "#9ca3af" }} />
+                                    </button>
 
                                     <input
                                       type="number"
                                       min="0"
-                                      placeholder="0"
+                                      placeholder="Count"
                                       className="visit-table-input"
                                       style={{ textAlign: "center" }}
                                       value={cf.count1}
@@ -4265,12 +4627,12 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             with a filtered timeline. */}
                         {(ctView[group.client] || "all") === "contacts" ? (
                           <div className="ct-contacts">
-                            {contactsOf(group.visits).length === 0 ? (
+                            {contactsOf(collegeVisits).length === 0 ? (
                               <div className="ct-contacts-none">
                                 No contact was recorded on any of these visits.
                               </div>
                             ) : (
-                              contactsOf(group.visits).map((c) => (
+                              contactsOf(collegeVisits).map((c) => (
                                 <div className="ct-contact" key={c.name}>
                                   <User size={12} />
                                   <span className="ct-contact-name">{c.name}</span>
@@ -4290,7 +4652,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             )}
                           </div>
                         ) : (
-                        buildTimeline(group.visits, (ctSort[group.client] ?? "desc") === "desc")
+                        buildTimeline(collegeVisits, (ctSort[group.client] ?? "desc") === "desc")
                           .filter((ev: any) => {
                             const view = ctView[group.client] || "all";
                             if (view === "visits") return ev.kind === "visit";
@@ -4449,7 +4811,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             to a college with no history, so say which it
                             is. */}
                         {(ctView[group.client] || "all") === "followups" &&
-                          buildTimeline(group.visits, false).every((ev: any) => ev.kind !== "followup") && (
+                          buildTimeline(collegeVisits, false).every((ev: any) => ev.kind !== "followup") && (
                             <div className="ct-contacts-none">
                               No follow-up has been recorded for this college yet.
                             </div>
@@ -5007,8 +5369,6 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         {filteredCourses.map((course) => {
                           const isSelected = getRowFeedback(coursesModal.visitKey).courses.includes(course.name);
 
-                          const cf = getCourseFeedback(coursesModal.visitKey, course.name);
-
                           return (
                             <div
                               key={course.name}
@@ -5024,77 +5384,12 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                 <span className="course-duration-badge">{course.duration}</span>
                               </label>
 
-                              {/* What is being asked for against THIS course.
-                                  Only once it is picked - an unticked course has
-                                  nothing to say, and showing the fields anyway
-                                  would make the list unreadable. */}
-                              {isSelected && (
-                                <div className="course-detail">
-                                  <div className="course-detail-line">
-                                    <label className="course-detail-label">Count</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      placeholder="0"
-                                      className="visit-table-input course-detail-count"
-                                      value={cf.count1}
-                                      onChange={(e) =>
-                                        updateCourseField(coursesModal.visitKey, course.name, "count1", e.target.value, {
-                                          client_Name: coursesModal.clientName,
-                                        })
-                                      }
-                                    />
-
-                                    <label className="course-detail-label">From</label>
-                                    <input
-                                      type="date"
-                                      className="visit-table-input course-detail-date"
-                                      value={cf.eventDate}
-                                      onChange={(e) =>
-                                        updateCourseField(coursesModal.visitKey, course.name, "eventDate", e.target.value, {
-                                          client_Name: coursesModal.clientName,
-                                        })
-                                      }
-                                    />
-
-                                    <label className="course-detail-label">To</label>
-                                    <input
-                                      type="date"
-                                      className="visit-table-input course-detail-date"
-                                      value={cf.eventToDate}
-                                      onChange={(e) =>
-                                        updateCourseField(coursesModal.visitKey, course.name, "eventToDate", e.target.value, {
-                                          client_Name: coursesModal.clientName,
-                                        })
-                                      }
-                                    />
-                                  </div>
-
-                                  <div className="course-detail-events">
-                                    <label className="course-detail-label">Event Req</label>
-                                    <div className="course-event-chips">
-                                      {EVENT_REQUIREMENTS_LIST.map((evt) => {
-                                        const on = cf.eventRequirements.includes(evt);
-                                        return (
-                                          <button
-                                            type="button"
-                                            key={evt}
-                                            className={`course-event-chip ${on ? "on" : ""}`}
-                                            onClick={() =>
-                                              toggleEventSelection(coursesModal.visitKey, course.name, evt, {
-                                                client_Name: coursesModal.clientName,
-                                              })
-                                            }
-                                          >
-                                            {on && <Check size={11} />}
-                                            <span>{evt}</span>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                              {/* The count, the dates and the event
+                                  requirement used to be repeated here for
+                                  every ticked course. Each course now has
+                                  a row of its own in the form with those
+                                  same three controls, so this dialog does
+                                  one thing: say which courses. */}
                             </div>
                           );
                         })}
