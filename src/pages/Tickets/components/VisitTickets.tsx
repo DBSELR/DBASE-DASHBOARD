@@ -1348,9 +1348,57 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
     setSelectedProjectId(newProjId);
   };
 
+  /**
+   * Was this person on this visit?
+   *
+   * The employees string carries "1501-NAME, 1524-NAME", so the code
+   * is read off each entry rather than searched for as text - looking
+   * for "150" inside "1501" or inside a phone number is how a filter
+   * quietly shows somebody else's work.
+   */
+  const wasOnVisit = (v: any, code: string) => {
+    if (!code) return false;
+    if (String(v?.FollowUp_By ?? v?.followUp_By ?? "").trim() === code) return true;
+    return String(v?.employees || "")
+      .split(",")
+      .some((emp: string) => {
+        const label = emp.trim();
+        if (!label) return false;
+        const c = label.indexOf("-") > 0 ? label.slice(0, label.indexOf("-")).trim() : label;
+        return c === code;
+      });
+  };
+
+  // Who sees the whole feed. Everyone else sees the visits they were
+  // on and the follow-ups they wrote - their own work, and nothing
+  // about how anyone else is working the same party.
+  const seesEveryVisit = canPostFeedback || isFollowupAdmin;
+
   // Filter visits client-side by applied project and applied date range
   const displayedVisits = useMemo(() => {
     let list = tickets;
+
+    // Scope first: everything downstream - the counts, the colleges,
+    // Pending and Handling - is built from this list, so narrowing it
+    // here is what keeps those honest for the person reading them.
+    if (!seesEveryVisit) {
+      list = list
+        .filter((v: any) => wasOnVisit(v, currentEmpCode))
+        // ...and only the follow-ups they recorded. Done here rather
+        // than at each of the three places follow-ups are parsed, so
+        // the timeline, the counts and the history cannot disagree
+        // about what this person is allowed to see.
+        .map((v: any) => {
+          const all = Array.isArray(v?.Followups) ? v.Followups : null;
+          if (!all || all.length === 0) return v;
+          const ours = all.filter(
+            (f: any) => String(f?.CreatedBy ?? f?.createdBy ?? "").trim() === currentEmpCode
+          );
+          // Same object back when nothing was dropped: the assign and
+          // ordering code compares visits by identity.
+          return ours.length === all.length ? v : { ...v, Followups: ours };
+        });
+    }
 
     // Filter by Applied Project
     if (appliedProjectId && appliedProjectId !== "0" && appliedProjectId !== "ALL") {
@@ -1397,7 +1445,8 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
     });
 
     return list;
-  }, [tickets, appliedProjectId, projects, appliedFromDate, appliedToDate, defaultFromDate, defaultToDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets, appliedProjectId, projects, appliedFromDate, appliedToDate, defaultFromDate, defaultToDate, currentEmpCode, seesEveryVisit]);
 
   // Filtered visits by client search
   const filteredVisits = useMemo(() => {
