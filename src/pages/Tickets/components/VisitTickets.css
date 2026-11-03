@@ -4164,3 +4164,27 @@ body.dark .view-mode-btn.active {
   color: #94a3b8;
   font-variant-numeric: tabular-nums;
 }
+
+/* Name and place, stacked, so a long college name does not push the
+   place off the row and the counts keep their position. */
+.visit-party-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.visit-party-head-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.visit-party-head-loc > svg { flex: 0 0 auto; color: #ef4444; }

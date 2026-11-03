@@ -2304,6 +2304,27 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   }, [visibleOrdered]);
 
   /**
+   * Where a college is.
+   *
+   * Its visits do not always agree - the same party turns up as
+   * "Surampally", "Nunna" and a blank, which is what the dedup scripts
+   * were about - so this takes the one used most often rather than the
+   * newest. One odd entry should not rename the college.
+   */
+  const locationOf = (visits: VisitTicket[]) => {
+    const tally: Record<string, { label: string; n: number }> = {};
+    visits.forEach((v: any) => {
+      const raw = String(v?.location || "").trim();
+      if (!raw) return;
+      const key = raw.toLowerCase().replace(/\s+/g, " ");
+      if (!tally[key]) tally[key] = { label: raw, n: 0 };
+      tally[key].n += 1;
+    });
+    const best = Object.values(tally).sort((a, b) => b.n - a.n)[0];
+    return best ? best.label : "";
+  };
+
+  /**
    * The shape of a college at a glance, for its header.
    *
    * All three are counted DISTINCT. Thirteen visits by the same four
@@ -3527,7 +3548,18 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             you can say out loud. */}
                         <span className="visit-party-no">{gIndex + 1}</span>
                         <Building2 size={15} />
-                        <span className="visit-party-head-name">{group.client}</span>
+                        <span className="visit-party-head-text">
+                          <span className="visit-party-head-name">{group.client}</span>
+                          {(() => {
+                            const where = locationOf(collegeVisits);
+                            return where ? (
+                              <span className="visit-party-head-loc">
+                                <MapPin size={11} />
+                                {where}
+                              </span>
+                            ) : null;
+                          })()}
+                        </span>
                         </button>
 
                         {(() => {
