@@ -7,7 +7,7 @@ export interface BatteryState {
 export class BatteryService {
   public static async getBatteryState(): Promise<BatteryState> {
     try {
-      const nav = navigator as any;
+      const nav = navigator as any;  
       if (nav.getBattery) {
         const battery = await nav.getBattery();
         return {

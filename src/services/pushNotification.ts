@@ -119,7 +119,7 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
             schedule: { at: getScheduleDate(18, 30), repeats: true, every: "day" },
             channelId: "work_report_high_importance",
             sound: "default",
-            smallIcon: "notification_icon",
+            smallIcon: "ic_launcher",
             extra: { url: "/workreport", slot: "18_30" }
           },
           {
@@ -129,7 +129,7 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
             schedule: { at: getScheduleDate(19, 30), repeats: true, every: "day" },
             channelId: "work_report_high_importance",
             sound: "default",
-            smallIcon: "notification_icon",
+            smallIcon: "ic_launcher",
             extra: { url: "/workreport", slot: "19_30" }
           },
           {
@@ -139,7 +139,7 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
             schedule: { at: getScheduleDate(20, 30), repeats: true, every: "day" },
             channelId: "work_report_high_importance",
             sound: "default",
-            smallIcon: "notification_icon",
+            smallIcon: "ic_launcher",
             extra: { url: "/workreport", slot: "20_30" }
           }
         ]
@@ -246,7 +246,7 @@ const registerNative = async (empCode: string) => {
                 body: notification.body || "",
                 channelId: "work_report_high_importance",
                 sound: "default",
-                smallIcon: "notification_icon",
+                smallIcon: "ic_launcher",
                 extra: notification.data
               }
             ]
