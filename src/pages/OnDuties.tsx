@@ -1,4 +1,4 @@
-﻿// src/pages/OnDuties.tsx
+// src/pages/OnDuties.tsx
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addOutline } from "ionicons/icons";
 import {
@@ -7255,11 +7255,11 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                     }
                                     onClick={() => {
                                       if (campHasLocked(row)) return;
-                                      const nv = row.visits?.length || 0;
+                                      const nv = trip.visits?.length || 0;
                                       setConfirmAsk({
                                         title: "Delete this day trip?",
                                         body:
-                                          (row.dayTrip_Date ? `${row.dayTrip_Date} - ` : "") +
+                                          (trip.dutyDate ? `${moment(trip.dutyDate).format("DD-MM-YYYY")} - ` : "") +
                                           (nv > 0
                                             ? `its ${nv} ${nv === 1 ? "visit goes" : "visits go"} with it.`
                                             : "it has no visits recorded."),
