@@ -2267,7 +2267,10 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
    * list is reordered - which is exactly the bug a position-based
    * "last one" would have introduced the moment Date sort flipped it.
    */
-  const newestVisitOf = (visits: VisitTicket[]) => {
+  const newestVisitOf = (visits: VisitTicket[]): any => {
+    // getVisitKey already tolerates nothing being passed; this stops
+    // the nothing being produced in the first place.
+    if (!Array.isArray(visits) || visits.length === 0) return null;
     let best: any = visits[0];
     let bestAt = -Infinity;
     visits.forEach((v: any) => {

@@ -2632,6 +2632,24 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         }
       }
 
+      // WHO was visited. A visit with a slip, a time and a location but
+      // no party is a record of having been somewhere without saying
+      // who it was for - it cannot be followed up, it cannot be
+      // counted against a college, and on the Visits screen it lands
+      // in a "(No client name)" group that belongs to no party.
+      //
+      // The field is marked required and the party picker fills it,
+      // but a visit begun by uploading a slip and finished without
+      // choosing one was saving happily, which is where the nameless
+      // rows came from.
+      for (const { v, i } of recordedVisits) {
+        if (!String(v?.partyName || "").trim()) {
+          notify(`Visit #${i + 1}: choose the party that was visited`, "warning");
+          scrollVisitIntoView(i);
+          return;
+        }
+      }
+
       // Who was met, and in what capacity. A name with no designation
       // reads the same whether it was the principal or somebody at the
       // gate, and the follow-up months later is worked from this line
