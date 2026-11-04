@@ -2619,6 +2619,40 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
             String(v?.location || "").trim() !== "")
       );
 
+      // WHERE it was, that the place was tagged, and WHO it was with.
+      //
+      // Checked in the order the form is filled in - location, then the
+      // geo tag that pins it, then the party - and all three per visit
+      // before moving to the next, so a half-filled stop is told what
+      // it still needs instead of surrendering one field per attempt.
+      //
+      // None of these was enforced at save before. The fields carry a
+      // red asterisk, which turned out to be decoration: a visit begun
+      // by uploading a slip and finished without a party saved happily,
+      // and that is where the "(No client name)" rows came from.
+      for (const { v, i } of recordedVisits) {
+        if (!String(v?.location || "").trim()) {
+          notify(`Visit #${i + 1}: enter the location of this visit`, "warning");
+          scrollVisitIntoView(i);
+          return;
+        }
+
+        if (!String(v?.latitude || "").trim() || !String(v?.longitude || "").trim()) {
+          notify(
+            `Visit #${i + 1}: tap Geo Tag to record where this visit happened`,
+            "warning"
+          );
+          scrollVisitIntoView(i);
+          return;
+        }
+
+        if (!String(v?.partyName || "").trim()) {
+          notify(`Visit #${i + 1}: choose the party that was visited`, "warning");
+          scrollVisitIntoView(i);
+          return;
+        }
+      }
+
       // A number that cannot be rung is worse than no number: it looks
       // like a contact nobody has to chase. Checked here as well as in
       // the field, because a value can arrive from the party auto-fill
@@ -2627,24 +2661,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         const err = mobileError(v?.mobile);
         if (err) {
           notify(`Visit #${i + 1}: ${err}`, "warning");
-          scrollVisitIntoView(i);
-          return;
-        }
-      }
-
-      // WHO was visited. A visit with a slip, a time and a location but
-      // no party is a record of having been somewhere without saying
-      // who it was for - it cannot be followed up, it cannot be
-      // counted against a college, and on the Visits screen it lands
-      // in a "(No client name)" group that belongs to no party.
-      //
-      // The field is marked required and the party picker fills it,
-      // but a visit begun by uploading a slip and finished without
-      // choosing one was saving happily, which is where the nameless
-      // rows came from.
-      for (const { v, i } of recordedVisits) {
-        if (!String(v?.partyName || "").trim()) {
-          notify(`Visit #${i + 1}: choose the party that was visited`, "warning");
           scrollVisitIntoView(i);
           return;
         }
@@ -2660,27 +2676,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         const role = String(v?.contactDesignation || "").trim();
         if (who && !role) {
           notify(`Visit #${i + 1}: pick a designation for ${who}`, "warning");
-          scrollVisitIntoView(i);
-          return;
-        }
-      }
-
-      // Every visit has to say WHERE it happened. A visit slip proves a
-      // visit took place; the coordinates are what tie it to a place, and
-      // without them a DA/TA claim rests on a typed location name alone.
-      //
-      // This applies to visits already saved without coordinates too, so
-      // an older record cannot be edited until it is tagged. That is the
-      // strict reading of "mandatory" - if it gets in the way of editing
-      // historic days from the office, narrow the test to
-      //   !trip.visits[i]?.visit_Id
-      // and only new stops will be held to it.
-      for (const { v, i } of recordedVisits) {
-        if (!String(v?.latitude || "").trim() || !String(v?.longitude || "").trim()) {
-          notify(
-            `Visit #${i + 1}: tap Geo Tag to record where this visit happened`,
-            "warning"
-          );
           scrollVisitIntoView(i);
           return;
         }
