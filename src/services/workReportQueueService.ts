@@ -89,9 +89,6 @@ export const workReportQueueService = {
       memoryQueueCache = list.map(mapDbItemToQueuedActivity);
       hasFetchedFromDb = true;
 
-      window.dispatchEvent(
-        new CustomEvent("work-report-queue-updated", { detail: { count: memoryQueueCache.length } })
-      );
       return memoryQueueCache;
     } catch (e) {
       console.warn("[WorkReportQueue] Error fetching from DB:", e);
@@ -217,7 +214,11 @@ export const workReportQueueService = {
         headers: getAuthHeaders(),
         timeout: 10000
       });
-      return await workReportQueueService.fetchQueuedActivities(code);
+      const updated = await workReportQueueService.fetchQueuedActivities(code);
+      window.dispatchEvent(
+        new CustomEvent("work-report-queue-updated", { detail: { count: updated.length } })
+      );
+      return updated;
     } catch (e) {
       console.error("[WorkReportQueue] Error adding batch to DB queue:", e);
       return memoryQueueCache;

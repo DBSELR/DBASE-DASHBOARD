@@ -251,9 +251,31 @@ const WorkReports: React.FC = () => {
     }
   };
 
-  // Activity Queue States
+  // Activity Queue & Submission Loader States
   const [queuedActivities, setQueuedActivities] = useState<QueuedActivity[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
+  const pendingSubmitActionRef = useRef<"manual" | "queue">("manual");
+  const [submittingMode, setSubmittingMode] = useState<"manual" | "queue">("manual");
+  const [submittingStepText, setSubmittingStepText] = useState<string>("Submitting your work report...");
+  const [submitProgress, setSubmitProgress] = useState<{ current: number; total: number }>({ current: 0, total: 1 });
+  const [successModalTitle, setSuccessModalTitle] = useState<string>("Work Report Submitted Successfully!");
+  const [successModalSubtitle, setSuccessModalSubtitle] = useState<string>("Your daily work report has been saved and recorded.");
+  const [successModalBadge, setSuccessModalBadge] = useState<string>("✓ Report Recorded");
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerSuccessModal = (title: string, subtitle: string, badge: string) => {
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+    }
+    setSuccessModalTitle(title);
+    setSuccessModalSubtitle(subtitle);
+    setSuccessModalBadge(badge);
+    setShowSuccessModal(true);
+    successTimerRef.current = setTimeout(() => {
+      setShowSuccessModal(false);
+    }, 4200);
+  };
 
   const loadQueue = async () => {
     let empCode = "";
@@ -345,7 +367,7 @@ const WorkReports: React.FC = () => {
   useEffect(() => {
     loadQueue();
     const handleQueueUpdated = () => {
-      loadQueue();
+      setQueuedActivities([...workReportQueueService.getQueuedActivities()]);
       if (!canViewAllEmployees) {
         checkPendingTasksDailyUpdates();
       }
@@ -354,168 +376,151 @@ const WorkReports: React.FC = () => {
     return () => window.removeEventListener("work-report-queue-updated", handleQueueUpdated);
   }, []);
 
-  const handlePopulateFromQueue = () => {
-    let empCode = "";
-    try {
-      const u = JSON.parse(localStorage.getItem("user") || "{}");
-      empCode = u?.empCode || u?.EmpCode || _user?.empCode || _user?.EmpCode || "";
-    } catch {
-      empCode = _user?.empCode || _user?.EmpCode || "";
-    }
-    const formatted = workReportQueueService.formatQueueForReport(empCode);
-    if (!formatted) {
-      setToastType("danger");
-      setToastMessage("No queued activities to populate.");
-      setShowToast(true);
-      return;
-    }
-
-    setReportContent(prev => {
-      const trimmed = prev.trim();
-      if (!trimmed) return formatted;
-      return `${trimmed}\n\nToday's Activities:\n${formatted}`;
-    });
-
-    if (!selectedClient && clients.length > 0) {
-      const inHouse = clients.find(c => c.name.toLowerCase().includes("in-house") || c.name.toLowerCase().includes("internal") || c.name.toLowerCase().includes("dbase"));
-      setSelectedClient(String(inHouse ? inHouse.id : clients[0].id));
-    }
-
-    setToastType("success");
-    setToastMessage("Queued activities populated into description!");
-    setShowToast(true);
-  };
-
   // Pending Tasks Validation States
   const [pendingTasksModalOpen, setPendingTasksModalOpen] = useState(false);
   const [unupdatedPendingTasks, setUnupdatedPendingTasks] = useState<PendingTaskItem[]>([]);
   const [isCheckingPendingTasks, setIsCheckingPendingTasks] = useState(false);
+  const pendingCheckPromiseRef = useRef<Promise<PendingTaskItem[]> | null>(null);
 
   const checkPendingTasksDailyUpdates = async (): Promise<PendingTaskItem[]> => {
-    let empCode = "";
-    try {
-      const u = JSON.parse(localStorage.getItem("user") || "{}");
-      empCode = u?.empCode || u?.EmpCode || _user?.empCode || _user?.EmpCode || "";
-    } catch {
-      empCode = _user?.empCode || _user?.EmpCode || "";
+    if (pendingCheckPromiseRef.current) {
+      return pendingCheckPromiseRef.current;
     }
-    if (!empCode) return [];
 
-    setIsCheckingPendingTasks(true);
-    try {
-      let receivedRaw: any = [];
+    const runCheck = async (): Promise<PendingTaskItem[]> => {
+      let empCode = "";
       try {
-        receivedRaw = await apiService.loadReceivedTasks(empCode);
-      } catch (e) {
-        console.log("No received tasks found or API 400 error:", e);
-        receivedRaw = [];
+        const u = JSON.parse(localStorage.getItem("user") || "{}");
+        empCode = u?.empCode || u?.EmpCode || _user?.empCode || _user?.EmpCode || "";
+      } catch {
+        empCode = _user?.empCode || _user?.EmpCode || "";
       }
+      if (!empCode) return [];
 
-      let receivedList: any[] = [];
-      if (Array.isArray(receivedRaw)) {
-        receivedList = receivedRaw;
-      } else if (typeof receivedRaw === "string") {
+      setIsCheckingPendingTasks(true);
+      try {
+        let receivedRaw: any = [];
         try {
-          receivedList = JSON.parse(receivedRaw);
-        } catch {
-          receivedList = [];
-        }
-      }
-
-      // Filter for active pending tasks assigned to this employee
-      const pending = receivedList.filter((t: any) => {
-        const status = String(t.Status || t.status || "").trim().toLowerCase();
-        if (status === "closed" || status === "quit" || status === "cancelled" || status === "completed") {
-          return false;
-        }
-        // Exclude CC'd / tagged tasks where employee is not the primary assignee
-        if (t.IsTagged === true || t.isTagged === true || t.IsTagged === 1 || t.isTagged === 1) {
-          return false;
-        }
-        return true;
-      });
-
-      console.log(`[checkPendingTasksDailyUpdates] Found ${pending.length} pending task(s) for emp ${empCode}:`, pending);
-
-      const now = moment().utcOffset("+05:30");
-      const todayFormats = [
-        now.format("DD-MM-YYYY"),
-        now.format("D-MM-YYYY"),
-        now.format("DD/MM/YYYY"),
-        now.format("D/M/YYYY"),
-        now.format("YYYY-MM-DD")
-      ];
-
-      const queueActivities = await workReportQueueService.fetchQueuedActivities(empCode);
-
-      // Check all pending tasks in parallel concurrently
-      const checkPromises = pending.map(async (task: any) => {
-        const tid = task.TID ?? task.tid ?? task[0];
-        if (!tid) return null;
-
-        // Check if employee already recorded an update or 'No Change' in today's local queue
-        const hasQueuedUpdate = queueActivities.some(
-          q => q.type === "task" && String(q.referenceId) === String(tid)
-        );
-
-        if (hasQueuedUpdate) {
-          console.log(`[checkPendingTasksDailyUpdates] Task #${tid} already has an update in today's queue.`);
-          return null;
+          receivedRaw = await apiService.loadReceivedTasks(empCode);
+        } catch (e: any) {
+          // Only treat HTTP 400 / 404 as "no tasks"; on transient network timeout, preserve existing state
+          const status = e?.response?.status;
+          if (status && status !== 400 && status !== 404) {
+            console.warn("Transient error loading received tasks, preserving current banner state:", e);
+            return unupdatedPendingTasks;
+          }
+          if (!status && unupdatedPendingTasks.length > 0) {
+            console.warn("Network timeout loading received tasks, preserving current banner state:", e);
+            return unupdatedPendingTasks;
+          }
+          console.log("No received tasks found or API 400 error:", e);
+          receivedRaw = [];
         }
 
-        let hasUpdateToday = false;
-        try {
-          const rawHistory = await apiService.loadViewTask(String(tid));
-          let historyList: any[] = [];
-          if (Array.isArray(rawHistory)) {
-            historyList = rawHistory;
-          } else if (typeof rawHistory === "string") {
-            try {
-              historyList = JSON.parse(rawHistory);
-            } catch {
-              historyList = [];
+        let receivedList: any[] = [];
+        if (Array.isArray(receivedRaw)) {
+          receivedList = receivedRaw;
+        } else if (typeof receivedRaw === "string") {
+          try {
+            receivedList = JSON.parse(receivedRaw);
+          } catch {
+            receivedList = [];
+          }
+        }
+
+        // Filter for active pending tasks assigned to this employee
+        const pending = receivedList.filter((t: any) => {
+          const status = String(t.Status || t.status || "").trim().toLowerCase();
+          if (status === "closed" || status === "quit" || status === "cancelled" || status === "completed") {
+            return false;
+          }
+          // Exclude CC'd / tagged tasks where employee is not the primary assignee
+          if (t.IsTagged === true || t.isTagged === true || t.IsTagged === 1 || t.isTagged === 1) {
+            return false;
+          }
+          return true;
+        });
+
+        const now = moment().utcOffset("+05:30");
+        const todayFormats = [
+          now.format("DD-MM-YYYY"),
+          now.format("D-MM-YYYY"),
+          now.format("DD/MM/YYYY"),
+          now.format("D/M/YYYY"),
+          now.format("YYYY-MM-DD")
+        ];
+
+        const queueActivities = await workReportQueueService.fetchQueuedActivities(empCode);
+
+        // Check all pending tasks in parallel concurrently
+        const checkPromises = pending.map(async (task: any) => {
+          const tid = task.TID ?? task.tid ?? task[0];
+          if (!tid) return null;
+
+          // Check if employee already recorded an update or 'No Change' in today's local queue
+          const hasQueuedUpdate = queueActivities.some(
+            q => q.type === "task" && String(q.referenceId) === String(tid)
+          );
+
+          if (hasQueuedUpdate) {
+            return null;
+          }
+
+          let hasUpdateToday = false;
+          try {
+            const rawHistory = await apiService.loadViewTask(String(tid));
+            let historyList: any[] = [];
+            if (Array.isArray(rawHistory)) {
+              historyList = rawHistory;
+            } else if (typeof rawHistory === "string") {
+              try {
+                historyList = JSON.parse(rawHistory);
+              } catch {
+                historyList = [];
+              }
             }
+
+            if (Array.isArray(historyList) && historyList.length > 0) {
+              hasUpdateToday = historyList.some((item: any) => {
+                const dateVal = String(
+                  (Array.isArray(item) ? item[9] : (item?.date || item?.Date || item?._StatusDate || item?.[9])) || ""
+                ).trim();
+                if (!dateVal) return false;
+                return todayFormats.some(fmt => dateVal.includes(fmt));
+              });
+            }
+          } catch (e) {
+            hasUpdateToday = false;
           }
 
-          if (Array.isArray(historyList) && historyList.length > 0) {
-            hasUpdateToday = historyList.some((item: any) => {
-              const dateVal = String(
-                (Array.isArray(item) ? item[9] : (item?.date || item?.Date || item?._StatusDate || item?.[9])) || ""
-              ).trim();
-              if (!dateVal) return false;
-              return todayFormats.some(fmt => dateVal.includes(fmt));
-            });
+          if (!hasUpdateToday) {
+            return {
+              TID: tid,
+              TDesc: task.TDesc || task.tdesc || task[7] || `Task #${tid}`,
+              TPriority: task.TPriority || task.tpriority || task[10] || "Normal",
+              TDt: task.TDt || task.tdt || task[4] || "",
+              SenEName: task.SenEName || task.senename || task[1] || ""
+            } as PendingTaskItem;
           }
-        } catch (e) {
-          // If 400 Bad Request or fetch error, this task has NO history yet!
-          console.log(`[checkPendingTasksDailyUpdates] Task #${tid} has no history records in DB:`, e);
-          hasUpdateToday = false;
-        }
+          return null;
+        });
 
-        if (!hasUpdateToday) {
-          console.log(`[checkPendingTasksDailyUpdates] Task #${tid} requires update for today!`);
-          return {
-            TID: tid,
-            TDesc: task.TDesc || task.tdesc || task[7] || `Task #${tid}`,
-            TPriority: task.TPriority || task.tpriority || task[10] || "Normal",
-            TDt: task.TDt || task.tdt || task[4] || "",
-            SenEName: task.SenEName || task.senename || task[1] || ""
-          } as PendingTaskItem;
-        }
-        return null;
-      });
+        const results = await Promise.all(checkPromises);
+        const unupdated = results.filter((item): item is PendingTaskItem => item !== null);
 
-      const results = await Promise.all(checkPromises);
-      const unupdated = results.filter((item): item is PendingTaskItem => item !== null);
+        setUnupdatedPendingTasks(unupdated);
+        return unupdated;
+      } catch (e) {
+        console.error("Error checking pending tasks:", e);
+        return unupdatedPendingTasks;
+      } finally {
+        setIsCheckingPendingTasks(false);
+        pendingCheckPromiseRef.current = null;
+      }
+    };
 
-      setUnupdatedPendingTasks(unupdated);
-      return unupdated;
-    } catch (e) {
-      console.error("Error checking pending tasks:", e);
-      return [];
-    } finally {
-      setIsCheckingPendingTasks(false);
-    }
+    pendingCheckPromiseRef.current = runCheck();
+    return pendingCheckPromiseRef.current;
   };
 
   // Run pending tasks check on component mount if employee
@@ -764,6 +769,11 @@ const WorkReports: React.FC = () => {
   };
 
   const handleSubmit = async (bypassPendingCheck: boolean = false) => {
+    // Immediate synchronous guard against multiple rapid clicks
+    if (isSubmittingRef.current || isSubmitting) {
+      return;
+    }
+
     // 1. Time restriction: Work report must be taken 6:30 PM onwards (or unlocked early via Afternoon Leave / Permission)
     const nowMoment = moment().utcOffset("+05:30");
     const isStandardTimeAllowed = nowMoment.hour() > 18 || (nowMoment.hour() === 18 && nowMoment.minute() >= 30);
@@ -773,20 +783,6 @@ const WorkReports: React.FC = () => {
       setToastMessage("Work report submission is only allowed from 6:30 PM onwards (or earlier if Afternoon Leave / Permission applied)!");
       setShowToast(true);
       return;
-    }
-
-    // 2. Pending tasks check: Verify today's update
-    // Strictly verify boolean true to prevent SyntheticEvent from bypassing
-    const shouldCheckPending = !canViewAllEmployees && bypassPendingCheck !== true;
-    if (shouldCheckPending) {
-      const unupdated = await checkPendingTasksDailyUpdates();
-      if (unupdated.length > 0) {
-        setPendingTasksModalOpen(true);
-        setToastType("warning");
-        setToastMessage(`Please give today's update on ${unupdated.length} pending task(s) before submitting work report!`);
-        setShowToast(true);
-        return;
-      }
     }
 
     let empCode = "";
@@ -805,45 +801,41 @@ const WorkReports: React.FC = () => {
     }
 
     const manualText = reportContent.trim();
-    if (queuedActivities.length === 0 && !manualText) {
-      setToastType("danger");
-      setToastMessage("Please enter a work report description or complete tasks/tickets to submit.");
+    if (!manualText) {
+      setToastType(queuedActivities.length > 0 ? "warning" : "danger");
+      setToastMessage(
+        queuedActivities.length > 0
+          ? "Please enter a work report description, or click 'Submit Queue Tickets/Task' below to submit your queued activities."
+          : "Please enter a work report description!"
+      );
       setShowToast(true);
       return;
     }
 
-    // Prepare items to submit individually
-    interface SubmissionItem {
-      clientId: number;
-      workLocation: string;
-      reportText: string;
-      ticketPayload?: any;
-    }
+    // Lock submission immediately BEFORE any async operation (including pending task check)
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setSubmittingMode("manual");
+    setSubmitProgress({ current: 0, total: 1 });
+    setSubmittingStepText("Verifying daily task updates...");
 
-    const itemsToSubmit: SubmissionItem[] = [];
+    try {
+      // 2. Pending tasks check: Verify today's update while loader is already visible
+      const shouldCheckPending = !canViewAllEmployees && bypassPendingCheck !== true;
+      if (shouldCheckPending) {
+        const unupdated = await checkPendingTasksDailyUpdates();
+        if (unupdated.length > 0) {
+          pendingSubmitActionRef.current = "manual";
+          isSubmittingRef.current = false;
+          setIsSubmitting(false);
+          setPendingTasksModalOpen(true);
+          setToastType("warning");
+          setToastMessage(`Please give today's update on ${unupdated.length} pending task(s) before submitting work report!`);
+          setShowToast(true);
+          return;
+        }
+      }
 
-    // 1. Each queued task / ticket as its own individual submission
-    queuedActivities.forEach((item) => {
-      const itemClientId = resolveItemClientId(item);
-      const itemLoc = item.workLocation || "In-House";
-      const itemText = item.remarks 
-        ? `${item.title}: ${item.description}\nDetails: ${item.remarks}`
-        : `${item.title}: ${item.description}`;
-
-      itemsToSubmit.push({
-        clientId: itemClientId,
-        workLocation: itemLoc,
-        reportText: itemText,
-        ticketPayload: item.type === "ticket" ? item.payload : undefined
-      });
-    });
-
-    // 2. Manual text from description box (if provided and not an auto-fill duplicate of the queue)
-    const isAutoFilledDuplicate = 
-      queuedActivities.length > 0 && 
-      manualText === workReportQueueService.formatQueueForReport(empCode).trim();
-
-    if (manualText && !isAutoFilledDuplicate) {
       let manualClientId = selectedClient ? Number(selectedClient) : null;
       if (!manualClientId && clients.length > 0) {
         const inHouse = clients.find(c =>
@@ -855,29 +847,167 @@ const WorkReports: React.FC = () => {
       }
       if (!manualClientId) manualClientId = 1;
 
-      itemsToSubmit.push({
-        clientId: manualClientId,
-        workLocation: workLocation || "In-House",
-        reportText: manualText
+      setSubmitProgress({ current: 1, total: 1 });
+      setSubmittingStepText("Saving your daily work report...");
+
+      const payload = {
+        _clientId: manualClientId,
+        _work_location: workLocation || "In-House",
+        _work_report: manualText,
+        _empcode: empCode
+      };
+
+      const response = await axios.post(`${baseUrl}/Workreport/saveworkReport`, payload, {
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json; charset=utf-8'
+        }
       });
+
+      const isSuccess = response.data && (
+        typeof response.data === 'string'
+          ? (response.data.includes("saved successfully") || response.data.includes("Save successfully"))
+          : (response.data.message?.includes("success") || response.data.status === "success")
+      );
+
+      if (isSuccess) {
+        markTodaySubmitted();
+        // Clear description immediately so it can never be submitted a second time
+        handleClear();
+
+        setSubmittingStepText("Updating your work history...");
+        const currentMonth = getCurrentMonthYear();
+        setSelectedMonth(currentMonth);
+        await fetchMonths(empCode);
+        await fetchReports(empCode, currentMonth);
+
+        try {
+          Haptics.impact({ style: ImpactStyle.Heavy });
+          setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }), 150);
+          setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }), 300);
+        } catch (e) { console.log('Haptics not available'); }
+
+        setToastType("success");
+        setToastMessage("✅ Work report submitted successfully!");
+        setShowToast(true);
+
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        triggerSuccessModal(
+          "Work Report Submitted Successfully!",
+          "Your daily work report has been saved and added to your work history.",
+          "✓ Daily Work Report Saved"
+        );
+      } else {
+        const errMsg = typeof response.data === 'string' ? response.data : (response.data?.message || "Failed to submit work report.");
+        setToastType("danger");
+        setToastMessage(errMsg);
+        setShowToast(true);
+      }
+    } catch (globalErr: any) {
+      console.error("Manual submit error:", globalErr);
+      setToastType("danger");
+      setToastMessage(
+        globalErr.response?.data?.message ||
+        (typeof globalErr.response?.data === 'string' ? globalErr.response?.data : "") ||
+        globalErr.message ||
+        "Error submitting work report."
+      );
+      setShowToast(true);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitQueue = async (bypassPendingCheck: boolean = false) => {
+    // Immediate synchronous guard against multiple rapid clicks
+    if (isSubmittingRef.current || isSubmitting) {
+      return;
     }
 
-    if (itemsToSubmit.length === 0) {
+    let empCode = "";
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      empCode = userData?.empCode || userData?.EmpCode || _user?.empCode || _user?.EmpCode || "";
+    } catch {
+      empCode = _user?.empCode || _user?.EmpCode || "";
+    }
+
+    if (!empCode) {
       setToastType("danger");
-      setToastMessage("No reports found to submit.");
+      setToastMessage("Employee Code not found!");
       setShowToast(true);
       return;
     }
 
+    if (!bypassPendingCheck && queuedActivities.length === 0) {
+      setToastType("danger");
+      setToastMessage("No queued tickets or tasks to submit.");
+      setShowToast(true);
+      return;
+    }
+
+    // Lock submission immediately BEFORE any async operation
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
+    setSubmittingMode("queue");
+    setSubmitProgress({ current: 0, total: Math.max(queuedActivities.length, 1) });
+    setSubmittingStepText("Preparing queued tickets & tasks...");
 
     try {
-      const submitSingleItem = async (item: SubmissionItem): Promise<{ success: boolean; error?: string }> => {
+      const activeQueue = bypassPendingCheck
+        ? await workReportQueueService.fetchQueuedActivities(empCode)
+        : [...queuedActivities];
+
+      if (activeQueue.length === 0) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        setToastType("danger");
+        setToastMessage("No queued tickets or tasks to submit.");
+        setShowToast(true);
+        return;
+      }
+
+      setSubmitProgress({ current: 0, total: activeQueue.length });
+
+      // Check pending tasks if employee
+      const shouldCheckPending = !canViewAllEmployees && bypassPendingCheck !== true;
+      if (shouldCheckPending) {
+        setSubmittingStepText("Verifying daily task updates...");
+        const unupdated = await checkPendingTasksDailyUpdates();
+        if (unupdated.length > 0) {
+          pendingSubmitActionRef.current = "queue";
+          isSubmittingRef.current = false;
+          setIsSubmitting(false);
+          setPendingTasksModalOpen(true);
+          setToastType("warning");
+          setToastMessage(`Please give today's update on ${unupdated.length} pending task(s) before submitting!`);
+          setShowToast(true);
+          return;
+        }
+      }
+
+      let successCount = 0;
+      const failedItems: { item: QueuedActivity; error: string }[] = [];
+
+      for (let i = 0; i < activeQueue.length; i++) {
+        const item = activeQueue[i];
+        const itemLabel = item.type === "ticket" ? "Ticket" : "Task";
+        setSubmitProgress({ current: i + 1, total: activeQueue.length });
+        setSubmittingStepText(`Submitting ${itemLabel} (${i + 1} of ${activeQueue.length}): ${item.title}...`);
+
+        const itemClientId = resolveItemClientId(item);
+        const itemLoc = item.workLocation || "In-House";
+        const itemText = item.remarks
+          ? `${item.title}: ${item.description}\nDetails: ${item.remarks}`
+          : `${item.title}: ${item.description}`;
+
         try {
           const payload = {
-            _clientId: item.clientId,
-            _work_location: item.workLocation,
-            _work_report: item.reportText,
+            _clientId: itemClientId,
+            _work_location: itemLoc,
+            _work_report: itemText,
             _empcode: empCode
           };
 
@@ -895,9 +1025,9 @@ const WorkReports: React.FC = () => {
           );
 
           if (isSuccess) {
-            if (item.ticketPayload) {
+            if (item.type === "ticket" && item.payload) {
               try {
-                await axios.post(`${baseUrl}/Tickets/SaveWorkReport_TicketWise`, item.ticketPayload, {
+                await axios.post(`${baseUrl}/Tickets/SaveWorkReport_TicketWise`, item.payload, {
                   headers: {
                     ...getAuthHeaders(),
                     'Content-Type': 'application/json; charset=utf-8'
@@ -907,69 +1037,74 @@ const WorkReports: React.FC = () => {
                 console.warn("Error submitting SaveWorkReport_TicketWise:", ticketErr);
               }
             }
-            return { success: true };
+            successCount++;
+            // Immediately remove this item from queue so it can never be submitted again
+            await workReportQueueService.removeQueuedActivity(empCode, item.id);
           } else {
-            return {
-              success: false,
+            failedItems.push({
+              item,
               error: typeof response.data === 'string' ? response.data : (response.data?.message || "Failed to save")
-            };
+            });
           }
         } catch (err: any) {
-          return {
-            success: false,
+          failedItems.push({
+            item,
             error: err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response?.data : "") || err.message || "Network error"
-          };
+          });
         }
-      };
-
-      const results = await Promise.all(itemsToSubmit.map(it => submitSingleItem(it)));
-      const successCount = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success);
+      }
 
       if (successCount > 0) {
         markTodaySubmitted();
-        workReportQueueService.clearQueuedActivities(empCode);
-        setQueuedActivities([]);
-        handleClear();
+        if (failedItems.length === 0) {
+          await workReportQueueService.clearQueuedActivities(empCode);
+          setQueuedActivities([]);
+        } else {
+          setQueuedActivities(failedItems.map(f => f.item));
+        }
 
+        setSubmittingStepText("Updating your work history...");
         const currentMonth = getCurrentMonthYear();
         setSelectedMonth(currentMonth);
         await fetchMonths(empCode);
         await fetchReports(empCode, currentMonth);
 
-        // Haptic feedback
         try {
           Haptics.impact({ style: ImpactStyle.Heavy });
           setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }), 150);
           setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }), 300);
         } catch (e) { console.log('Haptics not available'); }
 
-        if (failed.length === 0) {
+        if (failedItems.length === 0) {
           setToastType("success");
           setToastMessage(
-            itemsToSubmit.length > 1
-              ? `✅ Successfully submitted all ${itemsToSubmit.length} work reports individually!`
-              : "✅ Work report submitted successfully!"
+            `✅ Successfully submitted ${successCount} queued ${successCount === 1 ? "ticket/task" : "tickets/tasks"}!`
           );
         } else {
           setToastType("warning");
-          setToastMessage(`Submitted ${successCount} reports (${failed.length} failed: ${failed[0].error})`);
+          setToastMessage(`Submitted ${successCount} items (${failedItems.length} failed: ${failedItems[0].error})`);
         }
         setShowToast(true);
 
-        setShowSuccessModal(true);
-        setTimeout(() => setShowSuccessModal(false), 3500);
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        triggerSuccessModal(
+          "Queue Tickets/Task Submitted Successfully!",
+          `All ${successCount} queued ${successCount === 1 ? "ticket/task has" : "tickets/tasks have"} been submitted into your daily work report without duplicating in Description.`,
+          `✓ ${successCount} Queued ${successCount === 1 ? "Report" : "Reports"} Submitted`
+        );
       } else {
         setToastType("danger");
-        setToastMessage(failed[0]?.error || "Failed to submit work reports.");
+        setToastMessage(failedItems[0]?.error || "Failed to submit queued tickets/tasks.");
         setShowToast(true);
       }
     } catch (globalErr: any) {
-      console.error("Global submit error:", globalErr);
+      console.error("Queue submit error:", globalErr);
       setToastType("danger");
-      setToastMessage(globalErr.message || "Error submitting reports.");
+      setToastMessage(globalErr.message || "Error submitting queued tickets/tasks.");
       setShowToast(true);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -1652,17 +1787,6 @@ const WorkReports: React.FC = () => {
                   <div className="wr-input-group wr-desc-group">
                     <div className="wr-desc-header-row">
                       <label className="wr-label">Description</label>
-                      {queuedActivities.length > 0 && (
-                        <button
-                          type="button"
-                          className="wr-merge-queue-btn"
-                          onClick={handlePopulateFromQueue}
-                          title="Append all queued activities into your description"
-                        >
-                          <Sparkles size={13} />
-                          <span>Auto-Fill from Queue ({queuedActivities.length})</span>
-                        </button>
-                      )}
                     </div>
                     <textarea
                       className="wr-textarea"
@@ -1670,25 +1794,32 @@ const WorkReports: React.FC = () => {
                       onChange={(e) => setReportContent(e.target.value)}
                       rows={3}
                       placeholder="Tell us what you worked on today..."
+                      disabled={isSubmitting}
                     />
                   </div>
 
                   <div className="wr-action-buttons-wrap">
-                    <button className="wr-btn wr-btn-outline" onClick={handleClear}>
+                    <button
+                      type="button"
+                      className="wr-btn wr-btn-outline"
+                      onClick={handleClear}
+                      disabled={isSubmitting}
+                    >
                       <RefreshCcw size={14} />
                       Clear
                     </button>
 
                     <button
+                      type="button"
                       className={`wr-btn ${(!isAllowedTime && !isUnlockedByLeave && !canViewAllEmployees) ? "wr-btn-locked" : "wr-btn-primary"}`}
                       onClick={() => handleSubmit(false)}
                       disabled={isSubmitting || (!isAllowedTime && !isUnlockedByLeave && !canViewAllEmployees)}
                       title={!isAllowedTime && !isUnlockedByLeave && !canViewAllEmployees ? `Submission opens at 6:30 PM (in ${timeRemainingStr})` : "Submit report"}
                     >
-                      {isSubmitting ? (
+                      {isSubmitting && submittingMode === "manual" ? (
                         <>
                           <RefreshCcw size={15} className="wr-spin" />
-                          <span>Submitting Reports...</span>
+                          <span>Submitting Report...</span>
                         </>
                       ) : !isAllowedTime && !isUnlockedByLeave && !canViewAllEmployees ? (
                         <>
@@ -1698,13 +1829,7 @@ const WorkReports: React.FC = () => {
                       ) : (
                         <>
                           <Send size={16} />
-                          <span>
-                            {queuedActivities.length > 0 && reportContent.trim()
-                              ? `Submit All (${queuedActivities.length + 1} Reports)`
-                              : queuedActivities.length > 0
-                                ? `Submit All (${queuedActivities.length} Queued Reports)`
-                                : "Submit Report"}
-                          </span>
+                          <span>Submit Report</span>
                         </>
                       )}
                     </button>
@@ -1732,10 +1857,20 @@ const WorkReports: React.FC = () => {
                       <button
                         type="button"
                         className="wr-queue-quick-fill-btn"
-                        onClick={handlePopulateFromQueue}
+                        onClick={() => handleSubmitQueue(false)}
+                        disabled={isSubmitting}
                       >
-                        <Sparkles size={14} />
-                        <span>Fill into Report</span>
+                        {isSubmitting && submittingMode === "queue" ? (
+                          <>
+                            <RefreshCcw size={14} className="wr-spin" />
+                            <span>Submitting Queue...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send size={14} />
+                            <span>Submit Queue Tickets/Task</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -1745,7 +1880,7 @@ const WorkReports: React.FC = () => {
                   <div className="wr-queue-items-list">
                     <div className="wr-queue-batch-notice">
                       <Layers size={14} />
-                      <span>Each activity will be submitted as an individual work report with its own Client and Location on click of Submit.</span>
+                      <span>Each queued ticket/task will be submitted directly as its own individual work report (with its selected Client and Location) when you click &quot;Submit Queue Tickets/Task&quot;.</span>
                     </div>
                     {queuedActivities.map((item) => {
                       const currentLoc = item.workLocation || "In-House";
@@ -1831,6 +1966,29 @@ const WorkReports: React.FC = () => {
                         </div>
                       );
                     })}
+
+                    <div className="wr-queue-footer-submit-wrap">
+                      <button
+                        type="button"
+                        className="wr-queue-submit-all-btn"
+                        onClick={() => handleSubmitQueue(false)}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting && submittingMode === "queue" ? (
+                          <>
+                            <RefreshCcw size={16} className="wr-spin" />
+                            <span>Submitting Queue Tickets/Task...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send size={16} />
+                            <span>
+                              Submit Queue Tickets/Task ({queuedActivities.length} {queuedActivities.length === 1 ? "Item" : "Items"})
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="wr-queue-empty">
@@ -1945,6 +2103,61 @@ const WorkReports: React.FC = () => {
           </div>
         </IonModal>
 
+        {/* Full-Screen Animated Submission Loader Overlay */}
+        {isSubmitting && createPortal(
+          <div className="wr-submit-loader-backdrop" role="status" aria-live="polite">
+            <div className="wr-submit-loader-card">
+              <div className="wr-ldr-visual">
+                <div className="wr-ldr-glow-ring wr-ldr-glow-1" />
+                <div className="wr-ldr-glow-ring wr-ldr-glow-2" />
+                <div className="wr-ldr-orbit wr-ldr-orbit-outer" />
+                <div className="wr-ldr-orbit wr-ldr-orbit-inner" />
+                <div className="wr-ldr-center-icon">
+                  {submittingMode === "queue" ? (
+                    <Layers size={28} className="wr-ldr-icon-float" />
+                  ) : (
+                    <Send size={26} className="wr-ldr-icon-float" />
+                  )}
+                </div>
+              </div>
+
+              <div className="wr-ldr-badge">
+                <Sparkles size={13} />
+                <span>
+                  {submittingMode === "queue"
+                    ? `Queue Submission (${submitProgress.current}/${submitProgress.total})`
+                    : "Processing Submission"}
+                </span>
+              </div>
+
+              <h3 className="wr-ldr-title">
+                {submittingMode === "queue"
+                  ? "Submitting Queue Tickets/Task..."
+                  : "Submitting Work Report..."}
+              </h3>
+
+              <p className="wr-ldr-step-text">{submittingStepText}</p>
+
+              <div className="wr-ldr-progress-track">
+                <div
+                  className="wr-ldr-progress-bar"
+                  style={{
+                    width:
+                      submitProgress.total > 1
+                        ? `${Math.max(20, Math.round((submitProgress.current / submitProgress.total) * 100))}%`
+                        : "100%"
+                  }}
+                />
+              </div>
+
+              <span className="wr-ldr-hint">
+                Please wait a moment — do not tap again or refresh the page
+              </span>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {/* Ultra-Premium Success Message Modal with Logo Inside Circle */}
         <IonModal 
           isOpen={showSuccessModal} 
@@ -1953,6 +2166,15 @@ const WorkReports: React.FC = () => {
           onDidDismiss={() => setShowSuccessModal(false)}
         >
           <div className="us-content" onClick={() => setShowSuccessModal(false)}>
+            <div className="us-confetti-dots" aria-hidden="true">
+              <span className="us-dot us-dot-1" />
+              <span className="us-dot us-dot-2" />
+              <span className="us-dot us-dot-3" />
+              <span className="us-dot us-dot-4" />
+              <span className="us-dot us-dot-5" />
+              <span className="us-dot us-dot-6" />
+            </div>
+
             {/* Central Animated Emblem with Logo & Right-Tick Badge */}
             <div className="us-emblem-wrapper">
               <div className="us-pulse-ring us-pulse-1"></div>
@@ -1971,9 +2193,24 @@ const WorkReports: React.FC = () => {
               </div>
             </div>
 
+            <div className="us-status-pill">{successModalBadge}</div>
+
             <div className="us-text-wrapper">
-              <h2 className="us-success-title">Work Report Submitted Successfully</h2>
+              <h2 className="us-success-title">{successModalTitle}</h2>
+              <p className="us-success-subtitle">{successModalSubtitle}</p>
             </div>
+
+            <button
+              type="button"
+              className="us-done-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSuccessModal(false);
+              }}
+            >
+              <Check size={16} />
+              <span>Great, Done!</span>
+            </button>
           </div>
         </IonModal>
 
@@ -2047,10 +2284,14 @@ const WorkReports: React.FC = () => {
             setPendingTasksModalOpen(false);
             setUnupdatedPendingTasks([]);
             setToastType("success");
-            setToastMessage("All pending tasks updated! Submitting work report now...");
+            setToastMessage("All pending tasks updated! Submitting now...");
             setShowToast(true);
             setTimeout(() => {
-              handleSubmit(true);
+              if (pendingSubmitActionRef.current === "queue") {
+                handleSubmitQueue(true);
+              } else {
+                handleSubmit(true);
+              }
             }, 400);
           }}
           onTasksChanged={(remaining) => {
