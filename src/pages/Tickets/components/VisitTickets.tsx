@@ -1795,7 +1795,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
   };
 
   const setVisitFollowupBy = async (item: VisitTicket, empCode: string) => {
-    const visitId = Number(item.visit_ID || item.Visit_ID || 0);
+    const visitId = Number(item?.visit_ID || item?.Visit_ID || 0);
     if (!visitId) {
       console.warn("[VisitTickets] No Visit_ID - cannot set FollowUp_By.");
       return;
@@ -2057,9 +2057,9 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
    * college, so they have to reach all of it.
    */
   const allVisitsOfClient = (client: string) => {
-    const want = String(client || "").trim().toLowerCase();
+    const want = (String(client || "").trim() || "(No client name)").toLowerCase();
     return filteredVisits.filter(
-      (v: any) => String(v?.client_Name || "").trim().toLowerCase() === want
+      (v: any) => (String(v?.client_Name || "").trim() || "(No client name)").toLowerCase() === want
     );
   };
 
@@ -2082,14 +2082,15 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
     return owners.size === 1 ? Array.from(owners)[0] : "";
   };
 
-  const getVisitKey = (item: VisitTicket, index?: number): string => {
-    const vId = item.visit_ID ?? item.Visit_ID ?? item.visitId ?? item.id;
+  const getVisitKey = (item?: VisitTicket | null, index?: number): string => {
+    if (!item) return `visit_empty_${index !== undefined ? index : 0}`;
+    const vId = item?.visit_ID ?? item?.Visit_ID ?? item?.visitId ?? item?.id;
     if (vId && String(vId) !== "0" && String(vId) !== "undefined") {
       return `visit_${vId}`;
     }
-    const cleanClient = (item.client_Name || "client").trim().toLowerCase().replace(/\s+/g, "_");
-    const cleanDate = (item.duty_Date || "date").trim();
-    const cleanFromTime = (item.visit_FromTime || "").trim().replace(/:/g, "");
+    const cleanClient = (item?.client_Name || "client").trim().toLowerCase().replace(/\s+/g, "_");
+    const cleanDate = (item?.duty_Date || "date").trim();
+    const cleanFromTime = (item?.visit_FromTime || "").trim().replace(/:/g, "");
     return `${cleanClient}_${cleanDate}_${cleanFromTime || (index !== undefined ? index : 0)}`;
   };
 
@@ -2693,7 +2694,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
 
   const handleSaveRowFeedback = async (visitKey: string, item: VisitTicket) => {
     const row = getRowFeedback(visitKey);
-    const visitId = Number(item.visit_ID || item.Visit_ID || 0);
+    const visitId = Number(item?.visit_ID || item?.Visit_ID || 0);
 
     // Courses carry their own figures; remarks and the followup date are
     // the visit's. CoursesList is still sent so the parent row keeps a
@@ -3538,9 +3539,8 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                   // visit opened to a timeline of one visit and claimed
                   // "1 visit" in its header, with six others and their
                   // history simply missing.
-                  const collegeVisits = grouped
-                    ? allVisitsOfClient(group.client)
-                    : group.visits;
+                  const allClientVisits = grouped ? allVisitsOfClient(group.client) : group.visits;
+                  const collegeVisits = allClientVisits.length > 0 ? allClientVisits : group.visits;
 
                   return (
                     <div
@@ -3906,8 +3906,8 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                         getRowFeedback(getVisitKey(newestVisitOf(collegeVisits))).draftOpen) && (
                     <div className="visit-party-visits">
                     {(grouped
-                      ? [newestVisitOf(collegeVisits)]
-                      : group.visits
+                      ? [newestVisitOf(collegeVisits)].filter(Boolean)
+                      : group.visits.filter(Boolean)
                     ).map((item, index) => {
                   // Position in the whole list, not in this group: in
                   // Feedback the groups are invisible, so restarting at 1
@@ -4036,7 +4036,7 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                             <span className="visit-meta-emps">
                               {String(item.employees || "").split(",").filter((e) => e.trim()).map((emp, i) => {
                                 const code = empCodeOf(emp);
-                                const vid = String(Number(item.visit_ID || item.Visit_ID || 0));
+                                const vid = String(Number(item?.visit_ID || item?.Visit_ID || 0));
                                 const owner = followupBy[vid] ?? "";
                                 const isOwner = Boolean(code) && owner === code;
                                 // Unowned: anyone on the duty can pick it up.
@@ -4095,9 +4095,9 @@ const VisitTickets: React.FC<VisitTicketsProps> = ({ only, embedded }) => {
                                   </button>
                                 );
                               })()}
-                              {followupByError[String(Number(item.visit_ID || item.Visit_ID || 0))] && (
+                              {followupByError[String(Number(item?.visit_ID || item?.Visit_ID || 0))] && (
                                 <span className="emp-pick-error">
-                                  {followupByError[String(Number(item.visit_ID || item.Visit_ID || 0))]}
+                                  {followupByError[String(Number(item?.visit_ID || item?.Visit_ID || 0))]}
                                 </span>
                               )}
                             </span>
