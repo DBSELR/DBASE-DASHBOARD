@@ -2632,7 +2632,7 @@ body.dark .ep-idcard-name-input,
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.2px;
-  -webkit-text-stroke: 0.25px #ffffff;
+  -webkit-text-stroke: 0px transparent;
   text-shadow: none;
   white-space: nowrap;
   overflow: hidden;
@@ -2649,10 +2649,11 @@ body.dark .ep-idcard-name-input,
   color: #ffffff !important;
   font-family: 'Michroma', 'Orbitron', 'Eurostile', sans-serif;
   font-size: 0.52rem;
+  -webkit-text-stroke: 0.45px #ffffff;
   font-weight: 700 !important;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2684,7 +2685,7 @@ body.dark .ep-idcard-name-input,
   font-size: 0.60rem;
   font-weight: 900 !important;
   letter-spacing: 0.2px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
   white-space: nowrap;
 }
 
@@ -2694,7 +2695,7 @@ body.dark .ep-idcard-name-input,
   font-size: 0.60rem;
   font-weight: 900 !important;
   text-align: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
 }
 
 .ep-idcard-field-val {
@@ -2703,7 +2704,7 @@ body.dark .ep-idcard-name-input,
   font-size: 0.60rem;
   font-weight: 900 !important;
   letter-spacing: 0.4px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2732,7 +2733,7 @@ body.dark .ep-idcard-name-input,
   border: 1.5px solid #ffffff;
   background: transparent;
   color: #ffffff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
   flex-shrink: 0;
 }
 
@@ -2742,7 +2743,7 @@ body.dark .ep-idcard-name-input,
   font-weight: 900 !important;
   letter-spacing: 0.5px;
   font-size: 0.54rem;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
 }
 
 /* Back Card Elements */

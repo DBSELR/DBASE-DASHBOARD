@@ -403,6 +403,20 @@ const EmpProfile: React.FC = () => {
         background-color: #ffffff;
         border-radius: 3.2mm;
       }
+      .card-bg-img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        display: block;
+        z-index: 0;
+        filter: saturate(1.32) contrast(1.14) brightness(0.93);
+      }
+      .avatar-wrap, .card-name, .card-desig, .fields-block, .phone-row, .qr-box {
+        z-index: 2;
+      }
       .avatar-wrap {
         position: absolute;
         top: 28.8%;
@@ -434,7 +448,7 @@ const EmpProfile: React.FC = () => {
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.2px;
-        -webkit-text-stroke: 0.25px #ffffff;
+        -webkit-text-stroke: 0px transparent;
         text-shadow: none;
         white-space: nowrap;
         overflow: hidden;
@@ -449,10 +463,11 @@ const EmpProfile: React.FC = () => {
         color: #ffffff !important;
         font-family: 'Michroma', 'Orbitron', 'Eurostile', sans-serif;
         font-size: 6.4pt;
-        font-weight: 700 !important;
+        font-weight: 900 !important;
+        -webkit-text-stroke: 0.45px #ffffff;
         text-transform: uppercase;
         letter-spacing: 0.8px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+        text-shadow: none !important;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -477,7 +492,7 @@ const EmpProfile: React.FC = () => {
         font-weight: 900;
         letter-spacing: 0.2px;
         color: #ffffff;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        text-shadow: none !important;
       }
       .field-colon {
         text-align: center;
@@ -498,7 +513,7 @@ const EmpProfile: React.FC = () => {
         font-weight: 900;
         letter-spacing: 0.4px;
         color: #ffffff;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        text-shadow: none !important;
       }
       .phone-icon {
         width: 14px;
@@ -534,7 +549,7 @@ const EmpProfile: React.FC = () => {
     `;
 
     const frontInnerHtml = `
-      <div class="idcard-inner-card" style="background-image: url('${idCardFront}');">
+      <div class="idcard-inner-card"><img class="card-bg-img" src="${idCardFront}" />
         <div class="avatar-wrap">
           <img class="avatar-img" src="${avatarSrc}" onerror="this.src='/images/avatar.png'" />
         </div>
@@ -563,7 +578,7 @@ const EmpProfile: React.FC = () => {
     `;
 
     const backInnerHtml = `
-      <div class="idcard-inner-card" style="background-image: url('${idCardBack}');">
+      <div class="idcard-inner-card"><img class="card-bg-img" src="${idCardBack}" />
         <div class="qr-box">
           <img class="qr-img" src="${qrCodeUrl}" />
         </div>
@@ -614,20 +629,20 @@ const EmpProfile: React.FC = () => {
     ${commonCardInnerStyles}
     .l805-tray-slot {
       position: absolute;
-      left: 3.74cm;
+      left: 3.35cm;
       width: 8.56cm;
       height: 5.40cm;
       overflow: hidden !important;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 3.18mm;
+      border-radius: 3.18mm !important;
     }
     .l805-slot-1 {
-      top: 0.81cm;
+      top: 1.10cm;
     }
     .l805-slot-2 {
-      top: 6.61cm;
+      top: 7.05cm;
     }
     .rotated-card-holder {
       width: 5.40cm;
@@ -635,7 +650,7 @@ const EmpProfile: React.FC = () => {
       transform: rotate(${cardRotation}deg);
       transform-origin: center center;
       flex-shrink: 0;
-      border-radius: 3.18mm;
+      border-radius: 3.18mm !important;
       overflow: hidden !important;
     }
     .idcard-inner-card {
@@ -841,7 +856,9 @@ const EmpProfile: React.FC = () => {
               if (ctx) {
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = "high";
+                if (isCardBg) ctx.filter = "saturate(1.32) contrast(1.14) brightness(0.93)";
                 ctx.drawImage(img, 0, 0, w, h);
+                ctx.filter = "none";
 
                 if (isCardBg) {
                   try {
@@ -996,7 +1013,7 @@ const EmpProfile: React.FC = () => {
             font-weight: 900 !important;
             text-transform: uppercase;
             letter-spacing: 0.2px;
-            -webkit-text-stroke: 0.25px #ffffff;
+            -webkit-text-stroke: 0px transparent;
             text-shadow: none;
             white-space: nowrap;
             overflow: hidden;
@@ -1013,10 +1030,11 @@ const EmpProfile: React.FC = () => {
             color: #ffffff !important;
             font-family: 'Michroma', 'Orbitron', 'Eurostile', sans-serif;
             font-size: 15px;
-            font-weight: 700 !important;
+            font-weight: 900 !important;
+        -webkit-text-stroke: 0.45px #ffffff;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+            text-shadow: none !important;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1035,13 +1053,13 @@ const EmpProfile: React.FC = () => {
             font-family: 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 900 !important;
           ">
-            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: none !important; line-height: 1.25;">
               <span style="color: #ffffff !important; font-weight: 900 !important;">EMP. ID</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${empCodeDisplay}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: none !important; line-height: 1.25;">
               <span style="color: #ffffff !important; font-weight: 900 !important;">DOJ</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${doj}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.25;">
+            <div style="display: grid; grid-template-columns: 130px 16px 1fr; align-items: center; white-space: nowrap; font-size: 18px; font-weight: 900 !important; letter-spacing: 0.2px; color: #ffffff !important; text-shadow: none !important; line-height: 1.25;">
               <span style="color: #ffffff !important; font-weight: 900 !important;">Blood Group</span><span style="color: #ffffff !important; font-weight: 900 !important;">:</span><span style="color: #ffffff !important; font-weight: 900 !important;">${bloodGroup}</span>
             </div>
           </div>
@@ -1060,7 +1078,7 @@ const EmpProfile: React.FC = () => {
             font-weight: 900 !important;
             letter-spacing: 0.4px;
             color: #ffffff !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+            text-shadow: none !important;
           ">
             <span style="
               width: 24px;
@@ -1072,7 +1090,7 @@ const EmpProfile: React.FC = () => {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+              box-shadow: none !important;
             ">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
@@ -1285,12 +1303,12 @@ const EmpProfile: React.FC = () => {
               ctx.fillStyle = "#ffffff";
               ctx.fillRect(0, 0, trayCanvas.width, trayCanvas.height);
 
-              const slotLeft = 748;   // 3.74cm left margin (3.74 * 200) -> ends at 748 + 1712 = 2460px (12.30cm)
+              const slotLeft = 670;   // 3.35cm left margin (3.35 * 200) -> ends at 670 + 1712 = 2382px (11.91cm)
               const cardW = 1712;     // 8.56cm exact CR-80 width (8.56 * 200 = 1712px = 85.6mm)
               const cardH = 1080;     // 5.40cm exact CR-80 height (5.40 * 200 = 1080px = 54.0mm)
-              const slot1Top = 162;   // 0.81cm top margin (0.81 * 200) -> ends at 162 + 1080 = 1242px (6.21cm)
-              const dividerGap = 80;  // 0.40cm (4.0mm) physical divider gap between slots (0.40 * 200)
-              const slot2Top = 1242 + dividerGap; // 1322px (6.61cm) -> ends at 1322 + 1080 = 2402px (12.01cm)
+              const slot1Top = 220;   // 1.10cm top margin (1.10 * 200) -> ends at 220 + 1080 = 1300px (6.50cm)
+              const dividerGap = 110; // 0.55cm (5.5mm) physical divider gap between slots (0.55 * 200)
+              const slot2Top = 1300 + dividerGap; // 1410px (7.05cm) -> ends at 1410 + 1080 = 2490px (12.45cm)
 
               // Draw exact CR-80 cards with rounded corners (radius 64px ≈ 3.18mm) without overflow
               drawRoundedCard(ctx, frontRotated, slotLeft, slot1Top, cardW, cardH, 64);
@@ -2807,8 +2825,8 @@ const EmpProfile: React.FC = () => {
         const activeList = Array.isArray(activeListRaw)
           ? activeListRaw
           : activeListRaw?.data && Array.isArray(activeListRaw.data)
-          ? activeListRaw.data
-          : [];
+            ? activeListRaw.data
+            : [];
 
         const empCodes: string[] = activeList
           .map((r: any) => (Array.isArray(r) ? String(r[0] ?? "").trim() : String(r?.code || r?.EmpCode || "").trim()))
@@ -4083,7 +4101,7 @@ const EmpProfile: React.FC = () => {
                       <div className="ep-tray-slot-wrapper">
                         <div className="ep-tray-slot-header">
                           <span className="ep-tray-slot-name">Slot 1 &bull; Front Card</span>
-                          <span className="ep-tray-slot-coord">3.74 cm – 12.30 cm</span>
+                          <span className="ep-tray-slot-coord">3.35 cm – 11.91 cm</span>
                         </div>
                         <div className="ep-tray-physical-slot">
                           {/* 2 Eject Holes as shown in user physical tray photo */}
@@ -4134,8 +4152,8 @@ const EmpProfile: React.FC = () => {
                                   cardEmpName.length > 22
                                     ? { fontSize: "0.62rem" }
                                     : cardEmpName.length > 19
-                                    ? { fontSize: "0.68rem" }
-                                    : undefined
+                                      ? { fontSize: "0.68rem" }
+                                      : undefined
                                 }
                               >
                                 {cardEmpName}
@@ -4224,8 +4242,8 @@ const EmpProfile: React.FC = () => {
                               cardEmpName.length > 22
                                 ? { fontSize: "0.62rem" }
                                 : cardEmpName.length > 19
-                                ? { fontSize: "0.68rem" }
-                                : undefined
+                                  ? { fontSize: "0.68rem" }
+                                  : undefined
                             }
                           >
                             {cardEmpName}
@@ -4284,7 +4302,7 @@ const EmpProfile: React.FC = () => {
                       <div className="ep-tray-slot-wrapper">
                         <div className="ep-tray-slot-header">
                           <span className="ep-tray-slot-name">Slot 2 &bull; Back Card</span>
-                          <span className="ep-tray-slot-coord">3.74 cm – 12.30 cm</span>
+                          <span className="ep-tray-slot-coord">3.35 cm – 11.91 cm</span>
                         </div>
                         <div className="ep-tray-physical-slot">
                           {/* 2 Eject Holes as shown in user physical tray photo */}
@@ -4357,7 +4375,7 @@ const EmpProfile: React.FC = () => {
                     <span>Scan QR Code on back to view full employee details</span>
                     <span className="ep-idcard-tray-pill">
                       {cardOrientation === "landscape"
-                        ? "L805 Tray (14.7cm × 24.6cm): 3.74cm – 12.30cm (8.56cm × 5.40cm CR-80) • 2 Holes Align"
+                        ? "L805 Tray (14.7cm × 24.6cm): 3.35cm – 11.91cm (8.56cm × 5.40cm CR-80) • 2 Holes Align"
                         : "Standard 5.4cm × 8.6cm (CR-80 ID Card)"}
                     </span>
                   </div>
