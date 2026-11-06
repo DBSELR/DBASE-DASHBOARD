@@ -109,7 +109,8 @@ const Salaries: React.FC = () => {
   const [SelectEmp, setSelectEmp] = useState(false);
   const [someSelectEmp, setSomeSelectEmp] = useState(false);
 
-  const [SalMY, setSalMY] = useState<any>(moment().subtract(1, "M"));
+  const prevSalaryMonth = moment().subtract(1, "month").startOf("month");
+  const [SalMY, setSalMY] = useState<any>(() => moment().subtract(1, "month").startOf("month"));
   const [SalReset, setSalReset] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -456,7 +457,10 @@ const Salaries: React.FC = () => {
   // ==========================
   const Generate_Sal = async () => {
     try {
-      if (!SalMY) return;
+      if (!SalMY || !moment(SalMY).isSame(prevSalaryMonth, "month")) {
+        showToast(`Salary generation is only allowed for ${prevSalaryMonth.format("MMM-YYYY")}`, "warning");
+        return;
+      }
       setLoading(true);
 
       const tmpMY = moment(SalMY).format("MMM-YYYY");
@@ -561,7 +565,10 @@ const Salaries: React.FC = () => {
   // ==========================
   const LoadAdjustments = async () => {
     try {
-      if (!SalMY) return;
+      if (!SalMY || !moment(SalMY).isSame(prevSalaryMonth, "month")) {
+        showToast(`Salary generation is only allowed for ${prevSalaryMonth.format("MMM-YYYY")}`, "warning");
+        return;
+      }
       const tmpMY = moment(SalMY).format("MMM-YYYY");
       const res = await axios.get(
         `${API_BASE}Salaries/Load_Sal_Adjustments?SalMY=${tmpMY}`
@@ -930,7 +937,21 @@ const UpdateAdjustmentField = async (
                       open={openSalMY}
                       onOpen={() => setOpenSalMY(true)}
                       onClose={() => setOpenSalMY(false)}
-                      onChange={(newValue) => setSalMY(newValue)}
+                      onChange={(newValue) => {
+                        if (newValue && moment(newValue).isSame(prevSalaryMonth, "month")) {
+                          setSalMY(newValue);
+                        } else {
+                          setSalMY(prevSalaryMonth.clone());
+                        }
+                      }}
+                      minDate={prevSalaryMonth.clone().startOf("month")}
+                      maxDate={prevSalaryMonth.clone().endOf("month")}
+                      shouldDisableMonth={(month) =>
+                        !moment(month).isSame(prevSalaryMonth, "month")
+                      }
+                      shouldDisableYear={(year) =>
+                        !moment(year).isSame(prevSalaryMonth, "year")
+                      }
                       slotProps={{
                         textField: {
                           size: "small",

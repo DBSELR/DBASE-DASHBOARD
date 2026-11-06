@@ -597,9 +597,9 @@ function EmployeePenalties() {
             if (dashboardRes.status === "fulfilled" && dashboardRes.value?.data) {
                 const dData = dashboardRes.value.data;
                 console.log("✅ [API 1: Dashboard] Response:", dData);
-                summaryData = dData.summary || [];
-                dashboardViolations = dData.violations || [];
-                escalationData = dData.escalation || [];
+                summaryData = dData.summary || dData.Summary || [];
+                dashboardViolations = dData.violations || dData.Violations || [];
+                escalationData = dData.escalation || dData.Escalation || [];
             } else if (dashboardRes.status === "rejected") {
                 console.error("❌ [API 1: Dashboard] Request Failed:", dashboardRes.reason);
             }
@@ -641,7 +641,7 @@ function EmployeePenalties() {
                         );
                     }) || dashboardViolations[idx];
 
-                    const resolvedPenaltyType = toSafeString(
+                    const resolvedPenaltyType = Number(item.PenaltyId) === 0 ? "Auto Escalated" : toSafeString(
                         item.PenaltyType ||
                         rule?.penaltyType ||
                         rule?.PenaltyType ||
@@ -788,16 +788,32 @@ function EmployeePenalties() {
     const empName = toSafeString(emp.EMPNAME, toSafeString(userData?.empName, toSafeString(userData?.EMPNAME, toSafeString(userData?.userName, "HARISH PAMPANA"))));
     const empCode = toSafeString(emp.EMPCODE, toSafeString(userData?.empCode, toSafeString(userData?.EMPCODE, "1589")));
     const designation = toSafeString(userData?.designation, toSafeString(userData?.DESIGNATION, toSafeString(userData?.role, "Developer")));
-    const escalationStatus = toSafeString(esc.EscalationStatus, "Normal Status");
+    const activeViolations = data.violations.filter(v => toSafeString(v.Status).toLowerCase().trim() !== "transferred" && toSafeString(v.TransferStatus).toLowerCase().trim() !== "transferred" && !v.IsExpired);
+    const hasViolationsList = data.violations.length > 0;
+    const activeGreenSlips = hasViolationsList ? activeViolations.filter(v => toSafeString(v.SlipType).toLowerCase().includes("green")).reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0) : (Number(emp.TotalGreenSlips ?? esc.GreenSlips) || 0);
+    const activeOrangeSlips = hasViolationsList ? activeViolations.filter(v => toSafeString(v.SlipType).toLowerCase().includes("orange")).reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0) : (Number(emp.TotalOrangeSlips ?? esc.OrangeSlips) || 0);
+    const activeYellowSlips = hasViolationsList
+        ? activeViolations
+            .filter(v => toSafeString(v.SlipType).toLowerCase().includes("yellow"))
+            .reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0)
+        : (Number(esc.YellowSlips ?? emp.TotalYellowSlips) || 0);
+    const activeRedSlips = hasViolationsList ? activeViolations.filter(v => toSafeString(v.SlipType).toLowerCase().includes("red")).reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0) : (Number(emp.TotalRedSlips ?? esc.RedSlips) || 0);
+    const autoOrangeSlips = activeViolations.filter(v => toSafeString(v.SlipType).toLowerCase().includes("orange") && toSafeString(v.Remarks).toLowerCase().includes("auto escalated")).reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0);
+    const autoRedSlips = activeViolations.filter(v => toSafeString(v.SlipType).toLowerCase().includes("red") && toSafeString(v.Remarks).toLowerCase().includes("auto escalated")).reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0);
+    const remainingYellowForScore = Math.max(0, activeYellowSlips - autoOrangeSlips * 8);
+    const remainingOrangeForScore = Math.max(0, activeOrangeSlips - autoRedSlips * 4);
+    const computedPerformanceScore = (activeGreenSlips * 0.07) - (remainingYellowForScore * 0.07) - (remainingOrangeForScore * 0.70) - (activeRedSlips * 3.00);
+    const activePerformanceScore = hasViolationsList ? computedPerformanceScore : (emp.TotalPerformanceScore !== undefined && emp.TotalPerformanceScore !== null ? (Number(emp.TotalPerformanceScore) || 0) : computedPerformanceScore);
+    const escalationStatus = activeRedSlips >= 1 ? "Disciplinary Review" : activeOrangeSlips >= 2 ? "Manager Escalation" : activeYellowSlips >= 4 ? "HR Warning" : toSafeString(esc.EscalationStatus, "Normal Status");
 
-    const activeYellowSlips = emp.TotalYellowSlips !== undefined && emp.TotalYellowSlips !== null
+    const _unusedYellow = emp.TotalYellowSlips !== undefined && emp.TotalYellowSlips !== null
         ? Number(emp.TotalYellowSlips) || 0
         : data.violations
             .filter(v => toSafeString(v.Status).toLowerCase().trim() !== "transferred" && toSafeString(v.TransferStatus).toLowerCase().trim() !== "transferred" && !v.IsExpired)
             .filter(v => toSafeString(v.SlipType).toLowerCase().includes("yellow"))
             .reduce((sum, v) => sum + (Number(v.SlipCount) || 1), 0);
 
-    const activeRedSlips = emp.TotalRedSlips !== undefined && emp.TotalRedSlips !== null
+    const _unusedRed = emp.TotalRedSlips !== undefined && emp.TotalRedSlips !== null
         ? Number(emp.TotalRedSlips) || 0
         : data.violations
             .filter(v => toSafeString(v.Status).toLowerCase().trim() !== "transferred" && toSafeString(v.TransferStatus).toLowerCase().trim() !== "transferred" && !v.IsExpired)
@@ -871,7 +887,7 @@ function EmployeePenalties() {
                                 </div>
                             </div>
                             <div className="ep-bento-value">
-                                {Number(emp.TotalPerformanceScore || 0).toFixed(2)}
+                                {activePerformanceScore.toFixed(2)}
                             </div>
                             <div className="ep-bento-subtext">Overall Score Index</div>
                         </div>
@@ -885,7 +901,7 @@ function EmployeePenalties() {
                                     <CheckCircle2 size={16} />
                                 </div>
                             </div>
-                            <div className="ep-bento-value">{Number(emp.TotalGreenSlips) || 0}</div>
+                            <div className="ep-bento-value">{activeGreenSlips}</div>
                             <div className="ep-bento-subtext">Appreciation Slips</div>
                         </div>
 
@@ -911,7 +927,7 @@ function EmployeePenalties() {
                                     <AlertCircle size={16} />
                                 </div>
                             </div>
-                            <div className="ep-bento-value">{Number(emp.TotalOrangeSlips) || 0}</div>
+                            <div className="ep-bento-value">{activeOrangeSlips}</div>
                             <div className="ep-bento-subtext">Escalation Slips</div>
                         </div>
 

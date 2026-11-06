@@ -275,9 +275,9 @@ const EmpProfile: React.FC = () => {
   };
 
   const formatCardDOJ = (raw: any): string => {
-    if (!raw) return "07-FEB-2022";
+    if (!raw) return "DD-MMM-YYYY";
     const str = String(raw).trim();
-    if (!str) return "07-FEB-2022";
+    if (!str) return "DD-MMM-YYYY";
     if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(str)) {
       return str.toUpperCase();
     }
@@ -358,7 +358,7 @@ const EmpProfile: React.FC = () => {
     const doj = formatCardDOJ(userData.doj || userData.joiningDate);
     const rawBlood = userData.bloodGroup || "";
     const cleanBlood = rawBlood ? String(rawBlood).replace(/^Blood\s*Group\s*:\s*/i, "").trim() : "";
-    const bloodGroup = cleanBlood || "AB-";
+    const bloodGroup = cleanBlood || "Blood Group";
     const mobile = userData.contactNumber || "Mobile number";
     const avatarSrc =
       userData.profilePic ||
@@ -3913,24 +3913,24 @@ const EmpProfile: React.FC = () => {
 
                 <div className="ep-profile-card-hero-meta">
                   <h4 className="ep-profile-card-name">
-                    {typeof userData.empName === "object" ? "" : (userData.empName || "PALURI YESURAJU")}
+                    {typeof userData.empName === "object" ? "" : (userData.empName || "Employee Name")}
                   </h4>
                   <div className="ep-profile-card-sub">
                     <span className="ep-profile-card-role">
-                      {typeof userData.designation === "object" ? "" : (userData.designation || "Developer")}
+                      {typeof userData.designation === "object" ? "" : (userData.designation || "Designation")}
                     </span>
-                    {(userData.department || "IT") && (
+                    {(userData.department || "Department") && (
                       <>
                         <span className="ep-hero-sep">•</span>
                         <span className="ep-profile-card-dept">
-                          {typeof userData.department === "object" ? "" : (userData.department || "IT")}
+                          {typeof userData.department === "object" ? "" : (userData.department || "Department")}
                         </span>
                       </>
                     )}
                   </div>
                   <div className="ep-profile-card-chips">
                     <span className="ep-profile-card-chip">
-                      ID: <strong>{userData.empCode || "1614"}</strong>
+                      ID: <strong>{userData.empCode || "0000"}</strong>
                     </span>
                     <span className="ep-status-badge active">
                       <span className="ep-status-dot"></span>
@@ -4160,8 +4160,8 @@ const EmpProfile: React.FC = () => {
                               </div>
 
                               {/* Employee Designation */}
-                              <div className="ep-idcard-desig" title={userData.designation || "DEVELOPER"}>
-                                {(userData.designation || "DEVELOPER").toUpperCase()}
+                              <div className="ep-idcard-desig" title={userData.designation || "DESIGNATION"}>
+                                {(userData.designation || "DESIGNATION").toUpperCase()}
                               </div>
 
                               {/* Details Rows (EMP. ID, DOJ, Blood Group) */}
@@ -4174,7 +4174,7 @@ const EmpProfile: React.FC = () => {
                                       ? String(userData.empCode).startsWith("DBS")
                                         ? String(userData.empCode)
                                         : `DBS${userData.empCode}`
-                                      : "DBS1614"}
+                                      : "DBS0000"}
                                   </span>
                                 </div>
                                 <div className="ep-idcard-row">
@@ -4188,7 +4188,7 @@ const EmpProfile: React.FC = () => {
                                   <span className="ep-idcard-field-key">Blood Group</span>
                                   <span className="ep-idcard-colon">:</span>
                                   <span className="ep-idcard-field-val">
-                                    {userData.bloodGroup || "A-"}
+                                    {userData.bloodGroup || "Blood Group"}
                                   </span>
                                 </div>
                               </div>
@@ -4199,7 +4199,7 @@ const EmpProfile: React.FC = () => {
                                   <Phone size={8} strokeWidth={2.5} />
                                 </span>
                                 <span className="ep-idcard-phone-val">
-                                  {userData.contactNumber || "9866992847"}
+                                  {userData.contactNumber || "0000000000"}
                                 </span>
                               </div>
                             </div>
@@ -4249,8 +4249,8 @@ const EmpProfile: React.FC = () => {
                             {cardEmpName}
                           </div>
 
-                          <div className="ep-idcard-desig" title={userData.designation || "DEVELOPER"}>
-                            {(userData.designation || "DEVELOPER").toUpperCase()}
+                          <div className="ep-idcard-desig" title={userData.designation || "DESIGNATION"}>
+                            {(userData.designation || "DESIGNATION").toUpperCase()}
                           </div>
 
                           <div className="ep-idcard-fields-block">
@@ -4262,7 +4262,7 @@ const EmpProfile: React.FC = () => {
                                   ? String(userData.empCode).startsWith("DBS")
                                     ? String(userData.empCode)
                                     : `DBS${userData.empCode}`
-                                  : "DBS1614"}
+                                  : "DBS0000"}
                               </span>
                             </div>
                             <div className="ep-idcard-row">
@@ -4276,7 +4276,7 @@ const EmpProfile: React.FC = () => {
                               <span className="ep-idcard-field-key">Blood Group</span>
                               <span className="ep-idcard-colon">:</span>
                               <span className="ep-idcard-field-val">
-                                {userData.bloodGroup || "A-"}
+                                {userData.bloodGroup || "Blood Group"}
                               </span>
                             </div>
                           </div>
@@ -4286,7 +4286,7 @@ const EmpProfile: React.FC = () => {
                               <Phone size={8} strokeWidth={2.5} />
                             </span>
                             <span className="ep-idcard-phone-val">
-                              {userData.contactNumber || "9866992847"}
+                              {userData.contactNumber || "0000000000"}
                             </span>
                           </div>
                         </div>
@@ -4531,13 +4531,13 @@ const EmpProfile: React.FC = () => {
                     </div>
                     <div className="ep-detail-info">
                       <span className="ep-detail-label">Emp Code</span>
-                      <span className="ep-detail-value">{userData.empCode || "1614"}</span>
+                      <span className="ep-detail-value">{userData.empCode || "0000"}</span>
                     </div>
                     <button
                       type="button"
                       className="ep-detail-copy-btn"
                       title="Copy Emp Code"
-                      onClick={() => handleCopyValue("empCode", userData.empCode || "1614")}
+                      onClick={() => handleCopyValue("empCode", userData.empCode || "0000")}
                     >
                       {copiedField === "empCode" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
                     </button>
@@ -4550,13 +4550,13 @@ const EmpProfile: React.FC = () => {
                     </div>
                     <div className="ep-detail-info">
                       <span className="ep-detail-label">Name</span>
-                      <span className="ep-detail-value">{userData.empName || "PALURI YESURAJU"}</span>
+                      <span className="ep-detail-value">{userData.empName || "Employee Name"}</span>
                     </div>
                     <button
                       type="button"
                       className="ep-detail-copy-btn"
                       title="Copy Name"
-                      onClick={() => handleCopyValue("empName", userData.empName || "PALURI YESURAJU")}
+                      onClick={() => handleCopyValue("empName", userData.empName || "Employee Name")}
                     >
                       {copiedField === "empName" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
                     </button>
@@ -4590,7 +4590,7 @@ const EmpProfile: React.FC = () => {
                     </div>
                     <div className="ep-detail-info">
                       <span className="ep-detail-label">Blood Group</span>
-                      <span className="ep-detail-value ep-blood-badge">{userData.bloodGroup || "AB-"}</span>
+                      <span className="ep-detail-value ep-blood-badge">{userData.bloodGroup || "—"}</span>
                     </div>
                   </div>
 
@@ -4602,17 +4602,17 @@ const EmpProfile: React.FC = () => {
                     <div className="ep-detail-info">
                       <span className="ep-detail-label">Mobile</span>
                       <a
-                        href={`tel:${userData.contactNumber || "9866992847"}`}
+                        href={`tel:${userData.contactNumber || "0000000000"}`}
                         className="ep-detail-value ep-link-value"
                       >
-                        {userData.contactNumber || "9866992847"}
+                        {userData.contactNumber || "0000000000"}
                       </a>
                     </div>
                     <button
                       type="button"
                       className="ep-detail-copy-btn"
                       title="Copy Mobile"
-                      onClick={() => handleCopyValue("mobile", userData.contactNumber || "9866992847")}
+                      onClick={() => handleCopyValue("mobile", userData.contactNumber || "0000000000")}
                     >
                       {copiedField === "mobile" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
                     </button>
@@ -4625,13 +4625,13 @@ const EmpProfile: React.FC = () => {
                     </div>
                     <div className="ep-detail-info">
                       <span className="ep-detail-label">PAN</span>
-                      <span className="ep-detail-value ep-mono-value">{userData.pan || "CRVPP5881Q"}</span>
+                      <span className="ep-detail-value ep-mono-value">{userData.pan || "ABCDE1234F"}</span>
                     </div>
                     <button
                       type="button"
                       className="ep-detail-copy-btn"
                       title="Copy PAN"
-                      onClick={() => handleCopyValue("pan", userData.pan || "CRVPP5881Q")}
+                      onClick={() => handleCopyValue("pan", userData.pan || "ABCDE1234F")}
                     >
                       {copiedField === "pan" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
                     </button>
@@ -4644,13 +4644,13 @@ const EmpProfile: React.FC = () => {
                     </div>
                     <div className="ep-detail-info">
                       <span className="ep-detail-label">AADHAR</span>
-                      <span className="ep-detail-value ep-mono-value">{userData.aadhar || "832072843977"}</span>
+                      <span className="ep-detail-value ep-mono-value">{userData.aadhar || "000000000000"}</span>
                     </div>
                     <button
                       type="button"
                       className="ep-detail-copy-btn"
                       title="Copy AADHAR"
-                      onClick={() => handleCopyValue("aadhar", userData.aadhar || "832072843977")}
+                      onClick={() => handleCopyValue("aadhar", userData.aadhar || "000000000000")}
                     >
                       {copiedField === "aadhar" ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
                     </button>
