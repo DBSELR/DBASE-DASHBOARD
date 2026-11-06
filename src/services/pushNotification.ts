@@ -17,17 +17,67 @@ const firebaseConfig = {
 
 const VAPID_KEY = "BD7X_0fm0eL8JFSg3dFrk8m4SCfST3FUcK7L6RlT8tQshFlOmt0tGPHBBIqJ0pNRAYWqIbcA2I7b-N24995C7KU";
 
+const EXCLUDED_WORK_REPORT_EMP_CODES = ["1501", "2001"];
+const LEGACY_ALARM_IDS = [1800, 1820, 1829, 1830, 1930, 2030];
+
 let nativeListenersRegistered = false;
 let webListenerRegistered = false;
 let currentActiveEmpCode = "";
 
-// Helper to determine slot based on time
+// Helper to get IST Date components and both padded (YYYY-MM-DD) & unpadded (YYYY-M-D) keys
+export const getIstDateInfo = (now: Date = new Date()) => {
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const istDate = new Date(utcMs + 5.5 * 3600000);
+  const year = istDate.getFullYear();
+  const month = istDate.getMonth() + 1;
+  const day = istDate.getDate();
+  const hours = istDate.getHours();
+  const minutes = istDate.getMinutes();
+
+  const unpaddedKey = `${year}-${month}-${day}`;
+  const paddedKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  return { year, month, day, hours, minutes, unpaddedKey, paddedKey };
+};
+
+export const isWorkReportSubmittedToday = (now: Date = new Date()): boolean => {
+  try {
+    const { unpaddedKey, paddedKey } = getIstDateInfo(now);
+    return (
+      localStorage.getItem(`work_report_submitted_${unpaddedKey}`) === "true" ||
+      localStorage.getItem(`work_report_submitted_${paddedKey}`) === "true"
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const isWorkReportSlotDismissed = (slot: string, now: Date = new Date()): boolean => {
+  try {
+    const { unpaddedKey, paddedKey } = getIstDateInfo(now);
+    const dismissed = localStorage.getItem("work_report_dismissed_time");
+    return dismissed === `${unpaddedKey}_${slot}` || dismissed === `${paddedKey}_${slot}`;
+  } catch {
+    return false;
+  }
+};
+
+// Helper to determine slot based on IST time
 const getNotificationSlot = (now: Date = new Date()): string => {
-  const h = now.getHours();
-  const m = now.getMinutes();
+  const { hours: h, minutes: m } = getIstDateInfo(now);
   if (h > 20 || (h === 20 && m >= 30)) return "20_30";
   if (h > 19 || (h === 19 && m >= 30)) return "19_30";
   return "18_30";
+};
+
+const getLoggedInEmpCode = (): string | null => {
+  try {
+    const u = JSON.parse(localStorage.getItem("user") ?? "{}");
+    const code = u?.empCode || u?.EmpCode || currentActiveEmpCode;
+    return code ? String(code).trim() : null;
+  } catch {
+    return currentActiveEmpCode ? String(currentActiveEmpCode).trim() : null;
+  }
 };
 
 // POST token to backend
@@ -72,7 +122,34 @@ const savePushTokenToBackend = async (empCode: string, token: string, isNative: 
   }
 };
 
-// Schedule Local Notifications across Android, iOS & Web
+// Clear any legacy local repeating work report alarms on Android & iOS
+// (Server-side WorkReportSchedulerService dispatches exact 6:30 PM, 7:30 PM, and 8:30 PM IST pushes
+// while filtering out Sundays, holidays, excluded EmpCodes, and already-submitted reports).
+export const clearWorkReportLocalAlarms = async (): Promise<void> => {
+  try {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const notificationsToCancel = LEGACY_ALARM_IDS.map((id) => ({ id }));
+
+    try {
+      const pending = await LocalNotifications.getPending();
+      if (pending?.notifications && pending.notifications.length > 0) {
+        for (const n of pending.notifications) {
+          if (typeof n.id === "number" && !LEGACY_ALARM_IDS.includes(n.id)) {
+            notificationsToCancel.push({ id: n.id });
+          }
+        }
+      }
+    } catch {}
+
+    await LocalNotifications.cancel({ notifications: notificationsToCancel }).catch(() => {});
+    console.log("🧹 [LocalNotifications] Cleared legacy repeating local alarms:", notificationsToCancel.map(n => n.id));
+  } catch (e) {
+    console.warn("⚠️ [LocalNotifications] Error clearing legacy alarms:", e);
+  }
+};
+
+// Ensure notification channels exist and clear any stuck legacy local repeating alarms
 export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
   try {
     if (Capacitor.isNativePlatform()) {
@@ -96,59 +173,12 @@ export const scheduleDailyWorkReportAlarms = async (): Promise<void> => {
         });
       }
 
-      // Schedule alarms for 6:30 PM, 7:30 PM, and 8:30 PM
-      await LocalNotifications.cancel({ notifications: [{ id: 1829 }, { id: 1830 }, { id: 1930 }, { id: 2030 }] }).catch(() => {});
-
-      const now = new Date();
-
-      const getScheduleDate = (hour: number, minute: number) => {
-        const target = new Date();
-        target.setHours(hour, minute, 0, 0);
-        if (target.getTime() <= now.getTime()) {
-          target.setDate(target.getDate() + 1);
-        }
-        return target;
-      };
-
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            id: 1830,
-            title: "📝 DAILY WORK REPORT: Submissions Open!",
-            body: "It's 6:30 PM! Submissions are now open. Review your activities and submit your work report.",
-            schedule: { at: getScheduleDate(18, 30), repeats: true, every: "day" },
-            channelId: "work_report_high_importance",
-            sound: "default",
-            smallIcon: "ic_launcher",
-            extra: { url: "/workreport", slot: "18_30" }
-          },
-          {
-            id: 1930,
-            title: "⚠️ REMINDER: Submit Your Work Report!",
-            body: "It's 7:30 PM! You have not submitted today's work report yet. Please submit now.",
-            schedule: { at: getScheduleDate(19, 30), repeats: true, every: "day" },
-            channelId: "work_report_high_importance",
-            sound: "default",
-            smallIcon: "ic_launcher",
-            extra: { url: "/workreport", slot: "19_30" }
-          },
-          {
-            id: 2030,
-            title: "🚨 URGENT FINAL REMINDER: Daily Work Report Pending!",
-            body: "It's 8:30 PM! Final call to submit your daily work report before day close.",
-            schedule: { at: getScheduleDate(20, 30), repeats: true, every: "day" },
-            channelId: "work_report_high_importance",
-            sound: "default",
-            smallIcon: "ic_launcher",
-            extra: { url: "/workreport", slot: "20_30" }
-          }
-        ]
-      });
-
-      console.log("✅ [LocalNotifications] Daily 6:30 PM, 7:30 PM, 8:30 PM alarms scheduled successfully.");
+      // Cancel any previously scheduled local repeating alarms so they never fire at random intervals.
+      // Daily reminders at 6:30 PM, 7:30 PM, and 8:30 PM IST are dispatched by backend WorkReportSchedulerService.
+      await clearWorkReportLocalAlarms();
     }
   } catch (e) {
-    console.warn("⚠️ [LocalNotifications] Failed to schedule daily alarms:", e);
+    console.warn("⚠️ [LocalNotifications] Failed to initialize local notification channel / clear legacy alarms:", e);
   }
 };
 
@@ -176,44 +206,44 @@ const registerNative = async (empCode: string) => {
       return;
     }
 
-    // Schedule local notifications for guaranteed alarms
+    // Initialize local notification channels & purge any legacy repeating local alarms
     await scheduleDailyWorkReportAlarms();
 
     // Create Android High Importance Channels for Heads-up floating notifications
-    if (Capacitor.getPlatform() === 'android') {
+    if (Capacitor.getPlatform() === "android") {
       try {
         await PushNotifications.createChannel({
-          id: 'work_report_high_importance',
-          name: 'Work Report High Importance Alerts',
-          description: 'Heads-up banner alerts for daily work report and broadcast alerts',
+          id: "work_report_high_importance",
+          name: "Work Report High Importance Alerts",
+          description: "Heads-up banner alerts for daily work report and broadcast alerts",
           importance: 5,
           visibility: 1,
-          sound: 'default',
+          sound: "default",
           vibration: true,
           lights: true,
-          lightColor: '#DC2626'
+          lightColor: "#DC2626"
         });
         await PushNotifications.createChannel({
-          id: 'payment_reminder_channel',
-          name: 'Payment Reminders',
-          description: 'Payment collection and reminder notifications',
+          id: "payment_reminder_channel",
+          name: "Payment Reminders",
+          description: "Payment collection and reminder notifications",
           importance: 5,
           visibility: 1,
-          sound: 'default',
+          sound: "default",
           vibration: true,
           lights: true,
-          lightColor: '#2563EB'
+          lightColor: "#2563EB"
         });
         await PushNotifications.createChannel({
-          id: 'penalty_high_importance',
-          name: 'Penalty Alerts',
-          description: 'Urgent penalty alerts',
+          id: "penalty_high_importance",
+          name: "Penalty Alerts",
+          description: "Urgent penalty alerts",
           importance: 5,
           visibility: 1,
-          sound: 'default',
+          sound: "default",
           vibration: true,
           lights: true,
-          lightColor: '#DC2626'
+          lightColor: "#DC2626"
         });
         console.log("✅ [Push] Android Notification Channels Created");
       } catch (channelErr) {
@@ -236,18 +266,55 @@ const registerNative = async (empCode: string) => {
       // Handle Foreground Push
       await PushNotifications.addListener("pushNotificationReceived", async (notification) => {
         console.log("📩 [Push] Foreground Push Received:", notification);
+
+        const data = notification.data || {};
+        const myEmpCode = getLoggedInEmpCode();
+        const targetEmpCode = data?.empCode || data?.EmpCode;
+
+        if (targetEmpCode && myEmpCode && String(targetEmpCode).trim() !== String(myEmpCode).trim()) {
+          console.log("[Push] Ignored foreground push intended for another user:", targetEmpCode);
+          return;
+        }
+
+        const type = data?.type || data?.tID || "";
+        const isWorkReportReminder =
+          type === "work_report_reminder" || type === "WORK_REPORT_REMINDER";
+
+        if (isWorkReportReminder) {
+          if (myEmpCode && EXCLUDED_WORK_REPORT_EMP_CODES.includes(myEmpCode)) {
+            console.log("ℹ️ [Push] Suppressing work report push for excluded user:", myEmpCode);
+            return;
+          }
+
+          const slot = data?.slot || getNotificationSlot();
+          if (isWorkReportSubmittedToday() || isWorkReportSlotDismissed(slot)) {
+            console.log("ℹ️ [Push] Suppressing foreground work report push — already submitted or dismissed for slot:", slot);
+            return;
+          }
+        }
+
+        // Use deterministic notification ID for work report slots so notifications replace instead of stacking
+        const slot = data?.slot || getNotificationSlot();
+        const notifId = isWorkReportReminder
+          ? slot === "20_30"
+            ? 2030
+            : slot === "19_30"
+              ? 1930
+              : 1830
+          : Math.floor((Date.now() % 80000) + 10000);
+
         // Show heads-up floating banner via Local Notifications when in foreground
         try {
           await LocalNotifications.schedule({
             notifications: [
               {
-                id: Math.floor(Math.random() * 100000),
-                title: notification.title || "Notification",
-                body: notification.body || "",
+                id: notifId,
+                title: notification.title || data?.title || "Notification",
+                body: notification.body || data?.body || "",
                 channelId: "work_report_high_importance",
                 sound: "default",
                 smallIcon: "ic_launcher",
-                extra: notification.data
+                extra: data
               }
             ]
           });
@@ -338,28 +405,23 @@ const registerWeb = async (empCode: string) => {
       onMessage(messaging, (payload) => {
         console.log("📩 [Push] Foreground Web Message:", payload);
 
-        try {
-          const u = JSON.parse(localStorage.getItem("user") ?? "{}");
-          const myEmpCode = (u?.empCode || u?.EmpCode) ? String(u.empCode || u.EmpCode) : null;
-          const targetEmpCode = payload.data?.empCode || payload.data?.EmpCode;
-          if (targetEmpCode && myEmpCode && String(targetEmpCode).trim() !== String(myEmpCode).trim()) {
-            console.log("[Push] Ignored web push message intended for user:", targetEmpCode);
-            return;
-          }
-        } catch (e) {
-          console.warn("[Push] Error checking user code in onMessage:", e);
+        const myEmpCode = getLoggedInEmpCode();
+        const targetEmpCode = payload.data?.empCode || payload.data?.EmpCode;
+        if (targetEmpCode && myEmpCode && String(targetEmpCode).trim() !== String(myEmpCode).trim()) {
+          console.log("[Push] Ignored web push message intended for user:", targetEmpCode);
+          return;
         }
 
         const type = payload.data?.type || payload.data?.tID || "work_report_reminder";
-        const todayStr = new Date().toISOString().split("T")[0];
+        const { paddedKey: todayStr } = getIstDateInfo();
 
         // Check if work report reminder was already dismissed or submitted today
         if (type === "work_report_reminder" || type === "WORK_REPORT_REMINDER") {
-          const now = new Date();
-          const slot = getNotificationSlot(now);
-          const dismissed = localStorage.getItem("work_report_dismissed_time") === `${todayStr}_${slot}`;
-          const submitted = localStorage.getItem(`work_report_submitted_${todayStr}`) === "true";
-          if (dismissed || submitted) {
+          if (myEmpCode && EXCLUDED_WORK_REPORT_EMP_CODES.includes(myEmpCode)) {
+            return;
+          }
+          const slot = payload.data?.slot || getNotificationSlot();
+          if (isWorkReportSubmittedToday() || isWorkReportSlotDismissed(slot)) {
             console.log("ℹ️ [Push] Suppressing push notification, already dismissed or submitted today.");
             return;
           }

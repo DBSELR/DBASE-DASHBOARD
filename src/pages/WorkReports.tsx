@@ -116,7 +116,11 @@ const WorkReports: React.FC = () => {
     try {
       const now = moment().utcOffset("+05:30");
       const todayKey = `${now.year()}-${now.month() + 1}-${now.date()}`;
-      return localStorage.getItem(`work_report_submitted_${todayKey}`) === "true";
+      const todayKeyPadded = now.format("YYYY-MM-DD");
+      return (
+        localStorage.getItem(`work_report_submitted_${todayKey}`) === "true" ||
+        localStorage.getItem(`work_report_submitted_${todayKeyPadded}`) === "true"
+      );
     } catch {
       return false;
     }
@@ -237,15 +241,20 @@ const WorkReports: React.FC = () => {
     try {
       const now = moment().utcOffset("+05:30");
       const todayKey = `${now.year()}-${now.month() + 1}-${now.date()}`;
+      const todayKeyPadded = now.format("YYYY-MM-DD");
       const slot = (now.hour() > 20 || (now.hour() === 20 && now.minute() >= 30))
         ? "20_30"
         : (now.hour() > 19 || (now.hour() === 19 && now.minute() >= 30))
           ? "19_30"
           : "18_30";
       localStorage.setItem(`work_report_submitted_${todayKey}`, "true");
+      localStorage.setItem(`work_report_submitted_${todayKeyPadded}`, "true");
       localStorage.setItem("work_report_dismissed_time", `${todayKey}_${slot}`);
       setIsTodayReportSubmitted(true);
       window.dispatchEvent(new CustomEvent("work-report-submitted"));
+      import("../services/pushNotification")
+        .then(({ clearWorkReportLocalAlarms }) => clearWorkReportLocalAlarms())
+        .catch(() => {});
     } catch (err) {
       console.error("Error setting work report submitted state", err);
     }

@@ -2,6 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 import { AlertTriangle, Clock, ArrowRight, X, ShieldAlert } from "lucide-react";
 import { hubConnection } from "../services/signalRService";
+import {
+  getIstDateInfo,
+  isWorkReportSubmittedToday,
+  isWorkReportSlotDismissed,
+  clearWorkReportLocalAlarms
+} from "../services/pushNotification";
 import "./WorkReportReminderModal.css";
 
 export const WorkReportReminderModal: React.FC = () => {
@@ -16,39 +22,25 @@ export const WorkReportReminderModal: React.FC = () => {
   const location = useLocation();
 
   const checkIfAlreadySubmittedToday = (): boolean => {
-    try {
-      const now = new Date();
-      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-      return localStorage.getItem(`work_report_submitted_${todayKey}`) === "true";
-    } catch {
-      return false;
-    }
+    return isWorkReportSubmittedToday();
   };
 
   const checkIfDismissedForSlot = (slot: string): boolean => {
-    try {
-      const now = new Date();
-      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-      const dismissed = localStorage.getItem("work_report_dismissed_time");
-      return dismissed === `${todayKey}_${slot}`;
-    } catch {
-      return false;
-    }
+    return isWorkReportSlotDismissed(slot);
   };
 
   const markDismissed = (slot: string) => {
     try {
-      const now = new Date();
-      const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-      localStorage.setItem("work_report_dismissed_time", `${todayKey}_${slot}`);
+      const { unpaddedKey } = getIstDateInfo();
+      localStorage.setItem("work_report_dismissed_time", `${unpaddedKey}_${slot}`);
+      clearWorkReportLocalAlarms().catch(() => {});
     } catch (err) {
       console.error("Error setting dismissed slot", err);
     }
   };
 
   const getCurrentReminderSlot = (now: Date): { slot: string; isUrgent: boolean; title: string; desc: string } | null => {
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    const { hours, minutes } = getIstDateInfo(now);
 
     // After 8:30 PM (20:30)
     if (hours > 20 || (hours === 20 && minutes >= 30)) {
@@ -92,8 +84,10 @@ export const WorkReportReminderModal: React.FC = () => {
     }
 
     const now = new Date();
-    // Exclude Sunday (0)
-    if (now.getDay() === 0) return;
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const istDate = new Date(utcMs + 5.5 * 3600000);
+    // Exclude Sunday (0) in IST
+    if (istDate.getDay() === 0) return;
 
     const info = getCurrentReminderSlot(now);
     if (!info) return;

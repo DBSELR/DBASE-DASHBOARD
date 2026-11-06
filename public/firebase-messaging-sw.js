@@ -27,8 +27,19 @@ try {
       return;
     }
 
-    const slot = payload.data?.slot || ((new Date().getHours() > 18 || (new Date().getHours() === 18 && new Date().getMinutes() >= 20)) ? "18_20" : "18_00");
-    const todayStr = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const istDate = new Date(utcMs + 5.5 * 3600000);
+    const h = istDate.getHours();
+    const m = istDate.getMinutes();
+    const defaultSlot = (h > 20 || (h === 20 && m >= 30))
+      ? "20_30"
+      : (h > 19 || (h === 19 && m >= 30))
+        ? "19_30"
+        : "18_30";
+
+    const slot = payload.data?.slot || defaultSlot;
+    const todayStr = `${istDate.getFullYear()}-${String(istDate.getMonth() + 1).padStart(2, "0")}-${String(istDate.getDate()).padStart(2, "0")}`;
     const type = payload.data?.type || "work_report_reminder";
     const tag = `${type}_${todayStr}_${slot}`;
 
