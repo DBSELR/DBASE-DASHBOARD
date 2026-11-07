@@ -4985,3 +4985,27 @@ ion-modal.daytrip-preview-modal::part(content) {
   border-color: #fca5a5 !important;
   background: #fef2f2 !important;
 }
+
+/* A value the geo tag writes, not one you pick.
+   .od-time was written for a <button>, which is inline-block and
+   honours height and padding on its own; this is a <span>, which is
+   plain inline and ignores them - so To sat on a different baseline
+   from From. display:flex restores the box the button had. */
+.od-time-fixed {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  cursor: default;
+  color: #0f172a;
+}
+
+.od-time-fixed:hover {
+  background: inherit;
+  border-color: inherit;
+}
+
+/* Location is written by the tag too. Readable, not typeable. */
+.od-row .od-val[readonly] {
+  cursor: default;
+  color: #334155;
+}

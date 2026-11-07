@@ -123,7 +123,25 @@ const getUploadedImageUrl = (path: any) => {
 // datetime strings/Date-ish values from the API - format defensively so a
 // null/invalid value just renders nothing instead of "Invalid date".
 const formatUploadedOn = (value: any) => {
-  if (!value) return "";
+  if (value === null || value === undefined) return "";
+
+  // moment({}) is NOT invalid - it is the current time. So an empty
+  // object reaching here does not fall through to "", it prints now,
+  // and keeps printing a later "now" on every render. That is exactly
+  // what a SQL NULL became on the way over: the API handed back
+  // DBNull.Value, which serialises to {}.
+  //
+  // Only a string, a number or a Date can be a timestamp here.
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    !(value instanceof Date)
+  ) {
+    return "";
+  }
+
+  if (typeof value === "string" && !value.trim()) return "";
+
   const m = moment(value);
   return m.isValid() ? m.format("DD-MM-YYYY hh:mm A") : "";
 };
@@ -3019,17 +3037,23 @@ console.log(item.RA1, getUser()?.designation, item.CurrentLevel),
                           ) : null}
                         </div>
 
-                        {(trip.readingFromUploadedOn || trip.readingToUploadedOn) && (
-                          <div className="upload-time-note">
-                            {trip.readingFromUploadedOn && (
-                              <span>Start reading uploaded {formatUploadedOn(trip.readingFromUploadedOn)}</span>
-                            )}
-                            {trip.readingFromUploadedOn && trip.readingToUploadedOn && <span> · </span>}
-                            {trip.readingToUploadedOn && (
-                              <span>End reading uploaded {formatUploadedOn(trip.readingToUploadedOn)}</span>
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          // Driven by the formatted text: "there is a
+                          // value" and "that value is a date we can
+                          // show" are different questions, and this
+                          // line was asking the first while printing
+                          // the answer to the second.
+                          const fromTxt = formatUploadedOn(trip.readingFromUploadedOn);
+                          const toTxt = formatUploadedOn(trip.readingToUploadedOn);
+                          if (!fromTxt && !toTxt) return null;
+                          return (
+                            <div className="upload-time-note">
+                              {fromTxt && <span>Start reading uploaded {fromTxt}</span>}
+                              {fromTxt && toTxt && <span> &middot; </span>}
+                              {toTxt && <span>End reading uploaded {toTxt}</span>}
+                            </div>
+                          );
+                        })()}
 
                         {/* VISITS LIST */}
                         {(trip.visits || []).map((visit: any, vIndex: number) => (

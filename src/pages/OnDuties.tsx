@@ -5367,9 +5367,51 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         const lat = pos.coords.latitude.toFixed(6);
         const lng = pos.coords.longitude.toFixed(6);
 
+        // How good the fix is, in metres. GPS on a phone outdoors is
+        // 5-30m; a laptop with no GPS is located from the WiFi
+        // networks it can see, or failing that from the IP address,
+        // and lands anywhere from a few hundred metres to the wrong
+        // city entirely. That is how a visit in Guntur came back as
+        // Nizampet, Hyderabad - the place name was right for the
+        // coordinates, the coordinates were not right for the person.
+        //
+        // Refused rather than recorded: a visit's location is evidence
+        // for a DA/TA claim, and a confidently wrong one is worse than
+        // none. The number is in the message so it is obvious what
+        // went wrong rather than looking like the button failed.
+        const acc = Math.round(pos.coords.accuracy || 0);
+        console.log("[OnDuty] geo fix", { lat, lng, accuracy: acc });
+
+        if (acc > 1000) {
+          setGeoTagging((k) => (k === geoKey ? null : k));
+          notify(
+            `Location is only accurate to about ${acc >= 1000 ? Math.round(acc / 1000) + " km" : acc + " m"} - ` +
+              "that is a network position, not GPS. Tag from the phone, outdoors.",
+            "danger"
+          );
+          return;
+        }
+
         updateTripVisit(tripIndex, visitIndex, "latitude", lat);
         updateTripVisit(tripIndex, visitIndex, "longitude", lng);
-        notify("Geo Tagged Successfully", "success");
+
+        // Tagging IS the end of the visit, so it sets the To time -
+        // the one moment we can be sure of, taken where the person is
+        // standing rather than typed from memory afterwards. From is
+        // still theirs to choose; To is now only ever this.
+        updateTripVisit(
+          tripIndex,
+          visitIndex,
+          "visitToTime",
+          nowIST().format("HH:mm")
+        );
+
+        notify(
+          acc > 150
+            ? `Geo tagged, but only to about ${acc} m - check the place name is right`
+            : "Geo Tagged Successfully",
+          acc > 150 ? "warning" : "success"
+        );
 
         // The coordinates are the record; the name is what anybody reading
         // a visit later can actually use. Tapping Geo Tag is an explicit
@@ -5379,11 +5421,17 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
           if (name) {
             updateTripVisit(tripIndex, visitIndex, "location", name);
           } else {
-            notify("Tagged, but the place name could not be resolved", "warning");
+            // The field is read-only, so there is no typing round a
+            // failed lookup: fall back to the coordinates. Save
+            // requires a location, and an unfixable empty box would
+            // make the visit unsaveable.
+            updateTripVisit(tripIndex, visitIndex, "location", `${lat}, ${lng}`);
+            notify("Tagged - place name not resolved, coordinates used", "warning");
           }
         } catch (err: any) {
           console.warn("[OnDuty] reverse geocode failed:", err?.message || err);
-          notify("Tagged, but the place name could not be fetched", "warning");
+          updateTripVisit(tripIndex, visitIndex, "location", `${lat}, ${lng}`);
+          notify("Tagged - place name not fetched, coordinates used", "warning");
         } finally {
           setGeoTagging((k) => (k === geoKey ? null : k));
         }
@@ -8772,24 +8820,25 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                 <MapPin size={12} /> Location
                                 <span style={{ color: "#ef4444" }}>*</span>
                               </span>
+                              {/* Written by the geo tag, not by hand. A
+                                  typed place name can say anywhere; the
+                                  one resolved from the coordinates is
+                                  tied to where the phone was. readOnly
+                                  rather than disabled so the text stays
+                                  legible and selectable. */}
                               <input
                                 className="od-val"
                                 value={visit.location}
-                                disabled={!hasGeo && !String(visit.location || "").trim()}
+                                readOnly
+                                title={
+                                  hasGeo
+                                    ? "Set from the geo tag - tap the pin to re-tag"
+                                    : "Tap the pin to geo tag this visit"
+                                }
                                 placeholder={
                                   geoTagging === `${editingTripIndex}-${visitIndex}`
                                     ? "finding you..."
-                                    : hasGeo
-                                      ? "place name"
-                                      : "geo tag first"
-                                }
-                                onChange={(e) =>
-                                  updateTripVisit(
-                                    editingTripIndex!,
-                                    visitIndex,
-                                    "location",
-                                    e.target.value || ""
-                                  )
+                                    : "geo tag first"
                                 }
                               />
                               <span className="od-acts">
@@ -9003,20 +9052,22 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                 </button>
                               </div>
 
-                              {/* TO */}
+                              {/* TO - stamped by the geo tag. Not a picker
+                                  any more: the point of taking it from the
+                                  tag is that it records when the person was
+                                  actually there. */}
                               <div className={`od-row ${visit.visitToTime ? "has" : ""}`}>
                                 <span className="od-key">
                                   <Clock size={12} /> To
                                 </span>
-                                <button
-                                  type="button"
-                                  className="od-time"
-                                  onClick={() => openVisitTimePicker(visitIndex, "visitToTime")}
+                                <span
+                                  className="od-time od-time-fixed"
+                                  title="Set when this visit is geo tagged"
                                 >
                                   {visit.visitToTime
                                     ? String(visit.visitToTime).slice(0, 5)
                                     : "--:--"}
-                                </button>
+                                </span>
                               </div>
                             </div>
 
