@@ -143,6 +143,42 @@ const PROJECT_OPTIONS = [
   "UNICODE  Serv.",
 ];
 
+const DEFAULT_DESIGNATIONS = [
+  "Principal",
+  "Vice Principal",
+  "Dean",
+  "HOD",
+  "TPO",
+  "Director",
+  "Registrar",
+  "COE",
+  "Chairman",
+  "Secretary",
+  "Coordinator",
+  "Admin Officer",
+];
+
+const VISIT_DESIG_CACHE_KEY = "onduty_visit_designations_v1";
+
+const readVisitDesigCache = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(VISIT_DESIG_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeVisitDesigCache = (next: Record<string, string>) => {
+  try {
+    localStorage.setItem(VISIT_DESIG_CACHE_KEY, JSON.stringify(next));
+  } catch {
+    // Storage quota or private mode - ignore safely.
+  }
+};
+
 /** A pickable party for a visit's client name - taken from the names already
  *  recorded on visits, which is the list that was de-duplicated. */
 type VisitClientOption = {
@@ -899,7 +935,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
   // Designations already recorded against visits, most used first. Same
   // idea as the party list: pick "Principal" rather than inventing a
   // fourth way to spell it.
-  const [designations, setDesignations] = useState<string[]>([]);
+  const [designations, setDesignations] = useState<string[]>(DEFAULT_DESIGNATIONS);
+  const bulkVisitContactsUnsupportedRef = useRef<boolean>(false);
   const [desigPickerFor, setDesigPickerFor] = useState<string | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   // The logged-in user's own branch|dept, normalized. Stays empty until it
@@ -2237,6 +2274,54 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
     setSelectedDutyId(row.id);
     setEditingTripIndex(index);
     setShowDayTripModal(true);
+
+    // Ensure latest designations list & per-visit designations are hydrated
+    // when opening Edit (covers stale list or freshly saved visits).
+    void loadVisitClients();
+    if (row?.id) {
+      void fetchVisitDesignationsForDuties([String(row.id)]).then(({ byVisitId }) => {
+        const cache = readVisitDesigCache();
+        setTripDaysByDuty((prev) => {
+          const dutyTrips = prev[row.id];
+          if (!Array.isArray(dutyTrips) || dutyTrips.length === 0) return prev;
+          let anyTripChanged = false;
+          const nextTrips = dutyTrips.map((t) => {
+            let tripChanged = false;
+            const nextVisits = (t.visits || []).map((v, vIdx) => {
+              if (String(v.contactDesignation || "").trim()) return v;
+              const vidKey = String(v.visit_Id ?? "");
+              const fromServer = vidKey && byVisitId[vidKey] !== undefined ? byVisitId[vidKey] : "";
+              const fromCache =
+                (vidKey && cache[`visit:${vidKey}`]) ||
+                cache[`slot:${row.id}:${t.dutyDate}:${vIdx}`] ||
+                "";
+              let resolved = String(fromServer || fromCache || "").trim();
+              if (!resolved && String(v.partyName || "").trim()) {
+                const pLower = String(v.partyName || "").trim().toLowerCase();
+                const vMob = String(v.mobile || "").replace(/\D/g, "");
+                const vPer = String(v.contactPerson || "").trim().toLowerCase();
+                const knownParty = visitClients.find(
+                  (c) => String(c.Client_Name || "").trim().toLowerCase() === pLower
+                );
+                if (knownParty?.Contact_Designation) {
+                  const kMob = String(knownParty.Mobile_Number || "").replace(/\D/g, "");
+                  const kPer = String(knownParty.Contact_Person || "").trim().toLowerCase();
+                  if ((vMob && kMob && vMob === kMob) || (vPer && kPer && vPer === kPer)) {
+                    resolved = String(knownParty.Contact_Designation).trim();
+                  }
+                }
+              }
+              if (!resolved) return v;
+              tripChanged = true;
+              anyTripChanged = true;
+              return { ...v, contactDesignation: resolved };
+            });
+            return tripChanged ? { ...t, visits: nextVisits } : t;
+          });
+          return anyTripChanged ? { ...prev, [row.id]: nextTrips } : prev;
+        });
+      });
+    }
   };
 
   const closeDayTripModal = () => {
@@ -2292,9 +2377,16 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
     setTripDaysByDuty((prev) => {
       const current = [...(prev[selectedDutyId] || [])];
-      current[tripIndex].visits[visitIndex] = {
-        ...current[tripIndex].visits[visitIndex],
+      if (!current[tripIndex]) return prev;
+      const nextVisits = [...(current[tripIndex].visits || [])];
+      if (!nextVisits[visitIndex]) return prev;
+      nextVisits[visitIndex] = {
+        ...nextVisits[visitIndex],
         [key]: value,
+      };
+      current[tripIndex] = {
+        ...current[tripIndex],
+        visits: nextVisits,
       };
       return {
         ...prev,
@@ -2487,6 +2579,114 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
 
 
+  const fetchVisitDesignationsForDuties = async (
+    dutyIds: string[]
+  ): Promise<{ byVisitId: Record<string, string>; pending: boolean }> => {
+    const cleanIds = Array.from(
+      new Set((dutyIds || []).map((d) => String(d || "").trim()).filter(Boolean))
+    );
+    const byVisitId: Record<string, string> = {};
+    let pending = false;
+    if (cleanIds.length === 0) return { byVisitId, pending };
+
+    const ingestRows = (drows: any[]) => {
+      if (!Array.isArray(drows)) return;
+      drows.forEach((d: any) => {
+        const id = String(d?.Visit_ID ?? d?.visit_ID ?? d?.visit_Id ?? "").trim();
+        if (id) {
+          byVisitId[id] = String(
+            d?.Contact_Designation ?? d?.contact_Designation ?? ""
+          ).trim();
+        }
+      });
+    };
+
+    // Fast path: single bulk request when supported by the API build.
+    if (cleanIds.length > 1 && !bulkVisitContactsUnsupportedRef.current) {
+      try {
+        const bres = await api.get("OnDuty/get_visit_contacts_bulk", {
+          params: { dutyIds: cleanIds.join(",") },
+          headers: authHeaders(),
+        });
+        const bbody =
+          typeof bres.data === "string" ? JSON.parse(bres.data) : bres.data;
+        if (bbody?.pending) pending = true;
+        ingestRows(bbody?.visits);
+        return { byVisitId, pending };
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          bulkVisitContactsUnsupportedRef.current = true;
+        }
+      }
+    }
+
+    // Compatible per-duty fallback (works on all existing API builds).
+    const settled = await Promise.allSettled(
+      cleanIds.map((dutyId) =>
+        api.get("OnDuty/get_visit_contacts", {
+          params: { dutyId },
+          headers: authHeaders(),
+        })
+      )
+    );
+    settled.forEach((item) => {
+      if (item.status !== "fulfilled") return;
+      try {
+        const dbody =
+          typeof item.value.data === "string"
+            ? JSON.parse(item.value.data)
+            : item.value.data;
+        if (dbody?.pending) pending = true;
+        ingestRows(dbody?.visits);
+      } catch {
+        // Ignore malformed response on individual duty.
+      }
+    });
+
+    return { byVisitId, pending };
+  };
+
+  const applyDesignationsToTrips = (
+    dutyId: string,
+    trips: TripDayItem[],
+    byVisitId: Record<string, string>
+  ) => {
+    const cache = readVisitDesigCache();
+    let cacheMutated = false;
+
+    trips.forEach((t) => {
+      (t.visits || []).forEach((v, vIdx) => {
+        const vidKey = String(v.visit_Id ?? "").trim();
+        const serverVal =
+          vidKey && byVisitId[vidKey] !== undefined
+            ? String(byVisitId[vidKey] || "").trim()
+            : "";
+        if (serverVal) {
+          v.contactDesignation = serverVal;
+          if (vidKey && cache[`visit:${vidKey}`] !== serverVal) {
+            cache[`visit:${vidKey}`] = serverVal;
+            cacheMutated = true;
+          }
+          const slotKey = `slot:${dutyId}:${t.dutyDate}:${vIdx}`;
+          if (cache[slotKey] !== serverVal) {
+            cache[slotKey] = serverVal;
+            cacheMutated = true;
+          }
+        } else if (!String(v.contactDesignation || "").trim()) {
+          const cached =
+            (vidKey && cache[`visit:${vidKey}`]) ||
+            cache[`slot:${dutyId}:${t.dutyDate}:${vIdx}`] ||
+            "";
+          if (cached) {
+            v.contactDesignation = cached;
+          }
+        }
+      });
+    });
+
+    if (cacheMutated) writeVisitDesigCache(cache);
+  };
+
   const loadDayTrips = async (dutyId: string) => {
     try {
       const res = await api.get("OnDuty/get_daytrips", {
@@ -2503,24 +2703,12 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       // there would shift every field after it. Best effort: if it fails,
       // the trips still load, just with the designation blank.
       try {
-        const dres = await api.get("OnDuty/get_visit_contacts", {
-          params: { dutyId },
-          headers: authHeaders(),
-        });
-        const dbody = typeof dres.data === "string" ? JSON.parse(dres.data) : dres.data;
-        const drows = Array.isArray(dbody?.visits) ? dbody.visits : [];
-        if (drows.length > 0) {
-          const byId: Record<string, string> = {};
-          drows.forEach((d: any) => {
-            const id = String(d?.Visit_ID ?? d?.visit_ID ?? "");
-            if (id) byId[id] = String(d?.Contact_Designation ?? d?.contact_Designation ?? "");
-          });
-          trips.forEach((t: any) => {
-            (t.visits || []).forEach((v: any) => {
-              const hit = byId[String(v.visit_Id ?? "")];
-              if (hit !== undefined) v.contactDesignation = hit;
-            });
-          });
+        const hasVisits = trips.some((t) =>
+          (t.visits || []).some((v) => Number(v.visit_Id || 0) > 0)
+        );
+        if (hasVisits) {
+          const { byVisitId } = await fetchVisitDesignationsForDuties([String(dutyId)]);
+          applyDesignationsToTrips(String(dutyId), trips, byVisitId);
         }
       } catch {
         // Designations unavailable - not a reason to fail the trip load.
@@ -3049,6 +3237,27 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         } else {
           notify("Trip Saved Successfully! 🎉", "success");
         }
+
+        // Persist submitted designations in local cache as an immediate
+        // bridge in case the DB column or new-visit ID was pending, while
+        // deleting cleared ones so intentional blanks stay blank.
+        if (tripModalMode === "edit" && selectedDutyId) {
+          const cache = readVisitDesigCache();
+          trip.visits.forEach((v, i) => {
+            const desig = String(v.contactDesignation || "").trim();
+            const vid = Number(v.visit_Id || 0);
+            const slotKey = `slot:${selectedDutyId}:${trip.dutyDate}:${i}`;
+            if (desig) {
+              if (vid > 0) cache[`visit:${vid}`] = desig;
+              cache[slotKey] = desig;
+            } else {
+              if (vid > 0) delete cache[`visit:${vid}`];
+              delete cache[slotKey];
+            }
+          });
+          writeVisitDesigCache(cache);
+        }
+
         await loadDuties();
         loadVisitClients();
 
@@ -3278,14 +3487,20 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         })).filter((c: VisitClientOption) => c.Client_Name.length > 0)
       );
       const desigs = Array.isArray(body?.designations) ? body.designations : [];
-      setDesignations(
-        desigs.map((d: any) => String(d ?? "").trim()).filter((d: string) => d.length > 0)
-      );
+      const fromApi = desigs
+        .map((d: any) => String(d ?? "").trim())
+        .filter((d: string) => d.length > 0);
+      const seenLower = new Set(fromApi.map((d: string) => d.toLowerCase()));
+      const merged = [
+        ...fromApi,
+        ...DEFAULT_DESIGNATIONS.filter((d) => !seenLower.has(d.toLowerCase())),
+      ];
+      setDesignations(merged);
     } catch {
       // The picker falls back to free typing if the list cannot be loaded,
       // so a failure here must not stop a visit being recorded.
       setVisitClients([]);
-      setDesignations([]);
+      setDesignations(DEFAULT_DESIGNATIONS);
     }
   };
 
@@ -3365,12 +3580,16 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       });
       const body = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
       if (body?.found) {
+        const nextDesig = body.Contact_Designation ?? body.contact_Designation;
         fill({
           person: body.Contact_Person ?? body.contact_Person,
-          designation: body.Contact_Designation ?? body.contact_Designation,
+          designation: nextDesig,
           mobile: body.Mobile_Number ?? body.mobile_Number,
           location: body.Location ?? body.location,
         });
+        if (ours && !String(nextDesig || "").trim()) {
+          updateTripVisit(tripIndex, visitIndex, "contactDesignation", "");
+        }
       } else if (ours) {
         // This party has nothing on record. Leaving the previous party's
         // contact behind would be worse than an empty form.
@@ -3468,6 +3687,24 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
         const rows = (data as any)[id];
         result[id] = buildTripsFromRows(Array.isArray(rows) ? rows : []);
       });
+
+      // Hydrate Contact_Designation for every duty that has saved visits so
+      // initial load and page refresh keep saved designations intact.
+      const dutyIdsWithVisits = ids.filter((id) =>
+        (result[id] || []).some((t) =>
+          (t.visits || []).some((v) => Number(v.visit_Id || 0) > 0)
+        )
+      );
+      if (dutyIdsWithVisits.length > 0) {
+        try {
+          const { byVisitId } = await fetchVisitDesignationsForDuties(dutyIdsWithVisits);
+          dutyIdsWithVisits.forEach((id) => {
+            applyDesignationsToTrips(id, result[id] || [], byVisitId);
+          });
+        } catch {
+          // Best effort - never block day trip rendering.
+        }
+      }
     } catch (error) {
       console.error("loadAllTrips (bulk) error:", error);
       ids.forEach((id) => {
@@ -7539,12 +7776,27 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                         </div>
                                       )}
 
-                                      {/* Contact Person & Phone */}
-                                      {(visit.contactPerson || visit.mobile) && (
+                                      {/* Contact Person, Designation & Phone */}
+                                      {(visit.contactPerson || visit.contactDesignation || visit.mobile) && (
                                         <div className="daylog-detail-row">
                                           <Phone size={14} color="#64748b" />
                                           <strong style={{ color: "#475569" }}>Contact:</strong>
                                           <span>{visit.contactPerson || "-"}</span>
+                                          {visit.contactDesignation && (
+                                            <span
+                                              style={{
+                                                background: "#f1f5f9",
+                                                color: "#334155",
+                                                fontSize: "11px",
+                                                fontWeight: 600,
+                                                padding: "1px 7px",
+                                                borderRadius: "999px",
+                                                border: "1px solid #cbd5e1",
+                                              }}
+                                            >
+                                              {visit.contactDesignation}
+                                            </span>
+                                          )}
                                           {visit.mobile && (
                                             <a
                                               href={`tel:${visit.mobile}`}
@@ -9305,6 +9557,12 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                                     className={`party-pick-item ${picked ? "picked" : ""}`}
                                                     onMouseDown={(e) => {
                                                       e.preventDefault();
+                                                      updateTripVisit(
+                                                        editingTripIndex,
+                                                        visitIndex,
+                                                        "contactAutoFor",
+                                                        ""
+                                                      );
                                                       updateTripVisit(
                                                         editingTripIndex,
                                                         visitIndex,
