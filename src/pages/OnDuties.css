@@ -1,4 +1,4 @@
-﻿/* OnDuties.css */
+/* OnDuties.css */
 
 :root {
   --glass-bg: rgba(255, 255, 255, 0.65);
@@ -394,9 +394,23 @@
   padding: 20px;
   margin-bottom: 20px;
   /* box-shadow: var(--premium-shadow); */
-  transition: all 0.4s ease;
+  transition: none;
+  transform: none !important;
   position: relative;
   overflow: hidden;
+  color: #0f172a;
+}
+
+.premium-card:hover,
+.premium-card:active,
+.premium-card:focus-within {
+  transform: none !important;
+}
+
+.premium-card::before {
+  display: none !important;
+  content: none !important;
+  pointer-events: none !important;
 }
 
 /* Vertical flag flush against the card's left edge, colored by status -
@@ -1144,27 +1158,414 @@
 /* A short form on a small sheet - full height would leave two fields
    floating in a page of white. */
 .od-team-modal {
-  --width: min(420px, 92vw);
+  --width: min(440px, 94vw);
   --height: auto;
-  --min-height: 320px;
-  --max-height: 90vh;
-  --border-radius: 14px;
+  --min-height: 280px;
+  --max-height: 88vh;
+  --border-radius: 18px;
+  --box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
 }
 
 /* The sheet body. It carries its own padding and scrolling because the
    modal is auto-height - an IonContent here would measure as zero. */
 .od-team-modal .od-team-sheet {
-  padding: 18px 18px 22px;
+  padding: 20px 20px 22px;
   background: #ffffff;
-  max-height: 90vh;
+  max-height: 88vh;
   overflow-y: auto;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* Only the overflow is ours - leaving Ionic's own positioning of the
    wrapper alone, since overriding it is what un-centres the sheet. */
 .od-team-modal::part(content) {
   overflow: hidden;
+}
+
+.od-team-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.od-team-header-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.od-team-title {
+  margin: 0 0 4px !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.01em;
+}
+
+.od-team-title.is-add {
+  color: #0f172a !important;
+}
+
+.od-team-title.is-remove {
+  color: #991b1b !important;
+}
+
+.od-team-sub {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  line-height: 1.4 !important;
+}
+
+.od-team-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.od-team-close-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.od-team-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.od-team-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+
+.od-team-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.od-team-select-btn:hover {
+  border-color: #94a3b8;
+  background: #ffffff;
+}
+
+.od-team-select-btn.open {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.od-team-select-btn.has-val {
+  color: #0f172a;
+  font-weight: 700;
+  background: #ffffff;
+}
+
+.od-team-select-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.od-team-select-btn.has-val .od-team-select-icon,
+.od-team-select-btn.open .od-team-select-icon {
+  color: #2563eb;
+}
+
+.od-team-select-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.od-team-select-chev {
+  color: #64748b;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.od-team-select-chev.rotated {
+  transform: rotate(180deg);
+}
+
+.od-team-dropdown {
+  margin-top: 2px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.od-team-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.od-team-search-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.od-team-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.od-team-search-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.od-team-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: #e2e8f0;
+  color: #475569;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.od-team-dropdown-list {
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.od-team-dropdown-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.od-team-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.od-team-option:hover {
+  background: #f1f5f9;
+}
+
+.od-team-option.selected {
+  background: #eff6ff;
+}
+
+.od-team-option-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.od-team-option.selected .od-team-option-name {
+  color: #1d4ed8;
+}
+
+.od-team-option-code {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.od-team-option.selected .od-team-option-code {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.od-team-option-check {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.od-attday-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.od-team-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.od-team-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.od-team-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.od-team-btn-primary,
+.od-team-btn-secondary {
+  flex: 1;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.od-team-btn-primary {
+  border: 1px solid #059669;
+  background: #059669;
+  color: #ffffff;
+}
+
+.od-team-btn-primary:hover:not(:disabled) {
+  background: #047857;
+  border-color: #047857;
+}
+
+.od-team-btn-primary.is-remove {
+  border-color: #dc2626;
+  background: #dc2626;
+}
+
+.od-team-btn-primary.is-remove:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.od-team-btn-secondary {
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.od-team-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.od-team-btn-primary:disabled,
+.od-team-btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 420px) {
+  .od-team-modal .od-team-sheet {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .od-team-actions {
+    flex-direction: column;
+  }
+
+  .od-team-btn-primary,
+  .od-team-btn-secondary {
+    width: 100%;
+  }
 }
 
 /* A day toggle. Off is the same grey a disabled day already reads as
@@ -1205,19 +1606,60 @@
   padding: 12px 14px;
   margin-bottom: 12px;
   border-radius: 16px;
+  transform: none !important;
+  transition: none !important;
+}
+
+.onduties-content .premium-card:hover,
+.onduties-content .premium-card:active {
+  transform: none !important;
+}
+
+.onduties-content .premium-card button,
+.onduties-content .premium-card a,
+.onduties-content .dm-data-link,
+.onduties-content .od-team-btn,
+.onduties-content .duty-view-link,
+.onduties-content .daylog-btn-add,
+.onduties-content .daylog-btn-refresh,
+.onduties-content .daylog-action-btn {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  transform: none !important;
+}
+
+.onduties-content .premium-card button:hover,
+.onduties-content .premium-card button:active,
+.onduties-content .premium-card a:hover,
+.onduties-content .premium-card a:active {
+  transform: none !important;
 }
 
 .onduties-content .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.onduties-content .dm-head-left {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .onduties-content .college-name {
   font-size: 0.95rem;
   margin-bottom: 2px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .onduties-content .duty-subtitle {
   font-size: 0.78rem;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .onduties-content .duty-info-box {
@@ -1290,7 +1732,8 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 62%;
 }
 
@@ -1301,6 +1744,8 @@
   font-size: 0.72rem;
   line-height: 1.3;
   text-align: right;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .onduties-content .dm-data-link {
@@ -1453,8 +1898,26 @@
 }
 
 @media screen and (max-width: 768px) {
+  .onduties-content .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .onduties-content .dm-head-left {
+    width: 100%;
+  }
+
   .onduties-content .dm-head-right {
+    width: 100%;
     max-width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .onduties-content .dm-head-right .dm-chain {
+    width: 100%;
+    text-align: left;
   }
 }
 
@@ -2511,7 +2974,7 @@ ion-modal.daytrip-modal ion-content,
 .daylog-btn-add:hover {
   background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .daylog-btn-refresh {
@@ -3604,31 +4067,39 @@ ion-modal.daytrip-preview-modal::part(content) {
    on a phone, not at a desk. Everything below is about that.
    ============================================================ */
 @media (max-width: 640px) {
-
-  /* 1. iOS zooms the whole page in when a focused input's text is under
-        16px. That zoom does not undo itself, so every field after the
-        first leaves the form half off-screen. 16px is the fix, and it
-        has to beat the !important sizes set elsewhere. */
   .daytrip-input,
   .daytrip-input.party-pick-input,
   .dropdown-pure-input {
-    font-size: 16px !important;
+    font-size: 12.5px !important;
   }
 
-  /* 2. Thumb-sized targets. 44px is the smallest reliably hittable
-        control on a phone held in one hand. */
-  .daytrip-input,
+  .daytrip-input {
+    height: 36px !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
+    padding: 0 10px 0 32px !important;
+    font-weight: 600 !important;
+  }
+
+  .daytrip-input-icon,
+  .daytrip-grid-3 .daytrip-input-icon {
+    left: 10px !important;
+    width: 14px !important;
+    height: 14px !important;
+  }
+
   .daytrip-geo-btn,
   .daytrip-action-pill-btn,
-  .daytrip-btn-add-party,
-  .party-pick-toggle,
   .daytrip-emp-pill {
-    min-height: 44px !important;
+    min-height: 34px !important;
   }
 
   .party-pick-toggle {
-    width: 40px !important;
-    height: 40px !important;
+    width: 26px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    right: 6px !important;
+    background: transparent !important;
   }
 
   /* 3. A dropdown that only shows three rows means scrolling inside a
@@ -3638,41 +4109,46 @@ ion-modal.daytrip-preview-modal::part(content) {
   }
 
   .party-pick-item {
-    padding: 11px 10px !important;
+    padding: 9px 10px !important;
   }
 
   .party-pick-name {
-    font-size: 14px !important;
+    font-size: 13px !important;
   }
 
   /* 4. Side-by-side fields do not fit. One per line, everywhere. */
   .daytrip-grid-2,
   .daytrip-grid-3 {
     grid-template-columns: 1fr !important;
+    gap: 8px !important;
   }
 
   /* 5. Give the content the full width - 16px of padding on each side of
         a 360px screen is 9% of it spent on nothing. */
   .daytrip-card {
-    padding: 12px !important;
-    border-radius: 12px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+    gap: 10px !important;
   }
 
   .daytrip-visit-box {
-    padding: 12px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+    gap: 8px !important;
   }
 
   /* 6. Employee pills wrap instead of scrolling sideways - a horizontal
         scroller hides whoever is at the end of it. */
   .daytrip-emp-pill {
-    padding: 8px 12px !important;
-    font-size: 13px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
   }
 }
 
 /* The narrowest phones still in use. */
 @media (max-width: 380px) {
-  .daytrip-card { padding: 10px !important; }
+  .daytrip-card { padding: 9px !important; }
+  .daytrip-visit-box { padding: 9px !important; }
 }
 
 /* The lock notice now lives INSIDE the photo card it refers to. Both
@@ -3705,10 +4181,11 @@ ion-modal.daytrip-preview-modal::part(content) {
 .od-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  min-height: 44px;
-  padding: 6px 8px 6px 10px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 5px 7px 5px 9px;
   border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
@@ -3729,7 +4206,7 @@ ion-modal.daytrip-preview-modal::part(content) {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
@@ -3743,18 +4220,19 @@ ion-modal.daytrip-preview-modal::part(content) {
   flex: 1;
   min-width: 0;
   width: 100%;
-  height: 30px;
-  padding: 0 4px;
+  height: 28px;
+  padding: 0 3px;
   border: none;
   background: transparent;
   outline: none;
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 13.5px;
+  font-weight: 700;
   color: #0f172a;
+  text-overflow: ellipsis;
 }
 
 .od-val::placeholder {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #94a3b8;
   text-transform: none;
@@ -3790,11 +4268,11 @@ ion-modal.daytrip-preview-modal::part(content) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #f1f5f9;
   color: #475569;
   cursor: pointer;
@@ -3823,9 +4301,9 @@ ion-modal.daytrip-preview-modal::part(content) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   background: #f1f5f9;
   color: #94a3b8;
 }
@@ -3836,14 +4314,15 @@ ion-modal.daytrip-preview-modal::part(content) {
   color: #2563eb;
   background: #eff6ff;
   border-radius: 6px;
-  padding: 3px 7px;
+  padding: 2px 6px;
   white-space: nowrap;
 }
 
 @media (max-width: 640px) {
-  .od-row { min-height: 46px; }
-  .od-val { font-size: 16px; }
-  .od-btn { width: 32px; height: 32px; }
+  .od-row { min-height: 38px; padding: 4px 6px 4px 8px; gap: 5px; }
+  .od-key { font-size: 10px; gap: 3px; }
+  .od-val { font-size: 12.5px !important; font-weight: 700 !important; }
+  .od-btn { width: 26px; height: 26px; }
 }
 
 /* ============================================================
@@ -3871,7 +4350,7 @@ ion-modal.daytrip-preview-modal::part(content) {
 /* 2. One height for every label row, whether it holds a chip, two pills
       or nothing at all. */
 .daytrip-input-group > div:first-child {
-  min-height: 30px !important;
+  min-height: 22px !important;
   display: flex !important;
   align-items: center !important;
 }
@@ -3879,8 +4358,25 @@ ion-modal.daytrip-preview-modal::part(content) {
 .daytrip-input-group > .daytrip-input-label:first-child {
   display: inline-flex !important;
   align-items: center !important;
-  min-height: 30px !important;
+  min-height: 22px !important;
   margin: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .daytrip-input-group {
+    gap: 4px !important;
+  }
+
+  .daytrip-input-group > div:first-child,
+  .daytrip-input-group > .daytrip-input-label:first-child {
+    min-height: 0 !important;
+  }
+
+  .daytrip-input-label {
+    font-size: 11px !important;
+    gap: 4px !important;
+    color: #475569 !important;
+  }
 }
 
 /* 3. A long name must shorten, not disappear past the edge of its box -
@@ -3889,22 +4385,39 @@ ion-modal.daytrip-preview-modal::part(content) {
   text-overflow: ellipsis !important;
 }
 
+/* Multi-line remarks textarea so long notes wrap and remain readable */
+.daytrip-remarks-wrapper .daytrip-input-icon {
+  top: 16px !important;
+  transform: none !important;
+}
+
+.daytrip-input.daytrip-remarks-input {
+  height: auto !important;
+  min-height: 54px !important;
+  padding: 8px 10px 8px 34px !important;
+  line-height: 1.4 !important;
+  font-family: inherit !important;
+  white-space: pre-wrap !important;
+  text-overflow: clip !important;
+  resize: vertical;
+}
+
 /* 4. The contact row holds three fields on one line, so its text starts
       closer to the icon and sits a point smaller - a full name does not
       fit a third of the width at 14px with 42px of padding. */
 .daytrip-grid-3 .daytrip-input {
-  padding-left: 36px !important;
+  padding-left: 34px !important;
   padding-right: 10px !important;
-  font-size: 13.5px !important;
+  font-size: 12.5px !important;
 }
 
 .daytrip-grid-3 .daytrip-input-icon {
-  left: 11px !important;
+  left: 10px !important;
 }
 
 /* The designation picker also carries a chevron on the right. */
 .daytrip-grid-3 .daytrip-input.party-pick-input {
-  padding-right: 34px !important;
+  padding-right: 30px !important;
 }
 
 /* 5. Sub-links under a field belong to that field, not to the gap
@@ -3914,10 +4427,19 @@ ion-modal.daytrip-preview-modal::part(content) {
 }
 
 @media (max-width: 640px) {
-  /* Stacked, so nothing is competing - give the text its width back. */
   .daytrip-grid-3 .daytrip-input {
-    font-size: 16px !important;
-    padding-left: 40px !important;
+    font-size: 12.5px !important;
+    padding-left: 32px !important;
+  }
+
+  .daytrip-input.daytrip-remarks-input {
+    font-size: 12.5px !important;
+    padding: 7px 10px 7px 32px !important;
+    min-height: 50px !important;
+  }
+
+  .daytrip-remarks-wrapper .daytrip-input-icon {
+    top: 14px !important;
   }
 }
 
@@ -3933,14 +4455,24 @@ ion-modal.daytrip-preview-modal::part(content) {
   min-width: 0;
 }
 
-.od-row .daytrip-input {
-  height: 30px !important;
-  padding: 0 28px 0 4px !important;
+.od-row .daytrip-input,
+.od-row .daytrip-input.party-pick-input {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 22px 0 2px !important;
   border: none !important;
   background: transparent !important;
-  font-size: 15px !important;
-  font-weight: 800 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
   text-overflow: ellipsis !important;
+}
+
+@media (max-width: 640px) {
+  .od-row .daytrip-input,
+  .od-row .daytrip-input.party-pick-input {
+    font-size: 12.5px !important;
+    padding: 0 18px 0 2px !important;
+  }
 }
 
 .od-row .daytrip-input:focus {
@@ -3954,8 +4486,9 @@ ion-modal.daytrip-preview-modal::part(content) {
 
 .od-row .party-pick-toggle {
   right: 0 !important;
-  width: 24px !important;
-  height: 24px !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
   background: transparent !important;
 }
 
@@ -4015,15 +4548,15 @@ ion-modal.daytrip-preview-modal::part(content) {
 .emp-codes {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
+  gap: 5px;
+  margin-top: 0;
 }
 
 .emp-chip {
   display: inline-flex;
   align-items: stretch;
   border: 1.5px solid #e2e8f0;
-  border-radius: 9px;
+  border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
 }
@@ -4034,13 +4567,13 @@ ion-modal.daytrip-preview-modal::part(content) {
 .emp-code {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 0 9px;
+  gap: 3px;
+  min-height: 26px;
+  padding: 0 7px;
   border: none;
   background: transparent;
-  font-size: 12.5px;
-  font-weight: 800;
+  font-size: 11.5px;
+  font-weight: 700;
   color: #334155;
   cursor: pointer;
   white-space: nowrap;
@@ -4052,7 +4585,7 @@ ion-modal.daytrip-preview-modal::part(content) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
+  width: 24px;
   border: none;
   border-left: 1.5px solid #e2e8f0;
   background: #f8fafc;
@@ -4073,9 +4606,9 @@ ion-modal.daytrip-preview-modal::part(content) {
 .emp-owner-note {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  font-size: 11px;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #2563eb;
 }
@@ -4150,8 +4683,8 @@ ion-modal.daytrip-preview-modal::part(content) {
 }
 
 @media (max-width: 640px) {
-  .emp-code { min-height: 36px; font-size: 13px; }
-  .emp-fu { width: 34px; }
+  .emp-code { min-height: 26px; font-size: 11px; padding: 0 6px; }
+  .emp-fu { width: 22px; }
 }
 
 /* ============================================================
@@ -4175,7 +4708,7 @@ ion-modal.daytrip-preview-modal::part(content) {
    starts at the same place down the block. */
 .od-key {
   flex: 0 0 auto;
-  min-width: 74px;
+  min-width: 64px;
 }
 
 .od-val {
@@ -4372,17 +4905,32 @@ ion-modal.daytrip-preview-modal::part(content) {
 /* The visited row: key on the left, codes on one line beside it. */
 .emp-row {
   flex-wrap: wrap;
+  height: auto !important;
+  align-items: center;
 }
 
 .emp-row .emp-codes {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   margin-top: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  padding-bottom: 2px;
+  flex-wrap: wrap;
+  overflow-x: visible;
+  padding-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .emp-row {
+    padding: 6px 8px;
+    gap: 5px;
+  }
+
+  .emp-row .emp-codes {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+    gap: 4px;
+  }
 }
 
 /* A chip must not be squeezed thinner than its code by a long team. */
@@ -4393,7 +4941,7 @@ ion-modal.daytrip-preview-modal::part(content) {
 /* The follow-up notes belong to the row but not to its line. */
 .emp-row .emp-owner-note {
   flex: 0 0 100%;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* The 74px key column exists so the four odometer numbers start on one
@@ -4407,10 +4955,10 @@ ion-modal.daytrip-preview-modal::part(content) {
 }
 
 /* With the gap gone the value gets the room. The chevron sits over the
-   last 26px of the box, so the text stops before it rather than under
+   last 20px of the box, so the text stops before it rather than under
    it. */
 .daytrip-visit-box .od-row .daytrip-input {
-  padding-right: 26px !important;
+  padding-right: 20px !important;
 }
 
 /* The count is a chip, not a column - it should take the width of its
@@ -4432,19 +4980,23 @@ ion-modal.daytrip-preview-modal::part(content) {
    at the far end. */
 .daytrip-visit-header {
   flex-wrap: wrap !important;
-  gap: 8px !important;
+  gap: 6px !important;
 }
 
 .daytrip-visit-header .daytrip-visit-badge {
   flex: 0 0 auto;
 }
 
+.daytrip-visit-header .daytrip-btn-remove-visit {
+  margin-left: auto;
+}
+
 .daytrip-visit-header .od-row {
   flex: 1 1 200px;
   min-width: 0;
-  min-height: 38px;
-  height: 38px;
-  padding: 4px 6px 4px 10px;
+  min-height: 36px;
+  height: 36px;
+  padding: 4px 6px 4px 8px;
 }
 
 .daytrip-visit-header .od-row .od-key {
@@ -4453,15 +5005,16 @@ ion-modal.daytrip-preview-modal::part(content) {
 }
 
 .daytrip-visit-header .od-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
 }
 
-/* On a phone the badge and the bill each take their own line rather
-   than squeezing the amount into nothing. */
+/* On a phone the badge and Remove share the top row, and the bill takes
+   its own full line below rather than squeezing the amount into nothing. */
 @media (max-width: 640px) {
   .daytrip-visit-header .od-row {
     flex: 1 1 100%;
+    order: 3;
   }
 }
 
@@ -4470,8 +5023,8 @@ ion-modal.daytrip-preview-modal::part(content) {
    more than enough for the pair. */
 .daytrip-grid-633 {
   display: grid !important;
-  grid-template-columns: 6fr 3fr 3fr !important;
-  gap: 8px !important;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 3fr) minmax(0, 3fr) !important;
+  gap: 6px !important;
   width: 100% !important;
   align-items: center !important;
   box-sizing: border-box !important;
@@ -4482,28 +5035,35 @@ ion-modal.daytrip-preview-modal::part(content) {
 .od-time {
   flex: 1;
   min-width: 0;
-  height: 30px;
-  padding: 0 4px;
+  height: 28px;
+  padding: 0 3px;
   border: none;
   background: transparent;
   text-align: left;
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   color: #0f172a;
   cursor: pointer;
   white-space: nowrap;
 }
 
+@media (max-width: 640px) {
+  .od-time {
+    font-size: 12.5px;
+    padding: 0 2px;
+  }
+}
+
 .od-row:not(.has) .od-time {
   color: #94a3b8;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* On a phone three across leaves nothing readable: the task takes its
    own line and the two times share the next. */
 @media (max-width: 640px) {
   .daytrip-grid-633 {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
   }
 
   .daytrip-grid-633 > .od-row.party {
@@ -4814,6 +5374,12 @@ ion-modal.daytrip-preview-modal::part(content) {
 .daytrip-card .daytrip-grid-2,
 .daytrip-actions-row {
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 640px) {
+  .daytrip-card .daytrip-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* minmax(0, 1fr) rather than a bare 1fr: a grid track's default minimum

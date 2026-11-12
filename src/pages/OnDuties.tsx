@@ -116,6 +116,8 @@ type TeamChangeState = {
   empCode: string;
   date: string;
   busy: boolean;
+  picker?: "emp" | "date" | null;
+  search?: string;
 };
 
 type ClientItem = { Client_ID: string; Client_Name: string };
@@ -4266,12 +4268,14 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
       // saying "from this day onwards", which is the whole point.
       date: ymd(row?.DateFrom) || "",
       busy: false,
+      picker: null,
+      search: "",
     });
     if (row?.id) loadDutyMembers(String(row.id));
   };
 
   const closeTeamChange = () =>
-    setTeamChange((s) => ({ ...s, open: false, busy: false }));
+    setTeamChange((s) => ({ ...s, open: false, busy: false, picker: null, search: "" }));
 
   const submitTeamChange = async () => {
     const { mode, row, empCode, date } = teamChange;
@@ -6895,11 +6899,8 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                   <span
                     className={`dm-side-flag ${rowApproved ? "approved" : rowRejected ? "rejected" : "pending"}`}
                   />
-                  <div
-                    className="card-header"
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
-                  >
-                    <div style={{ flex: 1 }}>
+                  <div className="card-header">
+                    <div className="dm-head-left">
                       {/* The heading is the duty itself now: type and branch,
                       which used to cost two labelled boxes down in the grid.
                       "Party" was a placeholder standing in for a column most
@@ -7335,7 +7336,6 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                           overflowWrap: "anywhere",
                           fontSize: "0.7rem",
                           lineHeight: "20px",
-                          whiteSpace: "nowrap",
                         }}
                       >
                         {row.DateFrom && row.DateTo
@@ -7928,23 +7928,30 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
 
               return (
                 <>
-                  <h2 style={{ margin: "0 0 4px", fontSize: "19px", fontWeight: 700 }}>
-                    Reporting days at the branch
-                  </h2>
-                  <p style={{ margin: "0 0 18px", color: "#64748b", fontSize: "13px" }}>
-                    Duty #{String(row?.id ?? "")} &middot; {prettyDay(row?.DateFrom)}
-                    {ymd(row?.DateTo) && ymd(row?.DateTo) !== ymd(row?.DateFrom)
-                      ? " to " + prettyDay(row?.DateTo)
-                      : ""}
-                  </p>
+                  <div className="od-team-header">
+                    <div className="od-team-header-main">
+                      <h2 className="od-team-title">
+                        Reporting days at the branch
+                      </h2>
+                      <p className="od-team-sub">
+                        Duty #{String(row?.id ?? "")} &middot; {prettyDay(row?.DateFrom)}
+                        {ymd(row?.DateTo) && ymd(row?.DateTo) !== ymd(row?.DateFrom)
+                          ? " to " + prettyDay(row?.DateTo)
+                          : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="od-team-close-btn"
+                      onClick={closeAttEdit}
+                      disabled={attEdit.busy}
+                      aria-label="Close"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "8px",
-                    }}
-                  >
+                  <div className="od-attday-grid">
                     {all.map((d) => {
                       const on = attEdit.days.includes(d.key);
                       return (
@@ -7961,37 +7968,35 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                   </div>
 
                   {all.length === 0 && (
-                    <p style={{ color: "#b91c1c", fontSize: "13px", margin: "6px 2px 0" }}>
+                    <p className="od-team-error">
                       This duty has no usable date range, so its days cannot be
                       listed.
                     </p>
                   )}
 
-                  <p style={{ color: "#64748b", fontSize: "12px", margin: "16px 2px 0" }}>
+                  <p className="od-team-note">
                     A marked day is a day at the branch, where the branch
                     check-in rule and its geofence apply. An unmarked day is
                     still on duty, with neither.
                   </p>
 
-                  <div style={{ display: "flex", gap: "10px", marginTop: "22px" }}>
-                    <IonButton
-                      expand="block"
-                      style={{ flex: 1 }}
+                  <div className="od-team-actions">
+                    <button
+                      type="button"
+                      className="od-team-btn-primary"
                       disabled={attEdit.busy || all.length === 0}
                       onClick={submitAttEdit}
                     >
                       {attEdit.busy ? "Saving..." : "Save"}
-                    </IonButton>
-                    <IonButton
-                      expand="block"
-                      fill="outline"
-                      color="medium"
-                      style={{ flex: 1 }}
+                    </button>
+                    <button
+                      type="button"
+                      className="od-team-btn-secondary"
                       disabled={attEdit.busy}
                       onClick={closeAttEdit}
                     >
                       Cancel
-                    </IonButton>
+                    </button>
                   </div>
                 </>
               );
@@ -8068,99 +8073,259 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                     name: c.name,
                   }));
 
+              const selectedEmp = options.find((o: any) => o.code === teamChange.empCode);
+              const selectedDay = dayChoices.find((d) => d.value === teamChange.date);
+              const q = String(teamChange.search ?? "").trim().toLowerCase();
+              const filteredOptions = q
+                ? options.filter(
+                    (o: any) =>
+                      String(o.name ?? "").toLowerCase().includes(q) ||
+                      String(o.code ?? "").toLowerCase().includes(q)
+                  )
+                : options;
+
               return (
                 <>
-                  <h2 style={{ margin: "4px 0 2px", fontSize: "18px" }}>
-                    {teamChange.mode === "add"
-                      ? "Add someone to this duty"
-                      : "Take someone off this duty"}
-                  </h2>
-                  <p style={{ margin: "0 0 14px", color: "#64748b", fontSize: "13px" }}>
-                    Duty #{String(row?.id ?? "")} &middot; {prettyDay(dFrom)}
-                    {dTo && dTo !== dFrom ? " to " + prettyDay(dTo) : ""}
-                  </p>
+                  <div className="od-team-header">
+                    <div className="od-team-header-main">
+                      <h2 className={"od-team-title " + (teamChange.mode === "remove" ? "is-remove" : "is-add")}>
+                        {teamChange.mode === "add"
+                          ? "Add someone to this duty"
+                          : "Take someone off this duty"}
+                      </h2>
+                      <p className="od-team-sub">
+                        Duty #{String(row?.id ?? "")} &middot; {prettyDay(dFrom)}
+                        {dTo && dTo !== dFrom ? " to " + prettyDay(dTo) : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="od-team-close-btn"
+                      onClick={closeTeamChange}
+                      disabled={teamChange.busy}
+                      aria-label="Close"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
 
-                  <IonItem>
-                    <IonLabel position="stacked">
+                  <div className="od-team-field">
+                    <label className="od-team-label">
                       {teamChange.mode === "add" ? "Who joins" : "Who drops"}
-                    </IonLabel>
-                    <IonSelect
-                      value={teamChange.empCode}
-                      placeholder="Select employee"
-                      interface="popover"
-                      onIonChange={(e) =>
+                    </label>
+                    <button
+                      type="button"
+                      className={
+                        "od-team-select-btn" +
+                        (teamChange.picker === "emp" ? " open" : "") +
+                        (selectedEmp ? " has-val" : "")
+                      }
+                      onClick={() =>
                         setTeamChange((s) => ({
                           ...s,
-                          empCode: String(e.detail.value ?? ""),
+                          picker: s.picker === "emp" ? null : "emp",
                         }))
                       }
                     >
-                      {options.map((o: any) => (
-                        <IonSelectOption key={o.code} value={o.code}>
-                          {o.name} ({o.code})
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </IonItem>
+                      <span className="od-team-select-icon">
+                        <User size={15} />
+                      </span>
+                      <span className="od-team-select-text">
+                        {selectedEmp
+                          ? `${selectedEmp.name} (${selectedEmp.code})`
+                          : "Select employee"}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={
+                          "od-team-select-chev" +
+                          (teamChange.picker === "emp" ? " rotated" : "")
+                        }
+                      />
+                    </button>
 
-                  <IonItem lines="none">
-                    <IonLabel position="stacked">
+                    {teamChange.picker === "emp" && (
+                      <div className="od-team-dropdown">
+                        {options.length > 4 && (
+                          <div className="od-team-search-wrap">
+                            <Search size={14} className="od-team-search-icon" />
+                            <input
+                              type="text"
+                              className="od-team-search-input"
+                              placeholder="Search employee name or code..."
+                              value={teamChange.search || ""}
+                              onChange={(e) =>
+                                setTeamChange((s) => ({
+                                  ...s,
+                                  search: e.target.value,
+                                }))
+                              }
+                              autoFocus
+                            />
+                            {teamChange.search && (
+                              <button
+                                type="button"
+                                className="od-team-search-clear"
+                                onClick={() =>
+                                  setTeamChange((s) => ({ ...s, search: "" }))
+                                }
+                              >
+                                <X size={13} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <div className="od-team-dropdown-list">
+                          {filteredOptions.length === 0 ? (
+                            <div className="od-team-dropdown-empty">
+                              No matching employees found
+                            </div>
+                          ) : (
+                            filteredOptions.map((o: any) => {
+                              const active = o.code === teamChange.empCode;
+                              return (
+                                <button
+                                  key={o.code}
+                                  type="button"
+                                  className={
+                                    "od-team-option" + (active ? " selected" : "")
+                                  }
+                                  onClick={() =>
+                                    setTeamChange((s) => ({
+                                      ...s,
+                                      empCode: o.code,
+                                      picker: null,
+                                      search: "",
+                                    }))
+                                  }
+                                >
+                                  <span className="od-team-option-name">
+                                    {o.name}
+                                  </span>
+                                  <span className="od-team-option-code">
+                                    {o.code}
+                                  </span>
+                                  {active && (
+                                    <Check
+                                      size={15}
+                                      className="od-team-option-check"
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="od-team-field">
+                    <label className="od-team-label">
                       {teamChange.mode === "add"
                         ? "On the duty from"
                         : "Off the duty from"}
-                    </IonLabel>
-                    {/* A list of the duty's own days rather than a date
-                        input: the range is at most a few days, every one
-                        of them reads DD-MM-YYYY, and a day outside the
-                        duty cannot be picked at all. */}
-                    <IonSelect
-                      value={teamChange.date}
-                      placeholder="Select date"
-                      interface="popover"
-                      onIonChange={(e) =>
+                    </label>
+                    <button
+                      type="button"
+                      className={
+                        "od-team-select-btn" +
+                        (teamChange.picker === "date" ? " open" : "") +
+                        (selectedDay ? " has-val" : "")
+                      }
+                      onClick={() =>
                         setTeamChange((s) => ({
                           ...s,
-                          date: String(e.detail.value ?? ""),
+                          picker: s.picker === "date" ? null : "date",
                         }))
                       }
                     >
-                      {dayChoices.map((d) => (
-                        <IonSelectOption key={d.value} value={d.value}>
-                          {d.label}
-                        </IonSelectOption>
-                      ))}
-                    </IonSelect>
-                  </IonItem>
+                      <span className="od-team-select-icon">
+                        <Calendar size={15} />
+                      </span>
+                      <span className="od-team-select-text">
+                        {selectedDay
+                          ? selectedDay.label
+                          : teamChange.date
+                            ? prettyDay(teamChange.date)
+                            : "Select date"}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={
+                          "od-team-select-chev" +
+                          (teamChange.picker === "date" ? " rotated" : "")
+                        }
+                      />
+                    </button>
 
-                  <p style={{ color: "#64748b", fontSize: "12px", margin: "10px 2px 0" }}>
+                    {teamChange.picker === "date" && (
+                      <div className="od-team-dropdown">
+                        <div className="od-team-dropdown-list">
+                          {dayChoices.map((d) => {
+                            const active = d.value === teamChange.date;
+                            return (
+                              <button
+                                key={d.value}
+                                type="button"
+                                className={
+                                  "od-team-option" + (active ? " selected" : "")
+                                }
+                                onClick={() =>
+                                  setTeamChange((s) => ({
+                                    ...s,
+                                    date: d.value,
+                                    picker: null,
+                                  }))
+                                }
+                              >
+                                <span className="od-team-option-name">
+                                  {d.label}
+                                </span>
+                                {active && (
+                                  <Check
+                                    size={15}
+                                    className="od-team-option-check"
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="od-team-note">
                     {teamChange.mode === "add"
                       ? "They count as on duty from this day onwards, and DA and TA are worked out from it."
                       : "This is the first day they are no longer on the duty. Pick the duty's own first day to take them off it altogether."}
                   </p>
 
-                  <div style={{ display: "flex", gap: "10px", marginTop: "22px" }}>
-                    <IonButton
-                      expand="block"
-                      style={{ flex: 1 }}
+                  <div className="od-team-actions">
+                    <button
+                      type="button"
+                      className={
+                        "od-team-btn-primary " +
+                        (teamChange.mode === "remove" ? "is-remove" : "is-add")
+                      }
                       disabled={teamChange.busy}
                       onClick={submitTeamChange}
                     >
                       {teamChange.busy
                         ? "Saving..."
                         : teamChange.mode === "add"
-                          ? "Add"
-                          : "Remove"}
-                    </IonButton>
-                    <IonButton
-                      expand="block"
-                      fill="outline"
-                      color="medium"
-                      style={{ flex: 1 }}
+                          ? "Add Employee"
+                          : "Remove Employee"}
+                    </button>
+                    <button
+                      type="button"
+                      className="od-team-btn-secondary"
                       disabled={teamChange.busy}
                       onClick={closeTeamChange}
                     >
                       Cancel
-                    </IonButton>
+                    </button>
                   </div>
                 </>
               );
@@ -9650,9 +9815,10 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                 <FileText size={14} color="#64748b" />
                                 <span>Remarks / Notes</span>
                               </label>
-                              <div className="daytrip-input-field-wrapper">
+                              <div className="daytrip-input-field-wrapper daytrip-remarks-wrapper">
                                 <FileText size={18} className="daytrip-input-icon" />
-                                <input
+                                <textarea
+                                  rows={2}
                                   value={visit.remarks}
                                   placeholder="Enter Visit Remarks or Notes"
                                   onChange={(e) =>
@@ -9663,7 +9829,7 @@ const OnDuties: React.FC<OnDutiesProps> = ({ statusFilter }) => {
                                       e.target.value || ""
                                     )
                                   }
-                                  className="daytrip-input"
+                                  className="daytrip-input daytrip-remarks-input"
                                 />
                               </div>
                             </div>
