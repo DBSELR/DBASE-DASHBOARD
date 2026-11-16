@@ -262,13 +262,215 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
       let permBalanceMinutes = Number(res.data?.balance || 0);
 
       if (finalCategory === "Permission" && targetDate) {
-        const monthStr = moment(targetDate).format("MMM-YYYY");
-        const monthIso = moment(targetDate).format("YYYY-MM");
+        const targetMoment = moment(targetDate);
+        const monthStr = targetMoment.format("MMM-YYYY");
+        const monthIso = targetMoment.format("YYYY-MM");
+        const prevMoment = targetMoment.clone().subtract(1, "month");
+        const prevMonthStr = prevMoment.format("MMM-YYYY");
+        const currM = targetMoment.month() + 1;
+        const currY = targetMoment.year();
+        const prevM = prevMoment.month() + 1;
+        const prevY = prevMoment.year();
+
+        const sumPermRows = (rows: any[]): number => {
+          let total = 0;
+          if (!Array.isArray(rows)) return 0;
+          rows.forEach((row: any) => {
+            const status = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
+            if (status === "rejected" || status === "cancelled") return;
+
+            const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
+            const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
+            if (cat.includes("lop") || rem.includes("converted to lop")) return;
+
+            let m = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
+            if (m === 0) {
+              const match = rem.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/i);
+              if (match) m = parseFloat(match[1]) || 0;
+            }
+            total += m;
+          });
+          return total;
+        };
+
+        const isDateLike = (v: any) => /\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(String(v || "").trim());
+
+        const parseOtHHmm = (t: string) => {
+          if (!t) return "";
+          const s = String(t).trim();
+          if (/^\d{2}:\d{2}$/.test(s)) return s;
+          if (/^\d{1}:\d{2}$/.test(s)) return `0${s}`;
+          if (/^\d{2}:\d{2}:\d{2}/.test(s)) return s.substring(0, 5);
+          const m = moment(s, ["hh:mm A", "h:mm A", "HH:mm:ss", "HH:mm"]);
+          if (m.isValid()) return m.format("HH:mm");
+          return s;
+        };
+
+        const getEligibleOTMins = (ot: any): number => {
+          const is24Col = Array.isArray(ot) && (ot.length >= 20 || isDateLike(ot[3]));
+          const rawStatus = String(
+            (Array.isArray(ot) ? (is24Col ? ot[23] : ot[14]) : (ot?.L_status || ot?.Status || ot?.status)) || ""
+          ).toLowerCase().trim();
+          const rs1 = String((Array.isArray(ot) && is24Col ? ot[19] : ot?.RA1_Status) || "").toLowerCase().trim();
+          const rs2 = String((Array.isArray(ot) && is24Col ? ot[20] : ot?.RA2_Status) || "").toLowerCase().trim();
+          const rs3 = String((Array.isArray(ot) && is24Col ? ot[21] : ot?.RA3_Status) || "").toLowerCase().trim();
+          const rs4 = String((Array.isArray(ot) && is24Col ? ot[22] : ot?.RA4_Status) || "").toLowerCase().trim();
+
+          if (
+            rawStatus.includes("reject") ||
+            rawStatus.includes("cancel") ||
+            rs1.includes("reject") ||
+            rs2.includes("reject") ||
+            rs3.includes("reject") ||
+            rs4.includes("reject")
+          ) {
+            return 0;
+          }
+
+          const fromRaw = String(
+            (Array.isArray(ot) ? (is24Col ? ot[5] : ot[4]) : (ot?.Fromtime || ot?.fromtime || ot?.FromTime)) || ""
+          ).trim();
+          const toRaw = String(
+            (Array.isArray(ot) ? (is24Col ? ot[6] : ot[5]) : (ot?.Totime || ot?.totime || ot?.ToTime)) || ""
+          ).trim();
+          const rawMinDiff = parseFloat(
+            String(
+              (Array.isArray(ot) ? (is24Col ? ot[8] : (ot[11] ?? ot[8] ?? ot[7])) : (ot?.MinDiff || ot?.minDiff || ot?.OT_MIN)) || "0"
+            )
+          ) || 0;
+
+          let workedMins = 0;
+          const parsedFrom = parseOtHHmm(fromRaw);
+          const parsedTo = parseOtHHmm(toRaw);
+          if (parsedFrom && parsedTo && parsedFrom.includes(":") && parsedTo.includes(":")) {
+            const [fH, fM] = parsedFrom.split(":").map(Number);
+            const [tH, tM] = parsedTo.split(":").map(Number);
+            if (!isNaN(fH) && !isNaN(fM) && !isNaN(tH) && !isNaN(tM)) {
+              let diff = (tH * 60 + tM) - (fH * 60 + fM);
+              if (diff < 0) diff += 24 * 60;
+              workedMins = diff;
+            }
+          }
+
+          // Rule: Only OT < 60 mins (worked < 120 mins) is added to Permission OT Earned
+          if (workedMins >= 120) return 0;
+          if (workedMins > 0 && workedMins < 120) {
+            const halfMins = Math.floor(workedMins / 2);
+            return (rawMinDiff > 0 && rawMinDiff < 60) ? rawMinDiff : (halfMins < 60 ? halfMins : 0);
+          }
+          return (rawMinDiff > 0 && rawMinDiff < 60) ? rawMinDiff : 0;
+        };
+
         try {
-          const permListRes = await axios.get(
-            `${API_BASE}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${monthStr}&LType=permission`
+          const [permListRes, prevPermListRes, otRes, currDashRes, prevDashRes] = await Promise.all([
+            axios.get(
+              `${API_BASE}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${monthStr}&LType=permission`
+            ).catch(() => null),
+            axios.get(
+              `${API_BASE}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${prevMonthStr}&LType=permission`
+            ).catch(() => null),
+            axios.get(
+              `${API_BASE}OverTime/load_overtime_duties?EmpCode=${empCode}`
+            ).catch(() => null),
+            axios.get(
+              `${API_BASE}Permission/GetPermissionDashboard?EmpCode=${empCode}&Month=${currM}&Year=${currY}`
+            ).catch(() => null),
+            axios.get(
+              `${API_BASE}Permission/GetPermissionDashboard?EmpCode=${empCode}&Month=${prevM}&Year=${prevY}`
+            ).catch(() => null),
+          ]);
+
+          const currDashItem = Array.isArray(currDashRes?.data)
+            ? (currDashRes.data.find((d: any) => String(d?.empCode || d?.EmpCode || "").trim() === String(empCode).trim()) || currDashRes.data[0])
+            : null;
+          const prevDashItem = Array.isArray(prevDashRes?.data)
+            ? (prevDashRes.data.find((d: any) => String(d?.empCode || d?.EmpCode || "").trim() === String(empCode).trim()) || prevDashRes.data[0])
+            : null;
+
+          let currMonthOT = 0;
+          let prevMonthOT = 0;
+          let hasOtDutiesData = false;
+          let earliestPrevOtMoment: moment.Moment | null = null;
+
+          if (Array.isArray(otRes?.data)) {
+            hasOtDutiesData = true;
+            otRes.data.forEach((ot: any) => {
+              const is24Col = Array.isArray(ot) && (ot.length >= 20 || isDateLike(ot[3]));
+              const otEmp = String((Array.isArray(ot) ? ot[1] : (ot?.empcode || ot?.EmpCode)) || "").trim();
+              if (otEmp && otEmp !== String(empCode).trim()) return;
+
+              const otDateStr = String(
+                (Array.isArray(ot) ? (is24Col ? ot[3] : ot[2]) : (ot?.lfrom || ot?.date || ot?.Date)) || ""
+              ).trim();
+              if (!otDateStr) return;
+
+              const cleanOtDate = otDateStr.includes("T") ? otDateStr.split("T")[0] : otDateStr.split(" ")[0];
+              const otMoment = moment(cleanOtDate, ["YYYY-MM-DD", "DD-MM-YYYY", "MM/DD/YYYY", "YYYY/MM/DD"], false);
+              if (!otMoment.isValid()) return;
+
+              const otMonthStr = otMoment.format("MMM-YYYY");
+              const eligibleMins = getEligibleOTMins(ot);
+              if (eligibleMins <= 0) return;
+
+              if (otMonthStr === monthStr) {
+                currMonthOT += eligibleMins;
+              } else if (otMonthStr === prevMonthStr) {
+                prevMonthOT += eligibleMins;
+                if (!earliestPrevOtMoment || otMoment.isBefore(earliestPrevOtMoment, "day")) {
+                  earliestPrevOtMoment = otMoment.clone().startOf("day");
+                }
+              }
+            });
+          }
+
+          if (!hasOtDutiesData) {
+            const rawCurrOT = Number(currDashItem?.earnedOTMin || 0);
+            const rawPrevOT = Number(prevDashItem?.earnedOTMin || 0);
+            if (rawCurrOT > 0 && rawCurrOT < 60) {
+              currMonthOT = rawCurrOT;
+            }
+            if (rawPrevOT > 0 && rawPrevOT < 60) {
+              prevMonthOT = rawPrevOT;
+            }
+          }
+
+          const rawDashTotal = Number(currDashItem?.totalAvailableMin || 0);
+          const rawDashEarned = Number(currDashItem?.earnedOTMin || 0);
+          const basePermAllocated = Number(
+            currDashItem?.defaultPermissionMin ||
+            (rawDashTotal > rawDashEarned ? rawDashTotal - rawDashEarned : 0) ||
+            ((permBalanceMinutes + permUsedMinutes > 0 && permBalanceMinutes + permUsedMinutes <= 90) ? (permBalanceMinutes + permUsedMinutes) : 60)
           );
-          if (Array.isArray(permListRes.data)) {
+
+          const prevBasePermAllocated = Number(prevDashItem?.defaultPermissionMin || basePermAllocated || 60);
+          let usedFromPrevOT = 0;
+          if (Array.isArray(prevPermListRes?.data)) {
+            const prevPermRows = prevPermListRes.data;
+            const prevAppliedMins = sumPermRows(prevPermRows);
+            if (earliestPrevOtMoment) {
+              const rowsAfterOt = prevPermRows.filter((row: any) => {
+                const dStr = String(row?.lfrom || row?.LFrom || (Array.isArray(row) ? row[2] : "") || "").trim();
+                if (!dStr) return false;
+                const cleanD = dStr.includes("T") ? dStr.split("T")[0] : dStr.split(" ")[0];
+                const m = moment(cleanD, ["YYYY-MM-DD", "DD-MM-YYYY", "MM/DD/YYYY", "YYYY/MM/DD"], false);
+                return m.isValid() && m.isAfter(earliestPrevOtMoment, "day");
+              });
+              const minsAfterOt = sumPermRows(rowsAfterOt);
+              const minsBeforeOrOnOt = Math.max(0, prevAppliedMins - minsAfterOt);
+              const baseRemainingAfterOt = Math.max(0, prevBasePermAllocated - minsBeforeOrOnOt);
+              usedFromPrevOT = Math.max(0, minsAfterOt - baseRemainingAfterOt);
+            } else {
+              usedFromPrevOT = Math.max(0, prevAppliedMins - prevBasePermAllocated);
+            }
+          } else {
+            const fallbackPrevUsed = Number(prevDashItem?.usedMin || 0);
+            usedFromPrevOT = Math.max(0, fallbackPrevUsed - prevBasePermAllocated);
+          }
+          const carryForwardOT = Math.max(0, prevMonthOT - usedFromPrevOT);
+
+          const totalPermAllocated = basePermAllocated + currMonthOT + carryForwardOT;
+
+          if (Array.isArray(permListRes?.data)) {
             // Count unique permission sessions for the month (excluding split secondary records)
             const count = permListRes.data.filter((row: any) => {
               const rem = String(row?.Remarks || (Array.isArray(row) ? (row[10] || row[9] || row[5]) : "") || "").toLowerCase();
@@ -277,25 +479,12 @@ const LeaveForm: React.FC<{ defaultType?: string }> = ({ defaultType }) => {
             usedSessions = Math.max(usedSessions, count);
 
             // Sum permission minutes used for the month (excluding split secondary records converted to LOP)
-            let minsUsed = 0;
-            permListRes.data.forEach((row: any) => {
-              const status = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
-              if (status === "rejected" || status === "cancelled") return;
+            const minsUsed = sumPermRows(permListRes.data);
 
-              const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
-              const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
-              if (cat.includes("lop") || rem.includes("converted to lop")) return;
-
-              let m = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
-              if (m === 0) {
-                const match = rem.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/i);
-                if (match) m = parseFloat(match[1]) || 0;
-              }
-              minsUsed += m;
-            });
-
-            const totalPermAllocated = (permBalanceMinutes + permUsedMinutes > 0) ? (permBalanceMinutes + permUsedMinutes) : 60;
             permUsedMinutes = Math.min(totalPermAllocated, Math.max(permUsedMinutes, minsUsed));
+            permBalanceMinutes = Math.max(0, totalPermAllocated - permUsedMinutes);
+          } else {
+            permUsedMinutes = Math.min(totalPermAllocated, permUsedMinutes);
             permBalanceMinutes = Math.max(0, totalPermAllocated - permUsedMinutes);
           }
         } catch (e) {

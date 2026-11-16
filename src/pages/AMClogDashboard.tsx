@@ -402,6 +402,17 @@ const AMClogDashboard: React.FC = () => {
   };
 
   // Handlers for Renewal
+  const toRenewalDateStr = (val?: string | Date | null): string => {
+    if (!val) return "";
+    if (typeof val === "string") {
+      const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T00:00:00)/);
+      if (m) return m[1];
+    }
+    const d = val instanceof Date ? val : new Date(val);
+    if (isNaN(d.getTime())) return "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
   const openRenewalModal = (client?: ClientRecord) => {
     const target = client || selectedClient;
     if (!target) {
@@ -418,9 +429,12 @@ const AMClogDashboard: React.FC = () => {
     const pct = getPercentage(target) || 18;
     const amc = getAmcCost(target) || (cost * pct) / 100;
     const rawDue = getDueDate(target);
-    const lastDue = rawDue ? new Date(rawDue) : new Date();
-    const newDue = new Date(lastDue);
-    newDue.setFullYear(newDue.getFullYear() + 1);
+    const lastDueStr = toRenewalDateStr(rawDue) || toRenewalDateStr(new Date());
+    let newDueStr = "";
+    if (lastDueStr) {
+      const [y, m, d] = lastDueStr.split("-").map(Number);
+      newDueStr = toRenewalDateStr(new Date(y + 1, m - 1, d));
+    }
 
     setRenewalForm({
       cid: getClientId(target),
@@ -429,9 +443,9 @@ const AMClogDashboard: React.FC = () => {
       cost: Number(cost).toFixed(2) as any,
       percentage: Number(pct).toFixed(1) as any,
       amcCost: Number(amc).toFixed(2) as any,
-      lastAmcDueDt: !isNaN(lastDue.getTime()) ? lastDue.toISOString().substring(0, 10) : "",
-      newDueDt: !isNaN(newDue.getTime()) ? newDue.toISOString().substring(0, 10) : "",
-      paidOn: new Date().toISOString().substring(0, 10),
+      lastAmcDueDt: lastDueStr,
+      newDueDt: newDueStr,
+      paidOn: toRenewalDateStr(new Date()),
     });
     setShowRenewalModal(true);
   };
@@ -442,8 +456,13 @@ const AMClogDashboard: React.FC = () => {
       showNotification("Client ID is required for renewal", "warning");
       return;
     }
+    if (!renewalForm.paidOn) {
+      showNotification("Paid On Date is required", "warning");
+      return;
+    }
 
     try {
+      const toIsoLocal = (s: string) => `${toRenewalDateStr(s) || toRenewalDateStr(new Date())}T00:00:00`;
       const payload = {
         cid: renewalForm.cid,
         clientName: renewalForm.clientName,
@@ -451,9 +470,9 @@ const AMClogDashboard: React.FC = () => {
         cost: Number(renewalForm.cost) || 0,
         percentage: Number(renewalForm.percentage) || 0,
         amcCost: Number(renewalForm.amcCost) || 0,
-        lastAmcDueDt: new Date(renewalForm.lastAmcDueDt),
-        newDueDt: new Date(renewalForm.newDueDt),
-        paidOn: new Date(renewalForm.paidOn),
+        lastAmcDueDt: toIsoLocal(renewalForm.lastAmcDueDt),
+        newDueDt: toIsoLocal(renewalForm.newDueDt),
+        paidOn: toIsoLocal(renewalForm.paidOn),
       };
 
       const res = await axios.post(`${baseUrl}AMCLog/RenewalAMC`, payload);
@@ -1495,7 +1514,7 @@ const AMClogDashboard: React.FC = () => {
                         <button
                           type="button"
                           className="amc-trendy-today-chip"
-                          onClick={() => setRenewalForm((prev) => ({ ...prev, paidOn: new Date().toISOString().substring(0, 10) }))}
+                          onClick={() => setRenewalForm((prev) => ({ ...prev, paidOn: toRenewalDateStr(new Date()) }))}
                         >
                           Set Today
                         </button>

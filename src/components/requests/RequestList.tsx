@@ -1017,35 +1017,38 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
 
 
     try {
-      let url = "";
+      const isEmp1635 = String(empCode || "").trim() === "1635";
+      const buildRequestUrl = (targetCode: string) => {
+        if (type === "onduty") {
+          return view === "my"
+            ? `${baseUrl}OnDuty/load_my_duties?empCode=${targetCode}`
+            : `${baseUrl}OnDuty/load_duties_full?empCode=${targetCode}`;
+        } else if (type === "overtime") {
+          return view === "my"
+            ? `${baseUrl}OverTime/load_overtime_duties?EmpCode=${targetCode}`
+            : `${baseUrl}OverTime/load_team_overtime_duties?EmpCode=${targetCode}`;
+        } else if (type === "equipment") {
+          return view === "my"
+            ? `${baseUrl}EquipmentRequests/MyRequests?empCode=${targetCode}`
+            : `${baseUrl}EquipmentRequests/TeamRequests?empCode=${targetCode}`;
+        } else {
+          return view === "my"
+            ? `${baseUrl}Permission/Load_Leave_Permission?Empcode=${targetCode}&Seachdate=${selectedMonth}&LType=${type}`
+            : `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${targetCode}&Seachdate=${selectedMonth}&LType=${type}`;
+        }
+      };
 
-      if (type === "onduty") {
-        url =
-          view === "my"
-            ? `${baseUrl}OnDuty/load_my_duties?empCode=${empCode}`
-            : `${baseUrl}OnDuty/load_duties_full?empCode=${empCode}`;
-      } else if (type === "overtime") {
-        url =
-          view === "my"
-            ? `${baseUrl}OverTime/load_overtime_duties?EmpCode=${empCode}`
-            : `${baseUrl}OverTime/load_team_overtime_duties?EmpCode=${empCode}`;
+      const url = buildRequestUrl(empCode);
+      let res = await axios.get(url, { headers: getAuthHeaders() });
+
+      if (
+        view !== "my" &&
+        isEmp1635 &&
+        (!Array.isArray(res.data) || res.data.length === 0)
+      ) {
+        const fallbackUrl = buildRequestUrl("1501");
+        res = await axios.get(fallbackUrl, { headers: getAuthHeaders() });
       }
-
-      //  EQUIPMENT API
-      else if (type === "equipment") {
-        url =
-          view === "my"
-            ? `${baseUrl}EquipmentRequests/MyRequests?empCode=${empCode}`
-            : `${baseUrl}EquipmentRequests/TeamRequests?empCode=${empCode}`;
-      } else {
-        const controller = type === "permission" ? "Permission" : "Leave";
-        url =
-          view === "my"
-            ? `${baseUrl}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`
-            : `${baseUrl}Leave/loadrequests_leave_permission?Empcode=${empCode}&Seachdate=${selectedMonth}&LType=${type}`;
-      }
-
-      const res = await axios.get(url, { headers: getAuthHeaders() });
 
       let result = (Array.isArray(res.data) ? res.data : [])
         .map((x: any) => normalize(x, fbManager))
@@ -1132,12 +1135,15 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     // mean *I* approved/rejected it at my RA level, regardless of whether
     // later levels have since finished the chain.
     if (type === "onduty") {
-      const myDecision = getOnDutyMyDecision(item);
+      const isEmp1635 = String(getUser()?.empCode || getUser()?.EmpCode || getUser()?.empcode || "").trim() === "1635";
+      if (!isEmp1635) {
+        const myDecision = getOnDutyMyDecision(item);
 
-      if (selected === "pending") return isOnDutyMyTurn(item);
-      if (selected === "accepted") return myDecision === "approved" || myDecision === "accepted";
-      if (selected === "rejected") return myDecision === "rejected";
-      return true;
+        if (selected === "pending") return isOnDutyMyTurn(item);
+        if (selected === "accepted") return myDecision === "approved" || myDecision === "accepted";
+        if (selected === "rejected") return myDecision === "rejected";
+        return true;
+      }
     }
 
     if (selected === "pending") {
@@ -1770,41 +1776,256 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
     return `${hrs}h ${rem}m`;
   };
 
+  const sumValidPermissionMins = (rows: any[]): number => {
+    let total = 0;
+    if (!Array.isArray(rows)) return 0;
+    rows.forEach((row: any) => {
+      const status = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
+      if (status.includes("reject") || status.includes("cancel")) return;
+
+      const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
+      const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
+      if (cat.includes("lop") || rem.includes("converted to lop")) return;
+
+      let mins = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
+      if (mins === 0) {
+        const match = rem.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/i);
+        if (match) mins = parseFloat(match[1]) || 0;
+      }
+      total += mins;
+    });
+    return total;
+  };
+
+  const getEligibleOTPermissionMins = (ot: any): number => {
+    const isDateLike = (v: any) => /\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(String(v || "").trim());
+    const is24Col = Array.isArray(ot) && (ot.length >= 20 || isDateLike(ot[3]));
+
+    const rawStatus = String(
+      (Array.isArray(ot) ? (is24Col ? ot[23] : ot[14]) : (ot?.L_status || ot?.Status || ot?.status)) || ""
+    ).toLowerCase().trim();
+    const rs1 = String((Array.isArray(ot) && is24Col ? ot[19] : ot?.RA1_Status) || "").toLowerCase().trim();
+    const rs2 = String((Array.isArray(ot) && is24Col ? ot[20] : ot?.RA2_Status) || "").toLowerCase().trim();
+    const rs3 = String((Array.isArray(ot) && is24Col ? ot[21] : ot?.RA3_Status) || "").toLowerCase().trim();
+    const rs4 = String((Array.isArray(ot) && is24Col ? ot[22] : ot?.RA4_Status) || "").toLowerCase().trim();
+
+    if (
+      rawStatus.includes("reject") ||
+      rawStatus.includes("cancel") ||
+      rs1.includes("reject") ||
+      rs2.includes("reject") ||
+      rs3.includes("reject") ||
+      rs4.includes("reject")
+    ) {
+      return 0;
+    }
+
+    const fromRaw = String(
+      (Array.isArray(ot) ? (is24Col ? ot[5] : ot[4]) : (ot?.Fromtime || ot?.fromtime || ot?.FromTime)) || ""
+    ).trim();
+    const toRaw = String(
+      (Array.isArray(ot) ? (is24Col ? ot[6] : ot[5]) : (ot?.Totime || ot?.totime || ot?.ToTime)) || ""
+    ).trim();
+    const rawMinDiff = parseFloat(
+      String(
+        (Array.isArray(ot) ? (is24Col ? ot[8] : (ot[11] ?? ot[8] ?? ot[7])) : (ot?.MinDiff || ot?.minDiff || ot?.OT_MIN)) || "0"
+      )
+    ) || 0;
+
+    let workedMins = 0;
+    const parsedFrom = parseTimeToHHmm(fromRaw);
+    const parsedTo = parseTimeToHHmm(toRaw);
+    if (parsedFrom && parsedTo && parsedFrom.includes(":") && parsedTo.includes(":")) {
+      const [fH, fM] = parsedFrom.split(":").map(Number);
+      const [tH, tM] = parsedTo.split(":").map(Number);
+      if (!isNaN(fH) && !isNaN(fM) && !isNaN(tH) && !isNaN(tM)) {
+        let diff = (tH * 60 + tM) - (fH * 60 + fM);
+        if (diff < 0) diff += 24 * 60;
+        workedMins = diff;
+      }
+    }
+
+    // Rule: Only OT < 60 mins (worked < 120 mins / < 2 hours) is added to Permission OT Earned; >= 60 mins goes to existing/manual adjustment
+    if (workedMins >= 120) {
+      return 0;
+    }
+
+    if (workedMins > 0 && workedMins < 120) {
+      const halfMins = Math.floor(workedMins / 2);
+      if (rawMinDiff > 0 && rawMinDiff < 60) {
+        return rawMinDiff;
+      }
+      return halfMins < 60 ? halfMins : 0;
+    }
+
+    // Fallback when Fromtime/Totime are unavailable: only allow OT earned < 60 mins
+    if (rawMinDiff > 0 && rawMinDiff < 60) {
+      return rawMinDiff;
+    }
+    return 0;
+  };
+
   const reconcilePermissionItem = async (x: any) => {
     const targetEmp = String(x.empCode || x.EmpCode || "").trim();
     if (!targetEmp) return;
 
-    // Giving P Time on card: 60m or 90m (or employee's configured total/default)
-    const totalMins = Number(x.totalAvailableMin || x.defaultPermissionMin || 60);
+    const user = getUser();
+    const loggedInEmp = String(user?.empCode || user?.EmpCode || user?.empcode || "").trim();
+
+    const rawTotal = Number(x.totalAvailableMin || 0);
+    const rawEarned = Number(x.earnedOTMin || 0);
+    // Base monthly permission time (e.g. 60m or 90m) excluding OT earned
+    const basePermMin = Number(
+      x.defaultPermissionMin ||
+      (rawTotal > rawEarned ? rawTotal - rawEarned : rawTotal) ||
+      60
+    );
+
+    const currMoment = moment(selectedMonth, "MMM-YYYY");
+    const prevMoment = currMoment.clone().subtract(1, "month");
+    const prevMonthStr = prevMoment.format("MMM-YYYY");
+    const prevM = prevMoment.month() + 1;
+    const prevY = prevMoment.year();
 
     let appliedMins = 0;
+    let prevAppliedMins = 0;
+    let prevPermRows: any[] = [];
+    let hasPrevPermData = false;
+    let earliestPrevOtMoment: moment.Moment | null = null;
+    let currMonthOT = 0;
+    let prevMonthOT = 0;
+    let hasOtDutiesData = false;
+    let prevDashItem: any = null;
+
     try {
-      const permRes = await axios.get(
-        `${baseUrl}Permission/Load_Leave_Permission?Empcode=${targetEmp}&Seachdate=${selectedMonth}&LType=permission`
-      ).catch(() => null);
+      const [permRes, prevPermRes, otRes, teamOtRes, prevDashRes] = await Promise.all([
+        axios.get(
+          `${baseUrl}Permission/Load_Leave_Permission?Empcode=${targetEmp}&Seachdate=${selectedMonth}&LType=permission`
+        ).catch(() => null),
+        axios.get(
+          `${baseUrl}Permission/Load_Leave_Permission?Empcode=${targetEmp}&Seachdate=${prevMonthStr}&LType=permission`
+        ).catch(() => null),
+        axios.get(
+          `${baseUrl}OverTime/load_overtime_duties?EmpCode=${targetEmp}`,
+          { headers: getAuthHeaders() }
+        ).catch(() => null),
+        loggedInEmp && loggedInEmp !== targetEmp
+          ? axios.get(
+              `${baseUrl}OverTime/load_team_overtime_duties?EmpCode=${loggedInEmp}`,
+              { headers: getAuthHeaders() }
+            ).catch(() => null)
+          : Promise.resolve(null),
+        axios.get(
+          `${baseUrl}Permission/GetPermissionDashboard?EmpCode=${targetEmp}&Month=${prevM}&Year=${prevY}`,
+          { headers: getAuthHeaders() }
+        ).catch(() => null),
+      ]);
 
-      const rows = Array.isArray(permRes?.data) ? permRes.data : [];
-      rows.forEach((row: any) => {
-        const status = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
-        if (status.includes("reject") || status.includes("cancel")) return;
+      appliedMins = sumValidPermissionMins(Array.isArray(permRes?.data) ? permRes.data : []);
+      if (Array.isArray(prevPermRes?.data)) {
+        hasPrevPermData = true;
+        prevPermRows = prevPermRes.data;
+        prevAppliedMins = sumValidPermissionMins(prevPermRows);
+      }
 
-        const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
-        const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
-        if (cat.includes("lop") || rem.includes("converted to lop")) return;
+      if (Array.isArray(prevDashRes?.data) && prevDashRes.data.length > 0) {
+        prevDashItem =
+          prevDashRes.data.find(
+            (item: any) => String(item?.empCode || item?.EmpCode || "").trim() === targetEmp
+          ) || prevDashRes.data[0];
+      }
 
-        let mins = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
-        if (mins === 0) {
-          const match = rem.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/i);
-          if (match) mins = parseFloat(match[1]) || 0;
-        }
-        appliedMins += mins;
-      });
+      const directOtList = Array.isArray(otRes?.data) ? otRes.data : [];
+      const teamOtList = Array.isArray(teamOtRes?.data) ? teamOtRes.data : [];
+      const combinedOtRows = [...directOtList, ...teamOtList];
+
+      if (Array.isArray(otRes?.data) || Array.isArray(teamOtRes?.data)) {
+        hasOtDutiesData = true;
+        const seenOtIds = new Set<string>();
+        const isDateLike = (v: any) => /\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(String(v || "").trim());
+
+        combinedOtRows.forEach((ot: any) => {
+          const is24Col = Array.isArray(ot) && (ot.length >= 20 || isDateLike(ot[3]));
+          const otId = String((Array.isArray(ot) ? ot[0] : (ot?.lid || ot?.id || ot?.Id)) || "").trim();
+          const otEmp = String((Array.isArray(ot) ? ot[1] : (ot?.empcode || ot?.EmpCode)) || "").trim();
+          if (otEmp && otEmp !== targetEmp) return;
+          if (otId) {
+            if (seenOtIds.has(otId)) return;
+            seenOtIds.add(otId);
+          }
+
+          const otDateStr = String(
+            (Array.isArray(ot) ? (is24Col ? ot[3] : ot[2]) : (ot?.lfrom || ot?.date || ot?.Date)) || ""
+          ).trim();
+          if (!otDateStr) return;
+
+          const cleanOtDate = otDateStr.includes("T") ? otDateStr.split("T")[0] : otDateStr.split(" ")[0];
+          const otMoment = moment(cleanOtDate, ["YYYY-MM-DD", "DD-MM-YYYY", "MM/DD/YYYY", "YYYY/MM/DD"], false);
+          if (!otMoment.isValid()) return;
+
+          const otMonthStr = otMoment.format("MMM-YYYY");
+          const eligibleMins = getEligibleOTPermissionMins(ot);
+          if (eligibleMins <= 0) return;
+
+          if (otMonthStr === selectedMonth) {
+            currMonthOT += eligibleMins;
+          } else if (otMonthStr === prevMonthStr) {
+            // Strictly 1-month carry-forward candidate (only from immediate previous month)
+            prevMonthOT += eligibleMins;
+            if (!earliestPrevOtMoment || otMoment.isBefore(earliestPrevOtMoment, "day")) {
+              earliestPrevOtMoment = otMoment.clone().startOf("day");
+            }
+          }
+        });
+      }
     } catch {}
 
-    // Used is strictly within the permission time (60 or 90m)
+    if (!hasOtDutiesData) {
+      if (rawEarned > 0 && rawEarned < 60) {
+        currMonthOT = rawEarned;
+      }
+      const prevRawEarned = Number(prevDashItem?.earnedOTMin || 0);
+      if (prevRawEarned > 0 && prevRawEarned < 60) {
+        prevMonthOT = prevRawEarned;
+      }
+    }
+
+    // Carry-forward calculation from immediate previous month ONLY (stops after 1 month if still unused)
+    const prevBasePermMin = Number(prevDashItem?.defaultPermissionMin || basePermMin || 60);
+    let usedFromPrevOT = 0;
+    if (hasPrevPermData) {
+      if (earliestPrevOtMoment) {
+        // Only permissions taken AFTER the OT was earned in previous month can consume that OT
+        const rowsAfterOt = prevPermRows.filter((row: any) => {
+          const dStr = String(row?.lfrom || row?.LFrom || (Array.isArray(row) ? row[2] : "") || "").trim();
+          if (!dStr) return false;
+          const cleanD = dStr.includes("T") ? dStr.split("T")[0] : dStr.split(" ")[0];
+          const m = moment(cleanD, ["YYYY-MM-DD", "DD-MM-YYYY", "MM/DD/YYYY", "YYYY/MM/DD"], false);
+          return m.isValid() && m.isAfter(earliestPrevOtMoment, "day");
+        });
+        const minsAfterOt = sumValidPermissionMins(rowsAfterOt);
+        const minsBeforeOrOnOt = Math.max(0, prevAppliedMins - minsAfterOt);
+        const baseRemainingAfterOt = Math.max(0, prevBasePermMin - minsBeforeOrOnOt);
+        usedFromPrevOT = Math.max(0, minsAfterOt - baseRemainingAfterOt);
+      } else {
+        usedFromPrevOT = Math.max(0, prevAppliedMins - prevBasePermMin);
+      }
+    } else {
+      const fallbackPrevUsed = Number(prevDashItem?.usedMin || 0);
+      usedFromPrevOT = Math.max(0, fallbackPrevUsed - prevBasePermMin);
+    }
+    const carryForwardOT = Math.max(0, prevMonthOT - usedFromPrevOT);
+
+    const finalEarnedOT = currMonthOT + carryForwardOT;
+    const totalMins = basePermMin + finalEarnedOT;
+
+    // Used is strictly within the total available permission time (base + eligible OT)
     const finalUsed = Math.min(totalMins, Math.max(Number(x.usedMin || 0), appliedMins));
     const finalBal = Math.max(0, totalMins - finalUsed);
 
+    x.earnedOTMin = finalEarnedOT;
+    x.carryForwardOTMin = carryForwardOT;
+    x.currentMonthOTMin = currMonthOT;
     x.totalAvailableMin = totalMins;
     x.usedMin = finalUsed;
     x.balanceMin = finalBal;
@@ -1856,10 +2077,20 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
       const user = getUser();
       const loggedInEmp = String(user?.empCode || user?.EmpCode || user?.empcode || "").trim();
 
-      const res = await axios.get(
+      let res = await axios.get(
         `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=${loggedInEmp}&Month=${m}&Year=${y}`,
         { headers: getAuthHeaders() }
       );
+
+      if (
+        loggedInEmp === "1635" &&
+        (!Array.isArray(res.data) || res.data.length === 0)
+      ) {
+        res = await axios.get(
+          `${baseUrl}Permission/GetTeamPermissionDashboard?EmpCode=1501&Month=${m}&Year=${y}`,
+          { headers: getAuthHeaders() }
+        );
+      }
 
       const items = Array.isArray(res.data) ? res.data : [];
       await Promise.all(items.map((x: any) => reconcilePermissionItem(x)));
