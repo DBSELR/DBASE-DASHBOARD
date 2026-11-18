@@ -254,7 +254,7 @@ const WorkReports: React.FC = () => {
       window.dispatchEvent(new CustomEvent("work-report-submitted"));
       import("../services/pushNotification")
         .then(({ clearWorkReportLocalAlarms }) => clearWorkReportLocalAlarms())
-        .catch(() => {});
+        .catch(() => { });
     } catch (err) {
       console.error("Error setting work report submitted state", err);
     }
@@ -1034,18 +1034,6 @@ const WorkReports: React.FC = () => {
           );
 
           if (isSuccess) {
-            if (item.type === "ticket" && item.payload) {
-              try {
-                await axios.post(`${baseUrl}/Tickets/SaveWorkReport_TicketWise`, item.payload, {
-                  headers: {
-                    ...getAuthHeaders(),
-                    'Content-Type': 'application/json; charset=utf-8'
-                  }
-                });
-              } catch (ticketErr) {
-                console.warn("Error submitting SaveWorkReport_TicketWise:", ticketErr);
-              }
-            }
             successCount++;
             // Immediately remove this item from queue so it can never be submitted again
             await workReportQueueService.removeQueuedActivity(empCode, item.id);
@@ -2045,8 +2033,8 @@ const WorkReports: React.FC = () => {
                             <FileText size={14} className="wr-desc-icon" />
                             <p className="wr-premium-text">{(report[4] || "").split("__")[0]}</p>
                             {(report[6]?.toLowerCase() === "pending" || !report[6]) && isReportToday(report[5]) && (canViewAllEmployees || String(_user?.empCode || _user?.EmpCode) === String(selectedEmployee)) && (
-                              <button 
-                                className="wr-edit-btn-small" 
+                              <button
+                                className="wr-edit-btn-small"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleEditClick(report);
@@ -2168,9 +2156,9 @@ const WorkReports: React.FC = () => {
         )}
 
         {/* Ultra-Premium Success Message Modal with Logo Inside Circle */}
-        <IonModal 
-          isOpen={showSuccessModal} 
-          className="premium-success-modal" 
+        <IonModal
+          isOpen={showSuccessModal}
+          className="premium-success-modal"
           backdropDismiss={true}
           onDidDismiss={() => setShowSuccessModal(false)}
         >
@@ -2235,8 +2223,8 @@ const WorkReports: React.FC = () => {
                 <Edit2 size={18} color="var(--ion-color-primary)" />
                 Edit Work Report
               </h3>
-              <button 
-                className="wr-modal-close-btn" 
+              <button
+                className="wr-modal-close-btn"
                 onClick={() => setShowEditModal(false)}
                 type="button"
                 aria-label="Close"

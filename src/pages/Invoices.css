@@ -1,0 +1,1036 @@
+/* =========================================================================
+   Invoices.css - Crisp, Comfortable & Legible Typography Theme
+   Enhanced text sizes for clear readability across all devices
+   Default Red styling for all Total and Rupees Amount values
+   ========================================================================= */
+
+:root {
+  --inv-bg: #f1f5f9;
+  --inv-card-bg: #ffffff;
+  --inv-text-main: #0f172a;
+  --inv-text-muted: #475569;
+  --inv-text-dim: #64748b;
+  --inv-border: #cbd5e1;
+  --inv-border-light: #e2e8f0;
+  --inv-border-dark: #94a3b8;
+  --inv-radius-lg: 10px;
+  --inv-radius-md: 8px;
+  --inv-radius-sm: 6px;
+}
+
+.inv-page-content {
+  --background: var(--inv-bg) !important;
+  background: var(--inv-bg) !important;
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--inv-text-main);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.inv-page-container {
+  padding: 8px 12px 12px;
+  max-width: 1600px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ==========================================================================
+   0. UNIFIED SHELL (Header and Tabs in Same Box with 25px Radius)
+   ========================================================================== */
+.inv-unified-shell {
+  background: #ffffff;
+  border: 1.5px solid var(--inv-border, #cbd5e1);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ==========================================================================
+   1. COMPACT HERO HEADER (Top of Unified Shell)
+   ========================================================================== */
+.inv-hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--ion-color-primary, #2563eb), var(--ion-color-secondary, #4f46e5));
+  padding: 8px 16px;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 0;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.inv-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inv-back-btn {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  width: 32px;
+  height: 32px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease;
+  color: #ffffff;
+  font-size: 18px;
+  padding: 0;
+}
+
+.inv-back-btn:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.inv-header-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin: 0;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.inv-header-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 2px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inv-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 5px #10b981;
+}
+
+.inv-header-badge {
+  background: #ffffff;
+  color: var(--ion-color-primary, #2563eb);
+  border: none;
+  padding: 4px 12px;
+  border-radius: 25px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ==========================================================================
+   2. MAIN TABS (Attached Underneath Hero Header)
+   ========================================================================== */
+.inv-main-tabs-container {
+  display: flex;
+  background: #ffffff;
+  border: none;
+  border-bottom: 1px solid var(--inv-border-light, #e2e8f0);
+  border-radius: 0;
+  padding: 5px 12px;
+  gap: 6px;
+  margin: 0;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.inv-main-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 25px;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--inv-text-muted, #475569);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  height: 34px;
+  white-space: nowrap;
+}
+
+.inv-main-tab-btn span {
+  font-weight: 700;
+  color: inherit;
+}
+
+.inv-main-tab-btn .inv-tab-icon,
+.inv-main-tab-btn ion-icon {
+  font-size: 16px;
+  color: inherit;
+  fill: currentColor;
+}
+
+.inv-main-tab-btn:hover {
+  color: var(--ion-color-primary, #2563eb);
+  background: #f8fafc;
+}
+
+.inv-main-tab-btn.active {
+  background: var(--ion-color-primary, #2563eb) !important;
+  color: #ffffff !important;
+  border-color: var(--ion-color-primary, #2563eb) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.inv-main-tab-btn.active span {
+  background: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.inv-main-tab-btn.active ion-icon,
+.inv-main-tab-btn.active .inv-tab-icon {
+  background: transparent !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  --color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.inv-content-body {
+  padding: 10px 14px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ==========================================================================
+   3. SUB-TABS (Compact 25px Pill Style Inside Unified Card)
+   ========================================================================== */
+.inv-subtabs-container {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 2px 0 8px 0;
+  gap: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--inv-border-light, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.inv-subtab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 18px;
+  min-width: 150px;
+  height: 32px;
+  border-radius: 25px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  color: #475569;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.inv-subtab-btn span {
+  font-weight: 700;
+  color: inherit;
+}
+
+.inv-subtab-btn .inv-subtab-icon,
+.inv-subtab-btn ion-icon {
+  font-size: 15px;
+  color: inherit;
+  fill: currentColor;
+}
+
+.inv-subtab-btn:hover {
+  color: var(--ion-color-primary, #2563eb);
+  background: #f1f5f9;
+}
+
+.inv-subtab-btn.active {
+  background: var(--ion-color-primary, #2563eb) !important;
+  color: #ffffff !important;
+  border-color: var(--ion-color-primary, #2563eb) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.inv-subtab-btn.active span {
+  background: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.inv-subtab-btn.active ion-icon,
+.inv-subtab-btn.active .inv-subtab-icon {
+  background: transparent !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  --color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   4. CARDS, FILTER BAR & SPLIT PANELS
+   ========================================================================== */
+.inv-card {
+  background: #ffffff;
+  border: 1px solid var(--inv-border, #cbd5e1);
+  border-radius: 16px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+/* Filter Bar Grid - Tight without any extra whitespace */
+.inv-filter-bar {
+  display: grid;
+  grid-template-columns: 1.1fr 1.6fr 1.1fr 1.1fr 1.3fr;
+  gap: 8px;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  .inv-filter-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .inv-filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 50/50 Split View Grid */
+.inv-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 150px);
+  margin-top: 0;
+}
+
+@media (max-width: 900px) {
+  .inv-split-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+.inv-split-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  margin-bottom: 0;
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.inv-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--inv-border-light);
+  flex-shrink: 0;
+}
+
+.inv-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: -0.2px;
+}
+
+.inv-card-subtitle {
+  font-size: 12px;
+  color: var(--inv-text-dim);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   5. CRISP FORMS & INPUTS
+   ========================================================================== */
+.inv-form-group {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.inv-form-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #334155;
+  margin-bottom: 3px;
+  line-height: 1.2;
+}
+
+.inv-form-label span.req {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.inv-input,
+.inv-select,
+.inv-textarea {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--inv-border);
+  border-radius: var(--inv-radius-sm);
+  padding: 5px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+  font-family: inherit;
+  height: 34px;
+}
+
+.inv-actual-amount-text {
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 12.5px;
+  margin-top: 3px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.inv-balance-breakdown-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--inv-border, #cbd5e1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.inv-breakdown-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.inv-breakdown-tag strong {
+  font-weight: 700;
+}
+
+.inv-tag-bills strong {
+  color: #2563eb;
+}
+
+.inv-tag-paid strong {
+  color: #059669;
+}
+
+.inv-tag-balance strong {
+  color: #dc2626;
+}
+
+.inv-breakdown-op {
+  font-weight: 800;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.inv-textarea {
+  height: auto;
+  min-height: 48px;
+  resize: vertical;
+}
+
+.inv-input:focus,
+.inv-select:focus,
+.inv-textarea:focus {
+  background: #ffffff;
+  border-color: var(--ion-color-primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.inv-input:read-only,
+.inv-textarea:read-only {
+  background: #f8fafc;
+  color: #475569;
+  cursor: default;
+}
+
+.inv-date-hint {
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   6. CRISP BUTTONS
+   ========================================================================== */
+.inv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--inv-radius-sm);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  font-family: inherit;
+  height: 34px;
+  white-space: nowrap;
+}
+
+.inv-btn-primary {
+  background: var(--ion-color-primary, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+}
+
+.inv-btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35);
+}
+
+.inv-btn-primary:active {
+  transform: translateY(0);
+}
+
+.inv-btn-danger-outline {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid #f87171;
+}
+
+.inv-btn-danger-outline:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+.inv-btn-outline {
+  background: #ffffff;
+  color: var(--ion-color-primary, #2563eb);
+  border: 1px solid var(--inv-border);
+}
+
+.inv-btn-outline:hover {
+  border-color: var(--ion-color-primary, #2563eb);
+  background: #f8fafc;
+}
+
+.inv-btn-sm {
+  padding: 3px 8px;
+  font-size: 11.5px;
+  height: 26px;
+  border-radius: var(--inv-radius-sm);
+}
+
+/* ==========================================================================
+   7. CRISP SCROLLABLE DATA TABLES & FEED
+   ========================================================================== */
+.inv-scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f8fafc;
+}
+
+.inv-scrollable::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.inv-scrollable::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 3px;
+}
+
+.inv-scrollable::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+
+.inv-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.inv-table-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid var(--inv-border);
+  border-radius: var(--inv-radius-md);
+  background: #ffffff;
+  margin: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.inv-table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 6px 8px;
+  border-bottom: 1.5px solid var(--inv-border);
+  border-right: 1px solid var(--inv-border-light);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.inv-table td {
+  padding: 6px 8px;
+  color: #1e293b;
+  border-bottom: 1px solid var(--inv-border-light);
+  border-right: 1px solid var(--inv-border-light);
+  vertical-align: middle;
+  font-weight: 500;
+  font-size: 12.5px;
+}
+
+.inv-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.inv-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.inv-table tbody tr.clickable-row:hover {
+  background-color: #e0f2fe;
+}
+
+/* ==========================================================================
+   8. STATUS BADGES & CHIPS
+   ========================================================================== */
+.inv-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  min-width: 20px;
+}
+
+.inv-badge-raised {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.inv-badge-inprogress {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.inv-badge-settled {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.inv-badge-neutral {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.inv-table td.inv-badge-ref,
+.inv-table td.inv-ref-red,
+.inv-badge-ref,
+.inv-ref-red {
+  color: #ff0000 !important;
+  font-weight: 700 !important;
+}
+
+.inv-action-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.inv-action-download-btn:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.inv-action-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.inv-action-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Red amounts default */
+.inv-amount-red {
+  color: #dc2626 !important;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   9. BILL CARD FEED (TRACKING TAB)
+   ========================================================================== */
+.inv-bill-feed {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  min-height: 0;
+}
+
+.inv-bill-card {
+  background: #ffffff;
+  border: 1px solid var(--inv-border);
+  border-radius: var(--inv-radius-md);
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.inv-bill-card:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.inv-bill-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.inv-bill-card-client {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.inv-bill-card-amount {
+  font-size: 13px;
+  font-weight: 800;
+  color: #dc2626;
+  background: #fef2f2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
+}
+
+.inv-bill-card-sub {
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ==========================================================================
+   10. SUMMARY METRIC BOXES (OUTWARD ENTRY)
+   ========================================================================== */
+.inv-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid var(--inv-border);
+  border-radius: var(--inv-radius-md);
+  padding: 6px 8px;
+  margin: 6px 0;
+}
+
+.inv-stat-box {
+  background: #ffffff;
+  border: 1px solid var(--inv-border);
+  border-radius: var(--inv-radius-sm);
+  padding: 4px 6px;
+}
+
+.inv-stat-box.grand-total-box {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.inv-stat-box label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.inv-stat-box .inv-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.inv-stat-box.grand-total-box .inv-stat-val {
+  font-size: 16.5px;
+  color: #dc2626;
+}
+
+/* ==========================================================================
+   11. DYNAMIC ITEMS TABLE (OUTWARD ENTRY)
+   ========================================================================== */
+.inv-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.inv-items-table th {
+  background: #f1f5f9;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+  border: 1px solid var(--inv-border);
+}
+
+.inv-items-table td {
+  padding: 4px 4px;
+  border: 1px solid var(--inv-border);
+  vertical-align: middle;
+}
+
+.inv-items-table input[type="text"],
+.inv-items-table input[type="number"] {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12.5px;
+  outline: none;
+  background: transparent;
+  box-sizing: border-box;
+  height: 28px;
+}
+
+.inv-items-table input:focus {
+  background: #ffffff;
+  border-color: var(--ion-color-primary, #2563eb);
+}
+
+.inv-reorder-btn-box {
+  display: flex;
+  flex-direction: column;
+  width: 16px;
+  height: 24px;
+  border: 1px solid #cbd5e1;
+  border-radius: 2px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.inv-reorder-arrow {
+  height: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+
+.inv-reorder-arrow:hover {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
+.inv-reorder-arrow:first-child {
+  border-bottom: 1px solid #cbd5e1;
+}
+
+/* ==========================================================================
+   12. POPUP MODAL
+   ========================================================================== */
+.inv-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 10px;
+}
+
+.inv-modal-card {
+  background: #ffffff;
+  border-radius: var(--inv-radius-lg);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  border: 1px solid #cbd5e1;
+  width: 100%;
+  max-width: 380px;
+  padding: 18px;
+  text-align: center;
+}
+
+.inv-modal-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.inv-modal-inv-badge {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  border: 1px solid #bfdbfe;
+}
+
+.inv-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   13. ACTION PILLS
+   ========================================================================== */
+.inv-action-btn-pill {
+  border: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+}
+
+.inv-action-btn-print {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.inv-action-btn-print:hover {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.inv-action-btn-edit {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.inv-action-btn-edit:hover {
+  background: #b45309;
+  color: #ffffff;
+}
+
+.inv-action-btn-delete {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.inv-action-btn-delete:hover {
+  background: #dc2626;
+  color: #ffffff;
+}

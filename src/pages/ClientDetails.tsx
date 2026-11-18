@@ -32,6 +32,7 @@ import ClientProjectUsers from "./ClientProjectUsers";
 
 import "./WorkReports.css";
 import "./Stock.css";
+import "./ClientDetails.css";
 
 const ClientDetails: React.FC = () => {
   const history = useHistory();
@@ -186,28 +187,29 @@ const ClientDetails: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent className="page-content">
-        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', backgroundColor: 'transparent' }}>
-          
-          {/* ── Premium Header ── */}
-          <div className="page-wr-header" style={{ margin: '16px', borderRadius: '16px', padding: '16px' }}>
-            <div className="page-wr-header-left">
-              <button className="page-wr-back-btn" onClick={() => history.goBack()}>
-                <ChevronLeft size={22} color="white" />
-              </button>
-              <div>
-                <h1 className="page-wr-title">Client Dashboard</h1>
-                <p className="page-wr-subtitle">Manage clients and projects</p>
-              </div>
-            </div>
-            <div className="page-wr-header-right">
-              <div className="page-wr-header-icon-box">
-                <IonIcon icon={businessOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
-              </div>
+      {/* ── Fixed Header ── */}
+      <IonHeader className="ion-no-border" style={{ background: 'var(--ion-background-color, #f0f2f8)', boxShadow: 'none' }}>
+        <div className="page-wr-header" style={{ margin: '16px 16px 8px 16px', borderRadius: '16px', padding: '16px' }}>
+          <div className="page-wr-header-left">
+            <button className="page-wr-back-btn" onClick={() => history.goBack()}>
+              <ChevronLeft size={22} color="white" />
+            </button>
+            <div>
+              <h1 className="page-wr-title">Client Dashboard</h1>
+              <p className="page-wr-subtitle">Manage clients and projects</p>
             </div>
           </div>
+          <div className="page-wr-header-right">
+            <div className="page-wr-header-icon-box">
+              <IonIcon icon={businessOutline} style={{ color: 'var(--ion-color-primary)', fontSize: '24px' }} />
+            </div>
+          </div>
+        </div>
+      </IonHeader>
 
-          <div className="stock-panel" style={{ margin: '0 16px 20px 16px', padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+      <IonContent className="page-content">
+        <div className="wr-container stock-container" style={{ padding: 0, minHeight: 'auto', maxHeight: 'none', overflowY: 'visible', backgroundColor: 'transparent' }}>
+          <div className="stock-panel" style={{ margin: '8px 16px 20px 16px', padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
             
             {/* Tabs */}
             <div className="stock-tabs" style={{ marginBottom: '16px' }}>
@@ -236,9 +238,9 @@ const ClientDetails: React.FC = () => {
 
             {/* PROJECTS TAB */}
             {activeTab === "projects" && (
-              <div className="stock-entry-layout">
+              <div className="client-projects-layout">
                 {/* LEFT COLUMN: Project Master */}
-                <div className="stock-panel">
+                <div className="stock-panel client-project-card">
                   <h3 className="stock-section-heading">Project Master</h3>
                   
                   <div className="stock-field" style={{ marginBottom: '16px' }}>
@@ -261,23 +263,34 @@ const ClientDetails: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="stock-table-wrapper" style={{ maxHeight: '300px', minHeight: 'auto' }}>
-                    <table className="stock-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: "30%" }}>P_ID</th>
-                          <th style={{ width: "70%" }}>Project Name</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {projectMasterList.map((p, i) => (
-                          <tr key={i}>
-                            <td>{p[0]}</td>
-                            <td>{p[1]}</td>
+                  <div className="client-project-table-slot">
+                    <div className="stock-table-wrapper client-project-table-wrapper">
+                      <table className="stock-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: "30%" }}>P_ID</th>
+                            <th style={{ width: "70%" }}>Project Name</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {projectMasterList
+                            .filter((p) => {
+                              const q = newProjectName.trim().toLowerCase();
+                              if (!q) return true;
+                              return (
+                                String(p[1] ?? "").toLowerCase().includes(q) ||
+                                String(p[0] ?? "").toLowerCase().includes(q)
+                              );
+                            })
+                            .map((p, i) => (
+                              <tr key={i}>
+                                <td>{p[0]}</td>
+                                <td>{p[1]}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -285,7 +298,7 @@ const ClientDetails: React.FC = () => {
                 <div className="stock-panel">
                   <h3 className="stock-section-heading">Client Master</h3>
 
-                  <div className="stock-grid" style={{ marginBottom: '24px' }}>
+                  <div className="client-master-top-grid" style={{ marginBottom: '26px' }}>
                     <div className="stock-field">
                       <label>Client Type*</label>
                       <select
@@ -322,11 +335,11 @@ const ClientDetails: React.FC = () => {
                   </div>
 
                   {[1, 2, 3].map((num) => (
-                    <div key={num} style={{ marginBottom: '24px' }}>
-                      <h4 className="stock-subheading" style={{ color: 'var(--stock-muted)', borderBottom: '1px solid var(--stock-border)', paddingBottom: '8px', marginBottom: '16px' }}>
+                    <div key={num} style={{ marginBottom: '26px' }}>
+                      <h4 className="stock-subheading" style={{ color: 'var(--stock-muted)', borderBottom: '1px solid var(--stock-border)', paddingBottom: '6px', marginBottom: '12px' }}>
                         Administration Details {num}
                       </h4>
-                      <div className="stock-grid">
+                      <div className="client-master-admin-grid">
                         <div className="stock-field">
                           <label>Name</label>
                           <input
