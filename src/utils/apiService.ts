@@ -556,25 +556,33 @@ export const apiService = {
     // Notification Center Module
     getNotificationEmployees: async (empCode?: string) => {
         const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
-        return apiService.get(`/NotificationCenter/GetEmployees${q}`);
+        return apiService.get(`/NotificationCenter/GetEmployees${q}`, 20000);
     },
 
     getNotificationHistory: async (empCode?: string) => {
         const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
-        return apiService.get(`/NotificationCenter/GetHistory${q}`);
+        return apiService.get(`/NotificationCenter/GetHistory${q}`, 20000);
     },
 
     getBroadcastDetails: async (broadcastId: number, empCode?: string) => {
         const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
-        return apiService.get(`/NotificationCenter/GetBroadcastDetails/${broadcastId}${q}`);
+        return apiService.get(`/NotificationCenter/GetBroadcastDetails/${broadcastId}${q}`, 20000);
     },
 
     sendBroadcastNotification: async (payload: any) => {
-        return apiService.post("/NotificationCenter/SendBroadcast", payload);
+        return apiService.post("/NotificationCenter/SendBroadcast", payload, 60000);
     },
 
     deleteBroadcastNotification: async (broadcastId: number, empCode?: string) => {
         const q = empCode ? `?empCode=${encodeURIComponent(empCode)}` : "";
         return apiService.delete(`/NotificationCenter/DeleteBroadcast/${broadcastId}${q}`);
+    },
+
+    getMyBroadcastNotifications: async (empCode: string) => {
+        return apiService.get(`/NotificationCenter/GetMyNotifications?empCode=${encodeURIComponent(empCode)}`);
+    },
+
+    markBroadcastNotificationAsRead: async (payload: { NotificationId?: number; BroadcastId?: number; EmpCode: string }) => {
+        return apiService.post("/NotificationCenter/MarkAsRead", payload);
     },
 };

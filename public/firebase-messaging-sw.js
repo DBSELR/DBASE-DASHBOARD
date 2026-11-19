@@ -41,7 +41,10 @@ try {
     const slot = payload.data?.slot || defaultSlot;
     const todayStr = `${istDate.getFullYear()}-${String(istDate.getMonth() + 1).padStart(2, "0")}-${String(istDate.getDate()).padStart(2, "0")}`;
     const type = payload.data?.type || "work_report_reminder";
-    const tag = `${type}_${todayStr}_${slot}`;
+    const isWorkReport = type === "work_report_reminder" || type === "WORK_REPORT_REMINDER";
+    const tag = isWorkReport
+      ? `${type}_${todayStr}_${slot}`
+      : (payload.data?.tag || `${type}_${todayStr}_${Date.now()}`);
 
     const title = payload.data?.title || "🚨 Daily Work Report Reminder";
     const body = payload.data?.body || "Please submit your daily work report for today.";
@@ -63,6 +66,11 @@ try {
         { action: "view_reminder", title: "💳 View Reminders" },
         { action: "dismiss", title: "✖ Dismiss" }
       ];
+    } else if (type === "general_broadcast" || type === "broadcast") {
+      actions = [
+        { action: "open_link", title: "🔔 View Details" },
+        { action: "dismiss", title: "✖ Dismiss" }
+      ];
     }
 
     const notificationOptions = {
@@ -72,7 +80,7 @@ try {
       image: image,
       vibrate: [300, 100, 300, 100, 300],
       tag: tag,
-      renotify: false,
+      renotify: !isWorkReport,
       requireInteraction: true,
       data: {
         url: targetUrl
@@ -90,7 +98,10 @@ try {
       return;
     }
 
-    const targetUrl = event.notification?.data?.url || "/workreport";
+    const targetUrl =
+      event.notification?.data?.url ||
+      event.notification?.data?.FCM_MSG?.data?.url ||
+      "/";
 
     event.waitUntil(
       clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

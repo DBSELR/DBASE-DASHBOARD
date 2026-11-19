@@ -23,6 +23,8 @@ const LEGACY_ALARM_IDS = [1800, 1820, 1829, 1830, 1930, 2030];
 let nativeListenersRegistered = false;
 let webListenerRegistered = false;
 let currentActiveEmpCode = "";
+let cachedWebToken: string | null = null;
+let registeredWebEmpCode: string | null = null;
 
 // Helper to get IST Date components and both padded (YYYY-MM-DD) & unpadded (YYYY-M-D) keys
 export const getIstDateInfo = (now: Date = new Date()) => {
@@ -197,12 +199,12 @@ const registerNative = async (empCode: string) => {
     }
 
     let permission = await PushNotifications.checkPermissions();
-    if (permission.receive === "prompt") {
+    if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
       permission = await PushNotifications.requestPermissions();
     }
 
     if (permission.receive !== "granted") {
-      console.warn("❌ [Push] Native permission denied");
+      console.warn("❌ [Push] Native permission denied:", permission.receive);
       return;
     }
 
@@ -214,7 +216,7 @@ const registerNative = async (empCode: string) => {
       try {
         await PushNotifications.createChannel({
           id: "work_report_high_importance",
-          name: "Work Report High Importance Alerts",
+          name: "Work Report & Broadcast Alerts",
           description: "Heads-up banner alerts for daily work report and broadcast alerts",
           importance: 5,
           visibility: 1,
@@ -222,6 +224,17 @@ const registerNative = async (empCode: string) => {
           vibration: true,
           lights: true,
           lightColor: "#DC2626"
+        });
+        await PushNotifications.createChannel({
+          id: "general_broadcast",
+          name: "General Announcements",
+          description: "Office announcements and broadcast notifications",
+          importance: 5,
+          visibility: 1,
+          sound: "default",
+          vibration: true,
+          lights: true,
+          lightColor: "#2563EB"
         });
         await PushNotifications.createChannel({
           id: "payment_reminder_channel",
@@ -256,7 +269,8 @@ const registerNative = async (empCode: string) => {
 
       await PushNotifications.addListener("registration", async (token) => {
         console.log("✅ [Push] Native APNs/FCM Token Received:", token.value);
-        await savePushTokenToBackend(currentActiveEmpCode || empCode, token.value, true);
+        const resolvedEmp = getLoggedInEmpCode() || currentActiveEmpCode || empCode;
+        await savePushTokenToBackend(resolvedEmp, token.value, true);
       });
 
       await PushNotifications.addListener("registrationError", (error) => {
@@ -291,35 +305,48 @@ const registerNative = async (empCode: string) => {
             console.log("ℹ️ [Push] Suppressing foreground work report push — already submitted or dismissed for slot:", slot);
             return;
           }
+        } else {
+          // Notify in-app broadcast popup listener to refresh unread notifications
+          window.dispatchEvent(new CustomEvent("app:broadcast-received", { detail: data }));
         }
 
-        // Use deterministic notification ID for work report slots so notifications replace instead of stacking
-        const slot = data?.slot || getNotificationSlot();
-        const notifId = isWorkReportReminder
-          ? slot === "20_30"
-            ? 2030
-            : slot === "19_30"
-              ? 1930
-              : 1830
-          : Math.floor((Date.now() % 80000) + 10000);
+        // Note: When capacitor.config.ts has presentationOptions: ["alert", ...],
+        // Capacitor's native PushNotificationsPlugin already displays notification payloads
+        // in the foreground. Only schedule a LocalNotification fallback for data-only pushes.
+        if (!notification.title && !notification.body && (data?.title || data?.body)) {
+          const slot = data?.slot || getNotificationSlot();
+          const notifId = isWorkReportReminder
+            ? slot === "20_30"
+              ? 2030
+              : slot === "19_30"
+                ? 1930
+                : 1830
+            : Math.floor((Date.now() % 80000) + 10000);
 
-        // Show heads-up floating banner via Local Notifications when in foreground
-        try {
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                id: notifId,
-                title: notification.title || data?.title || "Notification",
-                body: notification.body || data?.body || "",
-                channelId: "work_report_high_importance",
-                sound: "default",
-                smallIcon: "ic_launcher",
-                extra: data
-              }
-            ]
-          });
-        } catch (localErr) {
-          console.warn("Could not display foreground local banner:", localErr);
+          const channelId =
+            type === "penalty"
+              ? "penalty_high_importance"
+              : type === "payment_reminder"
+                ? "payment_reminder_channel"
+                : "work_report_high_importance";
+
+          try {
+            await LocalNotifications.schedule({
+              notifications: [
+                {
+                  id: notifId,
+                  title: data?.title || "Notification",
+                  body: data?.body || "",
+                  channelId,
+                  sound: "default",
+                  foreground: true,
+                  extra: data
+                }
+              ]
+            });
+          } catch (localErr) {
+            console.warn("Could not display foreground local banner:", localErr);
+          }
         }
       });
 
@@ -348,17 +375,32 @@ const registerNative = async (empCode: string) => {
 };
 
 let webRegistrationInProgress = false;
-let webRegistrationAttempted = false;
 
 // Register Web Push Notifications (FCM Web SDK)
 const registerWeb = async (empCode: string) => {
-  if (webRegistrationInProgress || webRegistrationAttempted) {
+  const cleanEmpCode = empCode ? String(empCode).trim() : "anonymous";
+  const isLoggedInUser = cleanEmpCode !== "" && cleanEmpCode !== "anonymous";
+
+  // If we already obtained a web token while anonymous, sync it now that user logged in
+  if (cachedWebToken && isLoggedInUser && registeredWebEmpCode !== cleanEmpCode) {
+    await savePushTokenToBackend(cleanEmpCode, cachedWebToken, false);
+    registeredWebEmpCode = cleanEmpCode;
+    return;
+  }
+
+  if (webRegistrationInProgress) {
+    return;
+  }
+  if (isLoggedInUser && registeredWebEmpCode === cleanEmpCode) {
+    return;
+  }
+  if (!isLoggedInUser && cachedWebToken) {
     return;
   }
   webRegistrationInProgress = true;
 
   try {
-    console.log("🚀 [Push] Registering Web Push for:", empCode);
+    console.log("🚀 [Push] Registering Web Push for:", cleanEmpCode);
 
     const supported = await isSupported();
     if (!supported) {
@@ -395,9 +437,14 @@ const registerWeb = async (empCode: string) => {
       return;
     }
 
+    cachedWebToken = webToken;
     console.log("✅ [Push] Web Token Generated:", webToken);
-    await savePushTokenToBackend(empCode, webToken, false);
-    webRegistrationAttempted = true;
+
+    const resolvedEmpCode = getLoggedInEmpCode() || currentActiveEmpCode || cleanEmpCode;
+    await savePushTokenToBackend(resolvedEmpCode, webToken, false);
+    if (resolvedEmpCode && resolvedEmpCode !== "anonymous") {
+      registeredWebEmpCode = resolvedEmpCode;
+    }
 
     if (!webListenerRegistered) {
       webListenerRegistered = true;
@@ -412,11 +459,13 @@ const registerWeb = async (empCode: string) => {
           return;
         }
 
-        const type = payload.data?.type || payload.data?.tID || "work_report_reminder";
+        const type = payload.data?.type || payload.data?.tID || "general_broadcast";
+        const isWorkReportReminder =
+          type === "work_report_reminder" || type === "WORK_REPORT_REMINDER";
         const { paddedKey: todayStr } = getIstDateInfo();
 
         // Check if work report reminder was already dismissed or submitted today
-        if (type === "work_report_reminder" || type === "WORK_REPORT_REMINDER") {
+        if (isWorkReportReminder) {
           if (myEmpCode && EXCLUDED_WORK_REPORT_EMP_CODES.includes(myEmpCode)) {
             return;
           }
@@ -425,12 +474,17 @@ const registerWeb = async (empCode: string) => {
             console.log("ℹ️ [Push] Suppressing push notification, already dismissed or submitted today.");
             return;
           }
+        } else {
+          // Trigger in-app broadcast popup refresh
+          window.dispatchEvent(new CustomEvent("app:broadcast-received", { detail: payload.data }));
         }
 
         const slot = payload.data?.slot || getNotificationSlot();
         const title = payload.notification?.title || payload.data?.title || "Notification";
         const body = payload.notification?.body || payload.data?.body || "";
-        const tag = `${type}_${todayStr}_${slot}`;
+        const tag = isWorkReportReminder
+          ? `${type}_${todayStr}_${slot}`
+          : (payload.data?.tag || `${type}_${todayStr}_${Date.now()}`);
 
         if (Notification.permission === "granted") {
           navigator.serviceWorker.ready.then((reg) => {
@@ -439,7 +493,7 @@ const registerWeb = async (empCode: string) => {
               icon: "/images/dbase.png",
               badge: "/images/dbs-logo-short.png",
               tag,
-              renotify: false,
+              renotify: !isWorkReportReminder,
               data: payload.data,
             } as any);
           });
@@ -447,7 +501,6 @@ const registerWeb = async (empCode: string) => {
       });
     }
   } catch (error: any) {
-    webRegistrationAttempted = true;
     if (error?.message?.includes("Failed to fetch") || error?.name === "TypeError" || String(error).includes("Failed to fetch")) {
       console.warn("⚠️ [Push] Firebase Installations endpoint is unreachable. Skipping web push.");
     } else {
