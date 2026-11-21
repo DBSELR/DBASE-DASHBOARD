@@ -234,6 +234,45 @@ const getStatusCategory = (statusStr: any): string => {
   return "pending";
 };
 
+const isValidRA = (r: any) => {
+  const s = safeText(r).trim();
+  return s !== "" && s !== "-" && s.toLowerCase() !== "null";
+};
+
+const resolveRejectedBy = (
+  ras: any[],
+  statuses: string[],
+  currentLevel: any,
+  currentRA: any,
+  strictStatus: boolean = false
+): string => {
+  const isAppr = (s: string) =>
+    strictStatus ? s === "accepted" || s === "approved" : s.includes("accept") || s.includes("approv");
+  const isRej = (s: string) => (strictStatus ? s === "rejected" : s.includes("reject"));
+
+  if (isRej(statuses[3]) && isAppr(statuses[2]) && isValidRA(ras[3])) return String(ras[3]).trim();
+  if (isRej(statuses[2]) && isAppr(statuses[1]) && isValidRA(ras[2])) return String(ras[2]).trim();
+  if (isRej(statuses[1]) && isAppr(statuses[0]) && isValidRA(ras[1])) return String(ras[1]).trim();
+
+  const validRejSlots = [0, 1, 2, 3].filter((i) => isRej(statuses[i]) && isValidRA(ras[i]));
+  if (validRejSlots.length === 1) {
+    return String(ras[validRejSlots[0]]).trim();
+  }
+
+  if (validRejSlots.length > 1) {
+    const lvl = Number(currentLevel || 0);
+    if (lvl >= 1 && lvl <= 4 && isValidRA(ras[lvl - 1])) {
+      return String(ras[lvl - 1]).trim();
+    }
+    if (isValidRA(currentRA)) {
+      return String(currentRA).trim();
+    }
+    return String(ras[validRejSlots[0]]).trim();
+  }
+
+  return "";
+};
+
 const getRejectionStatusText = (item: any): string => {
   if (!item) return "REJECTED";
 
@@ -247,27 +286,24 @@ const getRejectionStatusText = (item: any): string => {
   const rs3 = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase();
   const rs4 = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase();
 
-  const isAppr = (s: string) => s.includes("accept") || s.includes("approv");
-  const isRej = (s: string) => s.includes("reject");
+  let who = resolveRejectedBy(
+    [item.RA1, item.RA2, item.RA3, item.RA4],
+    [rs1, rs2, rs3, rs4],
+    item.CurrentLevel || item.currentLevel,
+    item.CurrentRA || item.currentRA || item.currentRa,
+    false
+  );
 
-  let who = "";
-  if (isRej(rs4) && isAppr(rs3)) who = item.RA4 || "RA4";
-  else if (isRej(rs3) && isAppr(rs2)) who = item.RA3 || "RA3";
-  else if (isRej(rs2) && isAppr(rs1)) who = item.RA2 || "RA2";
-  else if (isRej(rs1)) who = item.RA1 || "RA1";
-  else if (isRej(rs2)) who = item.RA2 || "RA2";
-  else if (isRej(rs3)) who = item.RA3 || "RA3";
-  else if (isRej(rs4)) who = item.RA4 || "RA4";
-  else if (raw.toLowerCase().includes("rejected")) {
+  if (!who && raw.toLowerCase().includes("rejected")) {
     const lvl = Number(item.CurrentLevel || item.currentLevel || 0);
-    if (lvl === 1) who = item.RA1 || "";
-    else if (lvl === 2) who = item.RA2 || "";
-    else if (lvl === 3) who = item.RA3 || "";
-    else if (lvl === 4) who = item.RA4 || "";
-    else if (item.CurrentRA) who = item.CurrentRA;
+    if (lvl === 1 && isValidRA(item.RA1)) who = item.RA1;
+    else if (lvl === 2 && isValidRA(item.RA2)) who = item.RA2;
+    else if (lvl === 3 && isValidRA(item.RA3)) who = item.RA3;
+    else if (lvl === 4 && isValidRA(item.RA4)) who = item.RA4;
+    else if (isValidRA(item.CurrentRA)) who = item.CurrentRA;
   }
 
-  if (who && String(who).toLowerCase() !== "null") {
+  if (isValidRA(who)) {
     return `REJECTED BY ${String(who).toUpperCase()}`;
   }
 
@@ -285,27 +321,24 @@ const getRejectionInfo = (item: any) => {
   const rs3 = safeText(item.RA3_Status || item.ra3_Status || item.rA3_Status).toLowerCase();
   const rs4 = safeText(item.RA4_Status || item.ra4_Status || item.rA4_Status).toLowerCase();
 
-  const isAppr = (s: string) => s.includes("accept") || s.includes("approv");
-  const isRej = (s: string) => s.includes("reject");
+  let who = resolveRejectedBy(
+    [item.RA1, item.RA2, item.RA3, item.RA4],
+    [rs1, rs2, rs3, rs4],
+    item.CurrentLevel || item.currentLevel,
+    item.CurrentRA || item.currentRA || item.currentRa,
+    false
+  );
 
-  let who = "";
-  if (isRej(rs4) && isAppr(rs3)) who = item.RA4 || "RA4";
-  else if (isRej(rs3) && isAppr(rs2)) who = item.RA3 || "RA3";
-  else if (isRej(rs2) && isAppr(rs1)) who = item.RA2 || "RA2";
-  else if (isRej(rs1)) who = item.RA1 || "RA1";
-  else if (isRej(rs2)) who = item.RA2 || "RA2";
-  else if (isRej(rs3)) who = item.RA3 || "RA3";
-  else if (isRej(rs4)) who = item.RA4 || "RA4";
-  else if (raw.toLowerCase().includes("rejected")) {
+  if (!who && raw.toLowerCase().includes("rejected")) {
     const lvl = Number(item.CurrentLevel || item.currentLevel || 0);
-    if (lvl === 1) who = item.RA1 || "";
-    else if (lvl === 2) who = item.RA2 || "";
-    else if (lvl === 3) who = item.RA3 || "";
-    else if (lvl === 4) who = item.RA4 || "";
-    else if (item.CurrentRA) who = item.CurrentRA;
+    if (lvl === 1 && isValidRA(item.RA1)) who = item.RA1;
+    else if (lvl === 2 && isValidRA(item.RA2)) who = item.RA2;
+    else if (lvl === 3 && isValidRA(item.RA3)) who = item.RA3;
+    else if (lvl === 4 && isValidRA(item.RA4)) who = item.RA4;
+    else if (isValidRA(item.CurrentRA)) who = item.CurrentRA;
   }
 
-  if (who && String(who).toLowerCase() !== "null") {
+  if (isValidRA(who)) {
     return `Rejected by ${who}`;
   }
 
@@ -710,20 +743,24 @@ const RequestList: React.FC<Props> = ({ type, view, status }) => {
         }
       }
 
-      if (isRej(rs4) && isAppr(rs3)) {
-        deducedStatus = `Rejected by ${r4 || "RA4"}`;
-      } else if (isRej(rs3) && isAppr(rs2)) {
-        deducedStatus = `Rejected by ${r3 || "RA3"}`;
-      } else if (isRej(rs2) && isAppr(rs1)) {
-        deducedStatus = `Rejected by ${r2 || "RA2"}`;
-      } else if (isRej(rs1)) {
-        deducedStatus = `Rejected by ${r1 || "RA1"}`;
-      } else if (isRej(rs2)) {
-        deducedStatus = `Rejected by ${r2 || "RA2"}`;
-      } else if (isRej(rs3)) {
-        deducedStatus = `Rejected by ${r3 || "RA3"}`;
+      const rejectedBy = resolveRejectedBy(
+        [r1, r2, r3, r4],
+        [rs1, rs2, rs3, rs4],
+        pick(itemObj, "CurrentLevel", "currentLevel"),
+        deducedRA,
+        true
+      );
+
+      if (rejectedBy) {
+        deducedStatus = `Rejected by ${rejectedBy}`;
       } else if (isRej(rs4)) {
-        deducedStatus = `Rejected by ${r4 || "RA4"}`;
+        deducedStatus = "Rejected by RA4";
+      } else if (isRej(rs3)) {
+        deducedStatus = "Rejected by RA3";
+      } else if (isRej(rs2)) {
+        deducedStatus = "Rejected by RA2";
+      } else if (isRej(rs1)) {
+        deducedStatus = "Rejected by RA1";
       } else if (deducedRA && deducedStatus.toLowerCase().includes("pending")) {
         const trimmed = deducedStatus.trim().toLowerCase();
         if (trimmed === "pending" || trimmed === "pending at") {

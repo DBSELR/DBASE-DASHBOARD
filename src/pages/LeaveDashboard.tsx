@@ -219,7 +219,7 @@ const LeaveDashboard: React.FC = () => {
   const [balances, setBalances] = useState({
     cl: { balance: 0, used: 0 },
     sl: { balance: 0, used: 0 },
-    perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 0 },
+    perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 0, otMin: 0 },
     lop: { balance: 0, used: 0 },
     grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
   });
@@ -380,7 +380,7 @@ const LeaveDashboard: React.FC = () => {
       setBalances({
         cl: { balance: 0, used: 0 },
         sl: { balance: 0, used: 0 },
-        perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 6 },
+        perm: { balance: 0, used: 0, usedSessions: 0, maxSessions: 6, otMin: 0 },
         lop: { balance: 0, used: 0 },
         grace: { used: 0, max: 4, usedMins: 0, todayUsed: false, todayMins: 0 }
       });
@@ -482,12 +482,19 @@ const LeaveDashboard: React.FC = () => {
 
       let clBalance = 0, clUsed = 0;
       let slBalance = 0, slUsed = 0;
-      let permBalance = 0, permUsed = 0, permUsedSessions = 0, permMaxSessions = 0;
+      let permBalance = 0, permUsed = 0, permUsedSessions = 0, permMaxSessions = 0, permOtMin = 0;
+      let usedGracePermBal = false;
       let lopBalance = 0, lopUsed = 0;
       let graceUsed = 0, graceMax = 4, graceUsedMins = 0;
       let todayGraceUsed = false, todayGraceMins = 0;
       let aiGracesUsed = 0, aiGraceMins = 0;
       const todayStr = moment().format("YYYY-MM-DD");
+
+      const otPromise = axios
+        .get(`${API_BASE}OverTime/load_overtime_duties?EmpCode=${encodeURIComponent(empCode)}`, {
+          headers: getAuthHeaders()
+        })
+        .catch(() => ({ data: [] }));
 
       if (isYearly && targetMonths.length > 0) {
         const balancePromises = targetMonths.map((mStr) => {
@@ -569,6 +576,7 @@ const LeaveDashboard: React.FC = () => {
           if (isCurrentMonth) {
             if (graceData.permissionBalance !== undefined && graceData.permissionBalance !== null) {
               permBalance = Number(graceData.permissionBalance);
+              usedGracePermBal = true;
             }
             if (graceData.usedPermission !== undefined && Number(graceData.usedPermission) > 0) {
               permUsed = Math.max(permUsed, Number(graceData.usedPermission));
@@ -610,6 +618,173 @@ const LeaveDashboard: React.FC = () => {
             });
           }
         }
+      }
+
+      // Calculate eligible OT (< 60 mins) added to Permission (including 1-month carry-forward)
+      try {
+        const otRes = await otPromise;
+        if (Array.isArray(otRes?.data)) {
+          const isDateLike = (v: any) => /\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(String(v || "").trim());
+          const parseOtHHmm = (t: string) => {
+            if (!t) return "";
+            const s = String(t).trim();
+            if (/^\d{2}:\d{2}$/.test(s)) return s;
+            if (/^\d{1}:\d{2}$/.test(s)) return `0${s}`;
+            if (/^\d{2}:\d{2}:\d{2}/.test(s)) return s.substring(0, 5);
+            const m = moment(s, ["hh:mm A", "h:mm A", "HH:mm:ss", "HH:mm"]);
+            return m.isValid() ? m.format("HH:mm") : s;
+          };
+
+          const getEligibleOTMins = (ot: any): number => {
+            const is24Col = Array.isArray(ot) && (ot.length >= 20 || isDateLike(ot[3]));
+            const rawStatus = String(
+              (Array.isArray(ot) ? (is24Col ? ot[23] : ot[14]) : (ot?.L_status || ot?.Status || ot?.status)) || ""
+            ).toLowerCase().trim();
+            const rs1 = String((Array.isArray(ot) && is24Col ? ot[19] : ot?.RA1_Status) || "").toLowerCase().trim();
+            const rs2 = String((Array.isArray(ot) && is24Col ? ot[20] : ot?.RA2_Status) || "").toLowerCase().trim();
+            const rs3 = String((Array.isArray(ot) && is24Col ? ot[21] : ot?.RA3_Status) || "").toLowerCase().trim();
+            const rs4 = String((Array.isArray(ot) && is24Col ? ot[22] : ot?.RA4_Status) || "").toLowerCase().trim();
+
+            if (
+              rawStatus.includes("reject") ||
+              rawStatus.includes("cancel") ||
+              rs1.includes("reject") ||
+              rs2.includes("reject") ||
+              rs3.includes("reject") ||
+              rs4.includes("reject")
+            ) {
+              return 0;
+            }
+
+            const fromRaw = String(
+              (Array.isArray(ot) ? (is24Col ? ot[5] : ot[4]) : (ot?.Fromtime || ot?.fromtime || ot?.FromTime)) || ""
+            ).trim();
+            const toRaw = String(
+              (Array.isArray(ot) ? (is24Col ? ot[6] : ot[5]) : (ot?.Totime || ot?.totime || ot?.ToTime)) || ""
+            ).trim();
+            const rawMinDiff = parseFloat(
+              String(
+                (Array.isArray(ot) ? (is24Col ? ot[8] : (ot[11] ?? ot[8] ?? ot[7])) : (ot?.MinDiff || ot?.minDiff || ot?.OT_MIN)) || "0"
+              )
+            ) || 0;
+
+            let workedMins = 0;
+            const parsedFrom = parseOtHHmm(fromRaw);
+            const parsedTo = parseOtHHmm(toRaw);
+            if (parsedFrom && parsedTo && parsedFrom.includes(":") && parsedTo.includes(":")) {
+              const [fH, fM] = parsedFrom.split(":").map(Number);
+              const [tH, tM] = parsedTo.split(":").map(Number);
+              if (!isNaN(fH) && !isNaN(fM) && !isNaN(tH) && !isNaN(tM)) {
+                let diff = (tH * 60 + tM) - (fH * 60 + fM);
+                if (diff < 0) diff += 24 * 60;
+                workedMins = diff;
+              }
+            }
+
+            if (workedMins >= 120) return 0;
+            if (workedMins > 0 && workedMins < 120) {
+              const halfMins = Math.floor(workedMins / 2);
+              return (rawMinDiff > 0 && rawMinDiff < 60) ? rawMinDiff : (halfMins < 60 ? halfMins : 0);
+            }
+            return (rawMinDiff > 0 && rawMinDiff < 60) ? rawMinDiff : 0;
+          };
+
+          const targetMonthSet = new Set(isYearly ? targetMonths : [month]);
+          const prevMonthMoment = !isYearly ? moment(month, "MMM-YYYY").subtract(1, "month") : null;
+          const prevMonthStr = prevMonthMoment && prevMonthMoment.isValid() ? prevMonthMoment.format("MMM-YYYY") : "";
+          let prevMonthOT = 0;
+          let earliestPrevOtMoment: moment.Moment | null = null;
+
+          otRes.data.forEach((ot: any) => {
+            const is24Col = Array.isArray(ot) && (ot.length >= 20 || isDateLike(ot[3]));
+            const otEmp = String((Array.isArray(ot) ? ot[1] : (ot?.empcode || ot?.EmpCode)) || "").trim();
+            if (otEmp && otEmp !== String(empCode).trim()) return;
+
+            const otDateStr = String(
+              (Array.isArray(ot) ? (is24Col ? ot[3] : ot[2]) : (ot?.lfrom || ot?.date || ot?.Date)) || ""
+            ).trim();
+            if (!otDateStr) return;
+
+            const cleanOtDate = otDateStr.includes("T") ? otDateStr.split("T")[0] : otDateStr.split(" ")[0];
+            const otMoment = moment(cleanOtDate, ["YYYY-MM-DD", "DD-MM-YYYY", "MM/DD/YYYY", "YYYY/MM/DD"], false);
+            if (!otMoment.isValid()) return;
+
+            const eligibleMins = getEligibleOTMins(ot);
+            if (eligibleMins <= 0) return;
+
+            const otMonthStr = otMoment.format("MMM-YYYY");
+            if (targetMonthSet.has(otMonthStr)) {
+              permOtMin += eligibleMins;
+            } else if (!isYearly && prevMonthStr && otMonthStr === prevMonthStr) {
+              prevMonthOT += eligibleMins;
+              if (!earliestPrevOtMoment || otMoment.isBefore(earliestPrevOtMoment, "day")) {
+                earliestPrevOtMoment = otMoment.clone().startOf("day");
+              }
+            }
+          });
+
+          if (!isYearly && prevMonthOT > 0 && prevMonthStr) {
+            const prevM = prevMonthMoment!.month() + 1;
+            const prevY = prevMonthMoment!.year();
+            const [prevPermRes, prevDashRes] = await Promise.all([
+              axios.get(`${API_BASE}Permission/Load_Leave_Permission?Empcode=${empCode}&Seachdate=${prevMonthStr}&LType=permission`, {
+                headers: getAuthHeaders()
+              }).catch(() => null),
+              axios.get(`${API_BASE}Permission/GetPermissionDashboard?EmpCode=${empCode}&Month=${prevM}&Year=${prevY}`, {
+                headers: getAuthHeaders()
+              }).catch(() => null),
+            ]);
+
+            const prevDashItem = Array.isArray(prevDashRes?.data)
+              ? (prevDashRes.data.find((d: any) => String(d?.empCode || d?.EmpCode || "").trim() === String(empCode).trim()) || prevDashRes.data[0])
+              : null;
+            const prevBaseAllocated = Number(prevDashItem?.defaultPermissionMin || 60);
+
+            const sumNonLopPerm = (list: any[]) =>
+              list.reduce((acc, row) => {
+                const st = String(row?.L_status || row?.Status || (Array.isArray(row) ? row[7] : "") || "").toLowerCase();
+                if (st === "rejected" || st === "cancelled") return acc;
+                const cat = String(row?.LeaveCategory || row?.leaveCategory || (Array.isArray(row) ? row[11] : "") || "").toLowerCase();
+                const rem = String(row?.Remarks || row?.remarks || (Array.isArray(row) ? (row[9] || row[10]) : "") || "").toLowerCase();
+                if (cat.includes("lop") || rem.includes("converted to lop")) return acc;
+                const m = parseFloat(String(row?.ptime || row?.pTime || row?.PTime || (Array.isArray(row) ? row[5] : "") || "0")) || 0;
+                return acc + m;
+              }, 0);
+
+            let usedFromPrevOT = 0;
+            if (Array.isArray(prevPermRes?.data)) {
+              const prevRows = prevPermRes.data;
+              const prevAppliedMins = sumNonLopPerm(prevRows);
+              if (earliestPrevOtMoment) {
+                const rowsAfterOt = prevRows.filter((row: any) => {
+                  const dStr = String(row?.lfrom || row?.LFrom || (Array.isArray(row) ? row[2] : "") || "").trim();
+                  if (!dStr) return false;
+                  const cleanD = dStr.includes("T") ? dStr.split("T")[0] : dStr.split(" ")[0];
+                  const m = moment(cleanD, ["YYYY-MM-DD", "DD-MM-YYYY", "MM/DD/YYYY", "YYYY/MM/DD"], false);
+                  return m.isValid() && m.isAfter(earliestPrevOtMoment, "day");
+                });
+                const minsAfterOt = sumNonLopPerm(rowsAfterOt);
+                const minsBeforeOrOnOt = Math.max(0, prevAppliedMins - minsAfterOt);
+                const baseRemainingAfterOt = Math.max(0, prevBaseAllocated - minsBeforeOrOnOt);
+                usedFromPrevOT = Math.max(0, minsAfterOt - baseRemainingAfterOt);
+              } else {
+                usedFromPrevOT = Math.max(0, prevAppliedMins - prevBaseAllocated);
+              }
+            } else {
+              const fallbackPrevUsed = Number(prevDashItem?.usedMin || 0);
+              usedFromPrevOT = Math.max(0, fallbackPrevUsed - prevBaseAllocated);
+            }
+
+            const carryForwardOT = Math.max(0, prevMonthOT - usedFromPrevOT);
+            permOtMin += carryForwardOT;
+          }
+
+          if (usedGracePermBal && permOtMin > 0) {
+            permBalance += permOtMin;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to compute OT permission minutes:", e);
       }
 
       // ==========================================
@@ -911,7 +1086,8 @@ const LeaveDashboard: React.FC = () => {
           balance: permBalance,
           used: Math.max(permUsed, appliedPermMins),
           usedSessions: calculatedUsedPermSessions,
-          maxSessions: calculatedMaxPermSessions
+          maxSessions: calculatedMaxPermSessions,
+          otMin: permOtMin
         },
         lop: {
           balance: lopBalance,
@@ -1375,12 +1551,32 @@ const LeaveDashboard: React.FC = () => {
                 <IonIcon icon={timeOutline} />
               </div>
             </div>
-            <div className="ld-card-body">
+            <div className="ld-card-body" style={{ flexWrap: "wrap", gap: "4px" }}>
               <div
                 className="ld-card-value"
-                style={balances.perm.balance < 0 ? { color: "#ef4444" } : undefined}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  flexWrap: "wrap",
+                  gap: "6px",
+                  color: balances.perm.balance < 0 ? "#ef4444" : "#15803d",
+                }}
               >
-                {balances.perm.balance} <span className="ld-card-unit">Min</span>
+                <span style={{ color: balances.perm.balance < 0 ? "#ef4444" : "#15803d", fontWeight: 700 }}>
+                  {balances.perm.balance} <span className="ld-card-unit">Min</span>
+                </span>
+                {balances.perm.otMin > 0 && (
+                  <span
+                    style={{
+                      fontSize: "11.5px",
+                      fontWeight: 700,
+                      color: "#15803d",
+                    }}
+                    title="Eligible OT (< 60 mins) added to Permission"
+                  >
+                    +{balances.perm.otMin} OT Min
+                  </span>
+                )}
               </div>
               <span
                 className="ld-card-subvalue"
