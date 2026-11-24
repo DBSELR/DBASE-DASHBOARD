@@ -3049,6 +3049,17 @@ const EmpProfile: React.FC = () => {
     });
   };
 
+  /** Normalizes a reporting-matrix RA value to a valid dropdown option or "-". */
+  const normalizeRAValue = (val: any): string => {
+    const trimmed = String(val ?? "").trim();
+    if (!trimmed || trimmed === "-") return "-";
+    if (ras.length === 0) return trimmed;
+    const matched = ras.find(
+      (d) => String(d.name ?? "").trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    return matched ? matched.name : "-";
+  };
+
   // 🔥 Update API (now includes RequestType)
   const updateReportingField = async (
     field: string,
@@ -3060,15 +3071,18 @@ const EmpProfile: React.FC = () => {
         (r) => (r.requestType || r.RequestType) === requestType,
       );
 
+      const getExistingRA = (upper: string, lower: string) =>
+        String(row?.[upper] || row?.[lower] || "").trim() || "-";
+
       const payload = {
         EmpCode: reportingFormData.EmpCode,
         RequestType: requestType,
 
         // ✅ Preserve all values including RA1
-        RA1: field === "RA1" ? value : row?.RA1 || row?.rA1 || "",
-        RA2: field === "RA2" ? value : row?.RA2 || row?.rA2 || "",
-        RA3: field === "RA3" ? value : row?.RA3 || row?.rA3 || "",
-        RA4: field === "RA4" ? value : row?.RA4 || row?.rA4 || "",
+        RA1: field === "RA1" ? value : getExistingRA("RA1", "rA1"),
+        RA2: field === "RA2" ? value : getExistingRA("RA2", "rA2"),
+        RA3: field === "RA3" ? value : getExistingRA("RA3", "rA3"),
+        RA4: field === "RA4" ? value : getExistingRA("RA4", "rA4"),
       };
 
       console.log("Updating ALL:", payload);
@@ -5470,97 +5484,34 @@ const EmpProfile: React.FC = () => {
                           {/* Request Type */}
                           <td>{type}</td>
 
-                          {/* RA1 (readonly) */}
-                          <td>
-                            <select
-                              value={row?.RA1 || row?.rA1 || ""}
-                              onChange={(e) =>
-                                updateReportingField(
-                                  "RA1",
-                                  e.target.value,
-                                  type,
-                                )
-                              }
-                              className="ep-select"
-                            >
-                              <option value="">Select</option>
-                              <option value="-">-</option>
-                              {ras.map((d, index) => (
-                                <option key={index} value={d.name}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* RA2 */}
-                          <td>
-                            <select
-                              value={row?.RA2 || row?.rA2 || ""}
-                              onChange={(e) =>
-                                updateReportingField(
-                                  "RA2",
-                                  e.target.value,
-                                  type,
-                                )
-                              }
-                              className="ep-select"
-                            >
-                              <option value="">Select</option>
-                              <option value="-">-</option>
-                              {ras.map((d, index) => (
-                                <option key={index} value={d.name}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* RA3 */}
-                          <td>
-                            <select
-                              value={row?.RA3 || row?.rA3 || ""}
-                              onChange={(e) =>
-                                updateReportingField(
-                                  "RA3",
-                                  e.target.value,
-                                  type,
-                                )
-                              }
-                              className="ep-select"
-                            >
-                              <option value="">Select</option>
-                              <option value="-">-</option>
-                              {ras.map((d, index) => (
-                                <option key={index} value={d.name}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          {/* RA4 */}
-                          <td>
-                            <select
-                              value={row?.RA4 || row?.rA4 || ""}
-                              onChange={(e) =>
-                                updateReportingField(
-                                  "RA4",
-                                  e.target.value,
-                                  type,
-                                )
-                              }
-                              className="ep-select"
-                            >
-                              <option value="">Select</option>
-                              <option value="-">-</option>
-                              {ras.map((d, index) => (
-                                <option key={index} value={d.name}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
+                          {(["RA1", "RA2", "RA3", "RA4"] as const).map((field) => {
+                            const camelKey = `rA${field.slice(2)}`;
+                            const currentVal = normalizeRAValue(
+                              row?.[field] ?? row?.[camelKey],
+                            );
+                            return (
+                              <td key={field}>
+                                <select
+                                  value={currentVal}
+                                  onChange={(e) =>
+                                    updateReportingField(
+                                      field,
+                                      e.target.value,
+                                      type,
+                                    )
+                                  }
+                                  className="ep-select"
+                                >
+                                  <option value="-">-</option>
+                                  {ras.map((d, index) => (
+                                    <option key={index} value={d.name}>
+                                      {d.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })}
