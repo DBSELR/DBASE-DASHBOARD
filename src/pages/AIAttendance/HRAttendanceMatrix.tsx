@@ -3,12 +3,14 @@ import {
   arrowBackOutline, calendarOutline, searchOutline,
   personOutline, downloadOutline, chevronBackOutline,
   chevronForwardOutline, timeOutline, alertCircleOutline,
-  checkmarkDoneOutline, airplaneOutline, printOutline
+  checkmarkDoneOutline, airplaneOutline, printOutline,
+  gridOutline, eyeOutline
 } from "ionicons/icons";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useHistory } from "react-router";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { API_BASE } from "../../config";
 import "./HRAttendanceMatrix.css";
 
@@ -50,6 +52,7 @@ export const HRAttendanceMatrix: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth() + 1);
   const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"matrix" | "excel">("matrix");
   const [loading, setLoading] = useState<boolean>(true);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -175,6 +178,80 @@ export const HRAttendanceMatrix: React.FC = () => {
     a.setAttribute('href', url);
     a.setAttribute('download', `HR_Attendance_Matrix_${selectedYear}_${selectedMonth}.csv`);
     a.click();
+  }
+
+  function formatHHMM(time?: string): string {
+    if (!time) return "";
+    const trimmed = time.trim();
+    if (!trimmed || trimmed === "-") return trimmed;
+    const match = trimmed.match(/^(\d{1,2}:\d{2}):\d{2}(\s*[APap][Mm])?$/);
+    return match ? `${match[1]}${match[2] || ""}` : trimmed;
+  }
+
+  function exportExcelRegister() {
+    const MONTH_SHORT = [
+      "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+    ];
+    const sheetTitle = `Employee Timing Register Sheet ${MONTH_SHORT[selectedMonth - 1]}-${selectedYear}`;
+
+    const totalCols = 2 + daysInMonth * 2;
+    const titleRow: (string | number)[] = [sheetTitle, ...Array(totalCols - 1).fill("")];
+    const headerRow: (string | number)[] = ["Employee ID & NAME", "SES"];
+    const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
+    ];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      headerRow.push(day, "");
+      const startCol = 2 + (day - 1) * 2;
+      merges.push({ s: { r: 1, c: startCol }, e: { r: 1, c: startCol + 1 } });
+    }
+
+    const aoa: (string | number)[][] = [titleRow, headerRow];
+
+    filteredEmployees.forEach((emp, idx) => {
+      const fnRowIndex = 2 + idx * 2;
+      const anRowIndex = fnRowIndex + 1;
+
+      const fnRow: (string | number)[] = [`#${emp.empCode} ${emp.empName}`, "FN"];
+      const anRow: (string | number)[] = ["", "AN"];
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = formatDateStr(day);
+        const key = `${emp.empCode}_${dateStr}`;
+        const att = matrix[key];
+        const lve = leaves[key];
+        const hol = holidays[dateStr];
+        const sun = isSunday(day);
+
+        const mor = formatHHMM(att?.morningIn) || (lve ? lve.leaveType.substring(0, 4) : hol ? "HOL" : sun ? "SUN" : "");
+        const lunchOut = formatHHMM(att?.lunchOut);
+        const lunchIn = formatHHMM(att?.lunchIn);
+        const eveningOut = formatHHMM(att?.eveningOut);
+
+        fnRow.push(mor, lunchOut);
+        anRow.push(lunchIn, eveningOut);
+      }
+
+      aoa.push(fnRow, anRow);
+      merges.push({ s: { r: fnRowIndex, c: 0 }, e: { r: anRowIndex, c: 0 } });
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    worksheet["!merges"] = merges;
+    worksheet["!cols"] = [
+      { wch: 28 },
+      { wch: 6 },
+      ...Array.from({ length: daysInMonth * 2 }, () => ({ wch: 8 })),
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Timing Register");
+    XLSX.writeFile(
+      workbook,
+      `Employee_Timing_Register_${MONTH_SHORT[selectedMonth - 1]}_${selectedYear}.xlsx`
+    );
   }
 
   function exportToPDF() {
@@ -305,6 +382,158 @@ export const HRAttendanceMatrix: React.FC = () => {
     doc.save(`HR_Attendance_Matrix_${selectedYear}_${selectedMonth}.pdf`);
   }
 
+  function exportExcelPDF() {
+    const MONTH_SHORT = [
+      "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+    ];
+    const mShort = MONTH_SHORT[selectedMonth - 1];
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a3"
+    });
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Employee Timing Register Sheet ${mShort}-${selectedYear}`, 10, 12);
+
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      `Branch: ${selectedBranch === "ALL" ? "All Branches" : selectedBranch}  |  Total Active Employees: ${filteredEmployees.length}  |  Generated on: ${new Date().toLocaleDateString("en-GB")}`,
+      10,
+      17
+    );
+
+    const headRow: any[] = [
+      { content: "Employee ID & NAME", styles: { halign: "left" } },
+      { content: "SES", styles: { halign: "center" } }
+    ];
+    for (let day = 1; day <= daysInMonth; day++) {
+      headRow.push({ content: String(day), colSpan: 2, styles: { halign: "center" } });
+    }
+
+    const bodyRows: any[][] = [];
+    // Track per-cell late/status metadata for coloring in didParseCell
+    const cellStatusMap: Record<string, "ontime" | "grace" | "late" | "holiday"> = {};
+
+    filteredEmployees.forEach((emp, empIdx) => {
+      const fnRowIdx = empIdx * 2;
+      const anRowIdx = fnRowIdx + 1;
+
+      const fnRow: any[] = [
+        {
+          content: `${emp.empName}\n#${emp.empCode}`,
+          rowSpan: 2,
+          styles: { valign: "middle", halign: "left", fontStyle: "bold" }
+        },
+        { content: "FN", styles: { halign: "center", fontStyle: "bold" } }
+      ];
+      const anRow: any[] = [
+        { content: "AN", styles: { halign: "center", fontStyle: "bold" } }
+      ];
+
+      const markStatus = (rowIdx: number, colIdx: number, time?: string, lateMins: number = 0, isHol: boolean = false) => {
+        if (isHol && (!time || time === "-")) {
+          cellStatusMap[`${rowIdx}_${colIdx}`] = "holiday";
+          return;
+        }
+        if (!time || time.trim() === "" || time.trim() === "-") return;
+        if (lateMins > 15) cellStatusMap[`${rowIdx}_${colIdx}`] = "late";
+        else if (lateMins > 0) cellStatusMap[`${rowIdx}_${colIdx}`] = "grace";
+        else cellStatusMap[`${rowIdx}_${colIdx}`] = "ontime";
+      };
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = formatDateStr(day);
+        const key = `${emp.empCode}_${dateStr}`;
+        const att = matrix[key];
+        const lve = leaves[key];
+        const hol = holidays[dateStr];
+        const sun = isSunday(day);
+
+        const mor = formatHHMM(att?.morningIn) || (lve ? lve.leaveType.substring(0, 4) : hol ? "HOL" : sun ? "SUN" : "");
+        const lunchOut = formatHHMM(att?.lunchOut);
+        const lunchIn = formatHHMM(att?.lunchIn);
+        const eveningOut = formatHHMM(att?.eveningOut);
+
+        const leftCol = 2 + (day - 1) * 2;
+        const rightCol = leftCol + 1;
+
+        markStatus(fnRowIdx, leftCol, att?.morningIn, att?.morningLate || 0, !!hol);
+        markStatus(fnRowIdx, rightCol, att?.lunchOut, 0, !!hol);
+        markStatus(anRowIdx, leftCol, att?.lunchIn, att?.lunchLate || 0, !!hol);
+        markStatus(anRowIdx, rightCol, att?.eveningOut, 0, !!hol);
+
+        fnRow.push(mor, lunchOut);
+        anRow.push(lunchIn, eveningOut);
+      }
+
+      bodyRows.push(fnRow, anRow);
+    });
+
+    // A3 landscape = 420mm wide; margins 8mm each => 404mm printable width
+    // Emp: 36mm, SES: 7mm => 361mm for 62 sub-columns (~5.82mm each)
+    const colWidth = 361 / (daysInMonth * 2);
+    const columnStylesConfig: Record<number, any> = {
+      0: { cellWidth: 36 },
+      1: { cellWidth: 7 }
+    };
+    for (let i = 0; i < daysInMonth * 2; i++) {
+      columnStylesConfig[2 + i] = { cellWidth: colWidth, halign: "center" };
+    }
+
+    autoTable(doc, {
+      head: [headRow],
+      body: bodyRows,
+      startY: 20,
+      margin: { left: 8, right: 8, top: 20, bottom: 8 },
+      styles: {
+        fontSize: 4.5,
+        cellPadding: 0.6,
+        valign: "middle",
+        overflow: "ellipsize",
+        lineColor: [71, 85, 105],
+        lineWidth: 0.1,
+        textColor: [15, 23, 42]
+      },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [15, 23, 42],
+        fontSize: 5.5,
+        fontStyle: "bold",
+        lineColor: [51, 65, 85],
+        lineWidth: 0.2
+      },
+      columnStyles: columnStylesConfig,
+      didParseCell: (data) => {
+        if (data.section === "body") {
+          const st = cellStatusMap[`${data.row.index}_${data.column.index}`];
+          if (st === "late") {
+            data.cell.styles.fillColor = [254, 226, 226];
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = "bold";
+          } else if (st === "grace") {
+            data.cell.styles.fillColor = [254, 243, 199];
+            data.cell.styles.textColor = [180, 83, 9];
+            data.cell.styles.fontStyle = "bold";
+          } else if (st === "ontime") {
+            data.cell.styles.fillColor = [236, 253, 245];
+            data.cell.styles.textColor = [5, 150, 105];
+            data.cell.styles.fontStyle = "bold";
+          } else if (st === "holiday") {
+            data.cell.styles.fillColor = [255, 247, 237];
+          }
+        }
+      }
+    });
+
+    doc.save(`Employee_Timing_Register_${mShort}_${selectedYear}.pdf`);
+  }
+
   const filteredEmployees = employees
     .filter(emp =>
       emp.empName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -357,14 +586,22 @@ export const HRAttendanceMatrix: React.FC = () => {
               ))}
             </select>
 
-            {/* Export CSV Button */}
-            <button className="export-csv-btn" onClick={exportToCSV}>
+            {/* Export CSV / Excel Button */}
+            <button
+              className="export-csv-btn"
+              onClick={() => (viewMode === "excel" ? exportExcelRegister() : exportToCSV())}
+              title={viewMode === "excel" ? "Download Excel Timing Register (.xlsx)" : "Download Matrix CSV (.csv)"}
+            >
               <IonIcon icon={downloadOutline} />
-              <span>Export CSV</span>
+              <span>{viewMode === "excel" ? "Export Excel" : "Export CSV"}</span>
             </button>
 
             {/* Export PDF Button */}
-            <button className="export-pdf-btn" onClick={exportToPDF}>
+            <button
+              className="export-pdf-btn"
+              onClick={() => (viewMode === "excel" ? exportExcelPDF() : exportToPDF())}
+              title={viewMode === "excel" ? "Download Excel Timing Register (.pdf)" : "Download Matrix PDF (.pdf)"}
+            >
               <IonIcon icon={printOutline} />
               <span>Export PDF</span>
             </button>
@@ -373,15 +610,35 @@ export const HRAttendanceMatrix: React.FC = () => {
 
         {/* ── SEARCH & SUMMARY STATS ── */}
         <div className="sub-header-bar">
-          <div className="search-box-pill">
-            <IonIcon icon={searchOutline} />
-            <input
-              type="text"
-              placeholder="Search by Employee Name, Code or Department…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && <button onClick={() => setSearchQuery("")}>✕</button>}
+          <div className="sub-header-left">
+            <div className="search-box-pill">
+              <IonIcon icon={searchOutline} />
+              <input
+                type="text"
+                placeholder="Search by Employee Name, Code or Department…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && <button onClick={() => setSearchQuery("")}>✕</button>}
+            </div>
+
+            <button
+              type="button"
+              className={`excel-view-btn ${viewMode === "matrix" ? "active" : ""}`}
+              onClick={() => setViewMode("matrix")}
+            >
+              <IonIcon icon={gridOutline} />
+              <span>Matrix View</span>
+            </button>
+
+            <button
+              type="button"
+              className={`excel-view-btn excel-view-btn--sage ${viewMode === "excel" ? "active" : ""}`}
+              onClick={() => setViewMode("excel")}
+            >
+              <IonIcon icon={eyeOutline} />
+              <span>Excel View</span>
+            </button>
           </div>
 
           <div className="matrix-stats-pills">
@@ -402,6 +659,192 @@ export const HRAttendanceMatrix: React.FC = () => {
             <IonSpinner name="crescent" color="primary" />
             <p>Loading HR Monthly Matrix Data…</p>
           </div>
+        ) : viewMode === "excel" ? (
+          (() => {
+            const MONTH_SHORT = [
+              "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+              "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+            ];
+            const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+            const sheetTitle = `Employee Timing Register Sheet ${MONTH_SHORT[selectedMonth - 1]}-${selectedYear}`;
+
+            const getPunchHighlightClass = (time?: string, lateMins: number = 0): string => {
+              if (!time || time.trim() === "" || time.trim() === "-") return "";
+              if (lateMins > 15) return "excel-q-late";
+              if (lateMins > 0) return "excel-q-grace";
+              return "excel-q-ontime";
+            };
+
+            const handleExcelCellClick = (emp: Employee, day: number) => {
+              const dateStr = formatDateStr(day);
+              const key = `${emp.empCode}_${dateStr}`;
+              setSelectedCell({
+                employee: emp,
+                dateStr,
+                dayNum: day,
+                dayName: getDayName(day),
+                attendance: matrix[key],
+                leave: leaves[key],
+                holiday: holidays[dateStr],
+              });
+            };
+
+            return (
+              <div className="excel-register-wrapper">
+                <div className="excel-sheet-title-bar">
+                  <h2 className="excel-sheet-title">{sheetTitle}</h2>
+                  <div className="excel-legend-strip">
+                    <span className="legend-quad-sample">
+                      <span className="lq-box">
+                        <span>Mor</span>
+                        <span>Lunch Out</span>
+                        <span>Lunch In</span>
+                        <span>Eve</span>
+                      </span>
+                      <span>4-Timing Cell Format (FN: Mor / Lunch Out • AN: Lunch In / Eve)</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="excel-table-scroll">
+                  <table className="excel-register-table">
+                    <thead>
+                      <tr>
+                        <th className="excel-th-emp excel-sticky-emp">
+                          <div>Employee</div>
+                          <div>ID &amp; NAME</div>
+                        </th>
+                        <th className="excel-th-ses excel-sticky-ses">SES</th>
+                        {days.map((day) => {
+                          const sun = isSunday(day);
+                          const dateStr = formatDateStr(day);
+                          const hol = holidays[dateStr];
+                          return (
+                            <th
+                              key={day}
+                              className={`excel-th-day ${sun ? "excel-sun-hdr" : ""} ${hol ? "excel-hol-hdr" : ""}`}
+                              title={hol || (sun ? "Sunday" : `${day} ${getDayName(day)}`)}
+                            >
+                              {day}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {filteredEmployees.length === 0 ? (
+                        <tr>
+                          <td colSpan={daysInMonth + 2} className="excel-no-data">
+                            No matching active employees found for selected filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredEmployees.map((emp, idx) => {
+                          const isAltRow = idx % 2 === 1;
+                          const rowBgClass = isAltRow ? "excel-row-alt" : "excel-row-even";
+
+                          return (
+                            <Fragment key={emp.empCode}>
+                              {/* ── FN ROW (Morning In | Lunch Out) ── */}
+                              <tr className={`excel-emp-fn-row ${rowBgClass}`}>
+                                <td rowSpan={2} className="excel-td-emp excel-sticky-emp">
+                                  <div className="excel-emp-name">{emp.empName}</div>
+                                  <div className="excel-emp-code">
+                                    #{emp.empCode} {emp.department ? `• ${emp.department}` : ""}
+                                  </div>
+                                </td>
+                                <td className="excel-td-ses excel-sticky-ses">FN</td>
+                                {days.map((day) => {
+                                  const dateStr = formatDateStr(day);
+                                  const key = `${emp.empCode}_${dateStr}`;
+                                  const att = matrix[key];
+                                  const lve = leaves[key];
+                                  const hol = holidays[dateStr];
+                                  const sun = isSunday(day);
+                                  const statusClass = lve
+                                    ? "excel-cell-leave"
+                                    : hol
+                                    ? "excel-cell-holiday"
+                                    : sun
+                                    ? "excel-cell-sunday"
+                                    : "";
+
+                                  return (
+                                    <td
+                                      key={day}
+                                      className={`excel-day-cell excel-fn-cell ${statusClass}`}
+                                      onClick={() => handleExcelCellClick(emp, day)}
+                                      title={`${emp.empName} • ${dateStr} (${getDayName(day)})\nMorning In: ${att?.morningIn || "--"}\nLunch Out: ${att?.lunchOut || "--"}`}
+                                    >
+                                      <div className="excel-split-pair">
+                                        <span
+                                          className={`excel-q-left ${getPunchHighlightClass(att?.morningIn, att?.morningLate)}`}
+                                        >
+                                          {att?.morningIn || (lve ? lve.leaveType.substring(0, 4) : hol ? "HOL" : sun ? "SUN" : "-")}
+                                        </span>
+                                        <span
+                                          className={`excel-q-right ${getPunchHighlightClass(att?.lunchOut, 0)}`}
+                                        >
+                                          {att?.lunchOut || (hol ? "" : "-")}
+                                        </span>
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+
+                              {/* ── AN ROW (Lunch In | Evening Out) ── */}
+                              <tr className={`excel-emp-an-row ${rowBgClass}`}>
+                                <td className="excel-td-ses excel-sticky-ses">AN</td>
+                                {days.map((day) => {
+                                  const dateStr = formatDateStr(day);
+                                  const key = `${emp.empCode}_${dateStr}`;
+                                  const att = matrix[key];
+                                  const lve = leaves[key];
+                                  const hol = holidays[dateStr];
+                                  const sun = isSunday(day);
+                                  const statusClass = lve
+                                    ? "excel-cell-leave"
+                                    : hol
+                                    ? "excel-cell-holiday"
+                                    : sun
+                                    ? "excel-cell-sunday"
+                                    : "";
+
+                                  return (
+                                    <td
+                                      key={day}
+                                      className={`excel-day-cell excel-an-cell ${statusClass}`}
+                                      onClick={() => handleExcelCellClick(emp, day)}
+                                      title={`${emp.empName} • ${dateStr} (${getDayName(day)})\nLunch In: ${att?.lunchIn || "--"}\nEvening Out: ${att?.eveningOut || "--"}`}
+                                    >
+                                      <div className="excel-split-pair">
+                                        <span
+                                          className={`excel-q-left ${getPunchHighlightClass(att?.lunchIn, att?.lunchLate)}`}
+                                        >
+                                          {att?.lunchIn || (hol ? "" : "-")}
+                                        </span>
+                                        <span
+                                          className={`excel-q-right ${getPunchHighlightClass(att?.eveningOut, 0)}`}
+                                        >
+                                          {att?.eveningOut || (hol ? "" : "-")}
+                                        </span>
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            </Fragment>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()
         ) : (
           <div className="matrix-table-wrapper">
             <table className="hr-matrix-table">

@@ -314,6 +314,17 @@ const AMClogDashboard: React.FC = () => {
   }, [clientList, searchTerm, statusFilter]);
 
   // Handlers for Add / Edit
+  const calcServiceUpto = (doiStr: string, years: number): string => {
+    if (!doiStr) return "";
+    const parts = doiStr.split("-").map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return doiStr;
+    const [y, m, d] = parts;
+    if (years > 0) {
+      return new Date(Date.UTC(y + years, m - 1, d - 1)).toISOString().substring(0, 10);
+    }
+    return doiStr;
+  };
+
   const openAddClientModal = () => {
     setIsEditMode(false);
     const today = new Date().toISOString().substring(0, 10);
@@ -1054,24 +1065,15 @@ const AMClogDashboard: React.FC = () => {
                         <label className="amc-trendy-label">
                           D O I <span className="label-tip">(Date of Impl.)</span>
                         </label>
-                        <div className={`amc-trendy-input-wrapper ${isEditMode ? "readonly" : ""}`}>
+                        <div className="amc-trendy-input-wrapper">
                           <input
                             type="date"
-                            readOnly={isEditMode}
-                            disabled={isEditMode}
-                            tabIndex={isEditMode ? -1 : 0}
                             className="amc-trendy-input date-input"
                             value={clientForm.doi}
                             onChange={(e) => {
-                              if (isEditMode) return;
                               const val = e.target.value;
                               const yr = Number(clientForm.freeService) || 0;
-                              let next = val;
-                              if (val && yr > 0) {
-                                const d = new Date(val);
-                                d.setFullYear(d.getFullYear() + yr);
-                                next = d.toISOString().substring(0, 10);
-                              }
+                              const next = calcServiceUpto(val, yr);
                               setClientForm({ ...clientForm, doi: val, serviceUpto: next });
                             }}
                           />
@@ -1082,26 +1084,18 @@ const AMClogDashboard: React.FC = () => {
                         <label className="amc-trendy-label">
                           Free Duration <span className="label-tip">(Years)</span>
                         </label>
-                        <div className={`amc-trendy-input-wrapper ${isEditMode ? "readonly" : ""}`}>
+                        <div className="amc-trendy-input-wrapper">
                           <input
-                            type={isEditMode ? "text" : "number"}
+                            type="number"
                             min="0"
                             step="1"
                             placeholder="e.g. 1"
-                            readOnly={isEditMode}
-                            tabIndex={isEditMode ? -1 : 0}
                             className="amc-trendy-input"
                             value={clientForm.freeService}
                             onChange={(e) => {
-                              if (isEditMode) return;
                               const val = e.target.value;
                               const yr = Number(val) || 0;
-                              let next = clientForm.doi;
-                              if (clientForm.doi && yr > 0) {
-                                const d = new Date(clientForm.doi);
-                                d.setFullYear(d.getFullYear() + yr);
-                                next = d.toISOString().substring(0, 10);
-                              }
+                              const next = calcServiceUpto(clientForm.doi, yr);
                               setClientForm({ ...clientForm, freeService: val as any, serviceUpto: next });
                             }}
                           />
@@ -1113,14 +1107,12 @@ const AMClogDashboard: React.FC = () => {
                         <label className="amc-trendy-label">
                           Free Service UpTo
                         </label>
-                        <div className="amc-trendy-input-wrapper readonly highlight">
+                        <div className="amc-trendy-input-wrapper highlight">
                           <input
                             type="date"
-                            readOnly={true}
-                            tabIndex={-1}
                             className="amc-trendy-input date-input"
                             value={clientForm.serviceUpto}
-                            style={{ pointerEvents: "none" }}
+                            onChange={(e) => setClientForm({ ...clientForm, serviceUpto: e.target.value })}
                           />
                         </div>
                       </div>

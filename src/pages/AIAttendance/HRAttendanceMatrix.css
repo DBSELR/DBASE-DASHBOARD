@@ -13,20 +13,24 @@
 .hr-matrix-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 24px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin: 12px 16px 8px 16px;
+  padding: 18px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--ion-color-primary, #0077b6) 0%, var(--ion-color-secondary, #00b4d8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6px 20px var(--theme-shadow, rgba(0, 0, 0, 0.1));
 }
 
 .hr-matrix-header .back-btn {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,49 +39,60 @@
   transition: all 0.2s ease;
 }
 
+.hr-matrix-header .back-btn ion-icon {
+  color: #ffffff !important;
+}
+
 .hr-matrix-header .back-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .hr-matrix-header .title-area {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .hr-matrix-header .title-text {
-  font-size: 18px;
+  font-size: clamp(13px, 1.25vw, 17px);
   font-weight: 800;
-  color: #0f172a;
-  letter-spacing: 0.5px;
+  color: #ffffff;
+  letter-spacing: 0.3px;
   margin: 0;
+  white-space: nowrap;
 }
 
 .hr-matrix-header .subtitle-text {
-  font-size: 12px;
-  color: #64748b;
-  margin: 2px 0 0 0;
+  font-size: clamp(10px, 0.85vw, 12px);
+  color: rgba(255, 255, 255, 0.9);
+  margin: 3px 0 0 0;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Month Picker Pill */
 .month-picker-pill {
   display: flex;
   align-items: center;
+  height: 36px;
+  box-sizing: border-box;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   border-radius: 24px;
-  padding: 4px 8px;
+  padding: 0 6px;
 }
 
 .month-picker-pill .mnav-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   background: #ffffff;
@@ -98,19 +113,22 @@
 .month-picker-pill .mnav-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  font-size: 13px;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 12px;
   font-weight: 700;
   color: #0f172a;
+  white-space: nowrap;
 }
 
 .branch-select-pill {
+  height: 36px;
+  box-sizing: border-box;
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 24px;
-  padding: 8px 16px;
-  font-size: 13px;
+  padding: 0 12px;
+  font-size: 12px;
   font-weight: 700;
   color: #334155;
   outline: none;
@@ -121,16 +139,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  height: 36px;
+  box-sizing: border-box;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #ffffff;
+  color: #ffffff !important;
   border: none;
   border-radius: 24px;
-  padding: 8px 18px;
-  font-size: 13px;
+  padding: 0 14px;
+  font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
   transition: all 0.2s ease;
+}
+
+.export-csv-btn span,
+.export-csv-btn ion-icon {
+  color: #ffffff !important;
 }
 
 .export-csv-btn:hover {
@@ -142,16 +168,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  height: 36px;
+  box-sizing: border-box;
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
+  color: #ffffff !important;
   border: none;
   border-radius: 24px;
-  padding: 8px 18px;
-  font-size: 13px;
+  padding: 0 14px;
+  font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
   transition: all 0.2s ease;
+}
+
+.export-pdf-btn span,
+.export-pdf-btn ion-icon {
+  color: #ffffff !important;
 }
 
 .export-pdf-btn:hover {
@@ -231,10 +265,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 36px;
+  box-sizing: border-box;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 24px;
-  padding: 6px 16px;
+  padding: 0 16px;
   width: 380px;
 }
 
@@ -264,7 +300,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 14px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 700;
@@ -911,4 +949,353 @@ th.sticky-col-right {
   .linfo-item.full-width {
     grid-column: span 1;
   }
+}
+
+/* ── SUB HEADER LEFT & EXCEL VIEW BUTTON ── */
+.sub-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.excel-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s ease;
+}
+
+.excel-view-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.excel-view-btn.active {
+  background: #e0f2fe;
+  color: #0369a1 !important;
+  border-color: #7dd3fc;
+  box-shadow: 0 2px 8px rgba(3, 105, 161, 0.14);
+}
+
+.excel-view-btn.active span,
+.excel-view-btn.active ion-icon {
+  color: #0369a1 !important;
+}
+
+.excel-view-btn--sage {
+  background: #edf3ec;
+  color: #3a5a38 !important;
+  border-color: #c2d4bf;
+}
+
+.excel-view-btn--sage span,
+.excel-view-btn--sage ion-icon {
+  color: #3a5a38 !important;
+}
+
+.excel-view-btn--sage:hover {
+  background: #e1ecdf;
+  border-color: #a3bfa0;
+}
+
+.excel-view-btn--sage.active {
+  background: #d5e5d2;
+  color: #274425 !important;
+  border-color: #8dae88;
+  box-shadow: 0 2px 8px rgba(88, 129, 87, 0.2);
+}
+
+.excel-view-btn--sage.active span,
+.excel-view-btn--sage.active ion-icon {
+  color: #274425 !important;
+}
+
+/* ── EXCEL TIMING REGISTER VIEW ── */
+.excel-register-wrapper {
+  padding: 16px 24px;
+}
+
+.excel-sheet-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 12px 20px;
+}
+
+.excel-sheet-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.3px;
+}
+
+.excel-legend-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.legend-quad-sample {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lq-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1.5px solid #0f172a;
+  background: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  color: #1e293b;
+  width: 112px;
+  text-align: center;
+}
+
+.lq-box span {
+  padding: 2px 3px;
+  white-space: nowrap;
+}
+
+.lq-box span:nth-child(1) {
+  border-right: 1px dashed #ef4444;
+  border-bottom: 1px dashed #ef4444;
+}
+
+.lq-box span:nth-child(2) {
+  border-bottom: 1px dashed #ef4444;
+}
+
+.lq-box span:nth-child(3) {
+  border-right: 1px dashed #ef4444;
+}
+
+.excel-table-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 230px);
+  border: 1px solid #334155;
+  border-radius: 0 0 12px 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.excel-register-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: Calibri, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.excel-register-table th {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px 6px;
+  border-bottom: 2px solid #334155;
+  border-right: 1px solid #334155;
+}
+
+.excel-th-emp {
+  min-width: 210px;
+  width: 210px;
+  left: 0;
+  z-index: 18 !important;
+  line-height: 1.25;
+}
+
+.excel-th-ses {
+  min-width: 44px;
+  width: 44px;
+  left: 210px;
+  z-index: 18 !important;
+  border-right: 2px solid #334155 !important;
+}
+
+.excel-th-day {
+  min-width: 108px;
+  width: 108px;
+}
+
+.excel-sun-hdr {
+  background: #ffffff !important;
+  color: #dc2626 !important;
+}
+
+.excel-hol-hdr {
+  background: #ffedd5 !important;
+  color: #c2410c !important;
+}
+
+.excel-sticky-emp {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+}
+
+.excel-sticky-ses {
+  position: sticky;
+  left: 210px;
+  z-index: 6;
+}
+
+.excel-row-even td,
+.excel-row-alt td {
+  background: #ffffff;
+}
+
+.excel-td-emp {
+  padding: 6px 10px;
+  border-right: 1px solid #334155;
+  border-bottom: 1.5px solid #334155;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.excel-emp-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.excel-emp-code {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.excel-td-ses {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  padding: 4px 6px;
+  border-right: 2px solid #334155;
+}
+
+.excel-emp-fn-row .excel-td-ses {
+  border-bottom: 1px dashed #ef4444;
+}
+
+.excel-emp-an-row .excel-td-ses {
+  border-bottom: 1.5px solid #334155;
+}
+
+.excel-day-cell {
+  padding: 0;
+  border-right: 1px solid #334155;
+  cursor: pointer;
+  height: 24px;
+  transition: background-color 0.12s ease;
+}
+
+.excel-day-cell:hover {
+  background-color: #dbeafe !important;
+}
+
+.excel-fn-cell {
+  border-bottom: 1px dashed #ef4444;
+}
+
+.excel-an-cell {
+  border-bottom: 1.5px solid #334155;
+}
+
+.excel-split-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  min-height: 24px;
+  align-items: center;
+}
+
+.excel-q-left,
+.excel-q-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2px 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.excel-q-left {
+  border-right: 1px dashed #ef4444;
+}
+
+.excel-q-ontime {
+  background-color: #ecfdf5;
+  color: #059669 !important;
+  font-weight: 700;
+}
+
+.excel-q-grace {
+  background-color: #fef3c7;
+  color: #b45309 !important;
+  font-weight: 700;
+}
+
+.excel-q-late {
+  background-color: #fee2e2;
+  color: #dc2626 !important;
+  font-weight: 700;
+}
+
+.excel-cell-sunday {
+  background-color: #ffffff !important;
+}
+
+.excel-cell-holiday {
+  background-color: #fff7ed !important;
+}
+
+.excel-cell-leave {
+  background-color: #ffffff !important;
+}
+
+.excel-no-data {
+  padding: 32px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
 }
